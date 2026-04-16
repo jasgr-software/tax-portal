@@ -89,6 +89,18 @@ pnpm --filter web e2e:run                            # Full Playwright suite
 pnpm --filter web e2e:run -- --grep '<feature>'      # Targeted e2e
 ```
 
+### Executable gherkin tooling (planned — Epic 001 scope)
+
+Per `agent-stack.md` § Quality Artifacts, SDET authors gherkin `.feature` files under `docs/requirements/features/`. These are **intended to be executable** — bound to Playwright via Cucumber step definitions so scenarios are machine-verifiable (not just prose). The concrete tooling is set up during Epic 001 scaffolding and has not been chosen yet (candidates: `@cucumber/cucumber` with a Playwright fixture; `playwright-bdd`; or a custom binder).
+
+**Current state — until Epic 001 lands the tooling:**
+
+- `.feature` files are **human-readable specs**. SDET review compares implementation behavior against scenarios via prose — not machine-verified.
+- Playwright e2e tests are written in standard `.spec.ts` form but must cover the behavior described by `.feature` scenarios for the task's requirements.
+- When Cucumber tooling is integrated, this section will be updated with: the package choice, the step-definition directory convention, the dry-run command (to catch undefined steps), and the CI run command.
+
+**Step definition directory (provisional):** `apps/<app>/e2e/steps/<area>.steps.ts` — to be confirmed during Epic 001.
+
 ### Full CI (epic completion)
 
 ```bash

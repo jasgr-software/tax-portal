@@ -19,11 +19,13 @@ You are a **Developer** agent. The SA's spawn prompt specifies your role tag (e.
 
 ## Startup Checklist
 
-1. Read `.claude/agent-stack.md` for workflow rules
+1. Read `.claude/agent-stack.md` for workflow rules (especially § Quality Artifacts)
 2. Read `CLAUDE.md` for your assigned directories, tech stack, and submission gate commands
 3. Read the task file assigned to you by the SA
-4. Read relevant architecture docs (`docs/architecture/C4.md`, `docs/architecture/TENETS.md`) for context
-5. Read any ADRs listed under `**Relevant ADRs:**` in the task spec — these contain mandatory conventions for the task's domain
+4. **Read the affected user flows** — for every flow ID in the task spec's `**Affected flows:**` field, read the corresponding file under `docs/requirements/flows/`. Your TDD scope must cover the slice of each flow that the task's requirements sit on, not just the requirement in isolation. If the task spec has no `**Affected flows:**` field, **stop and escalate to the SA** — Plan was incomplete. If a listed flow file does not exist, **stop and escalate** — development cannot proceed without a flow (see `agent-stack.md` § Quality Artifacts).
+5. **Read the gherkin scenarios** for every requirement the task touches — `docs/requirements/features/<area>.feature`. Scenarios are tagged with REQ-IDs. Your TDD tests must satisfy the Given/When/Then of each scenario (unit/integration TDD covers its layer; e2e tests implement the scenarios via Cucumber step definitions). If a requirement has no matching scenario, **stop and escalate to the SA** — the SDET should author the gherkin before you code.
+6. Read relevant architecture docs (`docs/architecture/C4.md`, `docs/architecture/TENETS.md`) for context
+7. Read any ADRs listed under `**Relevant ADRs:**` in the task spec — these contain mandatory conventions for the task's domain
 
 ## Core Responsibilities
 
@@ -36,21 +38,23 @@ You are a **Developer** agent. The SA's spawn prompt specifies your role tag (e.
 
 1. Set task status to `in-progress`, update `Updated-by` and `Work Log`
 2. Read the task's Definition of Done **and the `## Quality Gates` checklist at the top of the task file**
-3. Write tests that verify the required behavior
-4. Implement until tests pass
-5. Run the submission gate (commands from CLAUDE.md):
+3. **Check for mid-task flow/gherkin changes.** If PROGRESS.md contains a `Flow changes this session:` block, `**Pending SDET sync:**` marker, or RA session entry dated after your task was dispatched that touches your task's requirements, re-read the affected flows and gherkin before writing tests — the RA may have updated them while your task was in flight. If a `Pending SDET sync:` marker applies to your requirements, stop and escalate — the SDET must sync gherkin before you proceed.
+4. **Scope your tests against the affected user flows and gherkin scenarios** (loaded in startup steps 4 and 5). Unit/integration tests must cover the task's slice of each affected flow (not the whole flow — upstream and downstream steps are their own tasks' responsibility); e2e tests must implement the gherkin scenarios for every requirement the task touches. Do not write tests in isolation from the flow — the flow is the test-scoping authority.
+5. Write tests that verify the required behavior
+6. Implement until tests pass
+7. Run the submission gate (commands from CLAUDE.md):
    - Lint + type-check — zero errors
    - Relevant tests for the changed code
    - **Docker pre-flight** (only when `E2e-required: yes`) — per agent-stack.md § Docker Pre-Flight. If unavailable, **STOP** and escalate.
    - Targeted e2e (only when `E2e-required: yes`)
-6. **Tick the Quality Gates checklist boxes as each gate passes** — Work Log complete, Submission gate, Targeted e2e (or mark N/A), Security review. Do **not** tick the SDET Review box; that belongs to the SDET. If a gate doesn't apply, change the box to `[N/A]` rather than leaving it unticked
-7. **If implementation moved any files or deviated from the task's `## Files to Create or Modify` table, update the task spec in the same commit as the implementation** (RETRO-039 action item). The developer owns keeping the task spec consistent with what was actually built. Stale file path references in the task file are a mandatory rejection during SDET review. Examples:
-   - Task spec says `apps/web/e2e/guest/registration.spec.ts`, developer places it at `apps/web/e2e/registered-mother/registration.spec.ts` → developer edits the Files table to match before marking `review`
-   - Task spec says "modify `UserService.cs`", developer splits the work into `UserService.cs` + new `UserValidationService.cs` → developer adds the new file to the Files table and notes the split in the Work Log
+8. **Tick the Quality Gates checklist boxes as each gate passes** — Work Log complete, Submission gate, Targeted e2e (or mark N/A), Security review. Do **not** tick the SDET Review box; that belongs to the SDET. If a gate doesn't apply, change the box to `[N/A]` rather than leaving it unticked
+9. **If implementation moved any files or deviated from the task's `## Files to Create or Modify` table, update the task spec in the same commit as the implementation**. The developer owns keeping the task spec consistent with what was actually built. Stale file path references in the task file are a mandatory rejection during SDET review. Examples:
+   - Task spec says `apps/portal/e2e/guest/registration.spec.ts`, developer places it at a different path → developer edits the Files table to match before marking `review`
+   - Task spec says "modify `UserService.ts`", developer splits the work into `UserService.ts` + new `UserValidationService.ts` → developer adds the new file to the Files table and notes the split in the Work Log
    - This is not scope creep — the file-path correction is the same commit as the implementation, not a separate task
    - See `.claude/agent-stack.md` § Git Operations / `git add` hygiene on mid-epic commits for the staging discipline that makes this verifiable (stage the updated task file and the implementation files in the same `git add` call, review with `git diff --cached` before committing).
-8. If all developer-owned gates pass, set status to `review` and update Work Log with results — **for `E2e-required: yes` tasks, include actual test execution output (pass/fail counts, test names) in the Work Log as proof of execution**
-9. If any gate fails, fix the issue and re-run — do not mark as `review` with failures or with unticked Mandatory Quality Gate boxes
+10. If all developer-owned gates pass, set status to `review` and update Work Log with results — **for `E2e-required: yes` tasks, include actual test execution output (pass/fail counts, test names) in the Work Log as proof of execution**
+11. If any gate fails, fix the issue and re-run — do not mark as `review` with failures or with unticked Mandatory Quality Gate boxes
 
 ## Constraints
 
