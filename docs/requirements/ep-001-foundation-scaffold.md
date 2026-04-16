@@ -10,7 +10,11 @@
 
 ## Purpose
 
-Establish the full-stack application skeleton that all subsequent epics build on. At the end of this epic the project has: a running Next.js app, Clerk authentication enforcing the two-role model, a Prisma-managed Postgres schema with the core models, a CI/CD pipeline deploying to Vercel, and a local development environment with Docker-based Supabase. Nothing is user-visible except the auth shell (sign-in, role-gated routing).
+Establish the full-stack application skeleton that all subsequent epics build on. At the end of this epic the project has: **two running Next.js apps** (`apps/portal` — Client Portal; `apps/admin` — Tax Portal), Clerk authentication enforcing the two-role model with per-app middleware, a Prisma-managed SQL Server schema with the core models, SQL Server Security Policy baseline, a CI/CD pipeline building both apps, and a local development environment with Docker-based SQL Server and Azurite. Nothing is user-visible except the auth shell (sign-in, role-gated routing, cross-app redirect).
+
+The two-front-end architecture is defined in ADR-006 (monorepo layout) and ADR-010 (cross-app navigation and session boundaries). One Clerk application serves both surfaces — see ADR-001.
+
+**Affected flows:** `flow-first-sign-in`, `flow-role-redirect`
 
 ---
 
@@ -19,86 +23,134 @@ Establish the full-stack application skeleton that all subsequent epics build on
 | Requirement ID | Summary |
 |---|---|
 | REQ-AUTH-001 | Two roles: ACCOUNTANT and CLIENT |
-| REQ-AUTH-002 | ACCOUNTANT has full visibility (enforced in routing + RLS) |
-| REQ-AUTH-003 | CLIENT data isolation via Supabase RLS |
+| REQ-AUTH-002 | ACCOUNTANT has full visibility (enforced in routing + SQL Server Security Policies) |
+| REQ-AUTH-003 | CLIENT data isolation via SQL Server Security Policies (per ADR-005) |
 | REQ-AUTH-004 | 2FA mandatory for ACCOUNTANT (Clerk enforcement) |
 | REQ-AUTH-005 | 2FA optional for CLIENT |
 | REQ-AUTH-006 | Invitation-only CLIENT account creation (Clerk invitation flow) |
 | REQ-AUTH-008 | Clients retain portal access indefinitely |
 | REQ-AUTH-009 | Session timeout: Clerk defaults |
-| REQ-NFR-001 | RLS policies on all authenticated data |
+| REQ-AUTH-010 | Role-based cross-app redirect (CLIENT → portal, ACCOUNTANT → admin) |
+| REQ-NFR-001 | SQL Server Security Policies on all authenticated data |
 | REQ-NFR-003 | Web browser only |
-| REQ-NFR-004 | Tech stack: Next.js 14, TypeScript, Clerk, Supabase, Prisma, shadcn/ui, Tailwind, Vercel |
+| REQ-NFR-004 | Tech stack: Next.js 14, TypeScript, Clerk, SQL Server, Prisma, shadcn/ui, Tailwind, two apps |
 | REQ-IDNT-001 | Custom domain from day one |
+| REQ-IDNT-006 | Portal named "Client Portal" (apps/portal) and "Tax Portal" (apps/admin) |
 
 ---
 
 ## Acceptance Criteria
 
-### AC-001-001 — Monorepo and Next.js app scaffold
-- A `pnpm` workspace monorepo exists with `apps/web` containing a Next.js 14 (App Router) project in TypeScript.
-- The app builds without errors (`pnpm build`).
-- Lint and type-check pass (`pnpm lint`, `pnpm type-check`).
-- shadcn/ui and Tailwind CSS are installed and a sample component renders correctly.
-- The root `pnpm dev:web` command starts the dev server on port 3000.
+### AC-001-001 — Monorepo and two Next.js app scaffold
+- A `pnpm` workspace monorepo exists matching the ADR-006 layout:
+  - `apps/portal/` — Next.js 14 (App Router) in TypeScript, named `@tax-portal/portal`, dev server on port **3000**.
+  - `apps/admin/` — Next.js 14 (App Router) in TypeScript, named `@tax-portal/admin`, dev server on port **3001**.
+  - `packages/` containing at minimum: `db/`, `storage/`, `ui/`, `eslint-config/`, `tsconfig/`.
+- Both apps build without errors (`pnpm build`).
+- Lint and type-check pass across the workspace (`pnpm lint`, `pnpm type-check`).
+- shadcn/ui and Tailwind CSS are installed; a sample component from `packages/ui` renders correctly in both apps.
+- `pnpm dev` (or `pnpm dev:portal` and `pnpm dev:admin`) starts both dev servers on ports 3000 and 3001 respectively.
+- Browser tab titles: `apps/portal` pages use "Client Portal" as the site name; `apps/admin` pages use "Tax Portal". (REQ-IDNT-006)
 
-### AC-001-002 — Clerk authentication integrated
-- Clerk is installed and configured for the project.
-- Sign-in and sign-up flows work via Clerk-hosted UI or embedded components.
-- Invitation-only registration is enforced: the sign-up page rejects self-registration without a valid invitation token. Direct self-registration is blocked.
-- ACCOUNTANT 2FA enforcement is configured in Clerk settings (MFA required for the accountant org/role).
-- Sign-out works.
+**Affected flows:** `flow-first-sign-in`, `flow-role-redirect`
 
-### AC-001-003 — Role-gated routing
-- Authenticated users are redirected based on their role: ACCOUNTANT → `/dashboard`, CLIENT → `/portal`.
-- Unauthenticated users attempting to access gated routes are redirected to the sign-in page.
-- A CLIENT attempting to access `/dashboard` routes receives a 403 / redirect.
-- An ACCOUNTANT attempting to access CLIENT-only routes receives a 403 / redirect.
-- Route protection is implemented via Next.js middleware using Clerk session data.
+### AC-001-002 — Clerk authentication integrated (both apps, one Clerk application)
+- Clerk is installed and configured in **both apps**, pointing at the **same Clerk application** (same publishable key, same secret key — per ADR-001).
+- Sign-in flows work in both apps via Clerk embedded components.
+- Invitation-only registration is enforced on `apps/portal`: the sign-up page accepts `?__clerk_ticket=` tokens; direct self-registration without an invitation token is blocked.
+- `apps/admin` exposes no sign-up route — sign-up is not a valid action for the admin surface.
+- ACCOUNTANT 2FA enforcement is configured in Clerk (MFA required for ACCOUNTANT role).
+- Sign-out works from either app; Clerk session is revoked globally (ADR-010 § Session sharing).
+- `PORTAL_APP_URL` and `ADMIN_APP_URL` environment variables are present in `.env.example` and validated at app startup (missing values fail the `/readyz` probe per ADR-007 § Health endpoints).
 
-### AC-001-004 — Prisma schema with core models
-- A `prisma/schema.prisma` file defines the following models with correct field types and relations: `User`, `Service`, `EngagementRequest`, `Engagement`, `EngagementParticipant`, `OnboardingState`, `IntakeTemplate`, `Thread`, `Message`, `Document`, `Folder`, `DocumentRequest`, `Notification`, `NotificationPreference`.
-- A baseline migration is generated and applied to the local Supabase Postgres instance.
+**Affected flows:** `flow-first-sign-in`, `flow-role-redirect`
+
+### AC-001-003 — Per-app role-gated routing and cross-app redirect
+- **`apps/portal/middleware.ts`** enforces:
+  - Public routes (`/`, `/services`, `/request`, `/sign-in`, `/sign-up`) are accessible without authentication.
+  - Private routes redirect unauthenticated users to `apps/portal/sign-in?redirect_url=<path>`.
+  - Signed-in ACCOUNTANT visiting a CLIENT-only private route is redirected to `ADMIN_APP_URL`. No flash of portal UI.
+  - Signed-in CLIENT proceeds normally.
+- **`apps/admin/middleware.ts`** enforces:
+  - All routes require authentication (no public routes except `/sign-in`).
+  - Unauthenticated users are redirected to `apps/admin/sign-in?redirect_url=<path>`.
+  - Signed-in CLIENT is redirected to `PORTAL_APP_URL`. No flash of admin UI.
+  - Signed-in ACCOUNTANT proceeds normally; `SESSION_CONTEXT` is set via `withRequestContext` (ADR-003).
+- Redirect destinations are `PORTAL_APP_URL` (for clients misnavigating to admin) and `ADMIN_APP_URL` (for accountants misnavigating to portal private routes).
+- A shared role-gate helper (`packages/auth` or `packages/db` — SA decides during Plan) hosts the redirect logic so neither app hand-rolls it.
+- REQ-AUTH-010, ADR-010.
+
+**Affected flows:** `flow-role-redirect`, `flow-first-sign-in`
+
+### AC-001-004 — Prisma schema with core models (SQL Server)
+- A `prisma/schema.prisma` file at the repo root defines the following models with correct field types and relations: `User`, `Service`, `EngagementRequest`, `Engagement`, `EngagementParticipant`, `OnboardingState`, `IntakeTemplate`, `Thread`, `Message`, `Document`, `Folder`, `DocumentRequest`, `Notification`, `NotificationPreference`.
+- `User.clerkId` is a non-PK `NVARCHAR(64)` unique column; PKs are `UNIQUEIDENTIFIER DEFAULT NEWSEQUENTIALID()` (ADR-002).
+- A baseline migration (Track A — Prisma) is generated and applied to the local SQL Server instance.
 - `pnpm prisma generate` produces a typed Prisma client with no errors.
-- The `User` model is synced from Clerk via a webhook or middleware that creates/updates a `User` record on Clerk sign-in.
+- The `User` row is created/upserted via the Clerk `user.created` / `user.updated` webhook handler on `apps/portal/api/webhooks/clerk` (ADR-001 § Webhook endpoint). Handler runs under `adminDb` (admin DB principal — bypasses Security Policies for this one operation).
+- The `Thread` model structure (explicit parent of `Message`, replacing intake's `Message.engagementId` nullable pattern) is present with a `// DECISION:` comment cross-referencing the RA note in SRS § Data Model Overview.
 
-### AC-001-005 — Supabase RLS baseline
-- Row-Level Security is enabled on all tables that contain user data.
-- A `supabase/migrations/` directory holds the RLS policy SQL.
-- CLIENT role: can only SELECT/UPDATE rows where their `userId` (or linked `engagementId`) matches.
-- ACCOUNTANT role: unrestricted SELECT on all rows.
-- The RLS policies are verified by a seed script or integration test that confirms a CLIENT cannot read another CLIENT's rows.
+**Affected flows:** `flow-first-sign-in`
 
-### AC-001-006 — Local development environment
-- `docker-compose.yml` starts a local Supabase stack (Postgres, Storage, Realtime) on the documented ports (54321–54324).
-- `.env.example` lists all required environment variables: Clerk publishable/secret keys, Supabase URL + anon key + service role key, Resend API key, Docuseal token.
-- `README` or `CLAUDE.md` local setup steps produce a running dev environment in under 10 commands.
-- `docker compose up -d` followed by `pnpm dev:web` produces a working application at `http://localhost:3000`.
+### AC-001-005 — SQL Server Security Policy baseline
+- Security Policies (ADR-005) are enabled on all tables containing client-scoped data: `Engagement`, `EngagementParticipant`, `OnboardingState`, `Message`, `Thread`, `Document`, `Folder`, `DocumentRequest`, `Notification`, `NotificationPreference`.
+- Raw SQL migrations for Security Policies live in `db/policies/` (Track B — per ADR-002 and ADR-005 § Migration track).
+- A `validate-policies.ts` script (or equivalent) confirms all covered tables have policies.
+- FILTER and BLOCK predicates use `SESSION_CONTEXT(N'clerk_user_id')` (ADR-003).
+- Admin principal exemption is present in every predicate body (ADR-005 § Admin exemption).
+- An integration test confirms a CLIENT cannot read another CLIENT's rows (hard requirement per ADR-005 § Test obligation and CLAUDE.md domain-specific notes).
 
-### AC-001-007 — CI/CD pipeline
-- A GitHub Actions workflow runs lint, type-check, build, and Vitest unit tests on every PR targeting `main`.
-- Required checks defined in CLAUDE.md § "Required CI checks" are present and passing: `lint-and-typecheck`, `test-web`, `security-scan`.
-- Vercel integration is configured: merges to `main` trigger production deploys; PRs generate preview URLs.
-- The custom domain (`portal.herfirm.com`) is wired to the Vercel production deployment.
+**Affected flows:** `flow-first-sign-in`, `flow-role-redirect`
 
-### AC-001-008 — Playwright e2e infrastructure
-- `apps/web` contains a Playwright configuration file (`playwright.config.ts`) with a working base URL.
-- An `e2e/` directory exists with at least a "smoke" test that: (a) loads the home page, (b) verifies the sign-in link is present, (c) completes the sign-in flow as ACCOUNTANT and lands on the dashboard route.
-- `pnpm --filter web e2e:run` executes successfully against a running local stack.
-- `pnpm --filter web e2e:run -- --grep 'smoke'` passes.
+### AC-001-006 — Local development environment (both apps)
+- `docker-compose.yml` starts: SQL Server 2022 Developer (port 1433), Azurite (port 10000), both app containers (`portal` on 3000, `admin` on 3001), mail catcher (port 8025).
+- `.env.example` lists all required environment variables: Clerk publishable/secret keys, SQL Server connection string, Azurite connection string, `PORTAL_APP_URL` (`http://localhost:3000`), `ADMIN_APP_URL` (`http://localhost:3001`), Resend API key, Docuseal token.
+- `docker compose up -d` followed by `pnpm dev:portal` and `pnpm dev:admin` (or `pnpm dev`) produces working applications at `http://localhost:3000` and `http://localhost:3001`.
+- Port assignments match ADR-006 § Port assignments.
+
+**Affected flows:** none (infrastructure only)
+
+### AC-001-007 — CI/CD pipeline (both apps)
+- A GitHub Actions workflow runs lint, type-check, build, and Vitest unit tests across the workspace on every PR targeting `main`.
+- CI builds both `apps/portal` and `apps/admin` independently (two build jobs or sequential build of both).
+- Required checks per CLAUDE.md § Required CI checks are present and passing: `lint-and-typecheck`, `test-web`, `security-scan`.
+- Container images for both apps are built from `apps/portal/Dockerfile` and `apps/admin/Dockerfile` (ADR-007 § Image shape). Images are size-checked (< 300MB each).
+- The custom domain configuration is documented in `docs/operations/inventory.md` (actual production DNS wiring is deploy-platform-deferred per ADR-007, but the `.env.example` and Clerk allowed-origins are set up for both `localhost` and the intended production subdomain structure).
+
+**Affected flows:** none (infrastructure only)
+
+### AC-001-008 — Playwright e2e infrastructure (two configs, shared stack)
+- **`apps/portal/playwright.config.ts`** exists with `baseURL: 'http://localhost:3000'`. An `apps/portal/e2e/` directory contains at minimum:
+  - **Smoke spec:** loads `http://localhost:3000` (public home), verifies services link or sign-in link is present.
+  - **CLIENT auth spec:** completes sign-in as CLIENT (Clerk test mode), lands on portal authenticated home.
+  - **Cross-app redirect spec (negative):** signs in as ACCOUNTANT on `apps/portal`, navigates to a CLIENT-only private route, asserts redirect to `http://localhost:3001`.
+- **`apps/admin/playwright.config.ts`** exists with `baseURL: 'http://localhost:3001'`. An `apps/admin/e2e/` directory contains at minimum:
+  - **ACCOUNTANT auth spec:** completes sign-in as ACCOUNTANT (Clerk test mode, MFA in test mode), lands on admin dashboard.
+  - **Cross-app redirect spec (negative):** signs in as CLIENT, visits any admin URL, asserts redirect to `http://localhost:3000`.
+  - **Unauthenticated redirect spec:** visits `http://localhost:3001` without a session, asserts redirect to `apps/admin/sign-in`.
+- **Cross-app session continuity spec:** signs in on one app, navigates to the other app's public or app-appropriate route, asserts no re-authentication prompt.
+- **Cross-app sign-out spec:** signs out on one app, asserts a private route on the other app redirects to sign-in.
+- `pnpm --filter portal e2e:run` and `pnpm --filter admin e2e:run` each execute successfully against the running docker-compose stack.
+- `pnpm e2e:run` (root) runs both suites in sequence.
+- Per-app result artifacts land in `apps/portal/e2e-results/` and `apps/admin/e2e-results/` respectively.
+- All cross-app negative test cases from ADR-010 § E2e tests are covered.
+
+**Affected flows:** `flow-first-sign-in`, `flow-role-redirect`
 
 ### AC-001-009 — Operations docs baseline
-- `docs/operations/inventory.md` is created documenting all provisioned cloud resources: Vercel project, Supabase project, Clerk application, custom domain DNS record, GitHub repository.
-- `docs/operations/runbook.md` is created with environment setup instructions, secret rotation procedure, and deploy procedure.
+- `docs/operations/inventory.md` is created documenting all provisioned resources: Clerk application (one, shared), SQL Server (local Docker; production engine deferred), Azurite (local; production storage deferred per ADR-008), both app ingress points (local ports and intended production subdomains), GitHub repository.
+- `docs/operations/runbook.md` is created with: environment setup instructions for both apps, Clerk allowed-origins configuration for local dev and production, secret rotation procedure, notes on the two-image deploy pattern (per ADR-007), and `PORTAL_APP_URL` / `ADMIN_APP_URL` configuration guidance.
+
+**Affected flows:** none (documentation only)
 
 ---
 
 ## Out of scope for this epic
 
-- Any user-facing product features (services page, forms, dashboard content, messaging, files)
+- Any user-facing product features (services page content, forms, dashboard content, messaging, files)
 - Docuseal integration
 - Resend email sending
-- Supabase Realtime subscriptions
+- Server-Sent Events / real-time notifications
 - Any data beyond the auth shell and DB schema
 
 ---
@@ -111,7 +163,10 @@ None — this is the root epic.
 
 ## Notes for SA
 
-- The `Thread` model in the Prisma schema replaces the intake's `Message.engagementId (nullable)` pattern. The SA should create an ADR documenting this decision during Plan. See SRS § Data Model Overview note.
-- AC-001-005 (RLS baseline) must be considered carefully — the Supabase service role key bypasses RLS; all application queries must use the anon key + user JWT to exercise RLS. The developer must not use the service role key from client-side code.
-- AC-001-007 requires Vercel + GitHub integration to be configured. If the repository or Vercel project doesn't exist yet, the DevOps agent must create them as the first sub-task.
+- The two-front-end architecture (ADR-006, ADR-010) is the primary structural change from the original Epic 001 spec. Every task in Plan must account for the two-app layout.
+- AC-001-003 requires a decision on where the shared role-gate helper lives (`packages/auth` vs `packages/db`). Recommend `packages/auth` as a new package — but SA decides during Plan.
+- AC-001-005 (SQL Server Security Policy baseline) must be verified with an integration test per policy per CLAUDE.md domain-specific notes and ADR-005 § Test obligation.
+- AC-001-007 (CI): Vercel references from the original epic spec have been removed — deploy platform is deferred (ADR-007). CI builds OCI container images instead.
+- AC-001-008 (Playwright): Two Playwright configs are required. The cross-app e2e specs (negative tests for role-based redirect) are mandatory — they exercise the primary security property of the two-app split. See ADR-010 § E2e tests.
 - CLARIF-006 (Docuseal self-hosted vs cloud) does not block this epic — Docuseal is not integrated here.
+- `flow-first-sign-in` and `flow-role-redirect` are the user flows that Epic 001 must satisfy. Both are authored in `docs/requirements/flows/`. The SA must reference these flows in task specs (`**Affected flows:**` field).

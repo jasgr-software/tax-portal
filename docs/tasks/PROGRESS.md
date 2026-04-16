@@ -6,13 +6,17 @@
 
 **Epic 001 — Foundation: Scaffold, Auth, DB, Routing & Deployment Pipeline**  
 Branch: `ep-001-foundation-scaffold` (to be created by SA during Plan)  
-Goal: Working Next.js app with Clerk auth, Prisma schema, Supabase RLS baseline, CI/CD pipeline, and Playwright e2e infrastructure. Auth shell only — no product features.  
+Goal: Two working Next.js apps (`apps/portal` — Client Portal; `apps/admin` — Tax Portal) with Clerk auth (one Clerk app, per-app middleware, cross-app redirect matrix), SQL Server schema + Security Policy baseline, CI/CD pipeline (two OCI container images, two Playwright configs), and local dev environment. Auth shell only — no product features.  
 Phase: Ready for SA → Plan  
 Gated: Yes
 
-_The RA has completed requirements definition. The SA should pick up Epic 001 next._
+_The RA has completed pre-Epic-001 cleanup. CLARIF-004 resolved. Personas and flows for Epic 001 scope are authored. SA may begin Plan phase._
 
-> **Before SA begins Plan phase — user must resolve CLARIF-004:** What should the portal be called in client-facing text (page titles, email subjects, browser tab) in v1? Even a simple placeholder like "Client Portal" or the firm name is sufficient. This is needed for scaffold-level copy.
+> **All pre-Plan blockers cleared:**
+> - CLARIF-004 resolved: "Client Portal" (`apps/portal`) and "Tax Portal" (`apps/admin`) — see REQ-IDNT-006.
+> - Epic 001 ACs updated for two-app architecture (AC-001-001, AC-001-002, AC-001-003, AC-001-005, AC-001-006, AC-001-007, AC-001-008).
+> - Flows `flow-first-sign-in` and `flow-role-redirect` authored and ready.
+> - SA must reference these flows in all Epic 001 task specs (`**Affected flows:**` field).
 
 ## Awaiting PR merge
 
@@ -101,3 +105,135 @@ _None._
 - CLARIF-001, CLARIF-002, CLARIF-003, CLARIF-006 remain open; each blocks the epic the RA assigned it to.
 
 **End:** Tier-1 ADR batch complete. Nine ADRs exist in `docs/decisions/` (001-003 pre-existing from prior SA invocation; 004-009 written this invocation). Tenet 7 amended. PROGRESS.md `## Current initiative` preserved — Plan phase has not begun. Recommended main-session next steps: (a) update CLAUDE.md's tech-stack table and submission-gate notes to reflect the SQL Server / Clerk-only / deploy-agnostic stack, (b) invoke the RA to generalise SRS wording that still references Supabase (REQ-AUTH-003, REQ-FILE-003, REQ-MSG-012, REQ-NFR-001, REQ-NFR-004, § 4 NFR table), (c) resolve CLARIF-004 with the user so SA can enter Epic 001 Plan. SA ends invocation.
+
+### SA Two-Frontend Split ADR Batch (write phase, pre-Epic-001 cleanup) — 2026-04-16
+
+**Start:** Fourth SA invocation on pre-Epic-001 work. User directed a structural architecture change: the single `apps/web` model is replaced by two front ends — `apps/portal` (Client Portal, client-facing) and `apps/admin` (Tax Portal, accountant-facing). Scope of this invocation is ADR revisions only; no Plan phase, no `docs/requirements/` edits (RA runs next), no `apps/` edits (nothing scaffolded yet). Read agent-stack.md, agent-phases.md, sa.md, CLAUDE.md, intake.md, SRS.md, ep-001-foundation-scaffold.md, and listed existing ADRs. TENETS.md and PROGRESS.md read for status-line/session-entry updates.
+
+**Actions:**
+- **Revised `docs/decisions/ADR-006-monorepo-layout.md`** — replaced single `apps/web` with `apps/portal` (Client Portal, port 3000) + `apps/admin` (Tax Portal, port 3001). Documented shared `packages/` shape (db, storage, emails, ui, eslint-config, tsconfig). Added `packages/ui` in v1 (shadcn primitives + layout shells; no business logic). Playwright strategy: two per-app configs against a shared docker-compose stack (rationale: scoped runs, different base URLs, different auth fixtures, different result artifacts; shared stack because cross-app flows — invitation landing, end-to-end accept→onboarding — require one DB state). Cross-app spec placement rule: spec lives in the app where the flow terminates. Server Actions vs API routes: per-app, no cross-app HTTP — coordination via DB + realtime. Turbo/Nx still deferred (two apps + 5 packages is trigger-threshold but not yet painful).
+- **Revised `docs/decisions/ADR-001-authentication-clerk.md`** — picked **one Clerk application, two sign-in surfaces** over two Clerk applications. Rationale: cross-app invitation flow (accountant accepts → Clerk invitation → portal sign-up completion) is first-class with one Clerk app; user identity remains comparable across apps (one `clerkId` per user); webhook topology stays simple (one webhook, landing on `apps/portal/api/webhooks/clerk`); forward-compatible with Clerk Organizations for hypothetical v2 multi-firm SaaS. Role gates enforced in per-app middleware — CLIENT cannot render admin pages, ACCOUNTANT cannot render CLIENT-only portal pages, public portal routes remain reachable unauthenticated. Role storage unchanged (`publicMetadata.role`). Invitation email sender is Clerk (Resend not involved). Session spans both apps automatically when both apps are registered as Clerk allowed origins.
+- **Revised `docs/decisions/ADR-007-container-packaging-deploy-agnostic.md`** — picked **two images, one per app** over single-image-with-two-entrypoints. Rationale: independent deploy cadence, independent blast radius, different scaling profiles, different ingress policies, per-image dep audit, per-image health probe granularity. Each app ships `apps/<app>/Dockerfile` with standard multi-stage Alpine build, per-image size target <300MB, independent `/healthz` + `/readyz` endpoints. Host capability list updated to require two workloads deployable independently — all prior candidates (ACA, App Service, Fly, Render, Railway, self-hosted, App Runner, Cloud Run-with-caveat) remain eligible. Vercel serverless, Workers-only, Lambda-only remain ineligible. Cron remains a separate (future) image.
+- **Created `docs/decisions/ADR-010-cross-app-navigation-session-boundaries.md`** — covers: role-based landing redirect matrix (redirect-not-403 for misnavigation; 403 reserved for genuine permission errors); cross-app deep links (always absolute, target-app-specific; middleware handles auth/redirect); session sharing (one Clerk session covers both apps — local dev shares `localhost` cookie, production depends on domain structure); no shared in-app session storage; cross-app coordination via DB + realtime only (no app-to-app HTTP); webhook endpoints live on portal; middleware skeleton (illustrative) for both apps; mandatory Epic-001 e2e negative tests for cross-app behavior. Flagged production domain structure to user: three options (subdomains of one apex, path-based split, two apexes); recommended Option A (two subdomains of one apex, e.g., `portal.firmname.com` + `tax.firmname.com`) — cleanest Clerk cookie story, matches `REQ-IDNT-001`'s `portal.herfirm.com` reference.
+- **Fixed Tenet 1** in `docs/architecture/TENETS.md` — replaced "Supabase Row-Level Security on every table with client-facing data" with "SQL Server Security Policies (row-level filter + block predicates) on every table with client-facing data — see ADR-005." Rest of tenet preserved.
+- **Updated TENETS.md `## Status` line** — noted Tenet 1 amended 2026-04-16 and two-frontend architecture added 2026-04-16 with pointer to ADR-010 and per-app middleware role gates.
+- **Appended this session entry** to `docs/tasks/PROGRESS.md`. `## Current initiative` preserved — Plan phase has not begun (still blocked on CLARIF-004 and on RA pass to generalise Supabase wording + backfill personas/flows for two-app architecture).
+
+**ADR numbering:** 001, 006, 007 revised (superseded content replaced in place — revision dates noted in each ADR's header). 010 created as the next available number. 002, 003, 004, 005, 008, 009 unchanged by this invocation.
+
+**Tenet 1 final wording (quoted):** "Security and data privacy are non-negotiable. This is a financial application handling tax documents, SSNs, and sensitive personal information. Every feature is designed assuming attacker presence. Encryption at rest (AES-256), signed URLs for file access, Clerk-enforced 2FA on the accountant account, and SQL Server Security Policies (row-level filter + block predicates) on every table with client-facing data — see ADR-005."
+
+**Design choices made autonomously (documented in the ADRs above):**
+1. App names: `apps/portal` + `apps/admin` (directory-neutral; user-facing brands "Client Portal" and "Tax Portal" decoupled from directory names).
+2. Ports: 3000 (portal) + 3001 (admin). Portal on lower-number default because it's the public-facing first-hit surface.
+3. Playwright: two per-app configs, shared docker-compose stack.
+4. Server Actions vs API routes for cross-app: per-app Server Actions; no cross-app HTTP at all. Coordination through DB + realtime.
+5. Session storage: no in-app session store; Clerk session is authoritative; cookies naturally span both apps when Clerk allowed-origins includes both.
+6. `packages/ui`: yes in v1 — shadcn primitives + layout shells; no business logic.
+7. Clerk topology: one Clerk application shared across both apps.
+8. Container packaging: two images, one per app.
+9. Webhook endpoint: lives on `apps/portal` (single public-facing ingress surface for webhook receipt).
+
+**Flagged to user (not decided here):**
+- **Production domain structure** — Option A (recommended): two subdomains of one apex (`portal.firmname.com` + `tax.firmname.com`). Option B: path-based split. Option C: two unrelated apexes. ADR-010 describes trade-offs; Clerk allowed-origins config and deploy-time ingress depend on the choice. No ADR will be written until the user picks.
+
+**Architectural concerns surfaced mid-analysis but not resolved in the ADRs:**
+- **Webhook handler placement long-term.** Currently lands on `apps/portal`. If production ingress policy ever restricts portal to public traffic and moves admin behind a VPN/allow-list, the webhook stays with the public app by construction — fine. If both apps ever end up behind ingress restrictions, webhook handler extraction into a dedicated service may be warranted. Not Epic 001's problem; noted in ADR-001 for revisit.
+- **Shared role-gate helper package.** ADR-010 hand-waves between "shared helper in `packages/db`" vs "new `packages/auth`." Epic 001 Plan should pick one during task breakdown — recommend `packages/auth` since auth concerns are growing (middleware, role gates, invitation flow helpers). Not an ADR-level decision.
+- **Cross-app e2e scaffolding.** AC-001-008 in ep-001 references a single-app Playwright setup. Acceptance criteria will need RA refresh to cover two apps' Playwright configs + cross-app session / deep-link specs. RA territory — noted for their pass.
+- **Clerk `publicMetadata.role` writability.** Clerk's public metadata is writable only via backend API — good for role integrity. But the admin UI writing role through the backend must happen inside a server action; a developer accidentally calling a client-side helper would silently fail. A lint rule (in `packages/eslint-config`) or a wrapped helper in `packages/db`/`packages/auth` is worth considering. Epic 001 Plan decision.
+- **Cron / scheduled jobs as a third image.** Flagged in ADR-007 but not formalised. When cron lands (Epic 004 or 005), the decision whether it's `apps/cron` (workspace app) or a thinner `scripts/run-cron` standalone image should be made then. Not Epic 001.
+- **Env var enforcement for `PORTAL_APP_URL` / `ADMIN_APP_URL`.** Both apps need these to construct cross-app redirect URLs. Missing env at startup should fail the readyz probe, not silently render broken links. Epic 001 scaffolding task should include a startup check.
+
+**Files modified this invocation:**
+- `docs/decisions/ADR-001-authentication-clerk.md` — revised (Clerk topology: one app, two sign-in surfaces; role middleware gates; invitation flow; session spans both apps).
+- `docs/decisions/ADR-006-monorepo-layout.md` — revised (two apps, `packages/ui` added, Playwright strategy, port assignments, app naming rationale).
+- `docs/decisions/ADR-007-container-packaging-deploy-agnostic.md` — revised (two images, per-app Dockerfiles, per-app health endpoints, host capability list updated for two workloads).
+- `docs/decisions/ADR-010-cross-app-navigation-session-boundaries.md` — created (redirect matrix, deep links, session sharing, middleware skeletons, production domain question flagged).
+- `docs/architecture/TENETS.md` — Tenet 1 amended (Supabase RLS → SQL Server Security Policies); `## Status` line updated.
+- `docs/tasks/PROGRESS.md` — this entry appended.
+
+**End:** Two-frontend split ADR batch complete. Ten ADRs now exist in `docs/decisions/` (001 + 006 + 007 revised in place; 010 new). Tenets 1 and 7 both amended. PROGRESS.md `## Current initiative` preserved — Epic 001 Plan still pending RA follow-up pass (RA needs to generalise SRS wording for two-frontend architecture, backfill personas/flows that reference the single-app assumption, and refresh AC-001-008's Playwright scope) and user resolution of CLARIF-004 + production-domain-structure question. SA ends invocation.
+
+### RA Pre-Epic-001 Cleanup — 2026-04-16
+
+**Start:** Second RA invocation, same PR as the SA's two-frontend ADR batch. Scope: generalise SRS wording (Supabase/Vercel → tech-stack-agnostic), resolve CLARIF-004, incorporate two-front-end architecture into SRS, backfill personas and flows, refresh Epic 001 ACs, update release-roadmap.md, and append this session entry.
+
+**Actions:**
+
+- **SRS.md rewritten (version 1.0 → 1.1):**
+  - Added Architecture Note section at top explaining two-front-end model with ADR-006 and ADR-010 cross-references.
+  - REQ-AUTH-003: replaced "Supabase Row-Level Security (RLS)" → "SQL Server Security Policies (per ADR-005)".
+  - REQ-AUTH-010: new requirement capturing the cross-app redirect rule (ADR-010 matrix).
+  - REQ-DOOR-001–010: reworded to name `apps/portal` and `apps/admin` where behavior is surface-specific.
+  - REQ-ONBD-003, REQ-DASH-001, REQ-DASH-004, REQ-DASH-010: added `apps/admin` surface refs.
+  - REQ-FILE-003: replaced "Supabase Storage handles this" → "signed-URL object storage (per ADR-008 and ADR-009)".
+  - REQ-MSG-012: replaced "Supabase Realtime (WebSocket)" → "real-time push (Server-Sent Events in v1; see ADR-002c when written)".
+  - REQ-MSG-018: replaced "cron job" → "scheduled background jobs (per ADR-009-cron when written)".
+  - REQ-IDNT-001: replaced "Configured via Vercel" → deploy-platform-deferred note (ADR-007).
+  - REQ-IDNT-003: replaced "portal name TBD" with separate REQ-IDNT-003 (branding deferred) and updated REQ-IDNT-006 to carry the portal names.
+  - REQ-IDNT-006 repurposed: was engagement-letter req (that content moved to REQ-IDNT-007); now carries "Client Portal" / "Tax Portal" names. CLARIF-004 resolved and removed from Open Clarifications table.
+  - REQ-IDNT-007: new requirement for engagement letter template (content split from REQ-IDNT-006).
+  - REQ-NFR-001: replaced "Supabase Row-Level Security" → "SQL Server Security Policies (per ADR-005)".
+  - REQ-NFR-002: added "See ADR-009".
+  - REQ-NFR-004: replaced entire Supabase/Vercel stack with current stack (SQL Server, ADR-006 two-app, ADR-007 container packaging, ADR-008/ADR-009 storage).
+  - CLARIF-005: updated "Supabase Storage" → "object storage" in question text.
+  - Total requirements reworded: 18 existing, 2 added (REQ-AUTH-010, REQ-IDNT-007), 1 repurposed (REQ-IDNT-006). REQ-IDNT-003 retitled (no longer "name TBD"). CLARIF-004 removed from open table.
+
+- **Personas created (4):**
+  - `docs/requirements/personas/jane-accountant.md` — solo accountant, primary ACCOUNTANT user, `apps/admin` daily surface.
+  - `docs/requirements/personas/tom-prospective-client.md` — anonymous prospective client, public front-door path.
+  - `docs/requirements/personas/sarah-returning-client.md` — returning CLIENT with existing account, re-engagement path.
+  - `docs/requirements/personas/martha-and-james-married-couple.md` — multi-participant scenario, two CLIENTs one engagement.
+
+- **Flows created (6):**
+  - `docs/requirements/flows/flow-first-sign-in.md` — **foundational** (Epic 001). Invitation → CLIENT sign-up → portal landing. ACCOUNTANT direct sign-in → admin landing. Covers REQ-AUTH-001, REQ-AUTH-004, REQ-AUTH-005, REQ-AUTH-006, REQ-AUTH-009, REQ-AUTH-010, REQ-NFR-001, REQ-NFR-004.
+  - `docs/requirements/flows/flow-role-redirect.md` — **foundational** (Epic 001). CLIENT → admin redirect; ACCOUNTANT → portal-private redirect. Covers REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-010, REQ-NFR-001, REQ-NFR-004.
+  - `docs/requirements/flows/flow-engagement-request.md` — Phase 2 (Epic 002 scope). Anonymous + returning-client request submission, accept/decline, invitation email. Stub-level but complete.
+  - `docs/requirements/flows/flow-onboarding.md` — Phase 3 (Epic 003 scope). Three-step gate: letter e-sign, questionnaire, doc upload → `In Progress`. Stub-level; CLARIF-006 dependency noted.
+  - `docs/requirements/flows/flow-message-exchange.md` — Phase 4 (Epic 005 scope). Per-engagement and general thread messaging, notifications, email digest. Stub-level.
+  - `docs/requirements/flows/flow-file-exchange.md` — Phase 4 (Epic 004 scope). Signed-URL upload/download, document requests, version history, soft-delete, overdue reminders. Stub-level.
+
+- **Epic 001 (ep-001-foundation-scaffold.md) updated:**
+  - Purpose section: rewritten for two-app architecture, references ADR-006 and ADR-010.
+  - Requirements in scope: REQ-AUTH-003 updated (SQL Server Security Policies), REQ-AUTH-010 added, REQ-NFR-004 updated, REQ-IDNT-006 added.
+  - AC-001-001: two Next.js apps (`apps/portal` port 3000, `apps/admin` port 3001), not one. `packages/` structure. Browser tab titles per REQ-IDNT-006.
+  - AC-001-002: both apps, one Clerk application. `PORTAL_APP_URL`/`ADMIN_APP_URL` env vars. `apps/admin` no sign-up route.
+  - AC-001-003: per-app middleware (portal + admin), cross-app redirect matrix per ADR-010. Shared role-gate helper.
+  - AC-001-004: SQL Server `UNIQUEIDENTIFIER` PKs per ADR-002. Webhook handler on `apps/portal/api/webhooks/clerk`. `Thread` model `// DECISION:` comment.
+  - AC-001-005: "Supabase RLS baseline" → "SQL Server Security Policy baseline". `db/policies/` Track B. Integration test per-policy.
+  - AC-001-006: docker-compose brings up both apps + SQL Server + Azurite. `.env.example` includes `PORTAL_APP_URL`/`ADMIN_APP_URL`.
+  - AC-001-007: Vercel removed. CI builds two OCI container images. Size check per image.
+  - AC-001-008: two Playwright configs (one per app). Cross-app negative tests, session continuity spec, sign-out spec. All ADR-010 § E2e tests mandatory. Per-app result artifacts.
+  - AC-001-009: operations docs updated for two apps, two ingress points, two-image deploy pattern.
+  - `**Affected flows:**` fields added to all ACs that touch user-facing behavior.
+  - Notes for SA updated.
+
+- **release-roadmap.md updated (version 1.0 → 1.1):**
+  - Phase 1 goal: rewritten for two-app scaffolding + ADR-006/ADR-010 cross-refs.
+  - ep-001 notes: "scaffolds both `apps/portal` + `apps/admin`".
+  - Phase 1 gate: "both apps' e2e suites green, cross-app redirect specs pass".
+  - Phases 2–5 goals: updated to name `apps/portal` and `apps/admin` where relevant.
+  - Phase 5: mentions two OCI images and production deploy ADR to be written.
+  - Open Clarifications table: added Status column. CLARIF-004 marked Resolved 2026-04-16.
+
+- **PROGRESS.md `## Current initiative` updated:** goal rewritten for two-app architecture. CLARIF-004 blocker removed. Pre-Plan blockers cleared note added.
+
+**CLARIF-004 resolution:** Portal names confirmed as: "Client Portal" (browser tab titles, page headers, email subjects in `apps/portal`) and "Tax Portal" (browser tab titles, page headers in `apps/admin`). REQ-IDNT-006 updated. Removed from SRS § Open Clarifications. Removed from release-roadmap.md as a blocker. PROGRESS.md current-initiative blocker removed.
+
+**Flow changes this session:**
+- `flow-first-sign-in` — created. Steps for CLIENT invitation path and ACCOUNTANT direct sign-in path. Branches: expired invitation, MFA failure, unauthenticated private route. Postconditions: `User` row created, session active, correct app surface rendered.
+- `flow-role-redirect` — created. Scenarios A (CLIENT → admin → portal redirect) and B (ACCOUNTANT → portal-private → admin redirect). Branch B1: ACCOUNTANT on public portal routes — served, no redirect.
+- `flow-engagement-request` — created (Phase 2 stub). Full anonymous + returning-client + accountant-initiated paths. Accept and Decline branches.
+- `flow-onboarding` — created (Phase 3 stub). Three-step gate, multi-participant branch, Docuseal webhook failure branch.
+- `flow-message-exchange` — created (Phase 4 stub). Engagement + general threads, notifications, email digest.
+- `flow-file-exchange` — created (Phase 4 stub). Authorize-then-sign pattern, version history, soft-delete, overdue reminders.
+
+**Remaining open clarifications (unchanged by this pass):**
+- CLARIF-001 — decline message portal retention (blocks Epic 002)
+- CLARIF-002 — client-facing status label mapping (blocks Epic 006)
+- CLARIF-003 — duplicate engagement handling (blocks Epic 006)
+- CLARIF-005 — hard delete vs 7-year retention conflict (blocks Epic 008)
+- CLARIF-006 — Docuseal self-hosted or cloud (blocks Epic 003)
+
+**End:** Pre-Epic-001 cleanup complete. SRS generalised, CLARIF-004 resolved, four personas authored, six flows authored (two foundational for Epic 001, four phase-2+ stubs), Epic 001 ACs updated for two-app architecture, release-roadmap.md updated, PROGRESS.md current initiative refreshed. SA is unblocked to begin Epic 001 Plan phase. RA ends invocation.

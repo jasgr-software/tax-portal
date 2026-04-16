@@ -4,11 +4,11 @@
 
 ## Status
 
-Initial — to be expanded as the SA and RA work through the first few epics. **Tenet 7 amended 2026-04-16** during the SA Tier-1 ADR batch (see `docs/decisions/ADR-005-rls-via-security-policies.md`) following the stack switch from Supabase to SQL Server with `SESSION_CONTEXT`-based identity propagation.
+Initial — to be expanded as the SA and RA work through the first few epics. **Tenet 7 amended 2026-04-16** during the SA Tier-1 ADR batch (see `docs/decisions/ADR-005-rls-via-security-policies.md`) following the stack switch from Supabase to SQL Server with `SESSION_CONTEXT`-based identity propagation. **Tenet 1 amended 2026-04-16** (same session) to replace Supabase RLS language with SQL Server Security Policies (ADR-005). **Two-frontend architecture added 2026-04-16** (pre-Epic-001 cleanup) — the portal is now delivered as `apps/portal` (Client Portal) + `apps/admin` (Tax Portal), with cross-app behavior specified in ADR-010 and role-based middleware gates added as defense-in-depth on top of the database trust boundary.
 
 ## Seed tenets (from intake)
 
-1. **Security and data privacy are non-negotiable.** This is a financial application handling tax documents, SSNs, and sensitive personal information. Every feature is designed assuming attacker presence. Encryption at rest (AES-256), signed URLs for file access, Clerk-enforced 2FA on the accountant account, and Supabase Row-Level Security on every table with client-facing data.
+1. **Security and data privacy are non-negotiable.** This is a financial application handling tax documents, SSNs, and sensitive personal information. Every feature is designed assuming attacker presence. Encryption at rest (AES-256), signed URLs for file access, Clerk-enforced 2FA on the accountant account, and SQL Server Security Policies (row-level filter + block predicates) on every table with client-facing data — see ADR-005.
 
 2. **The front door is self-serve.** Prospective clients request engagement without an account. Account creation follows acceptance, not precedes it. No feature may reintroduce an "account required before request" gate without explicit requirements change.
 

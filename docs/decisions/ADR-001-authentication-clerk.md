@@ -1,9 +1,9 @@
 # ADR-001: Authentication via Clerk
 
 **Status:** Accepted
-**Date:** 2026-04-16
+**Date:** 2026-04-16 (revised 2026-04-16 — two-frontend topology)
 **Deciders:** SA (with user direction)
-**Related:** ADR-002 (SQL Server), ADR-003 (Identity propagation via SESSION_CONTEXT)
+**Related:** ADR-002 (SQL Server), ADR-003 (Identity propagation via SESSION_CONTEXT), ADR-006 (Monorepo layout), ADR-010 (Cross-app navigation & session boundaries)
 
 ## Context
 
@@ -13,92 +13,155 @@ The portal has three principal types (see SRS § 2):
 - **CLIENT** — invitation-only accounts created after the accountant accepts an engagement request. Optional 2FA.
 - **Anonymous** — prospective clients browsing the public services page and submitting engagement requests. No account.
 
-The app needs a hosted auth provider that:
+The stack is now **two Next.js front ends** (see ADR-006):
 
-1. Enforces per-role 2FA policy (required on accountant, optional on client).
+- **`apps/portal`** (Client Portal) — public + CLIENT surface.
+- **`apps/admin`** (Tax Portal) — ACCOUNTANT surface.
+
+Both apps need a hosted auth provider that:
+
+1. Enforces per-role 2FA policy (required on ACCOUNTANT, optional on CLIENT).
 2. Blocks self-registration — accounts only exist via invitation flow.
-3. Issues server-verifiable session tokens that Next.js middleware can validate on every request.
+3. Issues server-verifiable session tokens that each app's Next.js middleware can validate on every request.
 4. Handles password reset, email verification, MFA enrollment, and session management without the team building any of it.
-5. Exposes a stable user ID that the application can tie its own `User` row to.
+5. Exposes a stable user ID that the application's `User` row keys off.
+6. **Supports two sign-in surfaces** — one per app — with role-based routing that blocks a CLIENT from reaching the admin app and an ACCOUNTANT from reaching client-only routes.
 
-Building auth in-house is a non-starter for a security-sensitive financial app staffed by a solo developer plus agents. Clerk was identified in the intake as the chosen provider; its free tier covers the expected user count (one accountant plus low-dozens of clients), its invitation API maps directly onto the product requirement, and its Next.js SDK is well-documented.
-
-Earlier iterations of the plan considered pairing Clerk with Supabase Auth (via a Supabase-compatible JWT template). The revised stack (see ADR-002) replaces Supabase with SQL Server, so that bridge is gone. Clerk is now the single auth authority; the app propagates identity into SQL Server through `SESSION_CONTEXT` rather than a database-verifiable JWT (see ADR-003).
+Clerk remains the chosen provider — the decision driver here is **how** to split Clerk across the two apps: one Clerk application shared across both, or two Clerk applications (one per app).
 
 ## Decision
 
-**Clerk is the sole authentication provider for the portal.**
+**One Clerk application, two sign-in surfaces.** Both `apps/portal` and `apps/admin` point at the **same** Clerk application (same publishable key, same secret key, same user pool, same webhook endpoint). Each app hosts its own sign-in page styled for its audience. Role-based access is enforced by **per-app middleware** reading `publicMetadata.role` from the Clerk session.
 
-**Role storage.** Roles live on the Clerk user as `publicMetadata.role: 'ACCOUNTANT' | 'CLIENT'`. We do **not** use Clerk Organizations to model roles in v1 — there is one accountant and a flat roster of clients, not a multi-tenant hierarchy. Organizations would add complexity (org switching, member invitations, org-scoped sessions) that the product does not need. Metadata is read-only from the client SDK and writable only via Clerk's backend API, which keeps role mutation inside trusted code paths.
+Mandatory MFA on ACCOUNTANT and optional MFA on CLIENT remain unchanged. Invitation-only sign-up remains unchanged. The `User` table mirroring pattern (Clerk user ID as `clerkId NVARCHAR(64)` non-PK, app-owned `UNIQUEIDENTIFIER` PK) remains unchanged.
 
-**2FA policy.** Mandatory MFA is configured at the Clerk application level for the accountant via a role-based policy. Clients may enroll TOTP optionally. The accountant account is provisioned before the portal goes live and must complete MFA enrollment before its first sign-in.
+### Why one Clerk application, not two
 
-**Invitation-only sign-up.** Clerk's sign-up UI is disabled for self-service. Client accounts are created through Clerk's invitation API, triggered from the accept flow on an `EngagementRequest`. The invitation email delivers a single-use link to Clerk's sign-up completion page. No public sign-up route is exposed by Next.js middleware.
+**Cross-app flows exist and are easier with one Clerk app.**
 
-**Session verification.** Every request into the Next.js app runs through Clerk's middleware (`@clerk/nextjs/server`). The middleware verifies the session JWT, loads the user, and populates a server-side request context. Unauthenticated requests to gated routes redirect to the Clerk sign-in page. The Clerk user ID (`userId`) is the identity that every downstream concern keys off.
+- **Accountant accepts a request → client receives invitation.** The invitation is created in Clerk via the backend API and delivered as an email whose magic link lands on `apps/portal`'s sign-up completion route. If there were two Clerk apps, the admin-side code would have to target the portal's Clerk app with a separate API key and a separate webhook endpoint — doable but fragile (two keys to manage, two webhooks to verify, two user pools to keep from drifting).
+- **Accountant-authored messages / documents reference a shared user identity.** Both apps read/write rows owned by Clerk-authenticated users. One Clerk app = one user pool = one identity space. Two Clerk apps means the ACCOUNTANT exists in app A's pool and the CLIENT in app B's pool — `clerkId` values are no longer comparable, FK-like references across users (e.g., "this message was sent by user X") require joining on `email` or a shadow mapping. Avoidable pain.
+- **Webhook topology is simpler.** One `user.*` webhook endpoint updates one `User` table. With two Clerk apps, the webhook handler would have to either (a) live on one specific app's URL and cross-call the other or (b) duplicate into two handlers. Both variants multiply the failure modes documented in ADR-001's original "webhook is load-bearing" section.
+- **Organizations / future SaaS expansion.** If this product ever grows into a multi-firm SaaS (an explicit "revisit in v2" from intake.md), the right model is Clerk Organizations with one Clerk app and org-scoped roles — **not** two Clerk apps per firm. Starting with one Clerk app is forward-compatible.
 
-**App-side `User` row.** A SQL Server `User` row mirrors each Clerk user. The row's primary key is `UNIQUEIDENTIFIER` (app-owned, see ADR-002). A separate unique non-PK column `clerkId NVARCHAR(64)` holds the Clerk user ID. All foreign keys from application tables point at `User.id` (the UUID), never `clerkId`. Rationale:
+**Separation guarantees come from middleware, not Clerk.** The two-Clerk-app model offers a hardening story: "if CLIENT credentials are ever compromised, they can't even reach the admin Clerk app's sign-in." That sounds reassuring but is a weak guarantee — Clerk credentials are authoritatively verified at sign-in regardless of which surface hosts the sign-in page. The real access control is the role gate, and that lives in middleware.
 
-- Decouples the database from the auth provider. If Clerk is ever swapped, `clerkId` changes but `User.id` and every FK relationship stays stable.
-- Matches SQL Server idioms — `UNIQUEIDENTIFIER` with `NEWSEQUENTIALID()` is the native primary-key pattern (ADR-002).
-- Keeps the identity-propagation contract simple: the app passes `clerkId` into `SESSION_CONTEXT` (ADR-003), and RLS predicate functions translate that to ownership checks via `User.clerkId`.
+### Role storage (unchanged)
 
-**`User` row lifecycle.** Creation and updates are driven by Clerk webhooks (`user.created`, `user.updated`, `user.deleted`). The webhook handler:
+Roles live on the Clerk user as `publicMetadata.role: 'ACCOUNTANT' | 'CLIENT'`. Written via Clerk backend API, read server-side from the session. We do **not** use Clerk Organizations in v1 — one accountant, flat client roster.
 
-1. Verifies the Clerk webhook signature (Svix).
-2. Runs under the **admin DB principal** — a separate connection pool with elevated privileges (see ADR-003, ADR-005). Webhooks are not request-scoped; they must never share the request pool or set `SESSION_CONTEXT` for a Clerk caller.
-3. Upserts the `User` row, mapping Clerk metadata (`role`, `email`, `name`) to columns.
+### Per-app middleware (role gates)
 
-A secondary path — middleware-on-first-sign-in — is used only as a safety net when a webhook has not yet landed. It also runs under the admin principal.
+Each app has its own `middleware.ts` that runs Clerk's session verification and then enforces a role gate **before any route handler sees the request**.
 
-**No Supabase JWT template.** The previous plan used a Supabase JWT template so that Supabase-side RLS could verify the Clerk session directly. SQL Server cannot verify Clerk JWTs (no JWKS verification, no native JWT primitives), so that bridge does not exist. Instead, the trust chain is:
+**`apps/portal/middleware.ts`:**
 
-1. Clerk verifies credentials and issues a session token.
-2. Next.js middleware verifies the session token against Clerk's JWKS.
-3. The verified Clerk user ID is injected into the request-scoped DB connection via `SESSION_CONTEXT` (ADR-003) before any query runs.
-4. SQL Server RLS predicate functions read `SESSION_CONTEXT(N'clerk_user_id')` and filter rows (ADR-005).
+1. Run Clerk's session check. Allow unauthenticated traffic to the public routes (services page, request form, sign-in, sign-up completion). Public route list is an explicit allow-list — any route not on it requires a session.
+2. If authenticated, read `session.claims.publicMetadata.role`.
+3. If `role === 'ACCOUNTANT'` and the path is a CLIENT-only path, redirect to the admin app's landing URL. (See ADR-010 for the full cross-app redirect matrix.)
+4. If `role === 'CLIENT'`, proceed; the route handler runs under `withClerkIdentity` (ADR-003).
+5. Populate `SESSION_CONTEXT` via `withRequestContext` before the first DB query.
+
+**`apps/admin/middleware.ts`:**
+
+1. Run Clerk's session check. **No public routes** — every path requires an authenticated session.
+2. If unauthenticated, redirect to the admin sign-in page.
+3. If authenticated, read `session.claims.publicMetadata.role`.
+4. If `role !== 'ACCOUNTANT'`, redirect to the portal app (CLIENTs land back on their portal home). Return a clear 403-style page if redirect is disabled (e.g., deep-link API hit).
+5. If `role === 'ACCOUNTANT'`, proceed; populate `SESSION_CONTEXT`.
+
+The role gate is **hard** — a CLIENT cannot render any admin page, and an ACCOUNTANT cannot render CLIENT-only pages. This is defense-in-depth on top of RLS: RLS would prevent the ACCOUNTANT from seeing a specific client's rows in CLIENT-only contexts (if such contexts exist), but the middleware gate short-circuits before the DB is even consulted. The reverse — CLIENT against ACCOUNTANT-only data — is already impossible via RLS, but the middleware gate makes the intent explicit and returns a faster, cleaner response.
+
+### Clerk configuration
+
+**One Clerk application in the Clerk dashboard.** Single publishable key, single secret key, shared across both apps via env vars (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` — set on both app containers from the same secret source).
+
+**Allowed origins / redirect URLs** — both apps' production domains are registered in Clerk's allowed-origins list. Local dev uses `http://localhost:3000` (portal) and `http://localhost:3001` (admin), both registered in Clerk's dev instance allowed origins.
+
+**Sign-in / sign-up URLs** — each app configures its own Clerk URLs:
+
+- `apps/portal` — sign-in at `/sign-in`, sign-up completion (invitation-landing) at `/sign-up`, sign-out redirect to `/`.
+- `apps/admin` — sign-in at `/sign-in`, no sign-up route exposed (admin is not a sign-up-able surface), sign-out redirect to `/sign-in`.
+
+Clerk's `<ClerkProvider>` is initialized in each app's root layout with the app's specific sign-in/sign-up URLs. Same backend keys, different client-facing URLs.
+
+**Webhook endpoint.** One webhook, not two. Convention: the webhook lives on `apps/portal` at `/api/webhooks/clerk` (rationale: the portal is reachable from the public internet at a stable, client-customer-facing domain; the admin app's ingress may be more restricted in production). Clerk dashboard points at a single production URL. The handler writes to `User` under the admin DB principal (unchanged from prior ADR).
+
+**Session storage / cookie scope.** Clerk's session cookie is issued by the Clerk domain (not our app domains) when Clerk's sign-in page is used, and as a first-party cookie when Clerk's embedded components host the sign-in. Either way, the cookie carries through to both apps as long as both apps are registered as allowed origins on the same Clerk application. **The same Clerk session thus covers both apps** — a signed-in user moving from `portal.firm.com` to `tax.firm.com` does not have to re-authenticate, and the role gate on `apps/admin` decides whether to serve or bounce.
+
+Cookie-domain specifics depend on the production subdomain structure (ADR-010 discusses the options). Clerk supports both same-apex-domain-with-subdomains (cookies flow automatically) and separate domains (Clerk's JWT-in-URL handshake can bridge them). For local dev, `localhost:3000` and `localhost:3001` share `localhost` as the cookie host, so the session applies to both apps.
+
+### Invitation flow (end-to-end, post-revision)
+
+1. Accountant (in `apps/admin`) accepts an `EngagementRequest`.
+2. Admin server action calls Clerk backend API to issue an invitation: `POST /v1/invitations` with the recipient email, `publicMetadata.role: 'CLIENT'`, and a redirect URL pointing at `apps/portal`'s sign-up completion route (e.g., `https://portal.firm.com/sign-up?__clerk_ticket=...`).
+3. Clerk sends the invitation email directly (Clerk is the sender — Resend is not involved here).
+4. Recipient clicks the link, lands on `apps/portal/sign-up`, completes Clerk's sign-up flow (sets password, optionally enrolls 2FA).
+5. Clerk fires `user.created` webhook to `/api/webhooks/clerk` on `apps/portal`. Handler upserts `User` under the admin DB principal.
+6. User is redirected into `apps/portal`'s authenticated surface. Middleware sees `role === 'CLIENT'`, proceeds.
+
+No cross-app Clerk-application hop. No invitation-domain mismatch. One user, one Clerk record, one `User` row.
+
+### Accountant sign-in flow
+
+1. Accountant navigates to `apps/admin` (e.g., `tax.firm.com`).
+2. Middleware sees no session, redirects to `apps/admin/sign-in`.
+3. Clerk sign-in form collects credentials, enforces MFA (mandatory for this role per Clerk policy).
+4. Clerk issues session. Middleware next request sees `role === 'ACCOUNTANT'`, proceeds.
+5. If the ACCOUNTANT accidentally navigates to `apps/portal`, middleware there redirects to `apps/admin` (ADR-010).
 
 ## Alternatives considered
 
-### Auth0 / Okta Customer Identity
+### Two Clerk applications (one per front end)
 
-Feature-equivalent to Clerk. Rejected for v1 because Clerk's Next.js SDK and invitation-only sign-up flow are noticeably more ergonomic, the free tier fits the expected user count, and swapping providers later is contained by the `clerkId`-as-non-PK decision above.
+Each app has its own Clerk app, its own publishable key, its own user pool. Rejected — see "Why one Clerk application" above. Primary drawbacks:
 
-### Supabase Auth
+- Cross-app invitation flow requires admin-side code to call the portal-side Clerk app with a separate API key. Two keys, two webhooks, two user pools.
+- User identity becomes app-scoped. If a user exists in both (hypothetical, not applicable to the current role model but forward-looking), the two `clerkId` values are not comparable.
+- Doubled Clerk config burden (two MFA policies, two invitation templates, two sets of allowed origins).
+- Weaker story on Organizations migration for v2 SaaS.
+- No meaningful security gain — the role gate already enforces per-app access.
 
-Tied to the abandoned Supabase stack. Evaluating Supabase Auth standalone against Clerk, Clerk wins on MFA policy, invitation flow, and Next.js integration. Not reconsidered.
+### One Clerk application, middleware-free role allowance (both roles access both apps)
 
-### NextAuth.js / self-hosted
+A softer model: both roles can reach both apps, with the UI rendering different components based on role. Rejected because:
 
-Would put password reset, MFA enrollment, session storage, and rate-limiting in the team's maintenance surface. Rejected — not worth the build for a solo-accountant portal.
+- Violates the product intent — "Tax Portal" is explicitly the accountant's work surface; a CLIENT landing there, even with no privileged content rendered, is a UX and operational incident.
+- Every page would have to remember to check role and render a fallback. Defense-in-depth at the page level is brittle; middleware is categorical.
+- Makes the admin app a larger attack surface (CLIENT sessions with curiosity can probe it).
 
-### Clerk Organizations for role modeling
+### Auth0 / Okta / other providers
 
-One Clerk org per role (e.g., an "Accountants" org and a "Clients" org) would model access boundaries through org membership rather than metadata. Rejected: there is only one accountant, no org-switching UX is needed, and orgs complicate sessions and invitations. If the product ever grows to multi-firm (v2 SaaS), revisit.
+Not reconsidered — Clerk was the chosen provider and remains so. The two-app split does not weaken Clerk's fit.
 
-### Clerk user ID as application PK
+### Clerk Organizations modelling "app access" as org membership
 
-Making `clerkId` the primary key of `User` was considered and rejected. Arguments for: simpler joins to external systems keyed on Clerk ID. Arguments against, all of which won:
+Create two Clerk organizations, "Client Portal Users" and "Tax Portal Users," and gate apps on org membership. Rejected:
 
-- Vendor lock-in at the schema level. Swapping Clerk means rewriting every FK.
-- `NVARCHAR` PKs are inferior to `UNIQUEIDENTIFIER` PKs on SQL Server for index fragmentation and storage.
-- Inconsistent with the rest of the schema, which uses `UNIQUEIDENTIFIER DEFAULT NEWSEQUENTIALID()` throughout.
+- Users would have to be added to orgs by metadata changes that aren't the natural expression of their role.
+- Role is already a user-level attribute (`publicMetadata.role`). Duplicating it as an org membership is a second source of truth.
+- Org switching UX is irrelevant to this product in v1 and would leak into the sign-in experience.
+- If v2 SaaS arrives, orgs represent **firms**, not app access — reserving the orgs concept for that future is correct.
 
 ## Consequences
 
-- One less system to maintain — Clerk handles password hashing, MFA secrets, session cookies, rate-limiting, email verification, and CAPTCHA.
-- Clerk is a hard dependency. An outage blocks all authenticated access. Mitigation for v1: the product is a professional portal for a single firm, not a consumer product — the accountant's tolerance for rare auth-provider outages is high. If this becomes unacceptable, a second-provider fallback is a Phase 5+ conversation.
-- Role changes require writing to Clerk metadata through the backend API and then processing the `user.updated` webhook to sync SQL Server. The admin UI must never write roles directly to the `User` row without going through Clerk.
-- The webhook handler is now a load-bearing piece of infrastructure. It must be idempotent (Clerk may deliver duplicates), must verify Svix signatures, and must log every upsert. Regression tests for replay, out-of-order delivery, and signature mismatch are mandatory.
-- Clients completing Clerk sign-up before the `user.created` webhook lands will briefly lack a SQL Server `User` row. The middleware safety net (upsert on first authenticated request, under admin principal) handles this. The safety net must run exactly once per Clerk user — guarded by a `WHERE NOT EXISTS` or equivalent.
-- The trust chain is entirely on the app side (Next.js middleware verifies the Clerk JWT; SQL Server trusts the middleware's claim via `SESSION_CONTEXT`). The `SESSION_CONTEXT` value is set under an application-role principal with `@read_only=1`, which prevents downstream code from tampering with it mid-request. Still, the app is the critical path — a bug that forgets to set `SESSION_CONTEXT` fails closed (no rows), but a bug that sets the wrong user ID leaks data. ADR-003 addresses this with a `prisma.$extends` middleware and a lint/middleware check.
-- Invitation emails are delivered by Clerk. The app does not need to integrate Resend specifically for invitations. Resend remains the email provider for digest nudges and other app-generated mail (separate ADR, deferred).
-- Testing: Clerk provides a test mode with programmable users and sessions. Playwright e2e tests sign in against Clerk's test instance. Integration tests that hit the DB set `SESSION_CONTEXT` manually in a setup helper, bypassing the real Clerk flow.
+- **One Clerk dashboard, one set of keys, one user pool, one webhook.** Operational surface is minimal. All cross-app flows are first-class because they share identity.
+- **Per-app middleware is load-bearing.** If `apps/admin/middleware.ts` ever regresses on the role gate (e.g., a merge drops the `role !== 'ACCOUNTANT'` check), a CLIENT could reach admin pages. Mitigations: (a) a shared helper in `packages/db` or a new `packages/auth` package hosts `requireRole(role)` so neither app hand-rolls the check; (b) e2e specs in **both** apps include a negative test — CLIENT signed in, hit admin URL, expect redirect — and admin CLIENT signed in as ACCOUNTANT, hit portal-only URL, expect redirect.
+- **Clerk allowed-origins config is now multi-entry.** Both app origins (dev + prod for each) must be registered. A misconfig ("forgot to add the admin origin") breaks that app's sign-in. Documented in operations runbook.
+- **Session covers both apps.** A CLIENT signs in once on `apps/portal` and does not re-auth when any portal route navigates them elsewhere. An ACCOUNTANT signs in once on `apps/admin` and stays signed in. If a user somehow holds credentials for both roles (not possible in v1 — one Clerk user has one role — but policy-relevant), the session still carries a single role; the role gates select the right app.
+- **Production domain structure has Clerk implications.** See ADR-010 for the cross-app behavior and § Production domain question below. Clerk supports both "apex + subdomains" (`portal.firm.com` + `tax.firm.com`) and "separate apex domains," but the cookie-sharing story is simpler with subdomains of one apex.
+- **Invitation email sender is Clerk.** Resend does not appear in the invitation flow. Email-from address and template live in Clerk settings, which means the "from" address is Clerk's domain or a verified custom domain configured in Clerk. DNS / SPF / DKIM setup lives with Clerk's email service, not Resend.
+- **Webhook handler ownership.** The handler lives on `apps/portal` for the reasons in § Webhook endpoint above. This is a routing decision, not a data decision — both apps read the `User` table the handler writes. A later ADR may extract the webhook handler into a dedicated service if admin app's ingress constraints require it.
+- **Local dev:** `pnpm dev` starts both apps on ports 3000 and 3001. Clerk dev instance allowed origins include both. A developer signing in as ACCOUNTANT on port 3001 stays signed in when they open port 3000.
+- **Testing:** Clerk test mode provisions users with `publicMetadata.role` pre-set. Each app's Playwright fixtures sign in the right role for that app's suite. Cross-app specs sign in as the originating-app role, then navigate to the other app to assert the role-gate response.
 
 ## Related
 
-- **ADR-002** — SQL Server as the primary datastore; defines `UNIQUEIDENTIFIER` PK convention that the `User` table follows.
-- **ADR-003** — Identity propagation via `SESSION_CONTEXT`; defines how the Clerk user ID reaches SQL Server on every request.
-- **ADR-005** — RLS via Security Policies; predicate functions read `SESSION_CONTEXT(N'clerk_user_id')` to scope rows. Defines the admin principal used by this ADR's webhook handler.
+- **ADR-002** — SQL Server; defines the `User` table and `clerkId` non-PK pattern.
+- **ADR-003** — Identity propagation via `SESSION_CONTEXT`; both apps' middleware runs the same identity-injection pattern.
+- **ADR-005** — RLS via Security Policies; RLS is defense-in-depth on top of the middleware role gate.
+- **ADR-006** — Monorepo layout; defines the two-app structure this ADR authenticates.
+- **ADR-010** — Cross-app navigation & session boundaries; defines what happens on role-mismatched navigation, cross-app deep links, and session continuity.
 - **SRS** — REQ-AUTH-001 through REQ-AUTH-009, REQ-NFR-004.
-- **Tenet 7** (amended) — the database is the trust boundary; the app's obligation is identity propagation.
+- **Tenet 1** (amended) — Security non-negotiable; RLS + role middleware + 2FA stack.
+- **Tenet 7** — the database is the trust boundary; the app's obligation is identity propagation.

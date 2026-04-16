@@ -31,7 +31,6 @@ supabase/.temp/
 
 # Claude Code — local settings (contains secrets) and ephemeral state
 .claude/settings.local.json
-.claude/agent-status.json
 .claude/worktrees/
 
 # Logs

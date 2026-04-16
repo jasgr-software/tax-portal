@@ -1,42 +1,59 @@
 # ADR-006: Monorepo Layout
 
 **Status:** Accepted
-**Date:** 2026-04-16
+**Date:** 2026-04-16 (revised 2026-04-16 — two-frontend split)
 **Deciders:** SA (with user direction)
-**Related:** ADR-002 (SQL Server), ADR-004 (Prisma ORM), ADR-005 (RLS via Security Policies), ADR-007 (Container packaging), ADR-008 (Object storage abstraction)
+**Related:** ADR-001 (Clerk authentication), ADR-002 (SQL Server), ADR-004 (Prisma ORM), ADR-005 (RLS via Security Policies), ADR-007 (Container packaging), ADR-008 (Object storage abstraction), ADR-010 (Cross-app navigation & session boundaries)
 
 ## Context
 
-The portal is a single web application (Next.js 14, App Router — REQ-NFR-003, REQ-NFR-004) plus supporting infrastructure. There is no second app in v1 (no mobile, no admin-only console, no public API). However, several concerns want their own package boundary for ergonomic and enforcement reasons:
+The portal is delivered as **two Next.js 14 (App Router) front ends** that together realise the product:
 
-- **DB layer** — Prisma client wrapper, admin-client factory, `SESSION_CONTEXT` middleware, raw SQL escape hatches. Must be import-boundaried from the rest of the app (ADR-003 §6, ADR-004) so ESLint rules can police `adminDb` usage.
-- **Storage adapter layer** — port-and-adapter `FileStorage` interface (ADR-008). Clean separation so the adapter can be swapped without touching callers.
-- **Email templates** — reserved surface for Phase 2+ when email flows start landing. Isolated so template changes don't rebuild the whole web app.
-- **Raw SQL** — Prisma migrations, security policies, seed data. Separate from TypeScript code entirely.
-- **Operational scripts** — migration runner, smoke test, gate validator. Separate from app code so they can be run outside of a Next.js context.
+- **Client Portal** — public services/request page, client account experience (onboarding, file exchange, messaging, history). User-facing brand: "Client Portal."
+- **Tax Portal** — accountant-facing app (dashboard, client/engagement management, admin UI for services catalog, intake templates, engagement letter template, pipeline view). User-facing brand: "Tax Portal."
 
-The monorepo tool choice is a separate question. The options are: pnpm workspaces (no build orchestrator), Turborepo (caching + task graph on top of pnpm), Nx (opinionated build/test orchestrator with plugins).
+This replaces the prior single-app layout. The split is driven by:
+
+- **Different audiences, different threat models.** The public front door and client experience vs. the admin surface have different attack surfaces, ingress patterns, and uptime tolerances. Splitting lets us size, scale, and lock them down independently.
+- **Different change velocity.** Client-facing polish and accountant-workflow iteration move on different cadences. Deploying the admin UI should not require redeploying the public front door.
+- **Clean role boundary.** Middleware on `apps/admin` can hard-block non-ACCOUNTANT roles at the app edge. Middleware on `apps/portal` blocks ACCOUNTANT from client-only deep links. The two apps never contain each other's role UI.
+- **Operational clarity.** Each app has its own image, its own health endpoints, its own logs, its own metrics. Debugging a client-side incident never requires sifting through accountant traffic.
+
+Shared concerns — DB access, storage adapter, email templates, shared UI primitives — live in `packages/` and are consumed by both apps. The monorepo tool choice (pnpm vs Turborepo vs Nx) is revisited below now that there are two apps.
 
 ## Decision
 
-**pnpm workspaces with the layout below, no build orchestrator in v1.** Turborepo and Nx are revisited at Phase 5 if build-cache pressure emerges (multi-app expansion, long CI build times, or cross-package incremental-build needs).
+**pnpm workspaces with the two-app layout below, no build orchestrator in v1.** Turborepo is now a stronger candidate (two apps plus 5 packages changes the cache math); it is explicitly revisited at Phase 5 or sooner if CI build time exceeds ~10 minutes.
 
 ### Directory layout
 
 ```
 tax-portal/
   apps/
-    web/                          # Next.js 14 app — the only app in v1
+    portal/                       # Client-facing Next.js app — "Client Portal"
       src/
-        app/                      # App Router
+        app/                      # App Router — public services + signed-in client routes
         components/
         lib/
-        middleware.ts             # Clerk session verification + withRequestContext
-      e2e/                        # Playwright suites
+        middleware.ts             # Clerk session verification + role gate (blocks non-CLIENT) + withRequestContext
+      e2e/                        # Playwright suites scoped to client flows
       public/
       playwright.config.ts
       next.config.mjs
-      package.json                # name: @tax-portal/web
+      Dockerfile                  # Per-app image (see ADR-007)
+      package.json                # name: @tax-portal/portal
+    admin/                        # Accountant-facing Next.js app — "Tax Portal"
+      src/
+        app/                      # App Router — dashboard, admin UI, engagement management
+        components/
+        lib/
+        middleware.ts             # Clerk session verification + role gate (blocks non-ACCOUNTANT) + withRequestContext
+      e2e/                        # Playwright suites scoped to accountant flows
+      public/
+      playwright.config.ts
+      next.config.mjs
+      Dockerfile                  # Per-app image (see ADR-007)
+      package.json                # name: @tax-portal/admin
   packages/
     db/                           # Prisma client + admin split + SESSION_CONTEXT middleware
       src/
@@ -54,6 +71,11 @@ tax-portal/
     emails/                       # React Email templates (reserved — empty until Phase 2)
       src/
       package.json                # name: @tax-portal/emails
+    ui/                           # Shared shadcn/ui primitives + layout shells (see § packages/ui below)
+      src/
+        primitives/               # Button, Input, Dialog, etc. (shadcn-generated, app-neutral)
+        layouts/                  # AppShell, Nav skeletons (thin, per-app composition on top)
+      package.json                # name: @tax-portal/ui
     eslint-config/                # Shared ESLint config (including import-boundary rules)
       index.js
       package.json                # name: @tax-portal/eslint-config
@@ -70,7 +92,7 @@ tax-portal/
     seed/                         # Dev-only seed scripts
   scripts/
     db-migrate.ts                 # Track A + Track B runner (ADR-002 § Migration tracks)
-    smoke-test.sh                 # Container smoke harness (phase Smoke)
+    smoke-test.sh                 # Container smoke harness — brings up both apps (phase Smoke)
     validate-gates.sh             # Programmatic gate-validation backstop (agent-stack.md)
     validate-policies.ts          # RLS-policy-coverage drift detector (ADR-005 § Migration track)
   infra/                          # Reserved — empty in v1 (no IaC; deploy platform deferred, ADR-007)
@@ -83,87 +105,157 @@ tax-portal/
     plans/                        # release-roadmap.md (RA-owned)
   agents/                         # Agent role definitions (.md)
   .claude/                        # Agent stack + phases + status files
-  docker-compose.yml              # Local dev stack (SQL Server, Azurite, Docuseal later)
+  docker-compose.yml              # Local dev stack (SQL Server, Azurite, both apps, Docuseal later)
   pnpm-workspace.yaml
   package.json                    # Root — workspace manager, shared scripts
   tsconfig.json                   # Root — only composite references
   .env.example
   CLAUDE.md
-  README.md                       # Only if requested later
 ```
+
+### Port assignments (local dev)
+
+| App                      | Port  | URL                      | Role gate           |
+| ------------------------ | ----- | ------------------------ | ------------------- |
+| `apps/portal` (Client Portal) | 3000 | `http://localhost:3000`  | Public + CLIENT     |
+| `apps/admin` (Tax Portal)     | 3001 | `http://localhost:3001`  | ACCOUNTANT only     |
+
+Port 3000 is the lower-number default and goes to the public-facing app (convention: unauth'd prospective clients land here first). Port 3001 is the admin app. These are baked into `.env.example`, the root `pnpm dev` composite script, and the Playwright base URLs.
+
+### App names
+
+`apps/portal` and `apps/admin` were chosen over alternatives (`apps/client` + `apps/accountant`, `apps/public` + `apps/admin`, `apps/web` + `apps/admin`) for these reasons:
+
+- **`portal`** (not `client`) — reads as "the thing the client uses" rather than a technical role label. Avoids confusion with the Prisma `CLIENT` enum value and with the term "API client." Matches the product-facing name "Client Portal."
+- **`admin`** (not `accountant` or `tax`) — shortest unambiguous name for the accountant app. Matches the directory's role in any future SaaS expansion ("admin" generalises cleanly if a second staff tier is ever added; "accountant" would need renaming).
+- The user-facing brand names ("Client Portal," "Tax Portal") are decoupled from the directory names. Rebranding does not require repo surgery.
 
 ### Rationale per package
 
-- **`apps/web`** — the only Next.js app. A second app (admin-only, marketing site) is not justified for v1. If the public services page ever decouples into a separate static site, a new `apps/marketing` is cheap to add; until then, it lives inside `apps/web` under a public route group.
-- **`packages/db`** — owns ADR-003 / ADR-004 contracts. Exports exactly `db`, `adminDb`, `withClerkIdentity`, and the escape-hatch `sql` barrel. Nothing else. The import-boundary ESLint rule forbids `adminDb` outside of webhooks, scripts, jobs, and seeds.
-- **`packages/storage`** — owns ADR-008's `FileStorage` interface and adapters. Importers get the interface type only (no adapter leakage) — adapter binding happens at app startup.
-- **`packages/emails`** — reserved for Phase 2. Empty now. Exists in the repo so the directory boundary is established before the first template PR — avoids a "why is email buried in apps/web" debate later. No package.json scaffolding drift — it ships with a minimal `package.json` declaring no code.
-- **`packages/eslint-config`** — shared lint config, including the import-boundary rules that enforce ADR-003 / ADR-004 / ADR-008 boundaries.
-- **`packages/tsconfig`** — shared tsconfig bases for composite project references. Prevents tsconfig drift between `apps/` and `packages/`.
-- **`prisma/schema.prisma`** at the root, not under `packages/db/` — Prisma's CLI expects certain paths at the root level (e.g., `.env` resolution for `DATABASE_URL`) and a root-level `prisma/` is the path-of-least-friction convention. The generated client lives under `node_modules/.prisma/client` and is re-exported through `packages/db`.
-- **`db/migrations/`, `db/policies/`, `db/seed/`** — raw SQL territory. Numeric-prefix filenames (`0001-initial.sql`, `0002-add-user-indexes.sql`). `scripts/db-migrate.ts` is the only runner; it records applied files in a `__db_migrations` bookkeeping table (ADR-002).
-- **`scripts/`** — operational scripts written in TypeScript (tsx) and bash. `db-migrate.ts`, `smoke-test.sh`, `validate-gates.sh` (already referenced in agent-stack.md), `validate-policies.ts`.
-- **`infra/`** — reserved. No IaC in v1; the deploy platform is deferred (ADR-007). When the deployment decision lands, IaC (Bicep / Terraform / Pulumi — TBD) lives here. Keeping the directory empty but named avoids renaming pressure later.
-- **`docker-compose.yml`** at the repo root, not under `infra/` — it's a dev-environment artifact, not prod infra, and developers expect it at the root per Docker convention.
+- **`apps/portal`** — client-facing. Owns the public services page, engagement request form, sign-in / sign-up landing, client dashboard, onboarding flow, document exchange, messaging. Covers REQ-DOOR-\*, REQ-ONBD-\*, client sides of REQ-FILE-\* and REQ-MSG-\*, REQ-IDNT-\*. Middleware blocks non-CLIENT roles with a redirect (see ADR-010).
+- **`apps/admin`** — accountant-facing. Owns the accountant dashboard, client/engagement management, pipeline view, services catalog admin, intake template admin, engagement letter template admin, accountant sides of REQ-FILE-\* and REQ-MSG-\*. Middleware blocks non-ACCOUNTANT roles (ADR-010).
+- **`packages/db`** — owns ADR-003 / ADR-004 contracts. Exports exactly `db`, `adminDb`, `withClerkIdentity`, and the escape-hatch `sql` barrel. Consumed by both apps identically — every request in both apps goes through `withClerkIdentity` before touching data.
+- **`packages/storage`** — owns ADR-008's `FileStorage` interface and adapters. Both apps bind the same adapter at startup.
+- **`packages/emails`** — reserved for Phase 2. Both apps send email through the same template set (invitation from Clerk is an exception, owned by Clerk).
+- **`packages/ui`** — **in v1.** See § `packages/ui` decision below.
+- **`packages/eslint-config`** — shared lint config, including import-boundary rules that enforce ADR-003 / ADR-004 / ADR-008 boundaries.
+- **`packages/tsconfig`** — shared tsconfig bases for composite project references.
+- **`prisma/schema.prisma`** at the root — Prisma's CLI expects root-level paths. The generated client is re-exported through `packages/db`, consumed by both apps.
+- **`db/migrations/`, `db/policies/`, `db/seed/`** — raw SQL territory. Unchanged. One schema, one policy set, two apps reading it.
+- **`scripts/`** — `db-migrate.ts`, `smoke-test.sh` (now brings up both apps), `validate-gates.sh`, `validate-policies.ts`. `smoke-test.sh` probes `/healthz` on both apps.
+- **`infra/`** — reserved. No IaC in v1; production deployment platform deferred (ADR-007). When IaC lands, it provisions **two** container workloads, not one.
+- **`docker-compose.yml`** at the root — now brings up both `portal` and `admin` services alongside SQL Server, Azurite, and (eventually) Docuseal + mail catcher.
+
+### `packages/ui` — in v1
+
+A shared `packages/ui` package **exists in v1** and holds shadcn/ui primitive components plus thin layout shells. Rationale:
+
+- **Two apps, same design system.** Both apps are shadcn/ui on Tailwind (REQ-NFR-004). Duplicating component code across `apps/portal/src/components/ui/` and `apps/admin/src/components/ui/` is drift-in-waiting — a Button gets tweaked in one and diverges.
+- **Low risk, small surface.** Shadcn primitives are small, framework-stable, and rarely change shape. A shared package is cheap.
+- **What lives there.** Pure presentational primitives (Button, Input, Dialog, Popover, Select, Tabs, Toast, etc.) and thin layout skeletons (AppShell, TopNav frame, SideNav frame) that each app composes around its own content. **App-specific components stay in the app** — the accountant dashboard's `EngagementPipelineBoard` belongs in `apps/admin/src/components/`, not here.
+- **What does not live there.** No business logic. No data fetching. No route-specific components. No server actions. The boundary is: if it imports from `@tax-portal/db`, it is not in `packages/ui`.
+- **Styling contract.** `packages/ui` ships Tailwind class-based components. Tailwind config extends a shared preset from `packages/ui`; both apps extend that preset. CSS variable–based theming lives at the app level so the two apps can diverge visually (Client Portal and Tax Portal can have different palette accents without a package version bump).
+- **Versioning.** Workspace-linked (`workspace:*`). No semver management — both apps consume the current working copy.
+
+The trade-off: any UI-package change forces re-verification of both apps' e2e. Acceptable — the primitives rarely change, and when they do, both apps genuinely should be revalidated.
+
+### Playwright strategy — two configs, shared docker-compose stack
+
+**Each app carries its own Playwright configuration** (`apps/portal/playwright.config.ts`, `apps/admin/playwright.config.ts`) with its own `e2e/` directory. The two configurations share the same running docker-compose stack (which includes both app containers) as the system under test.
+
+Why two configs, not one:
+
+- **Scoped runs.** `pnpm --filter portal e2e:run` runs only client-side e2e; `pnpm --filter admin e2e:run` runs only accountant-side. Targeted e2e per PR is shorter and easier to read.
+- **Different base URLs.** `apps/portal` Playwright points at `http://localhost:3000`; `apps/admin` at `http://localhost:3001`. A single config with both base URLs is possible but ugly — Playwright's project-per-base-URL pattern requires each spec to name its project, leaks routing concerns into test files, and complicates CI sharding.
+- **Different auth setups.** The portal tests provision a CLIENT user via Clerk test-mode; the admin tests provision the ACCOUNTANT. Keeping setup in per-app Playwright fixtures is cleaner than a shared fixture with if-branches on app identity.
+- **Different test artifacts.** Screenshots, traces, videos land in `apps/portal/e2e-results/` and `apps/admin/e2e-results/` — easy to locate, no cross-contamination.
+
+Why the shared stack:
+
+- **Cross-app flows exist and must be exercised.** An accountant accepting a request in `apps/admin` sends an invitation email; the prospective client clicks through and lands in `apps/portal`'s sign-up completion flow. That flow must be tested end-to-end against **one DB state**, not two separate stacks. A combined stack lets a single spec drive both apps when the flow spans them.
+- **Smoke harness reuse.** `scripts/smoke-test.sh` spins up the combined stack once. The same compose file backs targeted e2e.
+- **CI parity.** CI spins up the same compose stack once, then runs portal e2e and admin e2e as two sequential (or parallel-shard) jobs.
+
+**Cross-app spec placement.** When a flow genuinely spans both apps (e.g., "accountant accepts request → client receives invite → client completes onboarding"), the spec lives in the app where the flow **terminates** — in that example, `apps/portal/e2e/` because the client-side completion is the final assertion. The spec drives the other app by navigating to its base URL explicitly. A later convention shift is cheap if cross-app specs grow into a distinct surface; for v1, one-to-the-terminating-app is the rule.
+
+**Root command.** `pnpm e2e:run` runs both apps' suites in sequence. CI may shard them; locally they run back-to-back.
+
+### Server Actions vs API routes — per app, no cross-app callbacks
+
+Both apps use Next.js Server Actions as the default for their own mutations. Neither app invokes the other app's server actions. If a cross-app signal is ever needed (e.g., admin marks a deliverable ready and portal must refresh), it travels through the shared DB (the source of truth) plus the realtime channel (SSE, deferred ADR) — not through a cross-app HTTP call. This keeps the apps decoupled and avoids tangled ingress/auth concerns across app boundaries.
 
 ### Tooling choices within the workspace
 
-- **Package manager:** pnpm ≥ 9. Lockfile `pnpm-lock.yaml` checked in. No `npm install` or `yarn` usage — enforced by a `preinstall` check that exits if `$npm_execpath` is not pnpm.
-- **Node version:** pinned in `.nvmrc` and `package.json` `engines.node`. v20 LTS for the duration of v1. Bumped deliberately when v22 LTS is mature and the Prisma / Next.js / mssql stack supports it.
-- **TypeScript:** single major version across the workspace (no per-package drift). Pinned; bumped in a dedicated PR that re-runs the full gate.
-- **ESLint / Prettier:** single config in `packages/eslint-config` and root-level `.prettierrc`. Prettier runs via pre-commit hook.
-- **Testing:** Vitest at the package level (`packages/db`, `packages/storage`). Vitest + React Testing Library at `apps/web`. Playwright at `apps/web/e2e`. No cross-package test runner — each package runs its own, and the root `pnpm test` fans out.
-- **Build:** Next.js builds `apps/web`; `tsc` builds `packages/*`. No Turbo in v1 — a root `pnpm build` script does `pnpm -r --filter ./packages/... build && pnpm --filter web build`.
+- **Package manager:** pnpm ≥ 9. Lockfile `pnpm-lock.yaml` checked in.
+- **Node version:** pinned v20 LTS.
+- **TypeScript:** single major version across the workspace.
+- **ESLint / Prettier:** single config in `packages/eslint-config`.
+- **Testing:** Vitest at the package level and at each app level. Playwright at each app's `e2e/`.
+- **Build:** `pnpm build` builds both apps and all packages. Root script: `pnpm -r --filter ./packages/... build && pnpm --filter portal build && pnpm --filter admin build`.
 
 ### Rejected: Turborepo / Nx in v1
 
-**Turborepo.** Real benefits kick in with 3+ apps and 5+ packages where remote cache and task-graph parallelism pay for themselves. In v1 we have 1 app and 5 packages (2 of which are config-only, 1 reserved). The overhead of teaching agents to read `turbo.json` outweighs the modest cache win. Revisit at Phase 5 if CI time exceeds ~8 minutes or if the app count grows.
+**Turborepo.** Two apps change the math slightly — the task-graph parallelism and incremental rebuild story is now genuinely useful. Still rejected for v1 because CI times are not yet painful and the agent-facing complexity is real. Revisit when either app's build time + test time exceeds ~5 min in CI or when a third app/package is added.
 
-**Nx.** Heavier than Turbo with a larger conceptual footprint (generators, executors, plugins). Overkill for v1. Nothing Nx solves for us that pnpm workspaces + a few bash scripts don't.
+**Nx.** Heavier than Turbo. Overkill for two apps. Not reconsidered.
 
 ## Alternatives considered
 
-### Single-app flat layout (no `packages/`)
+### Single `apps/web` with route-group split
 
-All code under `apps/web/src/`, including DB access and storage adapters. Rejected:
+Keep one Next.js app, use route groups (`(portal)/` and `(admin)/`) with middleware selecting UI shells by role. Rejected:
 
-- Loses the import-boundary ESLint enforcement that ADR-003 / ADR-004 / ADR-008 lean on.
-- No clean way to share the storage adapter interface with future tooling (cron scripts, data-migration one-shots).
-- Blurs ownership — the `packages/db` boundary is a forcing function for "this is where data access lives."
+- **Single ingress** — can't lock down admin to a separate subdomain without URL rewriting and a more complex middleware.
+- **Single deploy unit** — can't ship a portal hotfix without redeploying admin.
+- **Single Clerk allowed-origins** — blast radius of a misconfig is larger.
+- **Middleware complexity** — one middleware juggling two role gates, two public vs. private maps, two different login flows. Bug-prone.
+- **Mental model drift** — developer agents cannot grep "show me the admin surface" cleanly. Route groups obscure ownership.
 
-### Nested packages inside `apps/web` (e.g., `apps/web/src/packages/`)
+### `apps/client` + `apps/accountant` naming
 
-Compromise — keep the conceptual separation but avoid the top-level `packages/` directory. Rejected: ESLint import-boundary rules are cleaner when packages are top-level workspace members with distinct `package.json` files. Nested pseudo-packages make the boundary less enforceable.
+Matches the Prisma enum values. Rejected because:
 
-### Separate repos per package
+- `CLIENT` has overloaded meaning in software ("API client," "client-side rendering"). `portal` reads product-first.
+- `accountant` implies a role the product may generalise later (tax prep staff, admin staff) — `admin` generalises better.
 
-Polyrepo. Not considered seriously — solo-developer team, agent-driven, cross-package PRs common. Monorepo is the right default.
+### `apps/public` + `apps/admin` naming
 
-### Prisma schema under `packages/db/prisma/` instead of root `prisma/`
+`public` understates what the portal is — signed-in clients live there too, not just anonymous visitors. Rejected for the same product-first reasoning as above.
 
-Technically workable but fights Prisma's defaults (it expects `prisma/schema.prisma` next to the `.env` it'll read for `DATABASE_URL`). The workaround (`PRISMA_SCHEMA_PATH=...` everywhere) outweighs the aesthetic gain.
+### Three apps (public marketing + client app + admin app)
 
-### Raw SQL directories (`db/`) inside `packages/db/`
+A decoupled marketing site was considered. Rejected for v1 — the public services page is simple enough to live in `apps/portal` as an unauthenticated route group. If marketing grows into its own product (blog, case studies, SEO surface), `apps/marketing` joins the family later with no upstream disruption.
 
-Keeps all DB concerns under one package. Rejected because `scripts/db-migrate.ts` lives in `scripts/`, not `packages/db/`, and the migration runner operates on paths. Splitting `db/` (SQL files) from `packages/db/` (TypeScript) matches the runner's shape — SQL files are data, not code.
+### One Playwright config, both apps as projects
+
+A single `playwright.config.ts` at the repo root with two `projects` entries (one per base URL). Rejected because the project-per-base-URL pattern leaks routing into spec files (each spec must name its project) and complicates per-app auth fixtures. The per-app config approach is simpler and still allows cross-app flows when needed.
+
+### `packages/ui` deferred until a second app exists
+
+This ADR now establishes the second app, so the trigger condition fires. Rejected explicitly: v1 ships with `packages/ui` because the two apps exist simultaneously from day one — waiting until duplication appears is a false economy.
 
 ## Consequences
 
-- **Package boundaries are real.** Agents asked to modify data-access code know to edit `packages/db/`. Agents asked to add a storage adapter know to edit `packages/storage/`. Nothing is hidden in `apps/web/src/lib/`.
-- **Empty reserved directories cost nothing.** `packages/emails/` and `infra/` exist and are gitignored at the content level (via `.gitkeep`) so the conventions are visible without implying presence. They are renamed or populated when their phase arrives.
-- **No build-orchestrator learning curve.** Developer agents only need to know `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm --filter <pkg> <cmd>`. No `turbo run ...` syntax. If CI time grows, Turbo joins with a single PR — the existing `package.json` scripts become Turbo tasks with minimal change.
-- **Monorepo tooling is revisitable.** The pnpm workspace shape is deliberately Turbo-compatible (top-level `packages/`, clean `package.json` per package, no cross-package ambient deps). A future Turbo adoption is a diff, not a rewrite.
-- **Dependency versioning.** Shared deps (`typescript`, `vitest`, `@types/node`) are pinned once at the root `package.json` and referenced by workspace packages. Prevents the "which TypeScript version does this package use" trap.
-- **Migration scripts are discoverable.** `scripts/db-migrate.ts`, `scripts/smoke-test.sh`, `scripts/validate-gates.sh` live under one roof. CI and local-dev workflows reference them by relative path from the repo root.
-- **The `packages/db` choke point is enforceable.** The ESLint rule that blocks direct `PrismaClient` instantiation outside `packages/db/src/` lives in `packages/eslint-config/`. All workspaces extend that config, so the rule fires identically in every package.
-- **Scaling path known.** If/when a second app arrives (admin console, marketing site, native-shell wrapper), the `apps/` directory absorbs it. If shared UI emerges, `packages/ui/` joins the family. The conventions don't bend.
+- **Two apps, two deploy units, two ingress surfaces.** Subdomain / URL structure for production is a deploy-time concern — surfaced to user for decision; the apps themselves don't assume a specific production shape. See ADR-010 for session-scoping rules that constrain the choice.
+- **Role gates are middleware-enforced.** Each app's middleware blocks the wrong role before any route handler runs. A CLIENT hitting `apps/admin` gets a 403 or redirect (ADR-010). An ACCOUNTANT hitting `apps/portal`'s client-only pages gets the same. Public routes in `apps/portal` remain reachable unauthenticated.
+- **Shared DB, shared schema, shared RLS.** Both apps read/write the same SQL Server via the same `packages/db` wrapper under the same RLS policies. An RLS bug fix protects both apps at once. A schema migration runs once.
+- **Shared storage, shared email, shared UI primitives.** One blob namespace, one email template library, one component library.
+- **Per-app health endpoints.** `/healthz` and `/readyz` on **each** app independently (ADR-007 revised). Both must pass for the smoke gate.
+- **Per-app Dockerfile, per-app image, per-app size target.** See ADR-007 revised.
+- **Smoke harness updated.** `scripts/smoke-test.sh` now brings up both apps, probes both health endpoints, and runs targeted smoke specs from both suites.
+- **CI fans out per app.** Lint and type-check run once across the workspace. Tests run per package and per app. E2e runs in two targeted jobs (one per app).
+- **`packages/ui` is a shared dependency and its own release surface.** Changes to `packages/ui` must pass e2e in **both** apps. CI enforces this via a task-graph dependency: any PR touching `packages/ui` runs both portal and admin e2e suites.
+- **No cross-app HTTP.** The apps are decoupled at the network layer. Coordination happens via the DB and the (deferred) realtime channel.
+- **Rename optionality.** The apps are directory-named neutrally (`portal`, `admin`). The user-facing brand names ("Client Portal," "Tax Portal") live in copy and config, not in the directory structure — rebrand is a copy change, not a repo move.
 
 ## Related
 
-- **ADR-002** — SQL Server; defines `db/migrations/` usage and connection-string env vars.
-- **ADR-003** — `SESSION_CONTEXT`; defines what lives in `packages/db/src/client.ts`.
-- **ADR-004** — Prisma ORM; defines what `packages/db/` exports and what ESLint rules are enforced at the boundary.
-- **ADR-005** — RLS via Security Policies; defines `db/policies/` directory.
-- **ADR-007** — Container packaging; defines why `infra/` is reserved but empty.
-- **ADR-008** — Object storage abstraction; defines `packages/storage/` shape.
+- **ADR-001** — Clerk authentication; defines the one-Clerk-application topology that both apps share, and the role-based middleware gates.
+- **ADR-002** — SQL Server; one database backs both apps.
+- **ADR-003** — `SESSION_CONTEXT`; both apps' request pools go through the same identity-propagation path.
+- **ADR-004** — Prisma ORM; one schema, consumed identically by both apps.
+- **ADR-005** — RLS via Security Policies; one policy set enforces both apps' data access.
+- **ADR-007** — Container packaging; two images, one per app.
+- **ADR-008** — Object storage; one adapter bound in both apps.
+- **ADR-010** — Cross-app navigation & session boundaries; defines how users, deep links, and sessions behave across the two apps.
 - **CLAUDE.md** — Agent team table and domain-specific directory assignments; mirrors this layout.
