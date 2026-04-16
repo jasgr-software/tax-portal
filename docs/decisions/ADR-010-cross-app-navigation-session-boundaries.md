@@ -1,7 +1,8 @@
 # ADR-010: Cross-App Navigation and Session Boundaries
 
-**Status:** Accepted
+**Status:** Accepted (amended 2026-04-16)
 **Date:** 2026-04-16
+**Revised:** 2026-04-16 — production domain structure decided (Option A).
 **Deciders:** SA (with user direction)
 **Related:** ADR-001 (Clerk authentication), ADR-006 (Monorepo layout), ADR-007 (Container packaging)
 
@@ -14,7 +15,7 @@ The portal is delivered as two Next.js front ends (ADR-006):
 
 Both apps share a single Clerk application (ADR-001). The per-app middleware enforces role-based access: CLIENT cannot render admin pages, ACCOUNTANT cannot render CLIENT-only portal pages. Public routes on the portal (services, request form, sign-in, sign-up completion) remain reachable unauthenticated.
 
-The apps are reachable at distinct base URLs (localhost: `:3000` and `:3001`; production: TBD — see § Production domain question flagged to user). This ADR covers what happens in the spaces **between** the two apps:
+The apps are reachable at distinct base URLs (localhost: `:3000` and `:3001`; production: two subdomains of one apex — see § Production domain structure). This ADR covers what happens in the spaces **between** the two apps:
 
 - A CLIENT user lands on the admin app's URL. Redirect? Forbid? Show a unified login?
 - A signed-in ACCOUNTANT clicks a deep link that points at a specific engagement. Does it work if they're on the portal when they click?
@@ -202,29 +203,26 @@ E.g., admin server action POSTs to `apps/portal/api/internal/invalidate-cache`. 
 - **Session is one thing, observable in both apps.** Operational simplicity: one place to revoke (Clerk), one place to observe expiry (Clerk), one place to audit (Clerk).
 - **Deep links are always absolute + target-app-specific.** Email templates, notification payloads, and Clerk redirect URLs all use fully qualified URLs. A template that omits the scheme/host is a bug.
 - **Env vars for app URLs are required per environment.** `PORTAL_APP_URL` and `ADMIN_APP_URL` appear in `.env.example`, in both apps' runtime config, and in the operations runbook.
-- **The production domain structure is load-bearing for session continuity.** Option A (subdomains of one apex) is the path of least friction. Option B (path-based split) works if the platform supports path routing. Option C (two unrelated apexes) is workable but introduces cross-origin session handshakes. **Flagged to user — see § Production domain question.**
+- **The production domain structure is load-bearing for session continuity.** Option A (two subdomains of one apex) is decided — see § Production domain structure. Clerk's allowed-origins config (ADR-001) must therefore list two subdomains of one apex, not a single host and not cross-origin domains.
 - **No new classes of security risk are introduced by the split.** RLS policies remain the trust boundary for data. Middleware role gates are defense-in-depth. Session revocation is central (Clerk).
 - **Cron / jobs / webhook endpoints live on portal.** Single external-facing surface for webhook receipt (ADR-001 notes this for Clerk; future webhook ADRs will reinforce). Admin remains a thinner surface.
 
-## Production domain question (flagged to user, not decided here)
+## Production domain structure (decided 2026-04-16)
 
-The production subdomain / path structure is a deploy-time concern that interacts with Clerk's allowed-origins config, cookie scoping, email-link construction, and operational complexity. Options:
+**Decision: Option A — two subdomains of one apex.** E.g., `portal.<firm-apex>` + `tax.<firm-apex>`.
 
-- **Option A — two subdomains of one apex.** E.g., `portal.firmname.com` + `tax.firmname.com`.
-  - Pros: cleanest Clerk session story (cookies scoped to `.firmname.com` flow to both). Intuitive branding. Simple ingress configuration.
-  - Cons: two DNS records, two TLS certificates (or one wildcard).
-- **Option B — path-based split under one host.** E.g., `portal.firmname.com/` (client) + `portal.firmname.com/admin/` (accountant).
-  - Pros: one DNS record, one TLS cert. Cookies trivially shared.
-  - Cons: requires an ingress proxy or platform-level path routing (extra infra piece). Admin URL embeds the client-facing brand, which may feel wrong. Harder to restrict admin ingress independently (e.g., IP allow-list or VPN on admin only).
-- **Option C — two unrelated apexes.** E.g., `portal.firmname.com` + `accountant-tools.com`.
-  - Pros: maximum admin-surface obscurity (security-by-obscurity — weak, but non-zero).
-  - Cons: Clerk cross-origin session handshake required. More operational surface.
+The subdomain prefixes are locked: `portal.` for the Client Portal app and `tax.` for the Tax Portal (admin) app. The firm's apex domain is not yet known and will be supplied at deploy time. The structure itself — two subdomains of one apex — is not subject to further change.
 
-**Recommendation: Option A (subdomains of one apex).** It matches the existing `portal.herfirm.com` reference in REQ-IDNT-001 and gives the cleanest Clerk behavior. The admin app takes a complementary subdomain — `tax.herfirm.com`, `admin.herfirm.com`, or equivalent — user's choice. No ADR will be written until the user picks; this is noted here so Epic 001 scaffolding places the Clerk allowed-origins config in a way that accommodates any of the three options at deploy time.
+Clerk issues session cookies scoped to `.<firm-apex>`; both apps receive the cookie on every request, giving zero-friction session continuity. `PORTAL_APP_URL` and `ADMIN_APP_URL` env vars are populated with the two fully-qualified subdomain URLs at deploy time.
+
+**Rejected alternatives:**
+
+- **Option B — path-based split under one host** (`portal.<apex>/` + `portal.<apex>/admin/`). Rejected: requires an ingress proxy for path routing, embeds the admin surface under the client-facing brand, and complicates independent ingress hardening (e.g., IP-restricting admin).
+- **Option C — two unrelated apexes.** Rejected: Clerk cross-origin session handshake introduces a redirect bounce on first cross-app navigation; higher operational surface.
 
 ## Related
 
-- **ADR-001** — Clerk authentication; defines the one-Clerk-app topology whose session this ADR makes portable across both front ends.
+- **ADR-001** — Clerk authentication; defines the one-Clerk-app topology whose session this ADR makes portable across both front ends. The allowed-origins config in ADR-001 must enumerate two subdomains of one apex (per § Production domain structure above), not a single host and not unrelated apexes.
 - **ADR-006** — Monorepo layout; defines the two-app structure.
 - **ADR-007** — Container packaging; two images, two ingress routes, one session.
 - **SRS** — REQ-AUTH-001 through REQ-AUTH-009, REQ-IDNT-001.
