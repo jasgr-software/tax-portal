@@ -4,7 +4,7 @@
 
 ## Status
 
-Initial — to be expanded as the SA and RA work through the first few epics.
+Initial — to be expanded as the SA and RA work through the first few epics. **Tenet 7 amended 2026-04-16** during the SA Tier-1 ADR batch (see `docs/decisions/ADR-005-rls-via-security-policies.md`) following the stack switch from Supabase to SQL Server with `SESSION_CONTEXT`-based identity propagation.
 
 ## Seed tenets (from intake)
 
@@ -20,4 +20,8 @@ Initial — to be expanded as the SA and RA work through the first few epics.
 
 6. **Status transitions are human.** The accountant moves engagements through the pipeline manually in v1. No automated status transitions based on timers or document counts.
 
-7. **Row-level security is enforced at the database, not the application.** Supabase RLS policies are the trust boundary. The Next.js app is not a second gatekeeper — if a query returns a row, the client is authorized to see it.
+7. **Row-level security is enforced at the database; the app is responsible for identity propagation.**
+
+   The database is the trust boundary. Row-level access policies run in-engine, and no application path may bypass them except the explicitly-documented admin principal (used by migrations, webhooks, and cron — see ADR-005).
+
+   The app's obligation is narrower but load-bearing: **propagate the caller's identity into every request-scoped DB connection** (via `SESSION_CONTEXT` on SQL Server) before any data query runs. Missing identity means no rows returned — policies fail closed. The app may add defense-in-depth authorization checks (e.g., pre-signing a file URL), but those are redundant to, not substitutes for, the DB policy.

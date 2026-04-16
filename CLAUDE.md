@@ -47,20 +47,20 @@ The workflow engine (`.claude/agent-stack.md`) defines generic roles. This secti
 | -------------------- | -------------------- | ---------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `[sa]`               | System Architect     | Opus 4.6   | `CLAUDE.md`, `docs/tasks/`, `docs/architecture/`, `docs/decisions/`           | —                                                                          |
 | `[ra]`               | Requirements Analyst | Sonnet 4.6 | `docs/requirements/`                                                          | —                                                                          |
-| `[webapp-developer]` | Developer            | Sonnet 4.6 | `apps/web`, `packages/`, `prisma/`                                            | Next.js 14 (App Router), TypeScript, Clerk, Supabase, Prisma, Tailwind, shadcn/ui, Playwright, Vitest |
-| `[devops]`           | Developer            | Sonnet 4.6 | `infra/`, `.github/workflows/`, Dockerfiles, `docker-compose*.yml`            | Vercel, GitHub Actions, Supabase project config, Docker (local dev only)   |
+| `[webapp-developer]` | Developer            | Sonnet 4.6 | `apps/web`, `packages/`, `prisma/`, `db/`                                     | Next.js 14 (App Router), TypeScript, Clerk, Prisma (sqlserver provider), SQL Server 2022, Tailwind, shadcn/ui, Playwright, Vitest |
+| `[devops]`           | Developer            | Sonnet 4.6 | `infra/`, `.github/workflows/`, Dockerfiles, `docker-compose*.yml`            | OCI containers (multi-stage Dockerfile), GitHub Actions, Docker + Docker Compose (local dev). Production deploy platform deferred — see ADR-007. |
 | `[sdet]`             | SDET / Validator     | Sonnet 4.6 | (reviews all directories)                                                     | —                                                                          |
 | `[overwatch]`        | Overwatch            | Sonnet 4.6 | (reads all directories)                                                       | —                                                                          |
 
 ### Domain-specific notes
 
-- **Web App Developer**: Prisma schema changes go in `prisma/schema.prisma`. Migrations are generated via `pnpm prisma migrate dev` (local) and applied via `pnpm prisma migrate deploy` (CI). Supabase Row-Level Security policies live in `supabase/migrations/` as raw SQL — Prisma doesn't manage RLS. E2E tests run against the full stack (local Supabase + Next.js) and validate complete user workflows. Every UI app must include Playwright config, e2e test helpers, and an `e2e:run` script. The app is not considered scaffolded without e2e infrastructure.
-- **DevOps**: When a task changes Vercel project settings, Supabase project config, secrets, environment variables, or custom domain wiring, **must update `docs/operations/inventory.md` and `docs/operations/runbook.md`**.
-- **SDET**: For infrastructure tasks, **must verify `docs/operations/inventory.md` and `docs/operations/runbook.md` are consistent** with any environment, secret, or configuration changes — reject if stale.
+- **Web App Developer**: Two migration tracks per ADR-002 and ADR-006 — **Prisma track** (`prisma/schema.prisma` → `pnpm prisma migrate dev` locally, `pnpm prisma migrate deploy` in CI) for entity schema; **raw SQL track** (`db/migrations/NNNN-description.sql`) for things Prisma can't express (security policies, predicate functions, temporal tables, filtered indexes). Raw-SQL migrations are applied via `scripts/db-migrate.ts`. Security policies live in `db/policies/` as versioned raw SQL — per ADR-005. Every request-scoped DB query must go through the `packages/db` Prisma wrapper that sets `SESSION_CONTEXT` before the first real query (ADR-003). Direct Prisma access in route handlers outside that wrapper is a convention violation. E2E tests run against the full local stack (SQL Server container + Next.js + Azurite + Mailhog) and validate complete user workflows. Every UI app must include Playwright config, e2e test helpers, and an `e2e:run` script. The app is not considered scaffolded without e2e infrastructure.
+- **DevOps**: When a task changes Dockerfile content, docker-compose service topology, secrets, environment variables, ingress wiring, or the admin/app DB principal split, **must update `docs/operations/inventory.md` and `docs/operations/runbook.md`**. Production platform is deferred (ADR-007) — but the capability contract the eventual host must satisfy is authoritative.
+- **SDET**: For infrastructure tasks, **must verify `docs/operations/inventory.md` and `docs/operations/runbook.md` are consistent** with any environment, secret, or configuration changes — reject if stale. For RLS policy tasks, an integration test per policy ("CLIENT-A cannot read CLIENT-B's rows") is a hard requirement per ADR-005.
 
 ### SA-specific: E2e-required triggers
 
-The SA sets `E2e-required: yes` on any task touching: auth flows (Clerk), RLS policies, file upload/download (signed URLs), Docuseal e-sign integration, email sending (Resend), real-time subscriptions (Supabase Realtime), or cross-module boundaries (e.g. onboarding gate).
+The SA sets `E2e-required: yes` on any task touching: auth flows (Clerk), SQL Server security policies or `SESSION_CONTEXT` propagation, file upload/download (signed URLs), Docuseal e-sign integration, email sending, SSE subscription streams, or cross-module boundaries (e.g. onboarding gate).
 
 ## Submission Gate Commands
 
@@ -121,23 +121,25 @@ When branch protection is enabled on `main`, the following should be required: `
 ## Local Development Setup
 
 ```bash
-cp .env.example .env.local            # Configure environment variables (Clerk keys, Supabase URL/anon key, Resend key, Docuseal token)
+cp .env.example .env.local            # Configure env vars (Clerk keys, SA_PASSWORD, AZURITE_CONN, Docuseal URL, etc.)
 pnpm install                          # Install dependencies
 pnpm prisma generate                  # Generate Prisma client
-docker compose up -d                  # Start local Supabase (db + storage + realtime)
-pnpm prisma migrate dev               # Apply schema to local db
+docker compose up -d                  # Start SQL Server, Azurite, Docuseal + its Postgres, mail catcher
+pnpm db:migrate                       # Run Prisma migrations, then raw-SQL migrations (policies, predicates)
+pnpm db:seed                          # Seed local dev data (optional)
 pnpm dev:web                          # Next.js dev server (port 3000)
 ```
 
 ### Port assignments
 
-| Service                 | Port | Notes                                      |
-| ----------------------- | ---- | ------------------------------------------ |
-| Web app (`apps/web`)    | 3000 | Next.js dev server                         |
-| Supabase API Gateway    | 54321 | Local Supabase (Kong)                     |
-| Supabase Postgres       | 54322 | Direct DB access                           |
-| Supabase Studio         | 54323 | http://localhost:54323                     |
-| Supabase Inbucket       | 54324 | Email capture (local Clerk + Resend stub)  |
+| Service                        | Port  | Notes                                      |
+| ------------------------------ | ----- | ------------------------------------------ |
+| Web app (`apps/web`)           | 3000  | Next.js dev server                         |
+| SQL Server 2022 (Developer)    | 1433  | `mcr.microsoft.com/mssql/server:2022-latest` |
+| Azurite (Blob emulator)        | 10000 | Azure Blob API for local file storage      |
+| Docuseal (self-hosted)         | 3005  | E-signature service — prototype-stage      |
+| Docuseal's Postgres            | 5432  | Internal to Docuseal only; not our app DB  |
+| Mail catcher (Mailhog/Inbucket)| 8025  | Web UI at http://localhost:8025            |
 
 ## Commands
 
@@ -145,8 +147,10 @@ pnpm dev:web                          # Next.js dev server (port 3000)
 
 ```bash
 pnpm dev:web                  # Next.js dev server
-pnpm prisma studio            # Prisma GUI
-docker compose up -d          # Local Supabase stack
+pnpm prisma studio            # Prisma GUI (connects via admin principal — can see all rows, bypasses RLS)
+docker compose up -d          # Local stack: SQL Server + Azurite + Docuseal + mail catcher
+docker compose down           # Stop stack (keeps volumes)
+docker compose down -v        # Stop + destroy volumes (wipes local DB — warn hook fires)
 ```
 
 ### Build / Lint / Test
@@ -161,9 +165,13 @@ pnpm test                                    # All tests across workspace
 ### Database
 
 ```bash
-pnpm prisma migrate dev --name <name>        # Generate + apply migration (local)
-pnpm prisma migrate deploy                   # Apply pending migrations (CI/prod)
+pnpm prisma migrate dev --name <name>        # Generate + apply Prisma migration (local) — entity schema only
+pnpm prisma migrate deploy                   # Apply pending Prisma migrations (CI/prod)
 pnpm prisma generate                         # Regenerate client
+pnpm db:migrate                              # Apply Prisma migrations, then raw-SQL migrations (db/migrations/, db/policies/)
+pnpm db:policies:apply                       # Re-apply security policies only (idempotent)
+pnpm db:seed                                 # Seed local dev data
+pnpm db:reset                                # Drop + recreate local DB, re-run all migrations + seed
 ```
 
 ## Key Documentation
