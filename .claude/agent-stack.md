@@ -14,10 +14,10 @@ Five specialised role types collaborate on the project. Each has strict boundari
 
 | Role                          | Agent File            | Responsibility                                                                                                                                                                                                                                                                                                                                 |
 | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Requirements Analyst (RA)** | `agents/ra.md`        | Owns the requirements document (SRS). Defines epics, refines requirements, validates completed work end-to-end. Does not write implementation code. At epic completion, runs the full e2e suite as a final gate and updates requirements status.                                                                                               |
+| **Requirements Analyst (RA)** | `agents/ra.md`        | Owns the SRS, user personas, and user flows. Defines epics, refines requirements, cascades changes to personas and flows, validates completed work end-to-end. Does not write implementation code. At epic completion, runs the full e2e suite as a final gate and updates requirements status.                                               |
 | **System Architect (SA)**     | `agents/sa.md`        | The autonomous orchestrator. Drives epic execution through phases. Owns workflow files, task breakdown, and architecture model. Spawns all other agents as subagents. Creates ADRs for significant decisions. May self-implement simple tasks (see § SA Self-Implementation) to preserve context; delegates complex tasks to developer agents. |
-| **Developer (1–N)**           | `agents/developer.md` | Implements tasks in their assigned domain. Writes tests first (TDD), implements until green, runs the submission gate, then submits for review. Multiple developer roles can be defined per project (e.g., backend, frontend, mobile, infrastructure).                                                                                         |
-| **SDET / Validator**          | `agents/sdet.md`      | Reviews developer work for security flaws, edge cases, convention compliance, and documentation gaps. Verifies developer gate evidence but does not re-run tests — the CI gate is the independent test verification. Never approves based on code review alone. Rejects with actionable bug reports.                                           |
+| **Developer (1–N)**           | `agents/developer.md` | Implements tasks in their assigned domain. Scopes TDD tests against the affected user flows and gherkin scenarios, writes tests first, implements until green, runs the submission gate, then submits for review. Multiple developer roles can be defined per project (e.g., backend, frontend, mobile, infrastructure).                      |
+| **SDET / Validator**          | `agents/sdet.md`      | Owns executable gherkin feature specs under `docs/requirements/features/`. Reviews developer work for flow coverage, gherkin alignment, security flaws, edge cases, convention compliance, and documentation gaps. Verifies developer gate evidence but does not re-run tests — the CI gate is the independent test verification. Never approves based on code review alone. Rejects with actionable bug reports. |
 | **Overwatch**                 | `agents/overwatch.md` | Read-only auditor. Monitors for rule violations, scope creep, and inefficiencies. Advisory only — SDET remains the approval authority.                                                                                                                                                                                                         |
 
 ## Gated Paths
@@ -62,6 +62,74 @@ Task files are named `TASK-EEE-NNN-short-description.md` where `EEE` is the epic
 All tasks and bugs live in `docs/tasks/` while active. When they reach `done`, they are moved to `docs/tasks/done/`. Status changes are tracked by updating the **Status** field in the file.
 
 Every agent must update the **Status** field, **Updated-by** field, and append to the **Work Log** section on every status change or meaningful work action.
+
+### Task spec required fields
+
+Every task spec the SA creates during Plan must include (in addition to the standard Definition of Done, Files to Create or Modify, Quality Gates, and Work Log):
+
+- **`**Affected flows:**`** — list of flow IDs (one per line, e.g., `flow-engagement-request`) that this task participates in. Empty list is only acceptable if the task genuinely touches no user-facing behavior (e.g., a build-pipeline-only change); in that case write `**Affected flows:** none (justification: …)`.
+- **`**Affected requirements:**`** — list of SRS requirement IDs the task exercises (e.g., `REQ-ONBD-001`, `REQ-ONBD-003`). Used by developers to locate the relevant gherkin scenarios and by SDET to verify flow + gherkin coverage at review time.
+
+A task spec missing either field is a mandatory SDET rejection (and the developer should escalate to the SA before starting work). Both fields are equally enforced — missing `**Affected requirements:**` is as rejectable as missing `**Affected flows:**`.
+
+**Hotfix exception:** For `Epic-type: hotfix`, flow authoring and gherkin authoring may be deferred to a follow-up task provided the SA creates that follow-up during Plan and notes the deferral in PROGRESS.md `## Current initiative`. The hotfix task itself still carries `**Affected flows:**` and `**Affected requirements:**` with `(pending backfill: TASK-XXX)` annotations pointing at the follow-up. No other exception path exists — the gates are otherwise hard.
+
+## Quality Artifacts
+
+Three artifact types anchor the requirements and testing workflow. They are **first-class, living artifacts** — not documentation. Tasks cannot proceed without them, and reviews fail without coverage against them.
+
+### Artifact inventory
+
+| Artifact | Location | Owner | Purpose |
+|---|---|---|---|
+| **Personas** | `docs/requirements/personas/<slug>.md` (one per archetype) | RA | User archetypes — who they are, their goals, pain points, constraints. Context for requirements and flows; not a direct test input. |
+| **User flows** | `docs/requirements/flows/flow-<slug>.md` (one per workflow) | RA | End-to-end workflows through the app, with steps linked to REQ-IDs and persona refs. **Load-bearing: developers scope TDD against them, SDET scopes e2e against them.** |
+| **Gherkin features** | `docs/requirements/features/<area>.feature` (one per feature area) | SDET | Gherkin scenarios tagged with REQ-IDs. The behavior contract between requirements and implementation. The project's test framework may bind scenarios to executable steps (see CLAUDE.md) — until that tooling lands, `.feature` files are human-readable specs and SDET review is prose-based. |
+
+Detailed rules live in the agent files: RA maintains personas and flows (`agents/ra.md` § Personas, § User Flows). SDET maintains gherkin (`agents/sdet.md` § Gherkin Feature Specs).
+
+### Flow gate — no development without flows
+
+**Hard rule: no design or development work on a requirement may begin until a user flow covering it exists.** Enforcement is distributed across three agents:
+
+- **SA Plan phase:** when breaking an epic into tasks, the SA verifies every touched requirement has a corresponding flow file. If any flow is missing, the SA pauses Plan and dispatches the RA to author the missing flows first. Plan does not complete with missing flows.
+- **Developer startup:** if the task spec's `**Affected flows:**` field references a flow file that doesn't exist, the developer stops and escalates to the SA. No code is written.
+- **SDET review:** any task referencing a non-existent flow, or touching a requirement without a matching flow, is rejected with escalation to the SA.
+
+### Gherkin gate — no development without gherkin
+
+**Hard rule: no development work on a requirement may begin until a gherkin scenario exists for that requirement.** Enforcement:
+
+- **SA Plan phase:** the SA dispatches the SDET to author gherkin for every requirement the epic covers **before dispatching developers.** Gherkin precedes implementation — the scenarios are the behavior contract.
+- **Developer startup:** if the task's touched requirements have no matching `@REQ-XXX` tagged scenarios in the relevant `.feature` file, the developer stops and escalates to the SA.
+- **SDET review:** implementation that diverges from the gherkin (behavior drift) is rejected; a requirement with no matching scenario is rejected.
+
+### Artifact update cascade
+
+When the RA changes a requirement:
+
+1. RA updates `docs/requirements/SRS.md`
+2. RA updates every affected persona under `docs/requirements/personas/`
+3. RA updates every affected flow under `docs/requirements/flows/`
+4. RA flags gherkin updates for the SDET in its PROGRESS.md session entry, format: `SDET: REQ-XXX changed — gherkin at features/<file>.feature needs update`
+5. SA reads those flags during the next Plan phase (or creates a mid-epic sync task if urgent) and dispatches SDET to update gherkin
+6. SDET updates scenarios; developer tests absorb the change in the affected epic
+
+**Mid-epic cascade rule (sharpened):**
+
+- If the RA change touches a requirement referenced by a task in `in-progress` or `review`, the SA **pauses and re-plans** the affected tasks: SDET syncs gherkin, developer re-reads updated flows, task may need respec.
+- If the RA change only affects `backlog` tasks, the SA accepts post-hoc and refreshes their `**Affected flows:**` / `**Affected requirements:**` fields before dispatching them.
+- **Mid-epic PROGRESS.md marker:** when the RA makes a mid-epic change, the RA writes `**Pending SDET sync:** REQ-XXX gherkin update` to the `## Current initiative` section of PROGRESS.md (not just the session entry). The SA must check this marker at the start of every Execute-phase dispatch and resolve it — dispatching an SDET sync task — before spawning the next developer. A `Pending SDET sync:` marker active against a task's requirement also blocks that task's SDET approval: the SDET rejects the submission with "gherkin out of sync, pending RA-flagged update."
+
+Do not let implementation-gherkin-flow drift silently.
+
+**Materiality threshold (cascade scope reduction):**
+
+The persona/flow update half of the cascade (steps 2–3) is **required only when the requirement change alters actors, steps, preconditions, branches, or postconditions**. Wording-only changes (e.g., clarifying phrasing of an unchanged behavior) do not trigger a persona/flow update. The gherkin flag (step 4) is required even for wording-only changes if the scenario's Given/When/Then would read differently — SDET is the judge.
+
+### Epic validation gate (flow-strengthened)
+
+At epic completion the RA cross-references delivered behavior against the affected flow files — every flow step in scope must be exercisable end-to-end through the delivered UI. This is part of the RA's existing validation gate, strengthened: the flow file (not just the SRS) is the acceptance contract.
 
 ## Breadcrumbs (session continuity)
 
