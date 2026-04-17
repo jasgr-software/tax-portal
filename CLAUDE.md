@@ -47,7 +47,7 @@ The workflow engine (`.claude/agent-stack.md`) defines generic roles. This secti
 | -------------------- | -------------------- | ---------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `[sa]`               | System Architect     | Opus 4.6   | `CLAUDE.md`, `docs/tasks/`, `docs/architecture/`, `docs/decisions/`           | —                                                                          |
 | `[ra]`               | Requirements Analyst | Sonnet 4.6 | `docs/requirements/`                                                          | —                                                                          |
-| `[webapp-developer]` | Developer            | Sonnet 4.6 | `apps/web`, `packages/`, `prisma/`, `db/`                                     | Next.js 14 (App Router), TypeScript, Clerk, Prisma (sqlserver provider), SQL Server 2022, Tailwind, shadcn/ui, Playwright, Vitest |
+| `[webapp-developer]` | Developer            | Sonnet 4.6 | `apps/portal`, `apps/admin`, `packages/`, `prisma/`, `db/`                    | Next.js 14 (App Router), TypeScript, Clerk, Prisma (sqlserver provider), SQL Server 2022, Tailwind, shadcn/ui, Playwright, Vitest. Two front-ends: `apps/portal` (Client Portal — client-facing) and `apps/admin` (Tax Portal — accountant-facing). See ADR-006. |
 | `[devops]`           | Developer            | Sonnet 4.6 | `infra/`, `.github/workflows/`, Dockerfiles, `docker-compose*.yml`            | OCI containers (multi-stage Dockerfile), GitHub Actions, Docker + Docker Compose (local dev). Production deploy platform deferred — see ADR-007. |
 | `[sdet]`             | SDET / Validator     | Sonnet 4.6 | (reviews all directories)                                                     | —                                                                          |
 | `[overwatch]`        | Overwatch            | Sonnet 4.6 | (reads all directories)                                                       | —                                                                          |
@@ -78,15 +78,23 @@ pnpm type-check
 ### Tests
 
 ```bash
-pnpm --filter web test                               # Vitest unit/component tests
-pnpm --filter web test -- src/path/to/file           # Single test file
+pnpm --filter portal test                            # Client Portal Vitest unit/component tests
+pnpm --filter admin test                             # Tax Portal Vitest unit/component tests
+pnpm --filter portal test -- src/path/to/file        # Single test file (portal)
+pnpm --filter admin test -- src/path/to/file         # Single test file (admin)
+pnpm -r test                                         # All workspaces
 ```
 
 ### E2E
 
+Per ADR-006, each app has its own Playwright config. E2E runs against the full docker-compose stack (both apps up).
+
 ```bash
-pnpm --filter web e2e:run                            # Full Playwright suite
-pnpm --filter web e2e:run -- --grep '<feature>'      # Targeted e2e
+pnpm --filter portal e2e:run                         # Portal Playwright suite
+pnpm --filter admin e2e:run                          # Admin Playwright suite
+pnpm --filter portal e2e:run -- --grep '<feature>'   # Targeted e2e (portal)
+pnpm --filter admin e2e:run -- --grep '<feature>'    # Targeted e2e (admin)
+pnpm e2e:cross-app                                   # Cross-app redirect + navigation specs (ADR-010)
 ```
 
 ### Executable gherkin tooling (planned — Epic 001 scope)
@@ -133,20 +141,22 @@ When branch protection is enabled on `main`, the following should be required: `
 ## Local Development Setup
 
 ```bash
-cp .env.example .env.local            # Configure env vars (Clerk keys, SA_PASSWORD, AZURITE_CONN, Docuseal URL, etc.)
+cp .env.example .env.local            # Configure env vars (Clerk keys, SA_PASSWORD, AZURITE_CONN, Docuseal URL, PORTAL_APP_URL, ADMIN_APP_URL, etc.)
 pnpm install                          # Install dependencies
 pnpm prisma generate                  # Generate Prisma client
 docker compose up -d                  # Start SQL Server, Azurite, Docuseal + its Postgres, mail catcher
 pnpm db:migrate                       # Run Prisma migrations, then raw-SQL migrations (policies, predicates)
 pnpm db:seed                          # Seed local dev data (optional)
-pnpm dev:web                          # Next.js dev server (port 3000)
+pnpm dev:portal                       # Client Portal dev server (port 3000)
+pnpm dev:admin                        # Tax Portal dev server (port 3001) — run in separate terminal
 ```
 
 ### Port assignments
 
 | Service                        | Port  | Notes                                      |
 | ------------------------------ | ----- | ------------------------------------------ |
-| Web app (`apps/web`)           | 3000  | Next.js dev server                         |
+| Client Portal (`apps/portal`)  | 3000  | Next.js dev server — client-facing         |
+| Tax Portal (`apps/admin`)      | 3001  | Next.js dev server — accountant-facing     |
 | SQL Server 2022 (Developer)    | 1433  | `mcr.microsoft.com/mssql/server:2022-latest` |
 | Azurite (Blob emulator)        | 10000 | Azure Blob API for local file storage      |
 | Docuseal (self-hosted)         | 3005  | E-signature service — prototype-stage      |
@@ -158,7 +168,9 @@ pnpm dev:web                          # Next.js dev server (port 3000)
 ### Development
 
 ```bash
-pnpm dev:web                  # Next.js dev server
+pnpm dev:portal               # Client Portal dev server (port 3000)
+pnpm dev:admin                # Tax Portal dev server (port 3001)
+pnpm dev                      # Run both apps concurrently (pnpm-workspace concurrent)
 pnpm prisma studio            # Prisma GUI (connects via admin principal — can see all rows, bypasses RLS)
 docker compose up -d          # Local stack: SQL Server + Azurite + Docuseal + mail catcher
 docker compose down           # Stop stack (keeps volumes)
@@ -202,15 +214,4 @@ pnpm db:reset                                # Drop + recreate local DB, re-run 
 
 - **Use `Monitor` for long-running tail/poll work** — CI run polling (`gh run watch` or a `gh run view --json conclusion` loop), Docker log tailing during e2e debugging (`docker compose logs -f | grep --line-buffered -E 'ERROR|FAIL'`), file-change watching (`inotifywait`), and Vercel deploy health polling. Do NOT use blocking foreground `Bash` calls or `sleep` loops for these — Monitor streams stdout lines as chat events so you keep working while notifications arrive. Use `Bash run_in_background` only for one-shot "wake me up when this one thing finishes" work. Always pipe through `grep --line-buffered` with a specific filter — raw tails will be auto-stopped for volume.
 - **Use the `claude-code-guide` agent for authoritative Claude Code feature questions** — it has WebFetch against the official docs. Do not guess release dates or feature availability from memory.
-
-### Agent status line file format (`.claude/agent-status.json`)
-
-The 4th line of the Claude Code status bar is rendered by `~/.claude/statusline.sh`, which reads `.claude/agent-status.json` in the project root. **The file must be a multi-session dict keyed by session ID, with PID-based pruning.** Key rules:
-
-- **Format is a dict, not a flat object.** Each top-level key is a session ID (the Claude Code process PID works as a session ID). Each value is a sub-dict with `pid`, `agent`, `model`, `goal`, `status`, `started` (ISO 8601). Writing the file as `{"agent": "...", "task": "..."}` (flat) makes the status line show `-- no agents active --` because the script iterates `sessions.items()` expecting sub-dicts and silently skips the flat format.
-- **`status` must be the string `"active"`, not `"running"`.** The script filters on `info.get("status") != "active"`.
-- **`pid` must point to a live process.** Use `$PPID` from a Bash subprocess to capture the `claude` process PID. Dead-PID entries are pruned automatically on every status-line refresh.
-- **Always read-modify-write** to preserve other concurrent sessions' entries. Never overwrite the entire file with just your own session.
-- **Update before AND after every Agent dispatch** — before to flip to `active` with the new agent/goal, after to flip back to `active` with `agent: "main"` and the main session's current goal, or to `idle` if the session is truly idle.
-
-The file is gitignored — do not commit it.
+- **Do not write to `.claude/agent-status.json`.** The file is not used by this project; no agent (main or sub) should create, update, or read it.
