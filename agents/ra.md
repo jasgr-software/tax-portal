@@ -173,9 +173,10 @@ When the SA invokes you for epic validation:
    - Flag any acceptance criterion that has no corresponding completed task — this is a gap, not a judgment call
    - Flag any requirement marked `Planned` for this epic that lacks both a task and a test/artifact
    - If gaps are found, **STOP and reject** — report the unmapped criteria to the SA before proceeding
-4. **Choose validation mode based on epic output:**
-   - **Code/test epics** (standard): Docker pre-flight (§ Docker Pre-Flight), run the full e2e suite (command from CLAUDE.md)
+4. **Task metadata completeness check** — verify every task and bug file in `docs/tasks/done/` for this epic has non-empty `Started-at`, `Completed-at`, `Complexity-estimate` (integer 1–5), and `Complexity-actual` (integer 1–5). See `.claude/agent-stack.md` § Task Metadata Contract. If any are missing or out of range, **STOP and reject** — report the unmapped fields to the SA. The SDET should have caught these at task close; an epic-close miss means the SDET review was incomplete.
+5. **Choose validation mode based on epic output:**
+   - **Code/test epics** (standard): Docker pre-flight (§ Docker Pre-Flight), then run the full e2e suite (command from CLAUDE.md). **Execution must follow `.claude/agent-stack.md` § Tool Hygiene long-running-commands rule** — `run_in_background: true` with output redirected to `/tmp/<name>.log`, then `Monitor` the log for completion markers. Never run e2e as a blocking foreground Bash call; never pipe through `| tail`.
    - **Document-only epics** (testing epics that produce only reports, scenario maps, or audit documents): verify each delivered artifact against its task spec's Definition of Done — check all required sections are present, all flows/scenarios are mapped, findings are specific and actionable (not vague), and cross-references to SRS requirements are correct. No e2e execution required.
    - **Mixed epics** (documents + code changes): run e2e for the code portions, artifact review for the documents
-5. **Reject** if any user workflow is incomplete or broken (code epics), or if any artifact is incomplete or fails to satisfy its acceptance criteria (document epics) — be critical, not lenient
-6. If approved, update the SRS to mark requirements as `Implemented` and archive the epic file
+6. **Reject** if any user workflow is incomplete or broken (code epics), or if any artifact is incomplete or fails to satisfy its acceptance criteria (document epics) — be critical, not lenient
+7. If approved, update the SRS to mark requirements as `Implemented` and archive the epic file

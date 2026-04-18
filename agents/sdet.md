@@ -46,6 +46,8 @@ For each task with status `review`:
    - **Any unticked Mandatory box in the Quality Gates checklist** (Work Log complete, Submission gate, Targeted e2e if E2e-required, Security review). The Quality Gates checklist is your literal walking list for review — every unticked Mandatory box is a rejection
    - Work Log is empty, missing, or lacks breadcrumbs (what was done, what's next, blockers)
    - Task has `E2e-required: yes` but the Work Log does not contain actual test execution output (pass/fail counts, test names) — "Docker unavailable" or "tests written but not run" is a mandatory rejection, no exceptions
+   - **`Complexity-actual` is empty or not an integer in `1`–`5`** (per `.claude/agent-stack.md` § Task Metadata Contract). Also reject if `Started-at` or `Complexity-estimate` is empty — the developer skipped the contract at task pickup. Do not silently fill these in for the developer; rejection is the signal
+   - **Tool-hygiene violations in the Work Log** (e.g. `$()` in gate commands, `cd &&` chaining, `sudo`, heredoc-over-Write for repo files, `| tail` on long-running commands, shell-out to `claude -p`). Cite `.claude/agent-stack.md` § Tool Hygiene as the source of truth in the rejection breadcrumb
 3. Review the code changes for:
    - **Flow coverage (mandatory)** — for every flow listed in the task's `**Affected flows:**` field, verify the delivered tests (TDD + e2e) exercise the flow steps the task's requirements participate in. If the task spec has no `**Affected flows:**` field, that is itself a rejection reason (the SA should have set it during Plan; escalate to the SA). If `**Affected flows:**` points at a flow file that does not exist, reject and escalate to the SA — per `agent-stack.md` § Quality Artifacts, development work cannot proceed without a flow.
    - **Gherkin alignment (mandatory)** — for every requirement touched by the task, read the matching scenarios in `docs/requirements/features/<area>.feature` (scenarios are tagged with REQ-IDs). Verify: (a) the implementation behavior matches each relevant scenario's Given/When/Then; (b) the task's Playwright e2e tests implement the scenarios (executable gherkin — Cucumber step definitions bind `.feature` scenarios to Playwright steps). If a requirement has no matching gherkin scenario, reject and escalate to the SA — the SDET should have authored the gherkin as part of the epic. Rejection reason: "gherkin drift" or "missing gherkin."
@@ -67,7 +69,7 @@ For each task with status `review`:
      - **Accept** a repository that has no interface if its only tests are integration tests. Concrete-only is a legitimate steady state (see `apps/auth-api` reference pattern).
 4. **Verify submission gate evidence** — confirm the developer's Work Log shows clean gate output (lint, type-check, tests, e2e if required). Do not re-run the full gate — the CI gate at epic completion independently verifies all tests. Re-run a specific check only if the evidence is suspicious or incomplete. If the task has `E2e-required: yes`, verify 3x e2e run evidence is present with zero flakes.
 5. If the task changes infrastructure code, **verify that operational documentation** (inventory, runbooks, deployment guides) is consistent with the changes — reject if stale
-6. If everything passes → **in a single atomic edit**: (a) tick the **SDET Review** box in the task's Quality Gates checklist, (b) fill in the `## SDET Review` prose section (`**Decision**: approved` + Notes), (c) append the approval breadcrumb to the Work Log, (d) set task `Status: done`. All four changes in **one Edit call** — splitting leaves the task in an inconsistent state.
+6. If everything passes → **in a single atomic edit**: (a) tick the **SDET Review** box in the task's Quality Gates checklist, (b) fill in the `## SDET Review` prose section (`**Decision**: approved` + Notes), (c) append the approval breadcrumb to the Work Log, (d) set task `Status: done`, (e) set `Completed-at` to current UTC ISO 8601 (e.g., `date -u +%Y-%m-%dT%H:%M:%SZ`). All five changes in **one Edit call** — splitting leaves the task in an inconsistent state.
 7. If anything fails → reject, create a BUG file with:
    - What failed and why
    - Steps to reproduce
@@ -164,17 +166,14 @@ If any app fails the audit, report the gaps to the SA. The SA creates remediatio
 
 ## E2E Execution Pattern
 
-When running e2e tests (CI gate, re-verification, or targeted checks), **never run e2e as a blocking foreground Bash call**. Use the `run_in_background` + Monitor pattern:
+Follow `.claude/agent-stack.md` § Tool Hygiene — long-running commands must use `run_in_background` + Monitor, never blocking foreground Bash. This applies to all e2e commands (`e2e:run`, targeted `--grep`, per-persona runs, `pnpm ci:local`). Concrete pattern (same as `agents/developer.md` § Project-Specific Rules):
 
 ```bash
-# Step 1: kick off e2e in background, redirect output to a log file
-pnpm --filter web e2e:run > /tmp/e2e-run.log 2>&1   # run_in_background: true
-
-# Step 2: Monitor the log for completion
-Monitor: tail -f /tmp/e2e-run.log | grep --line-buffered -E "passed|failed|FAIL|exit [1-9]"
+pnpm --filter portal e2e:run > /tmp/e2e-run.log 2>&1   # run_in_background: true
+# Monitor: tail -f /tmp/e2e-run.log | grep --line-buffered -E "passed|failed|FAIL|exit [1-9]"
 ```
 
-The Monitor fires a notification when Playwright prints its summary. Read the log file for full results. This applies to all e2e commands (`e2e:run`, targeted `--grep`, per-persona runs, `pnpm ci:local`). Unit tests and lint/type-check are fast enough to run in the foreground.
+Unit tests and lint/type-check are fast enough to run in the foreground.
 
 ## Project-Specific Rules
 

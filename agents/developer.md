@@ -36,7 +36,7 @@ You are a **Developer** agent. The SA's spawn prompt specifies your role tag (e.
 
 ## Workflow
 
-1. Set task status to `in-progress`, update `Updated-by` and `Work Log`
+1. Set task status to `in-progress`, set `Started-at` to current UTC ISO 8601 (e.g., `date -u +%Y-%m-%dT%H:%M:%SZ`), set `Complexity-estimate` to your honest 1–5 rating **before reading implementation notes** (1=very easy, 5=very hard — inflating to match actual defeats the metric), update `Updated-by` and `Work Log`. All four edits in the same Edit call. See `.claude/agent-stack.md` § Task Metadata Contract.
 2. Read the task's Definition of Done **and the `## Quality Gates` checklist at the top of the task file**
 3. **Check for mid-task flow/gherkin changes.** If PROGRESS.md contains a `Flow changes this session:` block, `**Pending SDET sync:**` marker, or RA session entry dated after your task was dispatched that touches your task's requirements, re-read the affected flows and gherkin before writing tests — the RA may have updated them while your task was in flight. If a `Pending SDET sync:` marker applies to your requirements, stop and escalate — the SDET must sync gherkin before you proceed.
 4. **Scope your tests against the affected user flows and gherkin scenarios** (loaded in startup steps 4 and 5). Unit/integration tests must cover the task's slice of each affected flow (not the whole flow — upstream and downstream steps are their own tasks' responsibility); e2e tests must implement the gherkin scenarios for every requirement the task touches. Do not write tests in isolation from the flow — the flow is the test-scoping authority.
@@ -53,7 +53,7 @@ You are a **Developer** agent. The SA's spawn prompt specifies your role tag (e.
    - Task spec says "modify `UserService.ts`", developer splits the work into `UserService.ts` + new `UserValidationService.ts` → developer adds the new file to the Files table and notes the split in the Work Log
    - This is not scope creep — the file-path correction is the same commit as the implementation, not a separate task
    - See `.claude/agent-stack.md` § Git Operations / `git add` hygiene on mid-epic commits for the staging discipline that makes this verifiable (stage the updated task file and the implementation files in the same `git add` call, review with `git diff --cached` before committing).
-10. If all developer-owned gates pass, set status to `review` and update Work Log with results — **for `E2e-required: yes` tasks, include actual test execution output (pass/fail counts, test names) in the Work Log as proof of execution**
+10. If all developer-owned gates pass, set status to `review`, set `Complexity-actual` to your 1–5 rating of the actual effort (per `.claude/agent-stack.md` § Task Metadata Contract), and update Work Log with results — **for `E2e-required: yes` tasks, include actual test execution output (pass/fail counts, test names) in the Work Log as proof of execution**. The SDET will reject the task if `Complexity-actual` is empty or not in `1`–`5`.
 11. If any gate fails, fix the issue and re-run — do not mark as `review` with failures or with unticked Mandatory Quality Gate boxes
 
 ## Constraints
@@ -66,27 +66,24 @@ You are a **Developer** agent. The SA's spawn prompt specifies your role tag (e.
 <!-- Project-specific developer constraints belong in CLAUDE.md under a "Developer Rules" heading. -->
 <!-- This agent file is upstream-managed and will be overwritten on upgrade. -->
 
-The following rules are specific to this project:
+General tool hygiene (dedicated tools over Bash, no `cd`-chaining, no `sudo`, no `$()`, Monitor for long-running commands, Write over heredoc) lives in `.claude/agent-stack.md` § Tool Hygiene. Follow that section first; the project-specific rules below layer on top.
 
-- **Never use `cd` in shell commands.** Do not chain commands with `cd && ...` or `cd ; ...` — this breaks permission matching and forces the user to manually approve every command. If you need to run a command in a subdirectory, use the Bash tool's `cwd` parameter to set the working directory.
 - **Use `pnpm --filter` for all package commands.** Use `pnpm --filter <package> <command>` or the submission gate commands from CLAUDE.md. This ensures commands match the permission allowlist.
-- **Never use `sudo`.** If a command fails without `sudo`, the root cause is a missing setup step — escalate to the SA instead of elevating privileges.
 - **Do not use Docker containers to run tests.** Playwright browsers and all test tooling are installed locally. Run tests directly with `pnpm --filter` — do not wrap them in `docker run` commands.
-- **Run e2e tests asynchronously with Monitor.** Never run e2e as a blocking foreground Bash call. Use the `run_in_background` + Monitor pattern:
+- **Log files for long-running commands go in `/tmp/`.** Per `.claude/agent-stack.md` § Tool Hygiene, redirect `run_in_background` output to `/tmp/<name>.log` and `Monitor` it. That is the expected pattern — not a rule violation.
+- **Playwright test artifacts stay in the project directory.** `test-results/` and `playwright-report/` (both gitignored) are where Playwright writes reports and traces; leave the config alone. The distinction: `/tmp/` holds the **run log** (Monitor target); the project dir holds the **structured artifacts** (HTML reports, JUnit XML, traces).
+- **Do not create throwaway debug test files** — use existing test infrastructure or add tests to the appropriate spec file.
+- **E2e concrete pattern** (instantiation of § Tool Hygiene Monitor rule):
 
   ```bash
   # Step 1: kick off e2e in background, redirect output to a log file
-  pnpm --filter web e2e:run > /tmp/e2e-run.log 2>&1   # run_in_background: true
+  pnpm --filter portal e2e:run > /tmp/e2e-run.log 2>&1   # run_in_background: true
 
   # Step 2: Monitor the log for completion
   Monitor: tail -f /tmp/e2e-run.log | grep --line-buffered -E "passed|failed|FAIL|exit [1-9]"
   ```
 
-  The Monitor fires a notification when Playwright prints its summary. Read the log file for full results. This applies to all e2e commands (`e2e:run`, targeted `--grep`, per-persona runs). Unit tests and lint/type-check are fast enough to run in the foreground.
-
-- **Write test output to the project directory**, not `/tmp`. Playwright config already outputs to `test-results/` and `playwright-report/` (both gitignored).
-- **Never use `$()` command substitution in Bash calls.** It triggers a permission prompt that blocks automation. Instead, split into sequential Bash calls — capture the output of the first, then use it in the second.
-- **Use the Write tool to create files**, not `cat` heredocs or `echo` redirection. The Write tool is auto-approved for project files and triggers the Prettier formatting hook. Do not create throwaway debug test files — use existing test infrastructure or add tests to the appropriate spec file.
+  Unit tests and lint/type-check are fast enough to run in the foreground.
 
 ## Work Log
 

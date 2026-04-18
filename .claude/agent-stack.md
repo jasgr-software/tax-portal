@@ -36,7 +36,11 @@ The single rule that determines whether work needs quality gates: **any change t
 **Ungated paths** (main session edits directly):
 
 - `agents/*.md`, `.claude/agent-stack.md` — workflow rules (quad review when modified)
-- `CLAUDE.md`, `docs/`, memory files, `.claude/` config
+- `CLAUDE.md`, `docs/` (see RA-owned exception below), memory files, `.claude/` config
+
+**RA-owned paths** (read-only for main session and all non-RA agents):
+
+- `docs/requirements/**` — SRS, epic files, and archive. Only the RA agent may edit these. Exception: the main session may **append** (not rewrite) to `docs/requirements/observations.md` to capture live user input, then hand off to the RA for requirements authoring. All other edits under `docs/requirements/` — including creating, modifying, or moving epic files — must go through the RA.
 
 **Only one initiative is active at a time** — the `## Current initiative` section in PROGRESS.md holds exactly one unit of work.
 
@@ -47,9 +51,49 @@ The main Claude Code session (not an agent) follows these rules:
 - **Gated paths go through the SA.** Any change to a gated path (§ Gated Paths) must be orchestrated by the SA with developer agents, submission gates, and SDET review. The main session may only directly modify ungated paths.
 - **Never modify requirements directly.** The RA owns all requirements documents.
 - **Git operations are the main session's responsibility.** Agents write code but do not commit, push, or manage branches. The SA creates branches during its Plan phase. The main session executes commits, pushes, and PRs when the SA requests approval.
-- **Always ask before committing or pushing.** Propose a commit message and wait for explicit approval.
-- **No worktree-based parallelization.** Dispatch developer agents sequentially. When the user wants parallelism, they will open separate Claude Code sessions on separate branches manually.
+- **Always ask before committing or pushing** — see § Autonomy Ceiling item 2 for the full rule and graduation path.
+- **Never spawn Agent-tool subagents with `isolation: "worktree"`, and never invoke the `EnterWorktree` / `ExitWorktree` tools directly.** All agent dispatch must run in-process against the current working tree. This rule is absolute — "sequential with isolation" is not a permitted variant. Rationale: worktree-isolated agents create staged, orphan commits in `.claude/worktrees/` that the main session cannot see, breaking the mid-epic review cadence and producing directory clutter. The ban applies to worktree-isolated **Agent spawns** specifically; normal in-process concurrency (multiple tool calls in one turn, async CI polling via Monitor) is unaffected. When the user wants worktree-level parallelism, they open separate Claude Code sessions on separate branches manually.
 - **Agent workflow file changes require quad review.** Any modification to `agents/*.md` or `.claude/agent-stack.md` must be reviewed by the SA, RA, SDET, and Overwatch before the change is considered final. **Quad review findings are advisory by default** — a finding only becomes an edit when it demonstrates a concrete quality gate failure. Documentation polish and process suggestions stay as review notes in the PR description. **Expedited path:** non-structural changes (wording, formatting, typos) require only SA + one other reviewer.
+- **Autonomy pre-authorization.** When the user gives a multi-step directive in a single message (e.g. "do A, then B, then C"; "quad-review and apply the findings"; "run through the backlog"), you are pre-authorized to drive the entire directive to completion without per-step approval. Brief status updates between steps are expected; approval checkpoints are not. **Pause only if:** (a) an error or gate failure blocks the next step, (b) a step surfaces genuine ambiguity that user input alone can resolve, (c) the next step is one of the structural checkpoints enumerated in § Autonomy Ceiling, or (d) a step's outcome invalidates the rest of the batched plan. **Structural checkpoints in § Autonomy Ceiling are exceptions to pre-authorization** — a multi-step directive does not authorize commit, push, merge, rewriting `docs/requirements/`, or any other § Autonomy Ceiling item without the explicit approval that rule requires. (The main session may still **append** to `docs/requirements/observations.md` under a batched directive — that is the one scope-preserved exception.) Do not pause merely because you just finished a step and the next one is "big." "Big" is not a pause reason; ambiguity is.
+
+## Autonomy Ceiling
+
+The goal of this pipeline is "lights out" — the SA drives epics end-to-end with the user in the loop only for cost-bearing, legally-significant, or authorship-retained actions. This section is the **authoritative inventory** of structural user-in-loop checkpoints. They split into two classes: **Intentional limits** (items 1–3, where the user has retained the decision by design) and **Hard-gate escalations** (items 4–6, where a rule explicitly stops the pipeline on a failure or role-boundary condition). All six are exceptions to § Main Session Rules / autonomy pre-authorization.
+
+### Intentional limits
+
+1. **Context compaction (`/compact` request during SA Plan).** The SA asks the user to run `/compact` at the start of Plan to free context for the epic. The SA cannot run `/compact` itself — it is a user-side CLI action. **Graduation path:** none required; this is a user-driver action by design.
+
+2. **Commit/push approval.** The main session proposes a commit message and waits for explicit approval before running `git commit` or `git push`. This is the canonical location for the "ask before committing" rule — § Main Session Rules only cross-references here. **Graduation path:** the user may grant scoped auto-authorization for a single session ("auto-commit for this epic"), but the default remains ask-first. Promoting the default to auto-commit requires the user to update this rule directly.
+
+3. **PR merge.** Claude never merges PRs. The user merges after reviewing the PR on GitHub. **Graduation path:** blocked on quality-gate trust. Auto-merge is the end-state, and the blocker is gate trust — not policy. When `scripts/validate-gates.sh` plus CI-on-PR plus the quad review produce zero false negatives over a full release cycle, the user may promote this checkpoint to auto-merge on green. Until that happens, the checkpoint stands.
+
+### Hard-gate escalations
+
+4. **Docker pre-flight unavailable.** Per § Docker Pre-Flight: when Docker is unavailable and cannot be started, the SA (or the agent running a Docker-dependent gate) **stops and escalates to the user** with the `docker info` / `docker compose up -d` failure output. No loop-retry, no workaround substitution, no gate bypass. **Resume condition:** user restores Docker and instructs the SA to continue.
+
+5. **Epic-start gate stop (PR limbo).** Per `agent-phases.md` § Epic-start gate: if PROGRESS.md `## Awaiting PR merge` is non-empty when the SA is invoked for Plan, the SA stops and reports. **Resume condition:** user merges the limbo PR so Close-finalize can clear it, **or** authorizes a hotfix carve-out per § Post-Close Protocol (hotfix mini-epic targeting the limbo epic is the one permitted bypass).
+
+6. **RA requirements-authoring routes through the RA.** User-invoked requirements work (new epic, SRS refinement, observations-to-requirements promotion) is not main-session work. A batched user directive like "add EP-NNN epic" does not pre-authorize the main session to draft SRS/epic content — the main session dispatches the RA. **Graduation path:** none; RA authorship is the role boundary. The exception is appending to `docs/requirements/observations.md`, which the main session may do directly per § Gated Paths (RA-owned paths).
+
+---
+
+Everything else in the pipeline — phase transitions, agent dispatch, retry after gate failure, mid-epic bug fixing, arch-scan fix dispatch, POST-bug handling during limbo, Overwatch mid-dispatch spawns, and every non-gate-failure internal decision — is pre-authorized and must not introduce additional user checkpoints. If a phase cannot auto-transition because its exit condition (per `agent-phases.md` § Phase exit conditions) is not met, pause with the specific blocker and wait. Do not pause "to confirm" when the exit condition _is_ met.
+
+## Tool Hygiene
+
+These rules are binding on the **main session and every agent**. Agent files may add domain-specific rules but must not contradict this section.
+
+- **Dedicated tools beat Bash.** Use `Read` for file reads (not `cat`/`head`/`tail`), `Glob` for file discovery (not `find`/`ls`), `Grep` for content search (not `grep`/`rg`), `Edit`/`Write` for modifications (not `sed`/`awk`/heredoc redirects). Bash is for shell-only operations.
+- **Never use `$()` command substitution in Bash calls.** It triggers a permission prompt that blocks automation. Split into sequential calls: capture the first call's output, then use it in the second.
+- **Never chain with `cd && ...` or `cd ; ...`.** It breaks permission-pattern matching and forces manual approval. Use the Bash tool's working-directory semantics or run commands from the repo root with relative paths.
+- **Never use `sudo`.** If a command fails without it, the root cause is a missing setup step — escalate to the SA (or to the user, if you are the main session) with the failing command and its error output. Do not proceed by elevating privileges.
+- **Never shell out to the `claude` CLI.** All subagent work goes through the Agent tool. This covers `claude`, `claude -p`, `claude --dangerously-skip-permissions`, and any other invocation — with or without the dangerous flag. Shelling out produces nested-agent failures and bypasses the flat-dispatch contract.
+- **Long-running commands: `run_in_background` + `Monitor`, not blocking Bash or sleep loops.** Applies to e2e test runs, CI polling (`gh run watch`), Docker log tailing, file-change watchers. Redirect output to a log file under `/tmp/`, then `Monitor` the file for completion markers. Never pipe long output through `| tail` — pipe buffering can strand the completion marker and hang the session. Always filter `Monitor` input with `grep --line-buffered -E '<specific-markers>'` to keep volume bounded.
+- **Write tool beats heredoc for repo files.** Use `Write` to create files under repo control rather than `cat <<'EOF'` or `echo >`. The Write tool is auto-approved on allowed paths and triggers formatter hooks; heredoc fights both. Heredocs remain legitimate for content that intentionally lives outside the file system (Docker entrypoint scripts embedded in `Dockerfile`, stdin-piped configs, `/tmp/` log files). **`Write` creates artifacts; it does not substitute for execution evidence** — see § Submission Gate "E2e proof." A Work Log must still contain test-run output.
+- **No worktree isolation on Agent spawns** — see § Main Session Rules, last bullet.
+
+Project-specific tool rules (e.g. `pnpm --filter` usage, test-runner invocation) live in `CLAUDE.md`. This section is the general contract; `CLAUDE.md` layers project specifics on top.
 
 ## Task Pipeline
 
@@ -62,6 +106,26 @@ Task files are named `TASK-EEE-NNN-short-description.md` where `EEE` is the epic
 All tasks and bugs live in `docs/tasks/` while active. When they reach `done`, they are moved to `docs/tasks/done/`. Status changes are tracked by updating the **Status** field in the file.
 
 Every agent must update the **Status** field, **Updated-by** field, and append to the **Work Log** section on every status change or meaningful work action.
+
+## Task Metadata Contract
+
+In addition to the existing header fields (Status, Assigned to, etc.), every task and bug file carries four lifecycle/effort fields that power the `.claude/metrics/` capture system. These are read by `log-task-edit.py` on every task-file edit and surfaced in `scripts/metrics-report.py`.
+
+| Field                 | Format       | Written by                           | When                                                                                                            |
+| --------------------- | ------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `Started-at`          | ISO 8601 UTC | Developer (or SA if `Impl: sa`)      | Same Edit that flips status out of `backlog` for the first time                                                 |
+| `Complexity-estimate` | integer 1–5  | Developer (or SA if `Impl: sa`)      | Same Edit as `Started-at` — your honest estimate before reading implementation notes (1=very easy, 5=very hard) |
+| `Complexity-actual`   | integer 1–5  | Developer (or SA if `Impl: sa`)      | Same Edit that flips status to `review`                                                                         |
+| `Completed-at`        | ISO 8601 UTC | SDET (or SA if reviewing `Impl: sa`) | Inside the atomic close edit when flipping status to `done`                                                     |
+
+**Hard verification gates:**
+
+- **SDET** rejects any `review → done` transition if `Complexity-actual` is empty or not in `1`–`5`.
+- **RA** rejects epic close if any task in `docs/tasks/done/` matching `TASK-EEE-*` or `BUG-EEE-*` (where `EEE` is the current epic number) has empty `Started-at`, `Completed-at`, `Complexity-estimate`, or `Complexity-actual`. The scope is filename-prefix-based; tasks from other epics are not inspected.
+
+**Why these fields exist:** they let `scripts/metrics-report.py` derive estimate accuracy per agent, active work time per task, rework rate, and gate-flip rate — the signals that tell us whether the workflow is improving over time. The values in the file are the source of truth; `.claude/metrics/tasks.jsonl` is the audit trail.
+
+**Honest estimation:** Inflating `Complexity-estimate` to "look right" on `Complexity-actual` defeats the purpose. Wrong estimates are useful data — they show where the workflow needs better task scoping or different agent assignments.
 
 ### Task spec required fields
 
@@ -180,6 +244,8 @@ Before running e2e tests, verify Docker is available (`docker info`). If Docker 
 
 **This is a hard gate — no exceptions.** CI run artifacts are **not** a substitute for local e2e execution on `E2e-required: yes` tasks.
 
+**Escalation semantics (mandatory):** "Escalate" means surface the failure to the user with the full `docker info` / `docker compose up -d` output and then **stop**. Do not loop-retry, do not sleep-and-poll, do not switch to `pnpm dev` as a workaround, do not mark the gate as passing. Stalling the epic on an unavailable Docker is the correct behavior; skipping is not.
+
 ## Submission Gate
 
 Before marking any task as `review`, the developer agent **must** pass:
@@ -195,9 +261,7 @@ A task **must not** be marked `review` if any gate fails. If Docker is unavailab
 
 **E2e proof:** `E2e-required: yes` tasks must include Playwright execution output in the Work Log. Curl, "not executed," and "Docker unavailable" are not substitutes — escalate to the SA.
 
-**Bash command hygiene:** Never use `$()` in Bash tool calls — it triggers permission prompts. Split into sequential calls instead.
-
-Gate commands are defined in `CLAUDE.md` under "Submission Gate Commands." Projects may define additional domain-specific gates there.
+Gate commands are defined in `CLAUDE.md` under "Submission Gate Commands." Projects may define additional domain-specific gates there. See § Tool Hygiene for the general Bash/Monitor/Write rules that apply when running gate commands.
 
 ## SA-Only Reference
 
