@@ -162,13 +162,26 @@ jobs:
           fi
           pnpm audit --audit-level=high
 
+      - name: Check for JS/TS source files
+        id: has_jsts
+        run: |
+          if find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
+              -not -path "./.github/*" -not -path "./node_modules/*" | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No JS/TS source files found — skipping CodeQL (pre-scaffold state)."
+          fi
+
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        if: steps.has_jsts.outputs.found == 'true'
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        if: steps.has_jsts.outputs.found == 'true'
+        uses: github/codeql-action/analyze@v4
 
   report-failure:
     name: report-failure
