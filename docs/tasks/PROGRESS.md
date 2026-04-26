@@ -4,19 +4,28 @@
 
 ## Current initiative
 
-**Epic 001 — Foundation: Scaffold, Auth, DB, Routing & Deployment Pipeline**  
-Branch: `ep-001-foundation-scaffold` (to be created by SA during Plan)  
-Goal: Two working Next.js apps (`apps/portal` — Client Portal; `apps/admin` — Tax Portal) with Clerk auth (one Clerk app, per-app middleware, cross-app redirect matrix), SQL Server schema + Security Policy baseline, CI/CD pipeline (two OCI container images, two Playwright configs), and local dev environment. Auth shell only — no product features.  
-Phase: Ready for SA → Plan  
-Gated: Yes
+**Lights-out enablement chore**  
+Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
+Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
+Phase: Plan complete → ready for Dispatch  
+Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
-_The RA has completed pre-Epic-001 cleanup. CLARIF-004 resolved. Personas and flows for Epic 001 scope are authored. SA may begin Plan phase._
+**Tasks:**
 
-> **All pre-Plan blockers cleared:**
-> - CLARIF-004 resolved: "Client Portal" (`apps/portal`) and "Tax Portal" (`apps/admin`) — see REQ-IDNT-006.
-> - Epic 001 ACs updated for two-app architecture (AC-001-001, AC-001-002, AC-001-003, AC-001-005, AC-001-006, AC-001-007, AC-001-008).
-> - Flows `flow-first-sign-in` and `flow-role-redirect` authored and ready.
-> - SA must reference these flows in all Epic 001 task specs (`**Affected flows:**` field).
+| Task | Owner | Status | Depends on | Introduces-gate | E2e |
+|---|---|---|---|---|---|
+| `TASK-LOE-001-ci-workflow.md` | devops | backlog | none | yes | no |
+| `TASK-LOE-002-branch-protection-runbook.md` | devops | backlog | TASK-LOE-001 | no | no |
+| `TASK-LOE-003-validate-gates-script.md` | devops | backlog | none | yes | no |
+| `TASK-LOE-004-metrics-cost-reporting.md` | devops | backlog | none | no | no |
+| `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | backlog | none | no | no |
+| `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | backlog | TASK-LOE-005 | yes | no |
+
+Dispatch order: 1 → 3 → 4 → 5 → 2 → 6. Rationale: 1 first (CI infra is the longest task and unblocks 2). 3 + 4 are independent of 1 and can run after. 5 (ADR) feeds 6 (workflow edits cite the ADR), so 5 before 6. 2 depends on 1's job names existing in `ci.yml`, so 2 lands after 1 is reviewed (not necessarily after 1 is `done` — `review` is sufficient since the YAML is final at that point). 6 last because it's the broadest workflow edit + needs ADR-011 from 5.
+
+_Decision context for the SA — read the **2026-04-26 Main Session Chore — Lights-out enablement decisions** entry below for the full discussion + locked decisions + per-task brief._
+
+> **Note on Epic 001:** Previously queued as `## Current initiative` (Foundation: Scaffold, Auth, DB, Routing & Deployment Pipeline). Deferred until this chore completes. All pre-Plan blockers for Epic 001 remain cleared (CLARIF-004 resolved; personas and flows authored; ACs updated for two-app architecture). Once this chore merges, the SA picks up Epic 001 on the next invocation.
 
 ## Awaiting PR merge
 
@@ -277,3 +286,99 @@ _None._
 - The three 2026-04-20 entries (Dispatch Checkpoint rule-sunset, Gate Authoring hotfix-exception promotion, model-behavior-notes rot check) cover the advisory findings from this round's quad review. No new retro items added.
 
 **End:** Round-2 port complete. Branch ready for PR. `## Current initiative` (Epic 001) preserved — chore did not touch Epic 001 work. Main session ends invocation.
+
+### Main Session Chore — Lights-out enablement decisions (planning) — 2026-04-26
+
+**Start:** After PR #5 (j4j-port round 2) and PR #6 (autonomy promotion: item 2 commit/push promoted, item 3 PR merge deferred) both merged, the user and main session walked through five lights-out blockers identified during the autonomy-promotion quad review. Decisions captured below for the SA to pick up at Plan time. **No code changes in this session entry — planning artifact only.** PROGRESS.md `## Current initiative` updated to point at the resulting chore (Epic 001 deferred until chore completes).
+
+**Five locked decisions:**
+
+1. **Branch protection model — A:** required CI status checks (`lint-and-typecheck`, `test-portal`, `test-admin`, `security-scan`), no required PR approvals, `enforce_admins=true` (no admin bypass). Rationale: self-approval is mechanically impossible for a solo dev (GitHub blocks PR-author from approving own PR); required CI is the substantive gate; quad-review-by-rule covers the second-pair-of-eyes requirement for workflow-file PRs.
+
+2. **Notification on harm — A+B+C combination:**
+   - **A:** GitHub built-in email on workflow failure (zero setup; user confirms notification preferences).
+   - **B:** `if: failure()` job in CI workflow that auto-creates a GitHub issue with log link.
+   - **C:** `PushNotification` mid-session for in-session events (agent-stuck per killswitch, item-2 credential-pattern hit, SA-pause-on-Docker-preflight). Reaches mobile if Remote Control is paired; otherwise terminal-only.
+   - Together: A+B cover post-merge / post-CI events that fire while user is away; C covers in-session escapes when user is at the terminal.
+
+3. **Clarification policy — RA-decides model + legal/compliance/security carve-out:**
+   - RA actively *resolves* CLARIFs (writes decisions with reasoning into SRS), not just flags them. SA proceeds against RA decisions; mid-epic ambiguity → SA dispatches RA → RA decides → binding.
+   - Carve-out: legal/compliance/security questions still escalate to user. Concrete classes: data retention/deletion semantics, PII handling/encryption/access-control/audit-log scope, auth/authorization model changes, IRS or state tax authority regulatory requirements.
+   - Examples in current open queue: **CLARIF-005 (hard delete vs 7-year retention)** and **CLARIF-006 (Docuseal self-hosted vs cloud)** are likely escalations under the carve-out. **CLARIF-001/002/003** are routine UX/copy decisions the RA decides directly.
+   - Implementation order: rule changes land first (in this chore), then RA processes the existing 5 open CLARIFs (001, 002, 003, 005, 006) under the new model — see Followup queue below.
+
+4. **Cost observability — B:** extend `scripts/metrics-report.py` with cost reporting columns. Manual monthly review cadence. No hard caps until baseline data justifies them. Need to verify what `.claude/metrics/tasks.jsonl` currently captures (token usage may or may not already be in the schema; if not, hook update may be required).
+
+5. **Stuck-loop killswitch — A:** rule in `.claude/agent-stack.md`. After **3 consecutive failed attempts on the same gate where the failure mode is unchanged across attempts** — e.g., SDET cites the same rejection reason, CI fails on the same step, e2e fails on the same assertion — the SA halts. Concrete halt behavior: create `BUG-EEE-NNN-stuck-on-<gate>.md` documenting (1) the failing gate, (2) the unchanging failure mode verbatim, (3) attempt-log summary with what each attempt tried; set `Status: needs-user-direction` (new task status — needs to be added to the lifecycle); fire `PushNotification` + auto-create GitHub issue per #2; SA ends invocation. **"Unchanged failure mode" qualifier is load-bearing** — distinguishes stuck loops from legitimate iterative debugging where each attempt addresses a different rejection reason.
+
+**Lights-out chore brief — for SA Plan:**
+
+| # | Task | Path | Owner |
+|---|---|---|---|
+| 1 | `.github/workflows/ci.yml` — 4 required jobs (`lint-and-typecheck`, `test-portal`, `test-admin`, `security-scan`) + SQL Server service container for any DB-dependent unit tests + `if: failure()` job that runs `gh issue create --label ci-failure --title "CI red on main: <commit>" --body <log link>`. Per ADR-005 + ADR-006, the SQL Server service block uses `mcr.microsoft.com/mssql/server:2022-latest`. RLS integration tests and full e2e remain Tier 2 — they run as part of `test-portal`/`test-admin` against the service container. | `.github/workflows/ci.yml` | `[devops]` |
+| 2 | Branch protection runbook — `gh api` snippet per decision #1A captured as runbook (config can't live in repo, but procedure can). Includes: required status checks list (the 4 jobs above), `enforce_admins=true`, `required_pull_request_reviews=null`, `required_conversation_resolution=true`, `allow_force_pushes=false`, `allow_deletions=false`, `required_status_checks.strict=true`. | `docs/operations/branch-protection.md` (new) or extend `docs/operations/runbook.md` if it exists | `[devops]` |
+| 3 | `scripts/validate-gates.sh` — task-file gate completion check (per `.claude/agent-stack.md` § Programmatic Gate Validation, which already references this script as the backstop) + PR-body quad-review-verdict check for workflow-file PRs (greps for `[sa]`, `[ra]`, `[sdet]`, `[overwatch]` verdict markers). Runs as pre-push hook + as a CI step. | `scripts/validate-gates.sh`, `scripts/hooks/pre-push` | `[devops]` |
+| 4 | Extend `scripts/metrics-report.py` with cost reporting columns. **Dependency check first:** read `.claude/metrics/tasks.jsonl` schema; if token-usage capture isn't already present, augment `.claude/hooks/log-task-edit.py` to record per-dispatch token usage from the agent invocation context. Then surface per-epic / per-agent / per-phase token totals + estimated cost in the report. | `scripts/metrics-report.py` (+ possibly `.claude/hooks/log-task-edit.py`) | `[devops]` |
+| 5 | New ADR — Repository interface as test seam. Port concept from journey-for-jasmine ADR-026 but adapted for the tax-portal stack (Prisma + SQL Server + RLS, not .NET + Dapper). Establishes the contract: data-access in service-layer code goes through `IUserRepository` / `IEngagementRepository` / etc. interfaces, mocked in Tier 1 unit tests, real Prisma in Tier 2 integration tests. Enables the two-tier test pipeline that makes Claude Cloud sandbox testing meaningful (Tier 1 runs without Docker; Tier 2 defers to GitHub Actions with the SQL Server service container). | `docs/decisions/ADR-NNN-repository-interface-test-seam.md` | SA self-implement (`Impl: sa`) |
+| 6 | Workflow file edits — single batch, single quad review covers all four edits since they're all workflow-file changes that travel together: (a) PushNotification call-sites per decision #2C — added at SA Docker-preflight escalation in `agents/sa.md`, item-2 credential-pattern hit in `.claude/agent-stack.md` § Autonomy Ceiling item 2, and stuck-loop killswitch trigger in the new section. (b) RA-decides-CLARIFs rule per decision #3 — `agents/ra.md` Core Responsibilities adds "resolve ambiguities, document decision with reasoning, escalate only legal/compliance/security per carve-out"; `agents/sa.md` Plan/Dispatch phases add "if requirement is unclear, dispatch RA mid-phase, RA's answer is binding"; `.claude/agent-stack.md` § Autonomy Ceiling item 6 adds "requirements *resolution* is RA-authored without user pause; requirements *authoring* still routes through user." (c) Stuck-loop killswitch per decision #5 — new `### Stuck-Loop Killswitch` section in `.claude/agent-stack.md` near § Submission Gate; new `needs-user-direction` task status added to the lifecycle (currently `backlog | in-progress | review | done`; add as fifth state). (d) Update `agents/sdet.md` § Review Process step 6 to add `needs-user-direction` to the recognized status set so SDET doesn't reject tasks with that status. | `.claude/agent-stack.md`, `agents/sa.md`, `agents/ra.md`, `agents/sdet.md` | SA self-implement (`Impl: sa`) |
+
+**SA Plan notes:**
+- Tasks 1–4 are independent dispatches to `[devops]`; per § Dispatch single-developer-per-turn rule, sequential.
+- Tasks 5 and 6 are SA self-implement (`Impl: sa`).
+- Task 6's quad review uses the standard two-lens framework. Findings recorded in PR body per the post-PR-#6 norms. The new `needs-user-direction` status added in task 6 (d) is intentionally referenced in task 6 (c) — the killswitch creates BUG files with that status — so 6 (c) and 6 (d) must land together in the same edit batch.
+- Branch name: `chore/lights-out-enablement`.
+- After this chore merges, item 3 (PR merge auto-on-green) becomes eligible for promotion in a separate follow-up PR. The graduation predicate in `.claude/agent-stack.md` § Autonomy Ceiling item 3 will be satisfied: (a) `ci.yml` exists with required jobs (task 1), (b) branch protection configured per the runbook (task 2), (c) `scripts/validate-gates.sh` exists (task 3). The three open structural questions from the autonomy-promotion quad review (self-merge for workflow-file PRs, fail-closed condition (a), SDET CI/Smoke gates in merge predicate) need to be resolved in the item-3 promotion PR — **not** this chore.
+
+**Followup queue — for after this chore + Epic 001 pickup:**
+- **RA processes the 5 open CLARIFs** (001, 002, 003, 005, 006) under the new RA-decides model. CLARIF-001/002/003 are routine UX/copy decisions (RA decides directly, writes to SRS). CLARIF-005 (hard delete vs 7-year retention) and CLARIF-006 (Docuseal self-hosted vs cloud) are likely escalations under the legal/compliance/security carve-out — RA proposes recommendation, user signs off.
+- **Item 3 promotion PR** — once chore lands, write the auto-merge rule with the three open structural questions resolved. Keep the deferred-promotion text in this chore as scaffolding; replace it with the active rule in the promotion PR.
+- **`agents/devops.md`** — skipped from j4j round-2 port. Needs adaptation for Docker Compose + GitHub Actions stack instead of j4j's Bicep + Azure. Worth landing once the CI workflow exists so the file describes the current stack accurately.
+- **`/pre-deploy` skill** — skipped from j4j round-2 port. Needs staging pipeline to exist first; out of scope until ADR-007 production-deploy decision lands.
+
+**End:** Lights-out enablement chore fully scoped. Decisions locked; chore brief ready for SA Plan. PROGRESS.md `## Current initiative` updated to point at the chore. Epic 001 deferred until chore completes. User invokes `/sa` when ready. Main session ends invocation.
+
+### SA Plan — 2026-04-26
+
+**Start:** First SA invocation on the lights-out enablement chore. Read agent-stack.md, sa.md, agent-phases.md, CLAUDE.md, PROGRESS.md (the planning entry above is the authoritative chore brief). Confirmed working tree state: branch was `main` (not the port branch the env block claimed); only modified file was `docs/tasks/PROGRESS.md` carrying the chore brief — that's the carry-over to keep.
+
+**Actions:**
+
+- **Branch:** created `chore/lights-out-enablement` off `origin/main` after `git fetch`. PROGRESS.md modification carried over automatically on checkout. Committed nothing yet.
+- **Pre-Plan inventory:**
+  - `.github/workflows/` does not exist (`mkdir` needed in TASK-LOE-001).
+  - `docs/operations/` exists but is empty (TASK-LOE-002 creates `branch-protection.md`).
+  - `scripts/` only contains `metrics-report.py`. `validate-gates.sh` does not exist (TASK-LOE-003 creates it).
+  - `.claude/hooks/` has 8 hook scripts including `log-task-edit.py` and `log-dispatch.py`. **Verified token capture lives in `log-dispatch.py` already** — TASK-LOE-004 scope reduces to `metrics-report.py` only, no hook update needed (chore brief flagged this as "may or may not be in schema; if not, hook update may be required" — checked, not required).
+  - `metrics-report.py` already has `MODEL_RATES`, `compute_cost`, per-task `cost_usd`, and aggregate `Total cost`. The actual TASK-LOE-004 gap is **rollups** (per-epic, per-agent, monthly) — not the basic cost math. Task spec narrowed accordingly.
+  - `docs/tasks/done/` is empty (pre-Epic-001) — RA grandfathering for `Introduces-gate` is a non-issue, no impact on this chore's scope.
+  - 10 ADRs exist (001-010). TASK-LOE-005 uses **ADR-011** as the next number.
+- **Discovered scope addition:** `agents/sdet.md:69-73` has a stale "ADR-026 enforcement" pointer imported from journey-for-jasmine round-2 port. The reference is dead (tax-portal has no ADR-026). TASK-LOE-005 creates the tax-portal ADR; **TASK-LOE-006 § (e) added to fix the SDET text** to point at ADR-011 with Prisma/SQL Server adaptation. This was not in the original chore brief but is essential — without § (e), the SDET text continues to reference a non-existent ADR after this chore lands. Sub-edit (e) is included in task 6's quad review.
+- **Task creation:** 6 task files created in `docs/tasks/`:
+  - `TASK-LOE-001-ci-workflow.md` — `[devops]`. Critical scoping decision: `test-portal` and `test-admin` jobs land as **`continue-on-error: true` (advisory)** because `apps/portal` and `apps/admin` don't exist yet. Required at landing: `lint-and-typecheck` + `security-scan` only. Promotion path documented: Epic 001 close-prep promotes the test jobs to required and supplies Gate Authoring Rules evidence at that point. This is the **Speculative/sandbox carve-out** from `.claude/agent-stack.md` § Gate Authoring Rules § Scope. The alternative (land all 4 as required, accept structurally-green-but-empty) is exactly the failure mode the rule guards against.
+  - `TASK-LOE-002-branch-protection-runbook.md` — `[devops]`. Two-stage rollout documented: Stage 1 (post-chore-merge) applies branch protection with required = `[lint-and-typecheck, security-scan]` only; Stage 2 (post-Epic-001-close-prep) expands to all 4. Cross-links to TASK-LOE-001 + TASK-LOE-003 + `.claude/agent-stack.md` § Autonomy Ceiling item 3.
+  - `TASK-LOE-003-validate-gates-script.md` — `[devops]`. 8 check functions defined in spec; `--pr-body` mode for workflow-file PR quad-review verdict check; pre-push hook + installer; CI integration step (added to TASK-LOE-001 if mid-review, deferred otherwise). `Introduces-gate: yes` — pre-push hooks are explicitly enumerated in Gate Authoring Rules § Scope.
+  - `TASK-LOE-004-metrics-cost-reporting.md` — `[devops]`. Scope narrowed per § Pre-Plan inventory above. New rollup sections: per-epic, per-agent, monthly. Per-phase deferred (phase data not in dispatches.jsonl; would require a hook change, out of scope). `MODEL_RATES` rate-check timestamp must be updated.
+  - `TASK-LOE-005-adr-repository-test-seam.md` — `Impl: sa`. ADR-011 (next number). Adapts j4j ADR-026 (.NET + Dapper + Moq) to tax-portal stack (Prisma + SQL Server + RLS + Vitest). Critical adaptation: the test seam sits at the **service-layer boundary**, not at every Prisma call — the ADR-003 `SESSION_CONTEXT` wrapper is already the lower-level seam. Reconciles with ADR-003/004/005/006. Rejection criteria section is phrased so TASK-LOE-006 § (e) can quote it directly into `agents/sdet.md`.
+  - `TASK-LOE-006-workflow-file-edits.md` — `Impl: sa`. 5 sub-edits (a-e) batched into one PR with one quad review. § (c) and § (d) MUST land in the same edit because § (c)'s killswitch creates BUG files with the `needs-user-direction` status that § (d) introduces. § (e) added by Plan to fix the round-2-port dead pointer. `Introduces-gate: yes` for the killswitch (new SA blocking startup step per Gate Authoring Rules § Scope).
+
+- **Cross-surface scoping check (per CLAUDE.md § Platform-frontend scope):** none of the 6 tasks touch `apps/portal` or `apps/admin` (apps don't exist yet) — scoping check is vacuously satisfied. Task 1 (CI workflow) touches both apps in spirit (`test-portal` + `test-admin` are mirrored), and the spec treats them symmetrically.
+
+- **E2e-required:** all 6 tasks are `E2e-required: no`. None touch auth flows, RLS, file upload, Docuseal, email, SSE, or cross-module boundaries (the e2e-required triggers in CLAUDE.md). Tasks 1+3 introduce CI/script infrastructure; tasks 2+4 are docs/reporting; tasks 5+6 are ADR/workflow-rule edits. No targeted e2e applies.
+
+- **Design coherence gate:** the 6 tasks together satisfy the three preconditions of `.claude/agent-stack.md` § Autonomy Ceiling item 3 graduation predicate: (a) `ci.yml` with required jobs (TASK-LOE-001), (b) branch protection runbook + Stage 1 application (TASK-LOE-002), (c) `validate-gates.sh` backstop (TASK-LOE-003). The three open structural questions from the autonomy-promotion quad review (self-merge for workflow-file PRs, fail-closed condition (a), SDET CI/Smoke gates in merge predicate) are deferred to a follow-up promotion PR — not this chore. Confirmed in chore brief.
+
+- **PROGRESS.md updated:** `## Current initiative` now shows the task list with statuses + dispatch order. `Phase:` flipped to `Plan complete → ready for Dispatch`.
+
+**Plan-phase exit conditions check (`.claude/agent-phases.md` § Phase exit conditions):**
+
+- ✅ Backlog triage: `## Awaiting PR merge` empty. `## Active bugs` empty. `## Open retro action items` has 3 entries — all are dispositioned (concrete keep/remove/seed evaluations scheduled). No undispositioned items block Plan.
+- ❌ Docker pre-flight: **not run** — none of the 6 tasks are E2e-required, none of the 6 tasks invoke Docker as part of submission gate. Skipped intentionally; will run before any future Docker-touching task. Documented here.
+- ❌ `/compact` request: **not issued** — chore Plan-context load was light (small set of files, no app code, no SRS deep-read). Decided not to gate on `/compact` for a small chore. If context pressure surfaces in Dispatch, will request then.
+- ✅ Feature branch created: `chore/lights-out-enablement` off `origin/main`.
+- N/A Epic file `Epic-type:` / `Epic-deploys:` fields — there is no epic file (this is a chore, not an epic). PROGRESS.md `## Current initiative` carries the same role for chore work. Documented as exception.
+- ✅ Every task file has `Status: backlog`, `E2e-required:`, `Impl: sa | developer` (5 are devops which is a developer role per CLAUDE.md Agent Team table; 2 are sa-implement), `Affected flows: none (justification)`, `Affected requirements: none (justification)`, `Introduces-gate: yes/no`, `Relevant ADRs:`. All 6 task files validated against `_TEMPLATE.md` shape.
+- N/A `Epic-type:` + `Epic-deploys:` mirroring — chore, no epic file. Tasks omit these fields by design.
+- ✅ Design coherence gate: see above bullet.
+- ✅ PROGRESS.md `## Current initiative` populated.
+
+**End:** Plan complete. 6 task files in `docs/tasks/` with full specs. Dispatch order: 1 → 3 → 4 → 5 → 2 → 6. Per `.claude/agent-stack.md` § Dispatch single-developer-per-turn rule, the SA dispatches one developer per assistant turn for tasks 1-4; tasks 5 and 6 are SA self-implement. SA pauses here to surface the Plan to the user before entering Dispatch — Plan-end is a natural review point even though the Autonomy Ceiling does not require it. Next SA invocation will enter Dispatch starting with TASK-LOE-001.
