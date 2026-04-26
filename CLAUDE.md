@@ -52,6 +52,12 @@ The workflow engine (`.claude/agent-stack.md`) defines generic roles. This secti
 | `[sdet]`             | SDET / Validator     | Sonnet 4.6 | (reviews all directories)                                                     | —                                                                          |
 | `[overwatch]`        | Overwatch            | Sonnet 4.6 | (reads all directories)                                                       | —                                                                          |
 
+### Platform-frontend scope (portal + admin are two frontends of one platform)
+
+`apps/portal` (Client Portal) and `apps/admin` (Tax Portal) are two frontends of one platform — see ADR-006. Audits, e2e sweeps, flake-isolation passes, mirror-file checks, and "does this pattern exist elsewhere" questions default to **both** `apps/portal/**` and `apps/admin/**`. Running a gate or audit against only one surface is insufficient unless the task spec scopes to a single surface by name. This applies to every role — webapp-developer implementation scope, SDET Validate + mirror-file audits, SA Plan briefs, and Overwatch reviews.
+
+**Sunset trigger:** if 3 consecutive Close-prep retros pass with zero cross-surface-parity findings, Overwatch flags this rule for keep/remove review.
+
 ### Domain-specific notes
 
 - **Web App Developer**: Two migration tracks per ADR-002 and ADR-006 — **Prisma track** (`prisma/schema.prisma` → `pnpm prisma migrate dev` locally, `pnpm prisma migrate deploy` in CI) for entity schema; **raw SQL track** (`db/migrations/NNNN-description.sql`) for things Prisma can't express (security policies, predicate functions, temporal tables, filtered indexes). Raw-SQL migrations are applied via `scripts/db-migrate.ts`. Security policies live in `db/policies/` as versioned raw SQL — per ADR-005. Every request-scoped DB query must go through the `packages/db` Prisma wrapper that sets `SESSION_CONTEXT` before the first real query (ADR-003). Direct Prisma access in route handlers outside that wrapper is a convention violation. E2E tests run against the full local stack (SQL Server container + Next.js + Azurite + Mailhog) and validate complete user workflows. Every UI app must include Playwright config, e2e test helpers, and an `e2e:run` script. The app is not considered scaffolded without e2e infrastructure.

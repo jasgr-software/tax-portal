@@ -53,7 +53,7 @@ The main Claude Code session (not an agent) follows these rules:
 - **Git operations are the main session's responsibility.** Agents write code but do not commit, push, or manage branches. The SA creates branches during its Plan phase. The main session executes commits, pushes, and PRs when the SA requests approval.
 - **Always ask before committing or pushing** — see § Autonomy Ceiling item 2 for the full rule and graduation path.
 - **Never spawn Agent-tool subagents with `isolation: "worktree"`, and never invoke the `EnterWorktree` / `ExitWorktree` tools directly.** All agent dispatch must run in-process against the current working tree. This rule is absolute — "sequential with isolation" is not a permitted variant. Rationale: worktree-isolated agents create staged, orphan commits in `.claude/worktrees/` that the main session cannot see, breaking the mid-epic review cadence and producing directory clutter. The ban applies to worktree-isolated **Agent spawns** specifically; normal in-process concurrency (multiple tool calls in one turn, async CI polling via Monitor) is unaffected. When the user wants worktree-level parallelism, they open separate Claude Code sessions on separate branches manually.
-- **Agent workflow file changes require quad review.** Any modification to `agents/*.md` or `.claude/agent-stack.md` must be reviewed by the SA, RA, SDET, and Overwatch before the change is considered final. **Quad review findings are advisory by default** — a finding only becomes an edit when it demonstrates a concrete quality gate failure. Documentation polish and process suggestions stay as review notes in the PR description. **Expedited path:** non-structural changes (wording, formatting, typos) require only SA + one other reviewer.
+- **Agent workflow file changes require quad review.** Any modification to `agents/*.md` or `.claude/agent-stack.md` must be reviewed by the SA, RA, SDET, and Overwatch before the change is considered final. **Each review applies two lenses in a single pass:** (1) **role/gate/workflow content** — the standard role-definition, gate-integrity, and workflow-contract evaluation; (2) **model-behavior lens** — evaluate whether any rule touched is load-bearing against a known failure mode of the primary model, per `docs/architecture/model-behavior-notes.md`. Lens-2 findings that flag a rule as load-bearing are advisory input for future edits — a future edit that removes such a rule should cite a new mitigation or update the model-behavior-notes entry (retire, revise, or promote to a new mitigation pointer). **Quad review findings are advisory by default** — a finding only becomes an edit when it demonstrates a concrete quality gate failure. Documentation polish and process suggestions stay as review notes in the PR description. **Expedited path:** non-structural changes (wording, formatting, typos) require only SA + one other reviewer; the two-lens pass still applies — Lens B is not optional on expedited reviews.
 - **Autonomy pre-authorization.** When the user gives a multi-step directive in a single message (e.g. "do A, then B, then C"; "quad-review and apply the findings"; "run through the backlog"), you are pre-authorized to drive the entire directive to completion without per-step approval. Brief status updates between steps are expected; approval checkpoints are not. **Pause only if:** (a) an error or gate failure blocks the next step, (b) a step surfaces genuine ambiguity that user input alone can resolve, (c) the next step is one of the structural checkpoints enumerated in § Autonomy Ceiling, or (d) a step's outcome invalidates the rest of the batched plan. **Structural checkpoints in § Autonomy Ceiling are exceptions to pre-authorization** — a multi-step directive does not authorize commit, push, merge, rewriting `docs/requirements/`, or any other § Autonomy Ceiling item without the explicit approval that rule requires. (The main session may still **append** to `docs/requirements/observations.md` under a batched directive — that is the one scope-preserved exception.) Do not pause merely because you just finished a step and the next one is "big." "Big" is not a pause reason; ambiguity is.
 
 ## Autonomy Ceiling
@@ -111,6 +111,8 @@ Every agent must update the **Status** field, **Updated-by** field, and append t
 
 In addition to the existing header fields (Status, Assigned to, etc.), every task and bug file carries four lifecycle/effort fields that power the `.claude/metrics/` capture system. These are read by `log-task-edit.py` on every task-file edit and surfaced in `scripts/metrics-report.py`.
 
+This section is **authoritative for field semantics** — what each field means, its format, who writes it, and when in the lifecycle. § Dispatch Checkpoint is authoritative for the **atomic-edit-before-any-other-file-change rule** that enforces `Started-at` + `Complexity-estimate` must land in the same Edit as the status flip out of `backlog`. If you edit either section, check the other — the semantics and the enforcement rule travel as a pair.
+
 | Field                 | Format       | Written by                           | When                                                                                                            |
 | --------------------- | ------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | `Started-at`          | ISO 8601 UTC | Developer (or SA if `Impl: sa`)      | Same Edit that flips status out of `backlog` for the first time                                                 |
@@ -133,10 +135,16 @@ Every task spec the SA creates during Plan must include (in addition to the stan
 
 - **`**Affected flows:**`** — list of flow IDs (one per line, e.g., `flow-engagement-request`) that this task participates in. Empty list is only acceptable if the task genuinely touches no user-facing behavior (e.g., a build-pipeline-only change); in that case write `**Affected flows:** none (justification: …)`.
 - **`**Affected requirements:**`** — list of SRS requirement IDs the task exercises (e.g., `REQ-ONBD-001`, `REQ-ONBD-003`). Used by developers to locate the relevant gherkin scenarios and by SDET to verify flow + gherkin coverage at review time.
+- **`**Introduces-gate:**`** — `yes`, `no`, or `advisory`. Declares whether this task introduces a new quality gate, and if so whether it's blocking or advisory. Semantics:
+  - `yes` — the task introduces a new **required** quality gate (required CI status check, blocking DoD checkbox, pre-push hook addition, new SDET review-focus reject-on-fail bullet, or new agent-spec blocking startup step). § Gate Authoring Rules applies — the task's Work Log **must** contain all three evidence items (run URL + named job/step, named code path, counterfactual). SDET rejects at review if any item is missing.
+  - `advisory` — the task introduces a non-blocking gate (e.g., a CI job with `continue-on-error: true`, a warning-level linter rule, a developer-ergonomic check that does not fail the build). Evidence items are recommended but not required; SDET does not reject solely for missing evidence, but a Work Log note explaining scope is still expected.
+  - `no` — the task does not introduce a new gate (default; this is the common case).
+  
+  Default when the SA omits the field is `no`, but a missing field is treated as an SDET rejection (same treatment as a missing `**Affected flows:**` field) — the SA must state the value explicitly so the RA can enumerate gates at epic close without scanning diffs blind. The RA reads this field at epic close to build the list of required gates introduced in the epic for the § Gate Authoring Rules evidence sweep.
 
-A task spec missing either field is a mandatory SDET rejection (and the developer should escalate to the SA before starting work). Both fields are equally enforced — missing `**Affected requirements:**` is as rejectable as missing `**Affected flows:**`.
+A task spec missing any of these three fields is a mandatory SDET rejection (and the developer should escalate to the SA before starting work). All three are equally enforced — missing `**Affected requirements:**` or `**Introduces-gate:**` is as rejectable as missing `**Affected flows:**`.
 
-**Hotfix exception:** For `Epic-type: hotfix`, flow authoring and gherkin authoring may be deferred to a follow-up task provided the SA creates that follow-up during Plan and notes the deferral in PROGRESS.md `## Current initiative`. The hotfix task itself still carries `**Affected flows:**` and `**Affected requirements:**` with `(pending backfill: TASK-XXX)` annotations pointing at the follow-up. No other exception path exists — the gates are otherwise hard.
+**Hotfix exception:** For `Epic-type: hotfix`, flow authoring and gherkin authoring may be deferred to a follow-up task provided the SA creates that follow-up during Plan and notes the deferral in PROGRESS.md `## Current initiative`. The hotfix task itself still carries `**Affected flows:**` and `**Affected requirements:**` with `(pending backfill: TASK-XXX)` annotations pointing at the follow-up. `**Introduces-gate:**` is **not** deferrable — hotfix tasks state the value explicitly like any other task (with `advisory` permitted per § Gate Authoring Rules Exceptions: Hotfix urgency). No other exception path exists — the gates are otherwise hard.
 
 ## Quality Artifacts
 
@@ -230,6 +238,39 @@ PROGRESS.md has a fixed shape with 5 sections:
 
 The SA updates PROGRESS.md at every phase transition and at start/end of every invocation. Developers update task files; the SA rolls up aggregates.
 
+## Dispatch Checkpoint
+
+This section is **authoritative for the atomic-edit-before-any-other-file-change rule** — the ordering contract that makes mid-execution recovery deterministic. Field semantics for `Started-at` and `Complexity-estimate` live in § Task Metadata Contract; this section references them. If you edit either section, check the other — the semantics and the enforcement rule travel as a pair.
+
+Before editing any file outside the task file itself, every dispatched agent must perform a **single atomic Edit** to the task file containing:
+
+1. A **Work Log entry** of the form `YYYY-MM-DD [role] Starting implementation — <brief scope> | What's next: <first file or action> | Blockers: none`.
+2. A **Status flip** from `backlog` → `in-progress`.
+3. The `Started-at` and `Complexity-estimate` fields per § Task Metadata Contract (format, honesty expectation, and who-writes-when live there; the rule here is that they land in this same atomic Edit — not separately, not after).
+
+All three changes in one Edit. Only after the Edit succeeds may the agent begin editing application, workflow, infrastructure, or any other non-task file.
+
+### Why this is a rule (not just a convention)
+
+If a dispatched agent errors mid-execution (tool error, internal timeout, permission prompt collision, container process killed), the task file is the **only persistent record** that survives into the main session's context. Without a pre-implementation Work Log entry, recovery requires: diff the working tree manually, cross-reference against the task spec, and guess whether the agent was mid-edit or had barely started. With a pre-implementation Work Log entry, recovery is deterministic: read the task file, compare Work Log's _"What's next"_ against the working tree, decide to complete or re-dispatch with _"continue from Work Log."_
+
+The canonical failure this guards against: a dispatched agent lands edits in the working tree (application code, workflow YAML, infra manifests) but errors before touching the task file. The main session then has no breadcrumb — the task still reads `Status: backlog` with no Work Log entry, even though production-adjacent files have moved. Recovery becomes manual forensics: diff inspection, spec re-reading, and guessing where the agent was in its plan. The checkpoint makes that scenario impossible by requiring the breadcrumb before any other edit.
+
+### Scope — applies to:
+
+- All dispatched agents: `developer`, `devops`, `webapp-developer`, and `sdet` when implementing a task (not when reviewing).
+
+### Scope — does NOT apply to:
+
+- **SA self-implementation** (`Impl: sa` tasks). The SA works interactively with the main session; recovery from a mid-edit failure is conversational, and the SA already follows the Task Metadata Contract edit-timing rule (see § Task Metadata Contract). SA may optionally perform the checkpoint to exercise the pattern.
+- **The review-close edit** performed by the SDET or SA-as-reviewer. That edit has its own atomicity contract (see `agents/sdet.md` § Review Process step 6).
+- **Read-only work** (Overwatch audits, RA gate runs that don't modify a task file).
+
+### Enforcement
+
+- **SDET** rejects any task at review whose Work Log does not contain a pre-implementation entry (ordering detectable via git log timestamps against the implementation commits, or via the absence of a _"Starting implementation"_-shaped entry before the _"review"_-shaped entry).
+- **SA** reminds the dispatched agent of this rule in every spawn prompt via the agent-stack reading instruction (no prompt boilerplate change required — the rule is in `.claude/agent-stack.md` which every agent reads on startup).
+
 ## Programmatic Gate Validation
 
 `scripts/validate-gates.sh` is the independent backstop that catches what agent discipline might miss. It verifies: task file gate completion, BUG file existence, PROGRESS.md structure, gated-path accountability, Work Log content, Playwright test artifacts, and CI run evidence. Run it before pushing or as a CI check.
@@ -262,6 +303,55 @@ A task **must not** be marked `review` if any gate fails. If Docker is unavailab
 **E2e proof:** `E2e-required: yes` tasks must include Playwright execution output in the Work Log. Curl, "not executed," and "Docker unavailable" are not substitutes — escalate to the SA.
 
 Gate commands are defined in `CLAUDE.md` under "Submission Gate Commands." Projects may define additional domain-specific gates there. See § Tool Hygiene for the general Bash/Monitor/Write rules that apply when running gate commands.
+
+## Gate Authoring Rules
+
+Any new required quality gate added to this pipeline must demonstrate a documented green run on a **real code path** before the gate becomes required. A **real code path** is one that exercises production source code in its production shape — not a synthetic fixture authored to make the gate pass, not a "should work in theory" claim, not a placeholder test asserting only that the job ran.
+
+### Scope — applies to:
+
+- CI workflow jobs marked as **required status checks** on branch protection.
+- Task **Definition-of-Done** checkboxes that encode a blocking quality gate.
+- **Pre-push hook** additions in `scripts/hooks/` or blocking steps added to `scripts/ci-local.sh`.
+- **SDET review-focus bullets** that introduce a new reject-on-fail criterion.
+- **Agent-spec startup checklists** that introduce a new blocking step.
+
+### Scope — does NOT apply to:
+
+- **Unit tests** — the test and the code under test are written together; the test itself is the evidence.
+- **Developer-ergonomic suggestions** that do not block (e.g., a linter warning with `continue-on-error: true`).
+- **Documentation polish.**
+- **Speculative/sandbox experiments** — non-required gates in an experimental workflow or a feature-flagged `continue-on-error: true` job. Promotion of such a gate to required triggers this rule.
+
+### Evidence requirement (three items, all mandatory)
+
+The Work Log for the task introducing the gate must include:
+
+1. **Run URL and the specific job/step name** — a link to the CI run, local `ci-local.sh` output, or equivalent artifact showing the gate green on the real code path, **and** the name of the specific job (and, where relevant, step) within that run whose green state exercised the named code path. A run URL alone is insufficient — a multi-job workflow URL does not prove which job actually ran the gate. The job/step name closes the "valid run, wrong job" loophole: an SDET reviewing the evidence must be able to open the run, locate the named job/step, and see its green check against the named path.
+   - **GitHub Actions example:** `https://github.com/<org>/<repo>/actions/runs/1234567890 — job: lint-and-typecheck, step: "pnpm type-check"`.
+   - **Local `ci-local.sh` example (no run URL):** a log-file path plus a grep-locatable completion marker. Redirect `pnpm ci:local` output to `/tmp/ci-local-TASK-XXX.log` per § Tool Hygiene, then cite the file and the marker line, e.g., `/tmp/ci-local-TASK-XXX.log:234 — PASS: pnpm type-check`. The line must name the step whose green state exercised the code path; a bare "ci-local passed" is insufficient for the same reason "run URL alone" is insufficient in the CI case.
+2. **Named code path** — the specific production source line(s) that, if regressed, the gate would catch. "The endpoint handler" is insufficient; `apps/portal/src/app/api/webhooks/clerk/route.ts` step 3 fall-through to the session-context setter is sufficient.
+3. **Counterfactual** — one concrete change to the named code path that would red the gate. This proves the gate's specificity — that it catches a real regression class and is not a coincidence of environment or test scaffolding.
+
+### Exceptions
+
+- **In-flight regression.** When a gate is added in the same PR as the fix for a regression the gate is designed to catch, the rule is satisfied by a documented **red-then-green** sequence: one CI run showing the gate red against the pre-fix commit, one showing it green after the fix commit. The SDET reviews both. For non-CI gate types (DoD boxes, pre-push hooks, SDET review-focus bullets, agent-spec checklists), a red-then-green sequence is satisfied by two Work Log entries: one noting the gate fails on the pre-fix commit (with reproduce steps), one noting it passes on the fix commit.
+- **Retroactive scope.** This rule applies to gates added after the rule lands. Pre-existing gates are grandfathered; no backfill sweep is required.
+- **Hotfix urgency.** If a gate must land before real-path evidence can be produced (critical operational incident, deploy is blocked), the gate lands as **advisory** (`continue-on-error: true` for CI jobs, unchecked-but-noted for DoD items). Promotion to required follows the normal evidence requirement once the incident resolves.
+
+### Enforcement
+
+- **SDET** rejects any task at review if its Work Log lacks run URL + named code path + counterfactual for a newly-introduced gate.
+- **SA** rejects at Plan if a task spec requires a gate that the task itself cannot demonstrate green with the three evidence items.
+- **RA** rejects epic close if the epic introduced a required gate without evidence. The RA must perform this enforcement by **enumerating each new required gate introduced in the epic and confirming each has all three evidence items** (run URL + job/step name, named code path, counterfactual) present in the corresponding task's Work Log. A summary assertion such as "all gates have evidence" is insufficient — the RA's epic-close writeup must name each gate and cite the Work Log entries that satisfy each of the three items. Scope: archive sweep of `docs/tasks/done/TASK-EEE-*` and `docs/tasks/done/BUG-EEE-*` Work Logs matching the current epic number.
+
+### Cross-reference
+
+During Close-prep retro (see § Retro Finding Classification), findings that propose a new gate trigger this rule. The gate lands in a follow-up task with the three-item evidence, not silently bundled into the retro commit.
+
+### Rationale
+
+This rule guards against a specific failure mode: a required quality gate authored against an incorrect assumption about the code it was meant to exercise. Such a gate lands green in CI — not because the code is correct, but because the gate is structurally incapable of eliciting what it claims to test. Examples include an assertion scoped to a path the runtime never reaches under the gate's fixture, a check that depends on an environment variable the gate's job never sets, or a test that passes because the setup swallowed the error it was supposed to surface. The gate then sits green for days or weeks, providing false confidence, until a genuinely regressed run happens to trip it — by which point the original authoring assumption has been trusted across multiple commits and the surface area of possible causes is diffuse. Requiring a named code path + counterfactual at authorship time forces the question _"does this gate actually exercise what I claim?"_ at the point of introduction rather than at the first live failure. The run URL + job/step name closes the companion loophole where a multi-job workflow appears green overall but the specific job/step whose name matches the gate was skipped, cached, or early-exited without running the named assertion.
 
 ## SA-Only Reference
 

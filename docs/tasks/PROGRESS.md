@@ -28,7 +28,9 @@ _None._
 
 ## Open retro action items
 
-_None._
+- **2026-04-20 — Dispatch Checkpoint rule-sunset check** (owner: Overwatch). Evaluate at the Close-prep retro of the third post-merge epic. If no task has cited § Dispatch Checkpoint as the rule that enabled mid-execution recovery, surface the rule for keep/revise/retire decision per `.claude/agent-stack.md` § Rule Sunset. Rationale: the rule was imported prophylactically from the upstream sibling repo; no tax-portal incident was observed at port time, so it must earn its keep on this codebase.
+- **2026-04-20 — Gate Authoring Rules hotfix-exception promotion check** (owner: Overwatch). At the first hotfix epic that invokes the § Gate Authoring Rules "Hotfix urgency" exception (gate lands as `advisory` pre-evidence), confirm the promotion-back-to-required step actually happens once the incident resolves. Track from the hotfix task's Work Log and the follow-up task that carries the three-item evidence. Rationale: the exception is easy to invoke and easy to leave hanging — the promotion step is where the gate earns its "required" status back, and it needs an explicit check the first time the path is exercised.
+- **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
 
 ---
 
@@ -237,3 +239,41 @@ _None._
 - CLARIF-006 — Docuseal self-hosted or cloud (blocks Epic 003)
 
 **End:** Pre-Epic-001 cleanup complete. SRS generalised, CLARIF-004 resolved, four personas authored, six flows authored (two foundational for Epic 001, four phase-2+ stubs), Epic 001 ACs updated for two-app architecture, release-roadmap.md updated, PROGRESS.md current initiative refreshed. SA is unblocked to begin Epic 001 Plan phase. RA ends invocation.
+
+### Main Session Chore — Port j4j agent-stack hardening (round 2) — 2026-04-26
+
+**Start:** Branch `chore/port-j4j-agent-stack-hardening`. The first round (commit c6edafd, PR #4) brought the Opus 4.7 hardening + metrics + Two-lens quad review + Gate Authoring Rules + Dispatch Checkpoint + `Introduces-gate` field. This round audits the journey-for-jasmine commits between that baseline and j4j HEAD, ports the non-board items, and runs quad review.
+
+**Audited j4j commits:** dd9cca1, 1672017, bc82394, f0765b8, c10a174, 1e2c20a (already in baseline), caefd8d (already in baseline). Board-related items skipped per user direction (`/board-*` skills, `board-config.json`, observations-as-Issues, `Issue:` field on epics, `[EPIC] ` Issue prefix, board-sync blocks at Plan/Close-prep, `Closes #<task-issue>` PR-body rule, RA-owned roadmap routing — RA already owns the roadmap in this project, but the at-Close-finalize phase change is moot until `docs/plans/release-roadmap.md` exists).
+
+**Ported (5 items):**
+- **dd9cca1 — harness agent registration** — created `.claude/agents/` with 8 symlinks (`developer`, `overwatch`, `pd-draft`, `pd-interview`, `pd-review`, `ra`, `sa`, `sdet` → `../../agents/<name>.md`). `agents/*.md` remains the single source of truth; symlinks let the harness auto-discover so `subagent_type: "ra"` etc. resolve without the `general-purpose` indirection. Takes effect on next session restart.
+- **c10a174 — portal+admin = one platform** — added `### Platform-frontend scope` section to `CLAUDE.md` (after Agent Team table, before Domain-specific notes); added Plan-phase cross-surface scoping rule + spawn-prompt-inline rule for `[webapp-developer]` to `agents/sa.md`; added cross-surface audit reject criterion to `agents/sdet.md` review process and Quality Parity Audit preamble. Adapted from j4j's `apps/web` + `apps/admin` to tax-portal's `apps/portal` + `apps/admin` (per ADR-006). Sunset trigger preserved (3 consecutive Close-prep retros with zero parity findings → keep/remove review).
+- **f0765b8 — `/run-tests` skill** — `.claude/commands/run-tests.md`. Canonical test-invocation pattern that avoids Monitor token waste and matches the existing `Bash(pnpm:*)` allowlist. Adapted from j4j (dropped .NET section, kept portal/admin/cross-app/CI shapes).
+- **f0765b8 — `/mirror-audit` skill** — `.claude/commands/mirror-audit.md`. Mechanical cross-surface drift check across `apps/portal` + `apps/admin`. Pairs with the c10a174 SDET reject criterion. Adapted (s/web/portal/, project-specific examples for "intrinsically single-surface").
+- **bc82394 (non-board portion) — `/memory-audit` skill** — `.claude/commands/memory-audit.md`. Project-agnostic memory-staleness audit. Adapted (slug → `-home-jasgr-repos-tax-portal`).
+
+**Skipped:**
+- `agents/devops.md` (1e2c20a + 6a11381) — j4j version assumes Bicep + Azure infra; tax-portal is Docker Compose + GitHub Actions with prod deploy deferred (ADR-007). Revisit when production platform lands.
+- `/pre-deploy` skill (f0765b8) — guards staging deploys; tax-portal has no staging pipeline. Revisit when staging exists.
+- bc82394 phases.md change (Close-finalize roadmap update routes through RA) — moot until `docs/plans/release-roadmap.md` exists; RA already owns it per `agents/ra.md` Constraints.
+- All board-related skills, config, and prompt additions per user direction.
+
+**Quad review (per `.claude/agent-stack.md` § Agent workflow file changes — two-lens pass):**
+- **SA: approve-with-tweaks** — no blocking; advisory findings on rule-duplication between agent-stack.md and the threaded enforcement points (RA + SDET + SA hooks for Gate Authoring Rules), and pre-existing `§ Bug Workstream Quality Gates` dead pointer at `agents/sdet.md:55` (out of scope for this branch).
+- **RA: approve-with-tweaks** — flagged grandfathering for `Introduces-gate` at epic close (`agents/ra.md:177`). Demoted to advisory for tax-portal — `docs/tasks/done/` is empty (pre-Epic-001), so no rejection precondition exists. Vocabulary alignment with SRS confirmed (`apps/portal`/`apps/admin` matches REQ-IDNT-006). No board-coupling wording leaked in (`observations.md` references unchanged).
+- **SDET: approve-with-tweaks (3 BLOCKING applied)** — (1) Dispatch Checkpoint enforcement was not wired into `agents/sdet.md` § Review Process step 2 — added a step-2 mandatory rejection bullet citing § Dispatch Checkpoint. (2) `Introduces-gate` missing-field rejection lived only in step 3 alongside the value-`yes` content check — added a step-2 mandatory bullet covering all three required task-spec fields (`Affected flows`, `Affected requirements`, `Introduces-gate`); refined step 3's Gate Authoring evidence bullet to defer missing-field rejection to step 2. (3) Gate Authoring evidence verification didn't require SDET to actually open + verify the cited log line in the local-CI case — refined the bullet to require `Read`-and-confirm of the cited line, closing the "valid run, wrong step" loophole.
+- **Overwatch: approve** — no blocking; advisory findings on cross-surface sunset-trigger ownership (Overwatch needs an explicit per-retro counter for parity findings — future `agents/overwatch.md` Category 6 edit, not in scope here) and the model-behavior-notes stub starvation (already tracked under the existing retro action item dated 2026-04-20).
+
+**Files changed:**
+- `.claude/agents/{developer,overwatch,pd-draft,pd-interview,pd-review,ra,sa,sdet}.md` — new symlinks
+- `.claude/commands/{run-tests,mirror-audit,memory-audit}.md` — new skill files
+- `CLAUDE.md` — `### Platform-frontend scope` section added
+- `agents/sa.md` — Plan-phase cross-surface scoping; webapp-developer spawn-prompt inline
+- `agents/sdet.md` — Cross-surface audit reject criterion; Quality Parity Audit preamble; 2 step-2 mandatory rejections (Dispatch Checkpoint, required-fields-missing); refined step-3 Gate Authoring evidence bullet
+- `docs/tasks/PROGRESS.md` — this entry
+
+**Followup queue (already in `## Open retro action items` above):**
+- The three 2026-04-20 entries (Dispatch Checkpoint rule-sunset, Gate Authoring hotfix-exception promotion, model-behavior-notes rot check) cover the advisory findings from this round's quad review. No new retro items added.
+
+**End:** Round-2 port complete. Branch ready for PR. `## Current initiative` (Epic 001) preserved — chore did not touch Epic 001 work. Main session ends invocation.
