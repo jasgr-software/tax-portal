@@ -142,7 +142,7 @@ pnpm --filter web e2e:run -- --grep 'smoke'          # Targeted smoke e2e (if sm
 
 ### Required CI checks (branch protection)
 
-When branch protection is enabled on `main`, the following should be required: `lint-and-typecheck`, `test-web`, `security-scan`. **E2E is NOT a per-PR required check** — e2e enforcement happens in the deploy-to-staging pipeline as a pre-deploy gate.
+When branch protection is enabled on `main`, the following should be required: `lint-and-typecheck`, `test-portal`, `test-admin`, `security-scan`. **Note:** `test-portal` and `test-admin` are advisory (`continue-on-error: true`) until Epic 001 scaffolds `apps/portal` and `apps/admin`; branch protection day-one only enforces `lint-and-typecheck` and `security-scan` (see TASK-LOE-002 runbook). **E2E is NOT a per-PR required check** — e2e enforcement happens in the deploy-to-staging pipeline as a pre-deploy gate.
 
 ## Local Development Setup
 

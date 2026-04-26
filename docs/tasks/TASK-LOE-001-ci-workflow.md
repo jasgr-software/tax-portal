@@ -1,14 +1,14 @@
 # TASK-LOE-001: GitHub Actions CI workflow with SQL Server service + auto-issue on failure
 
 **Epic**: chore/lights-out-enablement (no EP-NNN — this is a workflow chore, not a feature epic)
-**Status**: backlog
+**Status**: in-progress
 **Assigned to**: devops
-**Updated-by**: sa
+**Updated-by**: devops
 **Depends on**: none
 **E2e-required**: no
-**Started-at**: —
+**Started-at**: 2026-04-26T00:00:00Z
 **Completed-at**: —
-**Complexity-estimate**: —
+**Complexity-estimate**: 2
 **Complexity-actual**: —
 **Affected flows:** none (justification: chore touches CI infrastructure, not user-facing behavior)
 **Affected requirements:** none (justification: chore touches CI infrastructure, not SRS requirements)
@@ -137,7 +137,7 @@ The runbook in TASK-LOE-002 captures `enforce_admins=true` and the 4-job require
 
 ## Work Log
 
-<!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
+- 2026-04-26 [devops] Starting implementation — create `.github/workflows/ci.yml` with 4 jobs (`lint-and-typecheck`, `test-portal`, `test-admin`, `security-scan`) + `report-failure` auto-issue job; fix CLAUDE.md § Required CI checks drift (`test-web` → correct two-app job names) | What's next: create `.github/workflows/ci.yml` | Blockers: none
 
 ## Attempt Log
 
