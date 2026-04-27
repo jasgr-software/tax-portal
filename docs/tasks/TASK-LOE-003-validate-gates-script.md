@@ -1,9 +1,9 @@
 # TASK-LOE-003: scripts/validate-gates.sh + pre-push hook
 
 **Epic**: chore/lights-out-enablement
-**Status**: review
+**Status**: in-progress
 **Assigned to**: devops
-**Updated-by**: devops
+**Updated-by**: sdet
 **Depends on**: none (independent of TASK-LOE-001 — the script is the backstop, not a CI consumer)
 **E2e-required**: no
 **Started-at**: 2026-04-26T12:00:00Z
@@ -190,6 +190,8 @@ The pre-push hook itself is a new blocking gate: any push that fails the script 
 
   What's next: SDET review | Blockers: none
 
+- 2026-04-27 [sdet] Review complete — REJECT. Hard blocking bug: `check_ci_evidence` grep pattern `^\*\*Introduces-gate\*\*: yes` does not match `**Introduces-gate:** yes` (colon placement differs — colon inside bold in task files, pattern expects colon outside bold). Real-repo run shows "no Introduces-gate done tasks" — TASK-LOE-001 silently skipped. Filed BUG-000-001. Fix: change grep to `^\*\*Introduces-gate:\*\* yes` in `check_ci_evidence()`, re-run real repo to confirm TASK-LOE-001 found and passes evidence checks, re-submit. All other checklist items pass. Status returned to in-progress. | What's next: devops applies one-line fix and re-submits | Blockers: none
+
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
 
 ## Attempt Log
@@ -198,5 +200,5 @@ The pre-push hook itself is a new blocking gate: any push that fails the script 
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: rejected
+**Notes**: One hard blocking bug — `check_ci_evidence` grep pattern `^\*\*Introduces-gate\*\*: yes` does not match the `**Introduces-gate:** yes` format used in all task files. The check silently reports "no Introduces-gate done tasks" and exits 0 against the real repo, providing zero protection. TASK-LOE-001 (the only done Introduces-gate: yes task) is invisible to the check. See BUG-000-001 for full root cause, reproduction steps, and fix. Fix the one-line grep pattern in `check_ci_evidence()`, verify `bash scripts/validate-gates.sh` now finds TASK-LOE-001 and reports a named PASS, re-submit for SDET review.

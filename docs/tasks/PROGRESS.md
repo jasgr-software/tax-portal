@@ -7,7 +7,7 @@
 **Lights-out enablement chore**  
 Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
 Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 awaiting SDET review; TASK-LOE-004 dispatching next)  
+Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 SDET REJECT, one-line fix re-dispatching; TASK-LOE-004 awaiting SDET review)  
 Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
 **Tasks:**
@@ -16,8 +16,8 @@ Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claud
 |---|---|---|---|---|---|
 | `TASK-LOE-001-ci-workflow.md` | devops | done (SDET approved 2026-04-27; follow-up: Node.js 20 action deprecation — create task before Epic 001) | none | yes | no |
 | `TASK-LOE-002-branch-protection-runbook.md` | devops | backlog | TASK-LOE-001 | no | no |
-| `TASK-LOE-003-validate-gates-script.md` | devops | review (impl done; 8 check fns + pre-push hook + CI step + 7 fixtures pass + real-repo green) | none | yes | no |
-| `TASK-LOE-004-metrics-cost-reporting.md` | devops | backlog | none | no | no |
+| `TASK-LOE-003-validate-gates-script.md` | devops | in-progress (SDET REJECT 2026-04-27 — `check_ci_evidence` grep format mismatch; see BUG-000-001; one-line fix required, re-submit) | none | yes | no |
+| `TASK-LOE-004-metrics-cost-reporting.md` | devops | review (impl done; per-epic + per-agent + monthly rollups; MODEL_RATES updated — Opus 3x price drop verified against Anthropic docs) | none | no | no |
 | `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | backlog | none | no | no |
 | `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | backlog | TASK-LOE-005 | yes | no |
 
@@ -42,6 +42,36 @@ _None._
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
 
 ---
+
+### SDET Review — TASK-LOE-003 — 2026-04-27
+
+**Start:** Reviewing TASK-LOE-003 (`scripts/validate-gates.sh` + pre-push hook + CI integration). Read agent-stack.md, sdet.md, CLAUDE.md, task spec, validate-gates.sh, pre-push, install.sh, ci.yml, package.json, fixture directory, TASK-LOE-001 (the already-done Introduces-gate: yes task in done/).
+
+**Actions:**
+- Verified dispatch checkpoint: "Starting implementation" entry exists in Work Log; status went `backlog → review` in a single commit (64b4ceb, 2026-04-26T20:08:37) but the Working Log breadcrumb ordering criterion is satisfied (absence-check: Starting implementation entry exists before review-shaped entry). Same precedent as TASK-LOE-001 evaluation. Not a hard reject.
+- Verified required task-spec fields: `Affected flows: none (justification: …)`, `Affected requirements: none (justification: …)`, `Introduces-gate: yes` — all populated. PASS.
+- Verified `Complexity-actual`: 3 (valid 1–5). PASS. `Started-at` and `Complexity-estimate` both present. PASS.
+- Verified 8 check functions exist in `scripts/validate-gates.sh`: `check_task_file_completion`, `check_bug_files_present_for_done`, `check_progress_md_structure`, `check_gated_path_accountability`, `check_work_log_content`, `check_playwright_artifacts`, `check_ci_evidence`, `check_pr_body_quad_review`. All 8 confirmed. PASS.
+- Verified script exits non-zero on failure, zero on full pass. `set -euo pipefail` at top; `main()` exits 1 when `${#FAILURES[@]} > 0`. PASS.
+- Verified 7 fixtures — spot-checked 3 via live runs:
+  - `clean` → exit 0. PASS.
+  - `done-missing-complexity` → exit 1, `check_task_file_completion: Complexity-actual missing or not 1-5`. PASS.
+  - `pr-body-workflow-missing-verdict` → exit 1, `check_pr_body_quad_review: PR body missing verdict marker: [sa]`. PASS.
+- Verified pre-push hook: calls `bash "$SCRIPT"` at line 27; exits non-zero on failure (line 27 `if ! bash "$SCRIPT"; then ... exit 1`); does not parse `--no-verify` (comment explicitly documents this). PASS.
+- Verified install.sh: creates symlink `ln -s "$source" "$target"` at `.git/hooks/pre-push`; idempotent (checks existing symlink target before overwriting). PASS.
+- Verified CLAUDE.md: `bash scripts/hooks/install.sh` added as first command in Local Development Setup block (line 151). PASS.
+- Verified CI integration: `validate-gates.sh` step at line 51–52 of `.github/workflows/ci.yml` inside `lint-and-typecheck` job, after pnpm lint/type-check steps. PASS.
+- Verified `gates:validate` in package.json: `"gates:validate": "bash scripts/validate-gates.sh"`. PASS.
+- Verified Gate Authoring Rules evidence (Introduces-gate: yes):
+  - Run URL/local log: red-then-green pattern present. `scripts/hooks/pre-push` with bad task file → `PRE_PUSH_EXIT: 1`; fixed → `PRE_PUSH_EXIT: 0`. Accepted as local execution evidence per § Gate Authoring Rules § Evidence requirement. PASS.
+  - Named code path: `scripts/validate-gates.sh:check_task_file_completion()` — line 155: `if ! grep -qE "^\*\*Complexity-actual\*\*: [1-5]$" "$f"; then`. Confirmed at line 155. Work Log cites "line 29" for pre-push hook (`if ! bash "$SCRIPT"; then`) but actual line is 27 — minor off-by-2 inaccuracy, entity clearly exists. PASS (non-blocking).
+  - Counterfactual: `grep -qE "^\*\*Complexity-actual\*\*: [1-5]$"` → `grep -qE "^\*\*Complexity-actual\*\*:"` would let `Complexity-actual: —` pass. Concrete and falsifiable. PASS.
+- **CRITICAL BUG — REJECT:** `check_ci_evidence` uses `grep -q "^\*\*Introduces-gate\*\*: yes"` (colon after closing `**`), but all task files use `**Introduces-gate:** yes` (colon inside the bold span, before closing `**`). This format mismatch causes the check to find zero matching tasks and report "no Introduces-gate done tasks" — a false PASS. Verified: `grep -c "^\*\*Introduces-gate\*\*: yes" docs/tasks/done/TASK-LOE-001-ci-workflow.md` returns 0; the actual line is `**Introduces-gate:** yes`. As a result, TASK-LOE-001 (the only done Introduces-gate: yes task) is silently skipped and the gate provides no protection. The same format mismatch may also affect `check_playwright_artifacts` (uses `^\*\*E2e-required\*\*: yes`) — task files use `**E2e-required**: yes` (colon after closing `**` in this case), so that pattern may work. `**Status**: done` is the one field that uses the colon-after-`**` format, and that grep does work (confirmed: returns 1 hit for TASK-LOE-001). The `Introduces-gate` field is the anomaly — it uses the `**Field:** value` format (colon inside bold), not the `**Field**: value` format (colon outside bold) used by Status, E2e-required, Started-at, etc.
+- Real-repo run of `bash scripts/validate-gates.sh`: outputs `check_ci_evidence (no Introduces-gate done tasks) PASS` — confirms the bug silences the check against the live repo.
+- Cross-surface scope: vacuously satisfied (apps/ not yet scaffolded). PASS.
+- Security review: no `eval`, no `curl | sh`, variables quoted. PASS.
+
+**End:** REJECT. One hard blocking bug: `check_ci_evidence` grep pattern `^\*\*Introduces-gate\*\*: yes` does not match the `**Introduces-gate:** yes` format used in task files — the gate silently PASSes with zero tasks checked. Fix required: change the grep to `grep -q "^\*\*Introduces-gate:\*\* yes"` (or the correct format — verify against the actual file). Re-run real-repo to confirm TASK-LOE-001 is now found and passes evidence checks. Re-submit for SDET review.
 
 ### SDET Review — TASK-LOE-001 — 2026-04-27
 

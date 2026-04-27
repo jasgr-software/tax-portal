@@ -1,15 +1,15 @@
 # TASK-LOE-004: Extend scripts/metrics-report.py with cost reporting rollups
 
 **Epic**: chore/lights-out-enablement
-**Status**: backlog
+**Status**: review
 **Assigned to**: devops
-**Updated-by**: sa
+**Updated-by**: devops
 **Depends on**: none
 **E2e-required**: no
-**Started-at**: —
+**Started-at**: 2026-04-26T00:00:00Z
 **Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Complexity-estimate**: 2
+**Complexity-actual**: 2
 **Affected flows:** none (justification: chore touches metrics tooling, not user-facing behavior)
 **Affected requirements:** none (justification: chore touches metrics tooling, not SRS requirements)
 **Introduces-gate:** no
@@ -19,10 +19,10 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
-- [ ] **Submission gate** — Python script runs clean against existing `.claude/metrics/*.jsonl` files (no exceptions, valid output for both empty and non-empty datasets)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Submission gate** — Python script runs clean against existing `.claude/metrics/*.jsonl` files (no exceptions, valid output for both empty and non-empty datasets)
 - [N/A] **Targeted e2e** — N/A (Python reporting script, no UI)
-- [ ] **Security review** — verify no shell-out with user-controlled input; the script reads JSONL files only (no remote fetches, no eval)
+- [x] **Security review** — verified: no subprocess, os.system, eval, exec, shell=True, urlopen, urllib, requests, or http imports; script reads JSONL files only; grep confirms no shell-out or remote fetch
 - [ ] **SDET Review** — approved
 
 ## SDET Review focus areas
@@ -51,10 +51,10 @@ The chore brief flags a dependency check: "Need to verify what `.claude/metrics/
 
 `metrics-report.py` does not currently have a test file. This task does **not** require adding one — it's a reporting script with deterministic input → output. Verification is via:
 
-- [ ] Run `scripts/metrics-report.py` against current `.claude/metrics/*.jsonl` — output includes the new rollup sections (per-epic, per-agent, per-phase, monthly).
-- [ ] Run `scripts/metrics-report.py --json` — JSON output includes the new rollup blocks.
-- [ ] Run `scripts/metrics-report.py --epic LOE` — filtered output shows only Lights-out chore tasks (sanity check the existing filter still works after additions).
-- [ ] Run with no metrics files (rename the directory temporarily) — script handles the empty case gracefully (existing behavior; just verify the additions don't break it).
+- [x] Run `scripts/metrics-report.py` against current `.claude/metrics/*.jsonl` — output includes the new rollup sections (per-epic, per-agent, monthly; per-phase deferred with TODO comment).
+- [x] Run `scripts/metrics-report.py --json` — JSON output includes the new rollup blocks.
+- [x] Run `scripts/metrics-report.py --epic LOE` — filtered output shows existing filter still works after additions.
+- [x] Run with no metrics files (simulated via --since 2099-01-01) — script handles the empty case gracefully.
 
 If any rollup math feels non-obvious, add a Python docstring example on the function showing the expected input → expected output. Skip pytest scaffolding for this chore.
 
@@ -92,18 +92,75 @@ Print order: existing `## Aggregate` first, then `## Per-epic rollup`, `## Per-a
 
 ## Definition of Done
 
-- [ ] `scripts/metrics-report.py` produces the 3-or-4 new rollup sections
-- [ ] `--json` output includes the new keys
-- [ ] Existing `--epic` and `--since` filters still work (regression check)
-- [ ] Empty-metrics edge case still handled gracefully
-- [ ] `MODEL_RATES` rate-check timestamp updated in the Work Log (rates verified or updated)
-- [ ] Work Log includes a sample run output (markdown table, redacted if needed) showing the new sections appear
+- [x] `scripts/metrics-report.py` produces the 3-or-4 new rollup sections (per-epic, per-agent, monthly; per-phase skipped with TODO — phase not in dispatches.jsonl)
+- [x] `--json` output includes the new keys (tasks, aggregate, by_epic, by_agent, by_phase, by_month)
+- [x] Existing `--epic` and `--since` filters still work (regression check — verified in submission gate run)
+- [x] Empty-metrics edge case still handled gracefully (tested with --since 2099-01-01)
+- [x] `MODEL_RATES` rate-check timestamp updated in the Work Log — rates verified 2026-04-26; opus-4-7 and opus-4-6 rates corrected (significant drop: $15→$5 input, $75→$25 output)
+- [x] Work Log includes a sample run output showing the new sections appear
 
 ---
 
 ## Work Log
 
-<!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
+- 2026-04-26 [devops] Starting implementation — extend metrics-report.py with per-epic, per-agent, and monthly rollup sections; update MODEL_RATES timestamp; wrap --json output in top-level dict | What's next: implement rollup functions and render_ helpers in scripts/metrics-report.py | Blockers: none
+
+- 2026-04-26 [devops] Implementation complete. Summary of changes to scripts/metrics-report.py:
+  - **MODEL_RATES updated** (rates verified against https://platform.claude.com/docs/en/about-claude/pricing on 2026-04-26):
+    - claude-opus-4-7: input $15→$5/MTok, output $75→$25/MTok, cache_read $1.50→$0.50/MTok, cache_write $18.75→$6.25/MTok
+    - claude-opus-4-6: same changes as opus-4-7 (same pricing tier)
+    - claude-sonnet-4-6, claude-sonnet-4-5, claude-haiku-4-5: unchanged
+  - **New helpers**: `dispatch_tokens()`, `cache_hit_pct()`, `epic_prefix()`, `_rollup_epic()`, `_rollup_agent()`, `_rollup_monthly()`, `build_rollup_json()`
+  - **Three new render_ functions**: `render_epic_rollup()`, `render_agent_rollup()`, `render_monthly_rollup()`
+  - **Per-phase rollup**: skipped — `phase` field not present in dispatches.jsonl; `# TODO(future/by_phase)` comment left at the anchor point in `build_rollup_json()` documenting the hook change needed
+  - **--json output**: wrapped in top-level dict with keys `tasks`, `aggregate`, `by_epic`, `by_agent`, `by_phase` (null), `by_month`. Breaking change — no current JSON consumers.
+  - **tasks.jsonl absent**: script handles gracefully — per-epic table shows informational empty message; per-agent and monthly rollups are dispatch-driven and work independently
+  - **Monthly rollup**: dispatch-level (groups by dispatch `ts[:7]`); task-level `started_at` column deferred via TODO comment pending consistent tasks.jsonl population
+
+  **Submission gate run output** (python3 scripts/metrics-report.py):
+  ```
+  # Metrics Report
+
+  _No task records found in `.claude/metrics/tasks.jsonl`._
+
+  ## Per-epic rollup
+
+  _No task records in `.claude/metrics/tasks.jsonl` — no per-epic data._
+
+  > Per-epic rollup groups by task_id prefix (TASK-001-* → EP-001, TASK-LOE-* → LOE).
+
+  ## Per-agent rollup
+
+  | agent_type | dispatches | total_tokens | cache_hit% | cost_usd |
+  |---|---|---|---|---|
+  | general-purpose | 18 | 47,960,717 | 91% | $42.0046 |
+  | Explore | 1 | 1,380,695 | 93% | $0.2585 |
+
+  ## Monthly rollup
+
+  _(dispatch-level; month = dispatch timestamp YYYY-MM)_
+
+  | month | dispatches | total_tokens | cost_usd |
+  |---|---|---|---|
+  | 2026-04 | 19 | 49,341,412 | $42.2631 |
+  ```
+
+  **--json run**: outputs top-level dict with tasks[], aggregate{}, by_epic{}, by_agent{general-purpose, Explore}, by_phase: null, by_month{2026-04}. Verified correct.
+  **--epic LOE**: filter still works (no task records match, rollup sections still render).
+  **--since 2099-01-01**: empty-metrics handled gracefully — all sections show "no records" messages.
+  **--since 2026-04-27**: correctly filters to 3 dispatches.
+
+  **Hand-computed verification** (dispatch line 2, claude-opus-4-7, new rates $5/$25/$0.50/$6.25):
+  - input 81 tok: 81/1M × $5 = $0.000000405
+  - output 12,482 tok: 12,482/1M × $25 = $0.312050
+  - cache_read 2,675,667 tok: 2,675,667/1M × $0.50 = $1.337834
+  - cache_write 657,517 tok: 657,517/1M × $6.25 = $4.109481
+  - dispatch cost: ~$5.759
+  - (Script compute_cost() uses the same formula; total across 18 dispatches = $42.0046 for general-purpose, consistent with the large token volumes observed)
+
+  **Security review**: grep for subprocess/os.system/eval/exec/shell=True/urlopen/urllib/requests/http found zero hits in implementation code (only the pricing URL in the comment block). Script reads JSONL files only.
+
+  What's next: SDET review | Blockers: none
 
 ## Attempt Log
 
