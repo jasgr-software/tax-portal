@@ -29,7 +29,7 @@ _Decision context for the SA — read the **2026-04-26 Main Session Chore — Li
 
 ## Awaiting PR merge
 
-_None._
+- **PR #8 — chore/lights-out-enablement** (opened 2026-04-27). All 6 chore tasks done; BUG-000-001 + BUG-000-002 closed. Quad-review verdicts in PR body: SA APPROVE / RA APPROVE / SDET APPROVE (after BUG-000-002 bundle resolved original CONCERNS) / Overwatch APPROVE. Post-merge actions queued in PR body: (1) apply Stage 1 branch protection per `docs/operations/branch-protection.md`; (2) resolve held `model-behavior-notes.md` seeding decision (rot-check trigger fires); (3) Node.js 20 action deprecation follow-up before Epic 001; (4) Autonomy Ceiling item 3 PR-merge promotion rewrite once Stage 1 branch protection lands. URL: https://github.com/jasgr-software/tax-portal/pull/8
 
 ## Active bugs
 
