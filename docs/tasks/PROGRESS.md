@@ -7,7 +7,7 @@
 **Lights-out enablement chore**  
 Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
 Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 SDET REJECT, one-line fix re-dispatching; TASK-LOE-004 awaiting SDET review)  
+Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 SDET REJECT, one-line fix re-dispatching; TASK-LOE-004 done)  
 Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
 **Tasks:**
@@ -17,7 +17,7 @@ Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claud
 | `TASK-LOE-001-ci-workflow.md` | devops | done (SDET approved 2026-04-27; follow-up: Node.js 20 action deprecation — create task before Epic 001) | none | yes | no |
 | `TASK-LOE-002-branch-protection-runbook.md` | devops | backlog | TASK-LOE-001 | no | no |
 | `TASK-LOE-003-validate-gates-script.md` | devops | in-progress (SDET REJECT 2026-04-27 — `check_ci_evidence` grep format mismatch; see BUG-000-001; one-line fix required, re-submit) | none | yes | no |
-| `TASK-LOE-004-metrics-cost-reporting.md` | devops | review (impl done; per-epic + per-agent + monthly rollups; MODEL_RATES updated — Opus 3x price drop verified against Anthropic docs) | none | no | no |
+| `TASK-LOE-004-metrics-cost-reporting.md` | devops | done (SDET approved 2026-04-27; math hand-verified; MODEL_RATES updated) | none | no | no |
 | `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | backlog | none | no | no |
 | `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | backlog | TASK-LOE-005 | yes | no |
 
@@ -42,6 +42,36 @@ _None._
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
 
 ---
+
+### SDET Review — TASK-LOE-004 — 2026-04-27
+
+**Start:** Reviewing TASK-LOE-004 (`scripts/metrics-report.py` cost rollup extension). Read agent-stack.md, sdet.md, task spec, metrics-report.py, dispatches.jsonl (head 5), tasks.jsonl (head 5), PROGRESS.md.
+
+**Actions:**
+- Verified dispatch checkpoint: "Starting implementation" entry present in Work Log before review-shaped entry. Status flipped backlog → review in single commit `bfc9442` (same co-commit pattern as TASK-LOE-001/003 accepted without rejection). Not a hard reject per established precedent.
+- Verified required task-spec fields: `Affected flows: none (justification: …)`, `Affected requirements: none (justification: …)`, `Introduces-gate: no` — all explicitly populated. PASS.
+- Verified `Complexity-estimate: 2`, `Complexity-actual: 2`, `Started-at: 2026-04-26T00:00:00Z` — all present and valid. PASS.
+- Verified `Introduces-gate: no` — Gate Authoring Rules evidence check SKIPPED per task spec and agent-stack.md § Introduces-gate semantics. PASS.
+- Script content review:
+  - `epic_prefix()`: handles TASK-NNN-NNN → EP-NNN, TASK-LOE-NNN → LOE, BUG-NNN-NNN → EP-NNN. Logic correct for all known patterns in the JSONL.
+  - Per-agent rollup: groups by `d.get("agent_type") or "unknown"`. Observed values in dispatches.jsonl: `Explore` and `general-purpose` — both handled. `None` would fall to `"unknown"`. PASS.
+  - Monthly rollup: `ts[:7]` slice on ISO 8601 string (e.g. `2026-04-20T14:10:49.029700+00:00`). Slice yields `2026-04` correctly. No `datetime.fromisoformat` used here — raw string slice avoids the Z-suffix timezone issue entirely. PASS.
+  - MODEL_RATES: rates verified in script header comment with source URL (https://platform.claude.com/docs/en/about-claude/pricing) and timestamp (2026-04-26). Opus-4-7 and Opus-4-6 both set to $5/$25/$0.50/$6.25 per Work Log. PASS.
+  - Per-phase rollup: `by_phase: null` in JSON output; `# TODO(future/by_phase)` comment in `build_rollup_json()` documenting hook change needed. PASS (deferred correctly).
+  - Timestamp parsing (wall_clock_ms in summarize()): uses `.replace("Z", "+00:00")` before `datetime.fromisoformat()` — robust for both +00:00 and Z formats. PASS.
+- Script execution:
+  - `python3 scripts/metrics-report.py` → exit 0; per-epic (empty with message), per-agent (2 rows), monthly (1 row) all render. PASS.
+  - `--json` → top-level keys: `['tasks', 'aggregate', 'by_epic', 'by_agent', 'by_phase', 'by_month']`. PASS.
+  - `--epic LOE` → filter works; rollup sections still render. PASS.
+  - `--since 2099-01-01` → all sections show "no records" messages gracefully. PASS.
+- Math hand-verification (general-purpose agent, $45.9080):
+  - Summed tokens via jq: opus-4-7 (inp=18014, outp=87933, cr=13693972, cc=3111202), sonnet-4-6 (inp=568, outp=102200, cr=37753410, cc=1191179).
+  - Applied MODEL_RATES: opus cost $28.5804, sonnet cost $17.3276, total $45.9080 — exact match to script output. PASS.
+- Security review: no subprocess/os.system/eval/exec/shell=True/urlopen/urllib/requests/http in implementation code. PASS.
+- Cross-surface: vacuously satisfied (apps/ not yet scaffolded). PASS.
+- Dispatch Checkpoint: co-commit, accepted per LOE-001/003 precedent (Work Log "Starting implementation" entry exists before review-shaped entry).
+
+**End:** ACCEPT. TASK-LOE-004 flipped to done. Completed-at: 2026-04-27T06:45:00Z.
 
 ### SDET Review — TASK-LOE-003 — 2026-04-27
 

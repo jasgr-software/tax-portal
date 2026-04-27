@@ -453,7 +453,7 @@ check_ci_evidence() {
       if ! grep -q "^\*\*Status\*\*: done" "$f" 2>/dev/null; then
         continue
       fi
-      if ! grep -q "^\*\*Introduces-gate\*\*: yes" "$f" 2>/dev/null; then
+      if ! grep -q "^\*\*Introduces-gate:\*\* yes" "$f" 2>/dev/null; then
         continue
       fi
       found_any=1

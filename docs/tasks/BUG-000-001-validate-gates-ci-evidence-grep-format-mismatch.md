@@ -1,7 +1,7 @@
 # BUG-000-001: validate-gates.sh check_ci_evidence grep pattern does not match Introduces-gate field format
 
 **Epic**: cross-cutting (BUG-000-NNN)
-**Status**: open
+**Status**: fixed
 **Severity**: high — the gate that checks Gate Authoring Rules evidence for `Introduces-gate: yes` tasks silently passes with zero tasks inspected on the real repo
 **Assigned to**: devops
 **Found by**: sdet
@@ -75,3 +75,5 @@ if ! grep -q "^\*\*Introduces-gate:\*\* yes" "$f" 2>/dev/null; then
 ## Work Log
 
 - 2026-04-27 [sdet] Bug filed during TASK-LOE-003 review. Root cause confirmed via `grep -c` against live TASK-LOE-001 file. Fix is a one-line change in `check_ci_evidence()`. | What's next: devops fixes and re-submits TASK-LOE-003 for SDET review | Blockers: none
+
+- 2026-04-27 [devops] Fixed in branch `chore/port-j4j-agent-stack-hardening` — re-dispatch of TASK-LOE-003. One-line change at `scripts/validate-gates.sh:456`: `^\*\*Introduces-gate\*\*: yes` → `^\*\*Introduces-gate:\*\* yes`. Verification: `grep -c "^\*\*Introduces-gate:\*\* yes" docs/tasks/done/TASK-LOE-001-ci-workflow.md` returns 1 (was 0 with old pattern). `bash scripts/validate-gates.sh` now reports `check_ci_evidence PASS` — TASK-LOE-001 found and all three evidence items verified (run URL, named code path, counterfactual). No other field-pattern grep bugs found during audit: `**E2e-required**: yes` (colon after `**`) matches the `^\*\*E2e-required\*\*: yes` pattern correctly; all other grepped fields (`Status`, `Started-at`, `Completed-at`, `Complexity-estimate`, `Complexity-actual`, `Decision`) use `**Field**: value` format and their patterns are correct. | What's next: SDET re-review of TASK-LOE-003 | Blockers: none

@@ -1,13 +1,13 @@
 # TASK-LOE-004: Extend scripts/metrics-report.py with cost reporting rollups
 
 **Epic**: chore/lights-out-enablement
-**Status**: review
+**Status**: done
 **Assigned to**: devops
 **Updated-by**: devops
 **Depends on**: none
 **E2e-required**: no
 **Started-at**: 2026-04-26T00:00:00Z
-**Completed-at**: —
+**Completed-at**: 2026-04-27T06:45:00Z
 **Complexity-estimate**: 2
 **Complexity-actual**: 2
 **Affected flows:** none (justification: chore touches metrics tooling, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [x] **Submission gate** — Python script runs clean against existing `.claude/metrics/*.jsonl` files (no exceptions, valid output for both empty and non-empty datasets)
 - [N/A] **Targeted e2e** — N/A (Python reporting script, no UI)
 - [x] **Security review** — verified: no subprocess, os.system, eval, exec, shell=True, urlopen, urllib, requests, or http imports; script reads JSONL files only; grep confirms no shell-out or remote fetch
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -162,11 +162,13 @@ Print order: existing `## Aggregate` first, then `## Per-epic rollup`, `## Per-a
 
   What's next: SDET review | Blockers: none
 
+- 2026-04-27 [sdet] ACCEPT — all checks pass. Script exits 0; per-agent rollup math hand-verified ($45.9080 exact match). MODEL_RATES source URL + 2026-04-26 timestamp present. Per-phase deferred with TODO. --epic/--since/--json filters verified. Introduces-gate: no — Gate Authoring Rules skipped. Status: done. Completed-at: 2026-04-27T06:45:00Z.
+
 ## Attempt Log
 
 **Attempt count**: 0
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All checklist items pass. Script exits 0; rollup math hand-verified (general-purpose agent cost $45.9080 matches hand calculation to 4 decimal places). MODEL_RATES updated with source URL + timestamp comment. Per-phase rollup correctly deferred with TODO. --epic LOE, --since 2099-01-01, and --json all behave correctly. Dispatch checkpoint: co-commit pattern, accepted per prior TASK-LOE-001/003 precedent (Starting implementation entry present in Work Log before review-shaped entry). Introduces-gate: no — Gate Authoring Rules evidence skipped per task spec. Cross-surface: vacuously satisfied (no apps). Status flipped to done. Completed-at: 2026-04-27T06:45:00Z.

@@ -1,9 +1,9 @@
 # TASK-LOE-003: scripts/validate-gates.sh + pre-push hook
 
 **Epic**: chore/lights-out-enablement
-**Status**: in-progress
+**Status**: review
 **Assigned to**: devops
-**Updated-by**: sdet
+**Updated-by**: devops
 **Depends on**: none (independent of TASK-LOE-001 — the script is the backstop, not a CI consumer)
 **E2e-required**: no
 **Started-at**: 2026-04-26T12:00:00Z
@@ -182,7 +182,7 @@ The pre-push hook itself is a new blocking gate: any push that fails the script 
   1. **Run URL + job/step + local log:** Local run evidence (no CI URL — pre-push hooks are local gates). Evidence documented as red-then-green local run per § Gate Authoring Rules § Evidence requirement, form: local execution output captured in this Work Log entry.
      - RED: `bash scripts/hooks/pre-push` with `docs/tasks/done/TASK-TEST-BAD.md` (Status: done, Complexity-actual: —) present → PRE_PUSH_EXIT: 1, output: `[pre-push] Push BLOCKED`
      - GREEN: Remove bad fixture, re-run → PRE_PUSH_EXIT: 0, output: `[pre-push] All gate checks passed — push allowed.`
-     - Named job/step: `scripts/hooks/pre-push` step "invoke validate-gates.sh" (line 29: `if ! bash "$SCRIPT"; then`)
+     - Named job/step: `scripts/hooks/pre-push` step "invoke validate-gates.sh" (line 27: `if ! bash "$SCRIPT"; then`)
 
   2. **Named code path:** `scripts/validate-gates.sh:check_task_file_completion()` — specifically the regex at the line `if ! grep -qE "^\*\*Complexity-actual\*\*: [1-5]$" "$f"; then` (checks 4 done-task metadata fields; `Complexity-actual: [1-5]` is the specific guard for the demonstrated failure mode).
 
@@ -191,6 +191,27 @@ The pre-push hook itself is a new blocking gate: any push that fails the script 
   What's next: SDET review | Blockers: none
 
 - 2026-04-27 [sdet] Review complete — REJECT. Hard blocking bug: `check_ci_evidence` grep pattern `^\*\*Introduces-gate\*\*: yes` does not match `**Introduces-gate:** yes` (colon placement differs — colon inside bold in task files, pattern expects colon outside bold). Real-repo run shows "no Introduces-gate done tasks" — TASK-LOE-001 silently skipped. Filed BUG-000-001. Fix: change grep to `^\*\*Introduces-gate:\*\* yes` in `check_ci_evidence()`, re-run real repo to confirm TASK-LOE-001 found and passes evidence checks, re-submit. All other checklist items pass. Status returned to in-progress. | What's next: devops applies one-line fix and re-submits | Blockers: none
+
+- 2026-04-27 [devops] Re-dispatch — fixing BUG-000-001 (check_ci_evidence regex format) | What's next: edit scripts/validate-gates.sh:456 | Blockers: none
+  Re-dispatched-at: 2026-04-27T01:17:47Z
+  Complexity-actual-revised: 3 (single-line fix in correctness-critical code, but required full audit of all grep patterns in script to confirm no other colon-placement bugs)
+
+- 2026-04-27 [devops] BUG-000-001 fixed. Changed `scripts/validate-gates.sh:456` from `^\*\*Introduces-gate\*\*: yes` to `^\*\*Introduces-gate:\*\* yes`. Off-by-2 line reference corrected in Work Log (line 29 → line 27 for pre-push hook `if ! bash "$SCRIPT"; then`).
+
+  **Pattern audit results** — no other colon-placement bugs found:
+  - `^\*\*Status\*\*: done` (line 113, 188, 355, 404, 453) — `**Status**: done` format confirmed correct in all task files
+  - `^\*\*E2e-required\*\*: yes` (line 407) — `**E2e-required**: no` confirmed in all task headers; pattern correct
+  - `^\*\*Started-at\*\*:`, `^\*\*Completed-at\*\*:`, `^\*\*Complexity-estimate\*\*:`, `^\*\*Complexity-actual\*\*:` (lines 137, 143, 149, 155) — all use colon-after-`**` format in task files; patterns correct
+  - `^\*\*Decision\*\*:` (line 192) — colon-after-`**` format in SDET Review sections; correct
+  - `^\*\*Introduces-gate:\*\* yes` (line 456, now fixed) — colon-inside-`**` format confirmed in task files
+
+  **Verification:**
+  - `grep -c "^\*\*Introduces-gate:\*\* yes" docs/tasks/done/TASK-LOE-001-ci-workflow.md` → 1 (was 0)
+  - `bash scripts/validate-gates.sh` output: `check_ci_evidence  PASS` (no longer "no Introduces-gate done tasks")
+  - Full output: `ALL CHECKS PASSED (0 failures)` — EXIT_CODE: 0
+  - TASK-LOE-001 confirmed visible: has `Status: done` + `Introduces-gate: yes`; all three evidence items confirmed present (run URL 24971165581, named code path ci.yml lines 35–49/157–184, counterfactual documented)
+
+  Status flipping to review. | What's next: SDET re-review of TASK-LOE-003 | Blockers: none
 
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
 
