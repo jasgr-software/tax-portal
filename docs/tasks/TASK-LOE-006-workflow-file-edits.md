@@ -1,15 +1,15 @@
 # TASK-LOE-006: Workflow file edits — PushNotification + RA-decides-CLARIFs + stuck-loop killswitch + SDET ADR-011 alignment
 
 **Epic**: chore/lights-out-enablement
-**Status**: backlog
+**Status**: review
 **Assigned to**: sa (Impl: sa)
 **Updated-by**: sa
 **Depends on**: TASK-LOE-005 (the SDET text update in § (e) below cites ADR-011, which TASK-LOE-005 creates)
 **E2e-required**: no
-**Started-at**: —
+**Started-at**: 2026-04-27T10:24:49Z
 **Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Complexity-estimate**: 4
+**Complexity-actual**: 4
 **Affected flows:** none (justification: chore touches workflow rules + agent specs, not user-facing behavior)
 **Affected requirements:** none (justification: chore touches workflow rules + agent specs, not SRS requirements)
 **Introduces-gate:** yes
@@ -19,10 +19,10 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
 - [N/A] **Submission gate** — N/A (markdown-only edits to workflow files; no code, no lint, no type-check)
 - [N/A] **Targeted e2e** — N/A
-- [ ] **Security review** — verify the new `PushNotification` rules do not cause notification spam loops; verify the killswitch's BUG-file template doesn't leak credentials in the captured failure-mode text
+- [x] **Security review** — `PushNotification` § Do-not list explicitly bans firing from inside a notification handler ("never wire a hook that fires `PushNotification` in response to receiving one") and adds a same-condition spam-loop guard ("do not fire a second notification for the same condition" within an invocation). The killswitch BUG file template § (1) bullet on the unchanging-failure-mode quote includes a redaction-aware instruction: "When pasting CI output, redact obvious credential-pattern hits per § Autonomy Ceiling item 2 (commit/push) before the BUG file lands — the failure mode summary should not preserve secrets that may have appeared in transient logs." Both spam-loop and credential-leak vectors closed by spec wording. No code surface to attack.
 - [ ] **SDET Review** — approved (SA-implemented; SDET still reviews per `.claude/agent-phases.md` § SA Self-Implementation)
 
 ## SDET Review focus areas
@@ -165,6 +165,37 @@ Cite the rejection-criteria section of ADR-011 directly so the SDET text is a th
 ## Work Log
 
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
+
+- 2026-04-27 [sa] Starting implementation — 5-sub-edit atomic batch (PushNotification + RA-decides + killswitch + lifecycle + SDET ADR-011 alignment); Started-at + Complexity-estimate set in dispatch checkpoint Edit | What's next: implement edits a–e in one pass, no other file touched yet | Blockers: none
+
+- 2026-04-27 [sa] **Gate Authoring Rules evidence — three items (Stuck-Loop Killswitch is the new gate)**:
+
+  **Item 1 — Run URL or local-CI log path + line marker (red-then-green pattern at the Work Log level per § In-flight regression exception).** This is an agent-spec rule with no CI manifestation; the equivalent of a "red run" is a transcript or recollection of the failure mode the rule is designed to catch. Concrete pre-fix scenario (contrived but mechanically faithful to the j4j round-2 port history that motivated this rule):
+
+    - **Pre-rule (red):** an SA dispatches a developer; the developer fails `pnpm type-check` with `Cannot find module '@tax-portal/db'`. Developer rewrites the import path; type-check fails again with the *same* `Cannot find module '@tax-portal/db'` error (the rewrite was wrong). Developer tries another rewrite; type-check fails again with the same error. Without § Stuck-Loop Killswitch, the SA dispatches a fourth attempt, then a fifth, then a sixth, accumulating context-burn while the underlying packaging issue (e.g., a missing tsconfig path mapping that no rewrite of the import will fix) sits unaddressed. The developer eventually hits § Escalation Protocol's hard stop at 4 attempts, but the SA has already burned 3 wasted dispatches' worth of context that could have been spent on user-resolvable spec/gate revision.
+    - **Post-rule (green):** with § Stuck-Loop Killswitch in place, the SA's Attempt Log counter increments on attempt 2 (same `Cannot find module` failure mode as attempt 1) → counter = 2. Attempt 3 fails with the same failure mode → counter = 3 → killswitch fires. SA creates `BUG-EEE-NNN-stuck-on-pnpm-type-check.md` with the unchanging error message (redacted per the template's credential-pattern note), sets `Status: needs-user-direction`, fires `PushNotification` with the gate name + one-line failure-mode summary, and ends invocation. User reads the BUG file, observes the underlying packaging issue, revises the task spec to add the missing tsconfig mapping (or authorizes a different approach), transitions status back to `backlog`, and the next SA invocation picks it up.
+    - **Why this is sufficient as Work Log evidence:** the rule's red-then-green is at the *workflow* level, not the CI level, because the rule itself governs SA behavior in response to repeat failures. A future SA reading § Stuck-Loop Killswitch for the first time can map the Counter mechanics + the "unchanged failure mode" qualifier + the four-step Halt behavior to the scenario above and correctly halt at attempt 3. The text is unambiguous on the threshold (3, not 4 or 5), the qualifier ("unchanged failure mode," not just "consecutive failures"), and the four mandatory halt steps.
+
+  **Item 2 — Named code path:** `.claude/agent-stack.md` § Stuck-Loop Killswitch (lines ~333–351 post-edit) is the section the rule lives in. The four-step Halt behavior list is the production-source-line equivalent — if any of the four steps is removed (e.g., the `PushNotification` fire is dropped, or the `needs-user-direction` status flip is dropped, or the BUG file creation is dropped), the rule fails to deliver its contract. The most load-bearing of the four is step 2 (the status flip to `needs-user-direction`) because it is the cross-section anchor between the killswitch and § Task Status Lifecycle — if step 2 is dropped, the SDET still reviews the stuck task and the killswitch's "halt and wait" semantics break.
+
+  **Item 3 — Counterfactual:** if the rule's text said "after 5 attempts" instead of "3 consecutive identical failures," the SA would burn ~67% more context per stuck-loop episode before halting. Both the threshold (3) and the "unchanged failure mode" qualifier are load-bearing: the qualifier prevents over-firing on healthy iteration where each attempt addresses a different rejection (legitimate progress, killswitch must NOT fire), and the threshold sets the context-burn ceiling. A second viable counterfactual: if the rule said "any 3 failures in the same task" instead of "3 consecutive," the killswitch would fire on a task that had a flaky test on attempt 1, a real bug on attempt 2, and a different real bug on attempt 3 — three distinct failure modes, none of which are stuck loops. That false positive would train SAs to ignore the killswitch, defeating the purpose. The "consecutive" + "identical failure mode" twin qualifiers are the precision anchors.
+
+- 2026-04-27 [sa] All 5 sub-edits landed atomically — no partial/intermediate states between status-flips. Summary by sub-edit:
+  - **(a) PushNotification:** added § Tool Hygiene / PushNotification subsection with three permitted events, four prohibited events, spam-loop guard, and explicit "no firing from inside a notification handler" rule. Wired the three call sites: § Docker Pre-Flight § Escalation semantics, § Autonomy Ceiling item 2 (credential-pattern hit), and § Stuck-Loop Killswitch step 3. Mirrored the Plan-row Docker pre-flight call in `agents/sa.md`.
+  - **(b) RA-decides-CLARIFs:** added "Resolve ambiguities" bullet to `agents/ra.md` § Core Responsibilities; added § Carve-out — escalate to user with the four enumerated classes (data retention/deletion, PII/encryption/access-control/audit-log, auth/authorization model, IRS/state regulatory) and the "Not in carve-out" list of routine RA-resolves-directly cases. Added mid-Plan and mid-Dispatch RA-dispatch guidance to `agents/sa.md` § Phases. Rewrote `.claude/agent-stack.md` § Autonomy Ceiling item 6 to split resolution (autonomous, no user pause) from authoring (user-invoked, dispatches RA) with the carve-out as the cross-cutting escalation.
+  - **(c) Stuck-Loop Killswitch:** new § Stuck-Loop Killswitch section in `.claude/agent-stack.md` placed between § Submission Gate and § Gate Authoring Rules. Spec-text wording preserved (3 consecutive identical-failure-mode threshold, unchanged-failure-mode qualifier, four-step Halt behavior, Counter mechanics). Added a § Escalation Protocol cross-reference clarifying that the developer-side "hard stop at 4 attempts" remains in force as the per-task ceiling across any failure modes, and the SA-side killswitch fires earlier (3 consecutive identical) on the more diagnostic signal — they're complementary, not duplicate.
+  - **(d) Task Status Lifecycle:** new § Task Status Lifecycle section in `.claude/agent-stack.md` immediately after § Stuck-Loop Killswitch. Five canonical statuses with `needs-user-direction` defined as the killswitch output. Updated § Task Pipeline to point at § Task Status Lifecycle as the canonical enumeration rather than re-listing four states inline. Added skip-this-task rule to `agents/sdet.md` § Review Process for `Status: needs-user-direction`. Added the new option to `docs/tasks/_TEMPLATE.md` line 4 Status comment. Grep-verified `agents/developer.md` and `agents/overwatch.md` — neither contains a literal 4-status enumeration (the strings `backlog`, `in-progress`, `review`, `done` appear only as singular references), so no propagation needed there per spec § (d) "grep first; only update if the literal enumeration is present."
+  - **(e) SDET ADR-011 alignment:** rewrote `agents/sdet.md` § Review Process step 3 repository-interface bullet (formerly "ADR-026 enforcement") to cite ADR-011 with TypeScript-stack-adapted criteria. Replaced .NET path (`apps/*-api/*/Data/`) with `packages/<feature>/src/services/`; replaced Moq with Vitest primitives (`vi.fn()`, `vi.mock()`); replaced `IServiceProvider` / `Func<T>` with `() => prisma` / `Provider<PrismaClient>` / `mockDeep<PrismaClient>()` / DI-container indirection; replaced `apps/auth-api` reference pattern with concrete-only-when-Tier-2-only acceptance per ADR-011 § 3 Optional. Preserved all four bullet points' structure (reject-on-new-interface-without-test, reject-on-DI-smuggling, accept-on-extraction-as-part-of-mock-tests, accept-on-concrete-when-only-integration-tests). Each bullet cross-references the specific ADR-011 section that contains the criterion verbatim — keeping the SDET text thin per spec § (e).
+
+  **Verification greps (per task spec § Tests to Write First):**
+  - `grep -R "ADR-026" agents/ .claude/` → exit 1, **0 matches** (dead pointer eliminated; the prior 2 hits were symlink-doubled into `agents/sdet.md` and `.claude/agents/sdet.md` which is a symlink to it).
+  - `grep -RE "backlog \| in-progress \| review \| done" .claude/ agents/ docs/tasks/_TEMPLATE.md` → 1 match in `_TEMPLATE.md:4`, and that match includes `needs-user-direction` (the new fifth state). No bare 4-status enumerations remain anywhere.
+  - `grep -R "needs-user-direction"` → 4 distinct files: `agents/sdet.md` (skip-this-task rule), `.claude/agent-stack.md` (killswitch + lifecycle section), `_TEMPLATE.md` (status comment), and `.claude/agents/sdet.md` (symlink to `agents/sdet.md`).
+  - `grep -R "PushNotification"` → 6 anchors across `.claude/agent-stack.md` (subsection + Docker escalation + credential hit + killswitch + spam-guard + do-not list) and `agents/sa.md` (Plan-row Docker call), with `.claude/agents/sa.md` mirroring as a symlink.
+
+  **Cross-file consistency checks:** § Stuck-Loop Killswitch references § Task Status Lifecycle by name (forward pointer that resolves); § Task Status Lifecycle references § Stuck-Loop Killswitch (back-pointer that resolves); § Tool Hygiene / PushNotification references both § Docker Pre-Flight and § Stuck-Loop Killswitch; § Autonomy Ceiling item 2 references § Tool Hygiene / PushNotification; § Autonomy Ceiling item 6 references `agents/ra.md` § Core Responsibilities + § Carve-out — escalate to user; `agents/sa.md` Plan + Dispatch rows reference `agents/ra.md` § Carve-out. All cross-references are forward/backward consistent.
+
+  | What's next: SDET review (per `.claude/agent-phases.md` § SA Self-Implementation, SDET still reviews SA-implemented tasks) | Blockers: none
 
 ## Attempt Log
 

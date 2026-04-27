@@ -1,7 +1,7 @@
 # TASK-NNN: Title
 
 **Epic**: EP-XXX
-**Status**: backlog
+**Status**: backlog <!-- backlog | in-progress | review | done | needs-user-direction (set by stuck-loop killswitch — see .claude/agent-stack.md § Stuck-Loop Killswitch and § Task Status Lifecycle) -->
 **Assigned to**: — <!-- webapp-developer | devops -->
 **Updated-by**: —
 **Depends on**: none
