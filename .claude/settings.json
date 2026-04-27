@@ -60,7 +60,19 @@
       "Bash(bash:*)",
       "Bash(curl:*)",
       "Bash(kill:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh workflow view:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh auth status)"
     ],
     "deny": [
       "Bash(git push --force*)",
