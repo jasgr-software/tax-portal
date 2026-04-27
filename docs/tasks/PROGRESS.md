@@ -7,7 +7,7 @@
 **Lights-out enablement chore**  
 Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
 Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 SDET REJECT, one-line fix re-dispatching; TASK-LOE-004 done)  
+Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 done (SDET approved 2026-04-27 on re-review); TASK-LOE-004 done)  
 Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
 **Tasks:**
@@ -16,7 +16,7 @@ Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claud
 |---|---|---|---|---|---|
 | `TASK-LOE-001-ci-workflow.md` | devops | done (SDET approved 2026-04-27; follow-up: Node.js 20 action deprecation — create task before Epic 001) | none | yes | no |
 | `TASK-LOE-002-branch-protection-runbook.md` | devops | backlog | TASK-LOE-001 | no | no |
-| `TASK-LOE-003-validate-gates-script.md` | devops | in-progress (SDET REJECT 2026-04-27 — `check_ci_evidence` grep format mismatch; see BUG-000-001; one-line fix required, re-submit) | none | yes | no |
+| `TASK-LOE-003-validate-gates-script.md` | devops | done (SDET approved 2026-04-27 on re-review) | none | yes | no |
 | `TASK-LOE-004-metrics-cost-reporting.md` | devops | done (SDET approved 2026-04-27; math hand-verified; MODEL_RATES updated) | none | no | no |
 | `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | backlog | none | no | no |
 | `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | backlog | TASK-LOE-005 | yes | no |
@@ -72,6 +72,22 @@ _None._
 - Dispatch Checkpoint: co-commit, accepted per LOE-001/003 precedent (Work Log "Starting implementation" entry exists before review-shaped entry).
 
 **End:** ACCEPT. TASK-LOE-004 flipped to done. Completed-at: 2026-04-27T06:45:00Z.
+
+### SDET Re-review — TASK-LOE-003 — 2026-04-27
+
+**Start:** Targeted re-review after BUG-000-001 fix (one-line regex change). Read task spec Work Log (re-dispatch entry), BUG-000-001 (Status: fixed), `scripts/validate-gates.sh:456`, `scripts/hooks/pre-push`, TASK-LOE-001 done file for pattern audit spot-checks.
+
+**Actions:**
+- Verified fix at `scripts/validate-gates.sh:456`: `^\*\*Introduces-gate:\*\* yes` — colon inside bold span, matches the actual task file format `**Introduces-gate:** yes`. Confirmed correct.
+- Ran `bash scripts/validate-gates.sh` live: exit 0; `check_ci_evidence PASS` (TASK-LOE-001 found, not "no tasks"); all 7 checks pass.
+- Verified `grep -c "^\*\*Introduces-gate:\*\* yes" docs/tasks/done/TASK-LOE-001-ci-workflow.md` returns 1 (was 0 before fix).
+- Confirmed `check_ci_evidence` active check finds TASK-LOE-001 and passes all three Gate Authoring Rules evidence items: (1) run URL `24971165581` present, (2) named code path `ci.yml:35–49` and `ci.yml:157–184` present, (3) counterfactual phrase present. PASS.
+- Pattern audit spot-checks: `**Status**: done` (colon after `**`) matches `^\*\*Status\*\*: done` — grep returns 1. `**E2e-required**: no` (colon after `**`) matches `^\*\*E2e-required\*\*: yes` pattern format — correct (TASK-LOE-001 has `no` not `yes`, no false positive expected). `**Started-at**: ...`, `**Completed-at**: ...`, `**Complexity-estimate**: ...`, `**Complexity-actual**: ...`, `**Decision**: ...` all confirmed colon-after-`**` format in TASK-LOE-001. All patterns correct.
+- Pre-push hook line 27 confirmed: `if ! bash "$SCRIPT"; then` — off-by-2 correction (29→27) is accurate.
+- Advisory finding: line 470 has cosmetic stderr noise from backtick expansion in the named-code-path grep regex. Does not produce false PASSes (first alternative handles all real file path references correctly; tested on empty file — correctly exits non-zero). Pre-existing; not introduced by the fix; non-blocking.
+- BUG-000-001 close-readiness confirmed: fix is in place and verified by live run.
+
+**End:** ACCEPT. TASK-LOE-003 flipped to done. Completed-at: 2026-04-27T09:15:00Z. BUG-000-001 closed.
 
 ### SDET Review — TASK-LOE-003 — 2026-04-27
 

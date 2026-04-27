@@ -1,13 +1,13 @@
 # TASK-LOE-003: scripts/validate-gates.sh + pre-push hook
 
 **Epic**: chore/lights-out-enablement
-**Status**: review
+**Status**: done
 **Assigned to**: devops
 **Updated-by**: devops
 **Depends on**: none (independent of TASK-LOE-001 — the script is the backstop, not a CI consumer)
 **E2e-required**: no
 **Started-at**: 2026-04-26T12:00:00Z
-**Completed-at**: —
+**Completed-at**: 2026-04-27T09:15:00Z
 **Complexity-estimate**: 3
 **Complexity-actual**: 3
 **Affected flows:** none (justification: chore touches CI/git infrastructure, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [x] **Submission gate** — `pnpm lint` N/A (no package.json yet — pre-scaffold state, same as TASK-LOE-001); script self-test via `bash scripts/validate-gates.sh` passes green against real repo; all 7 fixture tests pass
 - [N/A] **Targeted e2e** — N/A (script + git hook, no UI)
 - [x] **Security review** — PASS: no `eval`, no `curl | sh`; no unsanitized variable expansion (all variables quoted or via grep -F fixed-string); pre-push hook only invokes validate-gates.sh and prints exit messages — no task content read or transmitted
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -213,6 +213,8 @@ The pre-push hook itself is a new blocking gate: any push that fails the script 
 
   Status flipping to review. | What's next: SDET re-review of TASK-LOE-003 | Blockers: none
 
+- 2026-04-27 [sdet] Re-review ACCEPT — BUG-000-001 fix verified: `scripts/validate-gates.sh:456` now `^\*\*Introduces-gate:\*\* yes`; live run exits 0, `check_ci_evidence PASS` with TASK-LOE-001 found; `grep -c` returns 1 (was 0); all three Gate Authoring Rules evidence items confirmed present; pattern audit accurate (all other field greps correct); pre-push hook line 27 confirmed; backtick noise on line 470 is cosmetic/non-blocking. Status → done. | What's next: BUG-000-001 closure, dispatch TASK-LOE-005 | Blockers: none
+
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
 
 ## Attempt Log
@@ -221,5 +223,5 @@ The pre-push hook itself is a new blocking gate: any push that fails the script 
 
 ## SDET Review
 
-**Decision**: rejected
-**Notes**: One hard blocking bug — `check_ci_evidence` grep pattern `^\*\*Introduces-gate\*\*: yes` does not match the `**Introduces-gate:** yes` format used in all task files. The check silently reports "no Introduces-gate done tasks" and exits 0 against the real repo, providing zero protection. TASK-LOE-001 (the only done Introduces-gate: yes task) is invisible to the check. See BUG-000-001 for full root cause, reproduction steps, and fix. Fix the one-line grep pattern in `check_ci_evidence()`, verify `bash scripts/validate-gates.sh` now finds TASK-LOE-001 and reports a named PASS, re-submit for SDET review.
+**Decision**: approved
+**Notes**: Re-review after BUG-000-001 fix. One-line regex change at `scripts/validate-gates.sh:456` confirmed correct (`^\*\*Introduces-gate:\*\* yes`). Live `bash scripts/validate-gates.sh` run: `check_ci_evidence PASS` (TASK-LOE-001 found and all three evidence items verified), exit 0. `grep -c "^\*\*Introduces-gate:\*\* yes" docs/tasks/done/TASK-LOE-001-ci-workflow.md` returns 1 (was 0). Pattern audit claim verified — all other field greps (`Status`, `E2e-required`, `Started-at`, `Completed-at`, `Complexity-estimate`, `Complexity-actual`, `Decision`) use colon-after-`**` format and their patterns are correct. Pre-push hook line 27 confirmed (`if ! bash "$SCRIPT"; then`). Advisory: line 470 has cosmetic stderr noise from backtick expansion in the named-code-path grep regex, but does not produce false PASSes — first alternative catches all real path references correctly. All items from original SDET review (fixtures, idempotency, fail-closed behavior, hook bypass, PR quad-review check, install.sh, CLAUDE.md, CI integration, gates:validate package.json, Gate Authoring Rules evidence) previously passed and are unaffected by the one-line fix.
