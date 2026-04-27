@@ -1,15 +1,15 @@
 # TASK-LOE-005: ADR — Repository interface as test seam (Prisma + SQL Server adaptation)
 
 **Epic**: chore/lights-out-enablement
-**Status**: backlog
+**Status**: review
 **Assigned to**: sa (Impl: sa)
 **Updated-by**: sa
 **Depends on**: none
 **E2e-required**: no
-**Started-at**: —
+**Started-at**: 2026-04-27T10:07:59Z
 **Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Complexity-estimate**: 2
+**Complexity-actual**: 2
 **Affected flows:** none (justification: ADR documents an architectural pattern, not user-facing behavior)
 **Affected requirements:** none (justification: ADR codifies a test-seam convention; SRS requirements are unaffected)
 **Introduces-gate:** no
@@ -19,10 +19,10 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
 - [N/A] **Submission gate** — N/A (ADR-only task; markdown formatting only)
 - [N/A] **Targeted e2e** — N/A
-- [ ] **Security review** — verify the ADR does not advocate any pattern that bypasses ADR-003's `SESSION_CONTEXT` wrapper or ADR-005's RLS enforcement
+- [x] **Security review** — verified: ADR § 1 explicitly states the seam sits **above** the ADR-003 `$extends` wrapper, § 5 explicitly states mocks do not exercise RLS and that RLS is validated only by Tier 2 against the real `db/policies/` layer (ADR-005 § 6), and the rejection criteria explicitly forbid Tier 1 tests that assert row-level access behavior. No bypass pattern is advocated; the wrapper remains the only path that sets `SESSION_CONTEXT` on a real connection.
 - [ ] **SDET Review** — approved (SA-implemented; SDET still reviews per `.claude/agent-phases.md` § SA Self-Implementation)
 
 ## SDET Review focus areas
@@ -107,6 +107,9 @@ The ADR codifies a convention; the SDET review bullets that **enforce** the conv
 ## Work Log
 
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
+
+- 2026-04-27 [sa] Starting implementation — materializing ADR-011 from spec outline | What's next: write `docs/decisions/ADR-011-repository-interface-test-seam.md`, then status → review | Blockers: none
+- 2026-04-27 [sa] ADR-011 written at `docs/decisions/ADR-011-repository-interface-test-seam.md` (next ADR number verified via `ls docs/decisions/` — 001–010 exist, 011 is genuinely next); 8 sections present (Title/Status/Context/Decision/Alternatives/Consequences/Rejection criteria/Cross-references); cross-refs to ADR-003 §2/§5/§7, ADR-004 § Client shape, ADR-005 § 6, ADR-006 verified by reading those ADRs in full; Tier 1/Tier 2 split anchored to TASK-LOE-001's `test-portal`/`test-admin` jobs (verified in `.github/workflows/ci.yml`); rejection criteria phrased in second-person imperative for direct quote into `agents/sdet.md` § Review Process by TASK-LOE-006 § (e); load-bearing RLS-safety claim (§ 5) made explicit and falsifiable. Security review tick: ADR does not advocate any pattern that bypasses the ADR-003 `$extends` wrapper or ADR-005 RLS — the seam sits above the wrapper, mocks explicitly do not exercise RLS, Tier 1 tests asserting row-level access are explicitly rejectable. | What's next: SDET review | Blockers: none
 
 ## Attempt Log
 
