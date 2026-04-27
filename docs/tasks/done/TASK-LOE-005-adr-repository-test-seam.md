@@ -1,13 +1,13 @@
 # TASK-LOE-005: ADR — Repository interface as test seam (Prisma + SQL Server adaptation)
 
 **Epic**: chore/lights-out-enablement
-**Status**: review
+**Status**: done
 **Assigned to**: sa (Impl: sa)
 **Updated-by**: sa
 **Depends on**: none
 **E2e-required**: no
 **Started-at**: 2026-04-27T10:07:59Z
-**Completed-at**: —
+**Completed-at**: 2026-04-27T11:30:00Z
 **Complexity-estimate**: 2
 **Complexity-actual**: 2
 **Affected flows:** none (justification: ADR documents an architectural pattern, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [N/A] **Submission gate** — N/A (ADR-only task; markdown formatting only)
 - [N/A] **Targeted e2e** — N/A
 - [x] **Security review** — verified: ADR § 1 explicitly states the seam sits **above** the ADR-003 `$extends` wrapper, § 5 explicitly states mocks do not exercise RLS and that RLS is validated only by Tier 2 against the real `db/policies/` layer (ADR-005 § 6), and the rejection criteria explicitly forbid Tier 1 tests that assert row-level access behavior. No bypass pattern is advocated; the wrapper remains the only path that sets `SESSION_CONTEXT` on a real connection.
-- [ ] **SDET Review** — approved (SA-implemented; SDET still reviews per `.claude/agent-phases.md` § SA Self-Implementation)
+- [x] **SDET Review** — approved (SA-implemented; SDET still reviews per `.claude/agent-phases.md` § SA Self-Implementation)
 
 ## SDET Review focus areas
 
@@ -110,6 +110,7 @@ The ADR codifies a convention; the SDET review bullets that **enforce** the conv
 
 - 2026-04-27 [sa] Starting implementation — materializing ADR-011 from spec outline | What's next: write `docs/decisions/ADR-011-repository-interface-test-seam.md`, then status → review | Blockers: none
 - 2026-04-27 [sa] ADR-011 written at `docs/decisions/ADR-011-repository-interface-test-seam.md` (next ADR number verified via `ls docs/decisions/` — 001–010 exist, 011 is genuinely next); 8 sections present (Title/Status/Context/Decision/Alternatives/Consequences/Rejection criteria/Cross-references); cross-refs to ADR-003 §2/§5/§7, ADR-004 § Client shape, ADR-005 § 6, ADR-006 verified by reading those ADRs in full; Tier 1/Tier 2 split anchored to TASK-LOE-001's `test-portal`/`test-admin` jobs (verified in `.github/workflows/ci.yml`); rejection criteria phrased in second-person imperative for direct quote into `agents/sdet.md` § Review Process by TASK-LOE-006 § (e); load-bearing RLS-safety claim (§ 5) made explicit and falsifiable. Security review tick: ADR does not advocate any pattern that bypasses the ADR-003 `$extends` wrapper or ADR-005 RLS — the seam sits above the wrapper, mocks explicitly do not exercise RLS, Tier 1 tests asserting row-level access are explicitly rejectable. | What's next: SDET review | Blockers: none
+- 2026-04-27 [sdet] Review complete — ACCEPT. All mandatory checks passed. See SDET Review section for full findings. | What's next: done | Blockers: none
 
 ## Attempt Log
 
@@ -117,5 +118,5 @@ The ADR codifies a convention; the SDET review bullets that **enforce** the conv
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All mandatory checks passed. Pre-implementation dispatch checkpoint: "Starting implementation" Work Log entry present before review-shaped entry — PASS. Required task-spec fields: `Affected flows` (none + justification), `Affected requirements` (none + justification), `Introduces-gate: no`, `Started-at`, `Complexity-estimate: 2`, `Complexity-actual: 2` — all populated and valid — PASS. `Introduces-gate: no` — Gate Authoring Rules evidence check skipped per semantics — PASS. `E2e-required: no` — targeted e2e skipped — PASS. Submission gate: N/A (ADR-only, markdown) — accepted per checklist — PASS. Cross-surface: vacuously satisfied (apps/ not scaffolded) — PASS. Security review tick accepted: ADR § 1 explicitly places the seam above the ADR-003 `$extends` wrapper; § 5 is an explicit, falsifiable load-bearing safety claim that Tier 1 mocks cannot exercise RLS; rejection criteria in § Rejection criteria (for SDET review) explicitly forbid Tier 1 tests asserting row-level access — PASS. ADR cross-reference accuracy: ADR-003 §2 (set-on-acquire `$extends` wrapper), §5 (fail-closed RLS semantic), §7 (admin pool bypass); ADR-004 § Client shape (two pools, `db` export); ADR-005 § 6 (per-policy `.rls.test.ts` obligation); ADR-006 § Directory layout — all verified by reading those ADRs — PASS. Two-tier pipeline framing: Tier 1 maps to `pnpm --filter portal test` / `pnpm --filter admin test` inside the `test-portal` / `test-admin` jobs in `.github/workflows/ci.yml` (both `continue-on-error: true` as advisory, matches ADR-011 §6 framing) — PASS. Rejection criteria second-person imperative form: all six bullets in § Rejection criteria lead with "Reject" or "Accept" in imperative — PASS and directly quotable into `agents/sdet.md` § Review Process by TASK-LOE-006 § (e). No conflict with ADR-003/004/005: the seam explicitly sits one layer above the `$extends` wrapper; the wrapper remains the only path that sets `SESSION_CONTEXT`; the ADR does not advocate any bypass. Directory pattern decision (forward-looking finding): the SA treated `packages/<feature>/src/repositories/` as forward-looking convention without amending ADR-006. This is ACCEPTED AS-IS. ADR-006 enumerates today's packages (`db`, `storage`, `emails`, `ui`, `eslint-config`, `tsconfig`) with no claim of exhaustiveness; feature packages are a natural consequence of Epic 001 onward. ADR-011 § Cross-references explicitly cites ADR-006 and notes the layout is consistent with the `packages/storage` port-and-adapter pattern, providing sufficient linkage without a mechanical ADR-006 amendment. Requiring the amendment here would be over-engineering a forward declaration that carries no current implementation risk. The SA's option (a) accept as-is is the correct call; no ADR-006 amendment required in this task. Dead-pointer reconciliation: the stale text at `agents/sdet.md:69-73` references `.NET task that touches apps/*-api/*/Data/` and ADR-026. ADR-011's rejection criteria are phrased in second-person imperative form and adapt the concept correctly for TypeScript/Prisma/Vitest — they are directly quotable as the replacement text. TASK-LOE-006 § (e) has a clean target. PASS.

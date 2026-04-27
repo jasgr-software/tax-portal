@@ -7,7 +7,7 @@
 **Lights-out enablement chore**  
 Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
 Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 done (SDET approved 2026-04-27 on re-review); TASK-LOE-004 done)  
+Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 done (SDET approved 2026-04-27 on re-review); TASK-LOE-004 done; TASK-LOE-005 done)  
 Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
 **Tasks:**
@@ -18,7 +18,7 @@ Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claud
 | `TASK-LOE-002-branch-protection-runbook.md` | devops | backlog | TASK-LOE-001 | no | no |
 | `TASK-LOE-003-validate-gates-script.md` | devops | done (SDET approved 2026-04-27 on re-review) | none | yes | no |
 | `TASK-LOE-004-metrics-cost-reporting.md` | devops | done (SDET approved 2026-04-27; math hand-verified; MODEL_RATES updated) | none | no | no |
-| `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | backlog | none | no | no |
+| `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | done (SDET approved 2026-04-27) | none | no | no |
 | `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | backlog | TASK-LOE-005 | yes | no |
 
 Dispatch order: 1 → 3 → 4 → 5 → 2 → 6. Rationale: 1 first (CI infra is the longest task and unblocks 2). 3 + 4 are independent of 1 and can run after. 5 (ADR) feeds 6 (workflow edits cite the ADR), so 5 before 6. 2 depends on 1's job names existing in `ci.yml`, so 2 lands after 1 is reviewed (not necessarily after 1 is `done` — `review` is sufficient since the YAML is final at that point). 6 last because it's the broadest workflow edit + needs ADR-011 from 5.
@@ -42,6 +42,27 @@ _None._
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
 
 ---
+
+### SDET Review — TASK-LOE-005 — 2026-04-27
+
+**Start:** Reviewing TASK-LOE-005 (ADR-011 — Repository interface as test seam, SA self-implementation). Read agent-stack.md, sdet.md, CLAUDE.md, PROGRESS.md, task spec, ADR-011, ADR-003, ADR-004, ADR-005, ADR-006, `.github/workflows/ci.yml`, `agents/sdet.md:69-73`.
+
+**Actions:**
+- Verified dispatch checkpoint: "Starting implementation" Work Log entry present (2026-04-27 [sa] Starting implementation) before review-shaped entry. `Started-at: 2026-04-27T10:07:59Z`, `Complexity-estimate: 2`, `Complexity-actual: 2` all populated. PASS.
+- Verified required task-spec fields: `Affected flows: none (justification: ADR documents an architectural pattern, not user-facing behavior)`, `Affected requirements: none (justification: ADR codifies a test-seam convention; SRS requirements are unaffected)`, `Introduces-gate: no` — all populated with valid values. PASS.
+- `Introduces-gate: no` — Gate Authoring Rules evidence check SKIPPED. PASS.
+- `E2e-required: no` — targeted e2e check SKIPPED. PASS.
+- Submission gate: N/A (ADR-only, markdown formatting only) — accepted per Quality Gates checklist N/A marking. PASS.
+- Cross-surface: vacuously satisfied — apps/ not yet scaffolded. PASS.
+- Security review tick verification: read ADR-011 in full. § 1 (Where the seam lives) explicitly states seam sits above the ADR-003 `$extends` wrapper, which remains the only path setting `SESSION_CONTEXT`. § 5 (RLS interaction) is an explicit, falsifiable, load-bearing safety claim: "a passing Tier 1 test suite tells you exactly nothing about whether RLS protects the data the service-layer code touches." § Rejection criteria explicitly forbid Tier 1 tests asserting row-level access behavior. No bypass pattern anywhere in the document. Security review tick stands. PASS.
+- ADR cross-reference accuracy: ADR-003 §2 (set-on-acquire $extends wrapper), §5 (fail-closed null-identity semantics), §7 (admin pool bypass) — all confirmed by reading ADR-003. ADR-004 § Client shape (two pools, `db` export, no second ORM bypass) — confirmed by reading ADR-004. ADR-005 § 6 (per-policy `.rls.test.ts` hard gate) — confirmed by reading ADR-005. ADR-006 § Directory layout (packages enumerated; `packages/storage` port-and-adapter cited as prior art for the pattern) — confirmed by reading ADR-006. All cross-refs accurate and truthful. PASS.
+- Two-tier pipeline vs. ci.yml: `test-portal` job runs `pnpm --filter portal test` against the SQL Server service container; `test-admin` job runs `pnpm --filter admin test` — both `continue-on-error: true` (advisory until Epic 001 scaffolds apps). ADR-011 § 6 table row for Tier 1 explicitly says "the `test-portal` / `test-admin` jobs in `.github/workflows/ci.yml` (advisory until Epic 001 scaffolds apps; required afterwards)". Exact match to actual ci.yml content. PASS.
+- Rejection criteria form: all six bullets in ADR-011 § Rejection criteria (for SDET review) lead with "Reject" or "Accept" in second-person imperative — directly quotable into `agents/sdet.md` § Review Process by TASK-LOE-006 § (e). PASS.
+- Dead-pointer reconciliation (`agents/sdet.md:69-73`): read the stale text — references ADR-026 and `.NET task that touches apps/*-api/*/Data/` with Moq/`IServiceProvider`/`Func<T>` criteria. ADR-011's rejection criteria adapt the concept correctly for the TypeScript/Prisma/Vitest stack; six bullets are phrased so they can replace the four stale .NET bullets with appropriate rewording. TASK-LOE-006 § (e) has a clean target. PASS.
+- ADR internal consistency: no conflict found. The ADR adapts the j4j ADR-026 concept rather than porting it blindly — the key adaptation is that the seam sits at the service-layer boundary (one layer above `packages/db`) rather than at every Prisma call, reflecting that the `$extends` wrapper is the lower-level seam already in place. The in-memory SQLite and DI-container alternatives are correctly rejected for SQL Server-specific reasons. PASS.
+- **Directory pattern decision** (forward-looking finding flagged by SA): `packages/<feature>/src/repositories/` is not enumerated in ADR-006. Decision: ACCEPT AS-IS (option a). ADR-006 enumerates today's six packages without claiming exhaustiveness; `packages/storage` is cited in ADR-011 § Cross-references as prior art for the same port-and-adapter pattern. No current implementation uses this directory — it is a forward declaration that will be validated when Epic 001 adds the first feature package. Requiring a mechanical ADR-006 amendment now would add ceremony without reducing risk; ADR-011 § Cross-references provides sufficient linkage. If three feature packages land with differing conventions, ADR-006 amendment is the right forcing function then.
+
+**End:** ACCEPT. TASK-LOE-005 flipped to done. Completed-at: 2026-04-27T11:30:00Z.
 
 ### SDET Review — TASK-LOE-004 — 2026-04-27
 
