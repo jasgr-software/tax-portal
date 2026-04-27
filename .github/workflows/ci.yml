@@ -189,6 +189,13 @@ jobs:
     needs: [lint-and-typecheck, test-portal, test-admin, security-scan]
     if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      - name: Ensure ci-failure label exists
+        run: |
+          gh label create ci-failure --color d93f0b --description "CI failed on main branch" --force
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+
       - name: Create failure issue
         run: |
           gh issue create \
