@@ -1,13 +1,13 @@
 # TASK-LOE-001: GitHub Actions CI workflow with SQL Server service + auto-issue on failure
 
 **Epic**: chore/lights-out-enablement (no EP-NNN — this is a workflow chore, not a feature epic)
-**Status**: review
+**Status**: done
 **Assigned to**: devops
-**Updated-by**: devops
+**Updated-by**: sdet
 **Depends on**: none
 **E2e-required**: no
 **Started-at**: 2026-04-26T00:00:00Z
-**Completed-at**: —
+**Completed-at**: 2026-04-27T00:54:02Z
 **Complexity-estimate**: 2
 **Complexity-actual**: 3
 **Affected flows:** none (justification: chore touches CI infrastructure, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [x] **Submission gate** — `pnpm lint` + `pnpm type-check` skipped (pre-scaffold: no `package.json`; see Work Log); CI green run proves gate correctness
 - [N/A] **Targeted e2e** — N/A (workflow chore, no UI)
 - [x] **Security review** — PASS: GITHUB_TOKEN scoped to `issues: write` only; no secrets in YAML; no command injection risk (SHA and run_id are hex/numeric); `--force` label creation is idempotent; CI_SA_PASSWORD fallback is documented CI-only placeholder
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -200,11 +200,13 @@ The runbook in TASK-LOE-002 captures `enforce_admins=true` and the 4-job require
 
   What's next: SDET review | Blockers: none
 
+- 2026-04-27 [sdet] Review complete — ACCEPT-WITH-FOLLOWUPS. All hard-reject checks pass. Status flipped to done. Completed-at: 2026-04-27T00:54:02Z. Follow-up: Node.js 20 deprecation warnings on actions/checkout@v4, pnpm/action-setup@v4, actions/setup-node@v4 — these become errors June 2026; a bump to Node.js 24-compatible action versions should land before Epic 001. Non-blocking at this stage. | What's next: main session updates PROGRESS.md, moves task file to done/ | Blockers: none
+
 ## Attempt Log
 
 **Attempt count**: 0
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All checklist items pass. Dispatch Checkpoint: "Starting implementation" entry present; status backlog→in-progress + Started-at + Complexity-estimate in the same commit as ci.yml (a2134c7) — git ordering is co-commit but the Work Log breadcrumb ordering is correct per the absence-check criterion. Required task-spec fields all populated. Gate Authoring Rules evidence verified: run URL 24971165581 confirmed success via `gh run view`; named code paths confirmed at ci.yml lines 35–49 (lint/typecheck) and 157–184 (audit/CodeQL); counterfactuals are concrete and falsifiable. Cross-surface symmetry: test-portal and test-admin have identical structure (same continue-on-error: true, same SQL Server service block, same advisory rationale). CLAUDE.md drift fix correct (test-web → test-portal + test-admin). Submission gate: no-op skipping correctly documented (pre-scaffold). Follow-up: Node.js 20 action deprecation warning (ACCEPT-WITH-FOLLOWUPS — see PROGRESS.md entry).

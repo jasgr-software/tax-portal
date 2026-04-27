@@ -48,6 +48,9 @@ jobs:
           fi
           pnpm type-check
 
+      - name: validate-gates.sh
+        run: bash scripts/validate-gates.sh
+
   test-portal:
     name: test-portal
     runs-on: ubuntu-latest

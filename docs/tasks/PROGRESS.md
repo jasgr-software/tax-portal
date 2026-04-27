@@ -7,16 +7,16 @@
 **Lights-out enablement chore**  
 Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
 Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch (TASK-LOE-001 implementation done, awaiting SDET review; TASK-LOE-003 dispatching next)  
+Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 awaiting SDET review; TASK-LOE-004 dispatching next)  
 Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
 **Tasks:**
 
 | Task | Owner | Status | Depends on | Introduces-gate | E2e |
 |---|---|---|---|---|---|
-| `TASK-LOE-001-ci-workflow.md` | devops | review (impl done, CI green at run `24971310412`, auto-issue verified at issue #7) | none | yes | no |
+| `TASK-LOE-001-ci-workflow.md` | devops | done (SDET approved 2026-04-27; follow-up: Node.js 20 action deprecation — create task before Epic 001) | none | yes | no |
 | `TASK-LOE-002-branch-protection-runbook.md` | devops | backlog | TASK-LOE-001 | no | no |
-| `TASK-LOE-003-validate-gates-script.md` | devops | dispatched 2026-04-26 (main session, via SA-prepared spawn pattern) | none | yes | no |
+| `TASK-LOE-003-validate-gates-script.md` | devops | review (impl done; 8 check fns + pre-push hook + CI step + 7 fixtures pass + real-repo green) | none | yes | no |
 | `TASK-LOE-004-metrics-cost-reporting.md` | devops | backlog | none | no | no |
 | `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | backlog | none | no | no |
 | `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | backlog | TASK-LOE-005 | yes | no |
@@ -42,6 +42,28 @@ _None._
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
 
 ---
+
+### SDET Review — TASK-LOE-001 — 2026-04-27
+
+**Start:** Reviewing TASK-LOE-001 (GitHub Actions CI workflow + SQL Server service + auto-issue). Read agent-stack.md, sdet.md, CLAUDE.md, task spec, ci.yml, PROGRESS.md head+tail, ADR-002, ADR-006.
+
+**Actions:**
+- Verified dispatch checkpoint: "Starting implementation" entry present; status backlog→in-progress + Started-at + Complexity-estimate land in commit `a2134c7` alongside ci.yml — co-commit, but Work Log breadcrumb ordering criterion satisfied (absence-check passes: Starting implementation entry exists before review-shaped entry). Not a hard reject per sdet.md § Pre-implementation Work Log entry missing criterion.
+- Verified required task-spec fields: `Affected flows`, `Affected requirements`, `Introduces-gate` all populated with explicit none-with-justification or yes values.
+- Verified gate authoring evidence (Introduces-gate: yes):
+  - Gate 1 (`lint-and-typecheck`): run URL 24971165581 confirmed green via `gh run view`; named code path ci.yml lines 35–49 confirmed; counterfactual (`"lint": "exit 1"` or remove package.json guard) is concrete.
+  - Gate 2 (`security-scan`): same run URL, job confirmed green; named code path ci.yml lines 157–184 confirmed; counterfactual (CVE package in lockfile or remove has_jsts guard) is concrete. Pre-scaffold CodeQL exit-32 incident (run before fix) satisfies the "in-flight regression" Gate Authoring Rules exception.
+  - test-portal/test-admin: advisory (continue-on-error: true) — evidence not required at landing per Speculative/sandbox carve-out. Confirmed.
+- Verified cross-surface symmetry: test-portal and test-admin have identical job structure (same SQL Server service block, same continue-on-error: true, same advisory rationale). Cross-surface check passes.
+- Verified ci.yml content: 5 jobs present; lint-and-typecheck and security-scan are required (no continue-on-error); test-portal and test-admin are advisory with carve-out comment; report-failure has `if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'`; SQL Server uses `mcr.microsoft.com/mssql/server:2022-latest` per ADR-002. Actions pinned to @v4. GH_TOKEN scoped to issues:write only. No secrets in plain text.
+- Verified red-run verification: run 24971170639 confirms report-failure ran successfully; issue #7 created with label ci-failure, closed after verification. Throwaway branch deleted. Condition was temporarily extended to the throwaway branch — correct methodology.
+- Verified CLAUDE.md drift fix: test-web → test-portal + test-admin in § Required CI checks, with advisory note. Matches actual job names in ci.yml.
+- Verified submission gate: pnpm lint/type-check skipped (ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND — pre-scaffold, no package.json). Correctly flagged; CI green run is the authoritative gate evidence. Not a fabrication.
+- Verified Complexity-actual: 3 (populated). Completed-at set in this atomic edit.
+- Side finding: Node.js 20 deprecation warnings on actions/checkout@v4, pnpm/action-setup@v4, actions/setup-node@v4. These become forced Node.js 24 in June 2026. Non-blocking now; must be addressed before Epic 001.
+- Executed atomic close edit on task file: SDET Review box ticked, Decision approved, Work Log entry appended, Status → done, Completed-at set to 2026-04-27T00:54:02Z.
+
+**End:** ACCEPT-WITH-FOLLOWUPS. TASK-LOE-001 is done. One follow-up item: create a task (or add to TASK-LOE-002 scope) to bump actions to Node.js 24-compatible versions before June 2026 / before Epic 001. Main session should move task file to `docs/tasks/done/` and commit.
 
 ### RA Requirements Definition — 2026-04-16
 

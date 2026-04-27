@@ -148,6 +148,7 @@ When branch protection is enabled on `main`, the following should be required: `
 
 ```bash
 cp .env.example .env.local            # Configure env vars (Clerk keys, SA_PASSWORD, AZURITE_CONN, Docuseal URL, PORTAL_APP_URL, ADMIN_APP_URL, etc.)
+bash scripts/hooks/install.sh         # Install git hooks (pre-push gate check) — run once after cloning
 pnpm install                          # Install dependencies
 pnpm prisma generate                  # Generate Prisma client
 docker compose up -d                  # Start SQL Server, Azurite, Docuseal + its Postgres, mail catcher

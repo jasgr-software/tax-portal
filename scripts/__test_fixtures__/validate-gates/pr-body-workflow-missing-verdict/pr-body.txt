@@ -1,0 +1,11 @@
+## Summary
+
+Update SA agent rules.
+
+## Quad Review
+
+[ra] Approved — requirements impact reviewed, no issues found.
+[sdet] Approved — gate compliance verified.
+[overwatch] Advisory — no violations found.
+
+Note: The System Architect verdict marker is intentionally omitted from this fixture.

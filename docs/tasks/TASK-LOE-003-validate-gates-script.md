@@ -1,15 +1,15 @@
 # TASK-LOE-003: scripts/validate-gates.sh + pre-push hook
 
 **Epic**: chore/lights-out-enablement
-**Status**: backlog
+**Status**: review
 **Assigned to**: devops
-**Updated-by**: sa
+**Updated-by**: devops
 **Depends on**: none (independent of TASK-LOE-001 — the script is the backstop, not a CI consumer)
 **E2e-required**: no
-**Started-at**: —
+**Started-at**: 2026-04-26T12:00:00Z
 **Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Complexity-estimate**: 3
+**Complexity-actual**: 3
 **Affected flows:** none (justification: chore touches CI/git infrastructure, not user-facing behavior)
 **Affected requirements:** none (justification: chore touches workflow infrastructure, not SRS requirements)
 **Introduces-gate:** yes
@@ -19,10 +19,10 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
-- [ ] **Submission gate** — `pnpm lint` (shellcheck if configured) + script-self-test must pass
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Submission gate** — `pnpm lint` N/A (no package.json yet — pre-scaffold state, same as TASK-LOE-001); script self-test via `bash scripts/validate-gates.sh` passes green against real repo; all 7 fixture tests pass
 - [N/A] **Targeted e2e** — N/A (script + git hook, no UI)
-- [ ] **Security review** — verify no `eval`, no unsanitized variable expansion, no `curl | sh` patterns; verify the pre-push hook does not exfiltrate task content
+- [x] **Security review** — PASS: no `eval`, no `curl | sh`; no unsanitized variable expansion (all variables quoted or via grep -F fixed-string); pre-push hook only invokes validate-gates.sh and prints exit messages — no task content read or transmitted
 - [ ] **SDET Review** — approved
 
 ## SDET Review focus areas
@@ -125,6 +125,70 @@ The pre-push hook itself is a new blocking gate: any push that fails the script 
 ---
 
 ## Work Log
+
+- 2026-04-26 [devops] Starting implementation — create `scripts/validate-gates.sh` (8 check functions), `scripts/hooks/pre-push`, `scripts/hooks/install.sh`, fixture tests under `scripts/__test_fixtures__/validate-gates/`, add `gates:validate` to package.json, update CLAUDE.md § Local Development Setup | What's next: create `scripts/validate-gates.sh` | Blockers: none
+
+- 2026-04-26 [devops] Implementation complete — all 8 check functions created, 7 fixture tests pass, real-repo run clean, pre-push hook installed and verified, Gate Authoring Rules evidence captured below. Status flipping to review.
+
+  **Files created:**
+  - `scripts/validate-gates.sh` — 8 check functions (check_task_file_completion, check_bug_files_present_for_done, check_progress_md_structure, check_gated_path_accountability, check_work_log_content, check_playwright_artifacts, check_ci_evidence, check_pr_body_quad_review)
+  - `scripts/hooks/pre-push` — git pre-push hook, calls validate-gates.sh, exits non-zero to block push on failure
+  - `scripts/hooks/install.sh` — symlink installer; runs once after clone
+  - `scripts/__test_fixtures__/validate-gates/clean/` — clean fixture (exits 0)
+  - `scripts/__test_fixtures__/validate-gates/done-missing-complexity/` — TASK with Status: done + Complexity-actual: — (exits 1)
+  - `scripts/__test_fixtures__/validate-gates/done-no-worklog/` — TASK with Status: done + empty Work Log (exits 1)
+  - `scripts/__test_fixtures__/validate-gates/progress-missing-section/` — PROGRESS.md missing ## Awaiting PR merge (exits 1)
+  - `scripts/__test_fixtures__/validate-gates/gated-no-task/` — .changed_files lists apps/ path with no task reference (exits 1)
+  - `scripts/__test_fixtures__/validate-gates/pr-body-workflow-missing-verdict/` — PR body with agents/*.md changed but [sa] missing (exits 1)
+  - `scripts/__test_fixtures__/validate-gates/pr-body-non-workflow-ok/` — PR body with non-workflow changed files, no quad-review markers needed (exits 0)
+
+  **Files modified:**
+  - `CLAUDE.md` § Local Development Setup — added `bash scripts/hooks/install.sh` as first step
+  - `.github/workflows/ci.yml` — added `validate-gates.sh` step to `lint-and-typecheck` job
+  - `package.json` — created with `scripts.gates:validate: "bash scripts/validate-gates.sh"` (minimal root package.json; pre-scaffold, no deps)
+
+  **Submission gate:**
+  - `pnpm lint`: N/A — no `package.json` existed before this task; package.json now exists but workspace not scaffolded (same pre-scaffold state as TASK-LOE-001). Flag per task spec: note in Work Log, proceed.
+  - `pnpm type-check`: same reason. N/A.
+  - Script self-test: `bash scripts/validate-gates.sh` — ALL CHECKS PASSED, EXIT_CODE: 0 (captured live — real repo run with current task files)
+  - All 7 fixture tests: PASS (each described below in fixture self-test section)
+
+  **Fixture self-test results (red-then-green per § Gate Authoring Rules Exceptions / In-flight regression):**
+
+  | Fixture | Expected exit | Actual exit | Failing check |
+  |---|---|---|---|
+  | clean | 0 | 0 | — |
+  | done-missing-complexity | 1 | 1 | check_task_file_completion: Complexity-actual missing or not 1-5 |
+  | done-no-worklog | 1 | 1 | check_work_log_content: Work Log missing 'Starting implementation' entry |
+  | progress-missing-section | 1 | 1 | check_progress_md_structure: Missing section '## Awaiting PR merge' |
+  | gated-no-task | 1 | 1 | check_gated_path_accountability: apps/portal/src/some-new-file.ts not referenced in any task file |
+  | pr-body-workflow-missing-verdict | 1 | 1 | check_pr_body_quad_review: PR body missing verdict marker: [sa] |
+  | pr-body-non-workflow-ok | 0 | 0 | — (quad-review check skipped for non-workflow PR) |
+
+  **Pre-push hook deliberate-bad-push test:**
+  - Created `docs/tasks/done/TASK-TEST-BAD.md` with `Status: done` and `Complexity-actual: —`
+  - Ran `bash scripts/hooks/pre-push` (the hook calls validate-gates.sh)
+  - Hook output: `[pre-push] Push BLOCKED — one or more gate checks failed.` + check_task_file_completion FAIL → PRE_PUSH_EXIT: 1
+  - Removed bad fixture. Re-ran hook: `[pre-push] All gate checks passed — push allowed.` PRE_PUSH_EXIT: 0
+
+  **CI integration:** `validate-gates.sh` step added to `lint-and-typecheck` job in `.github/workflows/ci.yml` (TASK-LOE-001 is in review, spec says CI step can land alongside — added it). TASK-LOE-001 spec is consistent with this addition.
+
+  **CLAUDE.md update:** `bash scripts/hooks/install.sh` added as the first line of Local Development Setup code block. Per task spec requirement that SDET can verify the doc update happened.
+
+  **Gate Authoring Rules evidence (§ Introduces-gate: yes):**
+
+  **Gate: pre-push hook blocking on validate-gates.sh failure**
+
+  1. **Run URL + job/step + local log:** Local run evidence (no CI URL — pre-push hooks are local gates). Evidence documented as red-then-green local run per § Gate Authoring Rules § Evidence requirement, form: local execution output captured in this Work Log entry.
+     - RED: `bash scripts/hooks/pre-push` with `docs/tasks/done/TASK-TEST-BAD.md` (Status: done, Complexity-actual: —) present → PRE_PUSH_EXIT: 1, output: `[pre-push] Push BLOCKED`
+     - GREEN: Remove bad fixture, re-run → PRE_PUSH_EXIT: 0, output: `[pre-push] All gate checks passed — push allowed.`
+     - Named job/step: `scripts/hooks/pre-push` step "invoke validate-gates.sh" (line 29: `if ! bash "$SCRIPT"; then`)
+
+  2. **Named code path:** `scripts/validate-gates.sh:check_task_file_completion()` — specifically the regex at the line `if ! grep -qE "^\*\*Complexity-actual\*\*: [1-5]$" "$f"; then` (checks 4 done-task metadata fields; `Complexity-actual: [1-5]` is the specific guard for the demonstrated failure mode).
+
+  3. **Counterfactual:** If `check_task_file_completion()` were changed from `grep -qE "^\*\*Complexity-actual\*\*: [1-5]$"` to `grep -qE "^\*\*Complexity-actual\*\*:"` (removing the `[1-5]` range constraint), then `Complexity-actual: —` (a placeholder dash) would satisfy the pattern — a done task with no actual estimate would silently pass. That is exactly what the regex specificity is guarding against: the guard proves that only a numeric 1–5 value satisfies the constraint, not a placeholder.
+
+  What's next: SDET review | Blockers: none
 
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
 

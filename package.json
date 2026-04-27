@@ -1,0 +1,7 @@
+{
+  "name": "tax-portal",
+  "private": true,
+  "scripts": {
+    "gates:validate": "bash scripts/validate-gates.sh"
+  }
+}

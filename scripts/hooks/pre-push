@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# scripts/hooks/pre-push
+#
+# Git pre-push hook for tax-portal.
+# Installed by: bash scripts/hooks/install.sh
+#
+# Runs scripts/validate-gates.sh before every push. Any check failure blocks
+# the push. Bypass via --no-verify is off-limits per .claude/agent-stack.md
+# § Autonomy Ceiling item 2 — this hook intentionally does not parse or honor
+# that flag; the git client itself handles the flag before invoking hooks.
+#
+# To install: bash scripts/hooks/install.sh
+# To bypass (emergency only, requires explicit user authorization): git push --no-verify
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCRIPT="${REPO_ROOT}/scripts/validate-gates.sh"
+
+if [[ ! -f "$SCRIPT" ]]; then
+  echo "[pre-push] ERROR: scripts/validate-gates.sh not found at $SCRIPT" >&2
+  echo "[pre-push] Run 'bash scripts/hooks/install.sh' to set up the hook, or check repo state." >&2
+  exit 1
+fi
+
+echo "[pre-push] Running validate-gates.sh..."
+if ! bash "$SCRIPT"; then
+  echo "" >&2
+  echo "[pre-push] Push BLOCKED — one or more gate checks failed." >&2
+  echo "[pre-push] Fix the issues above and retry. If --no-verify is genuinely needed," >&2
+  echo "[pre-push] it requires explicit user authorization per agent-stack.md § Autonomy Ceiling item 2." >&2
+  exit 1
+fi
+
+echo "[pre-push] All gate checks passed — push allowed."
+exit 0
