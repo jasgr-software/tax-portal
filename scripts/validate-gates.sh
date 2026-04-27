@@ -460,14 +460,18 @@ check_ci_evidence() {
       local fname
       fname="$(basename "$f")"
 
-      # Item 1: Run URL (CI run or local log path)
-      if ! grep -qE "(https://github\.com/.*/actions/runs/[0-9]+|/tmp/[a-zA-Z0-9_-]+\.log)" "$f"; then
+      # Item 1: Run URL, local log path, or prose red-then-green evidence.
+      # Prose branch requires two anchors (RED:+GREEN: or Pre-rule+Post-rule) per
+      # agent-stack.md § Gate Authoring Rules § In-flight regression exception.
+      if ! grep -qE "(https://github\.com/.*/actions/runs/[0-9]+|/tmp/[a-zA-Z0-9_-]+\.log)" "$f" && \
+         ! { grep -qE "(RED:|Pre-rule)" "$f" && grep -qE "(GREEN:|Post-rule)" "$f"; }; then
         fail "$check_name" "$fname: Introduces-gate done task missing run URL or local log path"
         all_pass=0
       fi
 
       # Item 2: Named code path (a file reference — look for typical path patterns)
-      if ! grep -qE "(\.(sh|yml|yaml|ts|tsx|js|json|md):[0-9]+|`[a-zA-Z0-9_./-]+\.(sh|yml|yaml|ts|tsx|js|json)`)" "$f"; then
+      # Single-quoted regex avoids bash treating backticks as command substitution.
+      if ! grep -qE '\.(sh|yml|yaml|ts|tsx|js|json|md):[0-9]+|`[a-zA-Z0-9_./-]+\.(sh|yml|yaml|ts|tsx|js|json)`' "$f"; then
         fail "$check_name" "$fname: Introduces-gate done task missing named code path"
         all_pass=0
       fi

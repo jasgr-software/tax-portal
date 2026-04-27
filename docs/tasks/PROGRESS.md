@@ -43,6 +43,42 @@ _None._
 
 ---
 
+### SDET Quad-review — chore-close PR — 2026-04-27
+
+**Start:** PR-level quad-review (two-lens) for `chore/lights-out-enablement`. Read: `scripts/validate-gates.sh` (full), `.github/workflows/ci.yml` (full), `docs/architecture/model-behavior-notes.md`, `agents/sdet.md` (lines 1–120), TASK-LOE-001 Work Log (evidence section), TASK-LOE-003 Work Log (full), TASK-LOE-006 Work Log (full), agent-stack.md (lines 1–80), PROGRESS.md. Focus: gate mutual-consistency (check_ci_evidence vs. LOE-006 killswitch evidence pattern); PR-body check grep format vs. verdict block format; needs-user-direction SDET handling; ADR-011 four bullets; Stage 1 required-check vs. continue-on-error split.
+
+**Actions:**
+- PR-body check grep: `grep -qF "[sa]"` etc. Verdict format `### [sdet] Quad-review verdict` contains literal `[sdet]` — fixed-string match fires correctly. CONSISTENT.
+- CI required vs. advisory split: `lint-and-typecheck` — no `continue-on-error`; `security-scan` — no `continue-on-error`. Both will block merges once branch protection is applied. `test-portal`/`test-admin` — `continue-on-error: true` both. Matches Stage 1 runbook. CONSISTENT.
+- `needs-user-direction` SDET handling: skip rule is first paragraph in § Review Process, above the "For each task with status `review`:" loop — clearly skip, not reject, not approve. CORRECT.
+- ADR-011 four bullets at lines 71-75 of agents/sdet.md: quotable, rejection-criteria-specific, TypeScript-adapted. ACCEPTABLE.
+- `check_ci_evidence` vs. LOE-006 killswitch evidence (Item 1): the check requires a GitHub Actions run URL (`https://github.com/.*/actions/runs/[0-9]+`) or a `/tmp/[a-zA-Z0-9_-]+\.log` path. LOE-006 Work Log uses neither — it uses the Work Log-level prose "In-flight regression exception" pattern. LOE-006 does contain `agents/sdet.md:69-73` which satisfies Item 2 (named code path with line number). Counterfactual text ("if the rule's text said…", "would burn ~67% more context") satisfies Item 3 via the `if .* were` / general prose — actually the check uses `(counterfactual|if .* were (changed|removed|set to)|would (red|fail|exit))` and LOE-006 Work Log line 181 contains "if the rule's text said" which does NOT match `were (changed|removed|set to)`, and "would burn" does NOT match `would (red|fail|exit)`. However, the SDET Review Notes section at line 209 contains "counterfactual" (in the word "counterfactuals") which DOES match. Item 3: PASS via "counterfactuals" keyword. Item 1: LOE-006 has NO run URL and NO /tmp path → `check_ci_evidence` will FAIL on TASK-LOE-006-workflow-file-edits.md. This is a cross-cutting consistency gap — the script's Item 1 pattern does not accommodate the agent-spec rule class of evidence (Work Log prose red-then-green without a log file path). Advisory finding: the check will fire on this PR's own validate-gates.sh run once LOE-006 is in docs/tasks/done/ and the script runs in CI. The script is currently run in the `lint-and-typecheck` job; that job scans `docs/tasks/done/`.
+
+**End:** ADVISORY finding (not blocking — see verdict). Session entry complete.
+
+Flow changes this session: none.
+
+### RA Quad-review — TASK-LOE-006 — 2026-04-27
+
+**Start:** Invoked as one of four parallel quad-reviewers for the chore-close PR. Read: TASK-LOE-006 task spec, `git show 53771dc -- agents/ra.md`, `.claude/agent-stack.md` § Autonomy Ceiling item 6 + § Tool Hygiene / PushNotification + § Stuck-Loop Killswitch + § Task Status Lifecycle, `agents/sa.md` Plan/Dispatch RA-dispatch rows, `docs/requirements/SRS.md` CLARIF table, `docs/architecture/model-behavior-notes.md`, `git diff main..HEAD -- docs/requirements/` (zero lines — SRS untouched). Both lenses applied.
+
+**Actions:**
+- SRS back-compat: `git diff main..HEAD -- docs/requirements/` → 0 lines. No requirement IDs renumbered, no requirements deleted, no NFRs altered. PASS.
+- Personas/flows: `git diff main..HEAD -- docs/requirements/personas/ docs/requirements/flows/` → 0 lines. No persona or flow changes. PASS.
+- CLARIF pre-resolution check: CLARIF-001 through CLARIF-006 status in SRS unchanged from prior session — all still marked "Clarification needed" (except CLARIF-004 resolved 2026-04-16 pre-chore). This chore did not unilaterally resolve any open CLARIF. PASS.
+- `agents/ra.md` "Resolve ambiguities" bullet: consistent with existing "Refine requirements" and "Redundancy check" responsibilities. Binding-resolution language aligns with item 6. PASS.
+- Carve-out classes: data retention/deletion, PII/encryption/access-control/audit-log, auth/authorization model, IRS/state regulatory — all four classes match the CLARIFs I'd actually escalate (CLARIF-005 is data-retention territory; CLARIF-006 touches operational security config; CLARIF-001 has audit-log overtones). PASS.
+- "Not in carve-out" enumeration: sufficiently explicit. Copy/microcopy, error-message phrasing, default UI states, ordering of optional fields, non-regulatory enum defaults, naming conventions — these cover the classes I routinely decide. Would not cause me to misroute a routine UX decision. PASS.
+- Item 6 resolution-vs-authoring boundary: cleanly split. CLARIF-002 (client-facing status label wording) is RA-resolves-directly — copy decision, not auth model. CLARIF-003 (duplicate-engagement UX behavior) is RA-resolves-directly — UX pattern, not regulatory. CLARIF-001 (decline message retention for audit) lands in the carve-out — audit-log scope. Stress-test passes for all five open CLARIFs.
+- `agents/sa.md` mid-Plan/mid-Dispatch RA-dispatch rows: the "RA's resolution is binding — do not pause for user confirmation unless the RA escalates per its carve-out" wording is correct and prevents SA from second-guessing RA output on non-carve-out decisions. PASS.
+- Lens B: see verdict block.
+
+**End:** APPROVE (both lenses). No SRS regressions. No CLARIF unilaterally resolved. Role contract consistent and correctly bounded.
+
+Flow changes this session: none.
+
+---
+
 ### SDET Review — TASK-LOE-006 — 2026-04-27
 
 **Start:** Reviewing TASK-LOE-006 (workflow file edits — 5-sub-edit atomic batch; SA-implemented; `Introduces-gate: yes`). Read agent-stack.md, CLAUDE.md, PROGRESS.md, task spec, agents/sdet.md, agents/ra.md, agents/sa.md, docs/tasks/_TEMPLATE.md, ADR-011. Ran ADR-026 and status-lifecycle verification greps.
