@@ -1,15 +1,15 @@
 # TASK-LOE-002: Branch protection runbook
 
 **Epic**: chore/lights-out-enablement
-**Status**: backlog
+**Status**: review
 **Assigned to**: devops
-**Updated-by**: sa
+**Updated-by**: devops
 **Depends on**: TASK-LOE-001 (the runbook lists job names that must exist in `ci.yml` first)
 **E2e-required**: no
-**Started-at**: —
+**Started-at**: 2026-04-27T10:18:23Z
 **Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Complexity-estimate**: 2
+**Complexity-actual**: 2
 **Affected flows:** none (justification: chore touches operations docs, not user-facing behavior)
 **Affected requirements:** none (justification: chore touches operations docs, not SRS requirements)
 **Introduces-gate:** no
@@ -19,10 +19,10 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
 - [N/A] **Submission gate** — N/A (docs-only task; markdown formatting only)
 - [N/A] **Targeted e2e** — N/A (docs-only)
-- [ ] **Security review** — verify the `gh api` snippet uses `--method PUT`, sets `enforce_admins=true`, sets `allow_force_pushes=false`, `allow_deletions=false`; no secrets in the runbook itself
+- [x] **Security review** — `--method PUT` confirmed; `enforce_admins: true` (boolean, not string); `allow_force_pushes: false`; `allow_deletions: false`; `required_conversation_resolution: true`; no secrets in the runbook
 - [ ] **SDET Review** — approved
 
 ## SDET Review focus areas
@@ -115,6 +115,8 @@ The item-3 promotion PR (separate, future) will revisit this for workflow-file P
 ## Work Log
 
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
+- 2026-04-27 [devops] Starting implementation — materializing branch-protection runbook from spec outline; verified CI job names (lint-and-typecheck, security-scan, test-portal, test-admin all confirmed against ci.yml with matching name: fields); confirmed repo path jasgr-software/tax-portal | What's next: write docs/operations/branch-protection.md, then status → review | Blockers: none
+- 2026-04-27 [devops] Runbook written at docs/operations/branch-protection.md; gh api payloads syntax-verified (balanced braces, boolean field types, no trailing commas, Stage 1 and Stage 2 snippets identical except contexts array); CI job names confirmed against ci.yml (name: fields match job keys exactly); repo path jasgr-software/tax-portal confirmed via gh repo view; Autonomy Ceiling item 3 predicate (b) wording verified and cited; docs/operations/ was empty so no existing runbook format to match — ADR tone used instead | What's next: SDET review | Blockers: none
 
 ## Attempt Log
 
