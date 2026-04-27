@@ -7,7 +7,7 @@
 **Lights-out enablement chore**  
 Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
 Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 done (SDET approved 2026-04-27 on re-review); TASK-LOE-004 done; TASK-LOE-005 done)  
+Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 done (SDET approved 2026-04-27 on re-review); TASK-LOE-004 done; TASK-LOE-005 done; TASK-LOE-002 done)  
 Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
 **Tasks:**
@@ -15,7 +15,7 @@ Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claud
 | Task | Owner | Status | Depends on | Introduces-gate | E2e |
 |---|---|---|---|---|---|
 | `TASK-LOE-001-ci-workflow.md` | devops | done (SDET approved 2026-04-27; follow-up: Node.js 20 action deprecation — create task before Epic 001) | none | yes | no |
-| `TASK-LOE-002-branch-protection-runbook.md` | devops | backlog | TASK-LOE-001 | no | no |
+| `TASK-LOE-002-branch-protection-runbook.md` | devops | done (SDET approved 2026-04-27) | TASK-LOE-001 | no | no |
 | `TASK-LOE-003-validate-gates-script.md` | devops | done (SDET approved 2026-04-27 on re-review) | none | yes | no |
 | `TASK-LOE-004-metrics-cost-reporting.md` | devops | done (SDET approved 2026-04-27; math hand-verified; MODEL_RATES updated) | none | no | no |
 | `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | done (SDET approved 2026-04-27) | none | no | no |
@@ -42,6 +42,31 @@ _None._
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
 
 ---
+
+### SDET Review — TASK-LOE-002 — 2026-04-27
+
+**Start:** Reviewing TASK-LOE-002 (branch protection runbook). Read agent-stack.md, CLAUDE.md, task spec, docs/operations/branch-protection.md, .github/workflows/ci.yml, agent-stack.md § Autonomy Ceiling item 3, PROGRESS.md.
+
+**Actions:**
+- Verified task metadata contract: `Started-at: 2026-04-27T10:18:23Z`, `Complexity-estimate: 2`, `Complexity-actual: 2` — all present and valid. PASS.
+- Verified dispatch checkpoint: "Starting implementation" Work Log entry present before review-shaped entry; status flip and metadata in that first entry. PASS.
+- Verified required task-spec fields: `Affected flows: none (justification: ...)`, `Affected requirements: none (justification: ...)`, `Introduces-gate: no` — all explicitly populated. PASS.
+- `Introduces-gate: no` — Gate Authoring Rules evidence check SKIPPED. PASS.
+- `E2e-required: no` — targeted e2e check SKIPPED. PASS.
+- Decision #1A field verification: all six fields in both Stage 1 and Stage 2 payloads match exactly — `enforce_admins: true` (bool), `required_pull_request_reviews: null` (JSON null, not string), `required_conversation_resolution: true` (bool), `allow_force_pushes: false` (bool), `allow_deletions: false` (bool), `required_status_checks.strict: true` (bool). PASS.
+- Two-stage rollout: Stage 1 contexts = `["lint-and-typecheck", "security-scan"]`; Stage 2 contexts = `["lint-and-typecheck", "test-portal", "test-admin", "security-scan"]`. Trigger condition for Stage 2 explicitly stated (apps exist with real tests + Epic 001 close-prep removes `continue-on-error: true`). PASS.
+- Stage 1 ≡ Stage 2 except contexts: mentally diffed both payloads — structurally identical in all fields except the `contexts` array. PASS.
+- CI job names: ci.yml `name:` fields are `lint-and-typecheck`, `test-portal`, `test-admin`, `security-scan` — exact match to runbook contexts. PASS.
+- Autonomy Ceiling item 3 predicate (b) cross-link: runbook § 1 quotes the predicate verbatim from agent-stack.md. The quoted text matches the actual agent-stack.md text. PASS.
+- Enable + disable/rollback procedures: § 3 (Stage 1 enable), § 4 (Stage 2 enable), § 5 (DELETE disable) all present. Rollback "when to use" rationale concise and correct. PASS.
+- `gh api` JSON syntax: balanced braces, boolean types, JSON null, no trailing commas, `<<'JSON'` prevents variable expansion. PASS.
+- `required_linear_history: false` and `block_creations: false` rationale: table rows in § 2, each one concise sentence. No walls of text. PASS.
+- "Do not apply in this PR" blockquote: § 1, prominent and unambiguous. PASS.
+- Security review: `--method PUT` correct for GitHub branch protection endpoint; all four security flags set correctly as booleans; no secrets in runbook. PASS.
+- Operations-doc consistency (CLAUDE.md DevOps rule): rule applies to Dockerfile/compose/secrets/env/ingress/DB-principal changes — none here. New runbook file creation does not trigger the rule. PASS.
+- Cross-surface: vacuously satisfied (apps/ not yet scaffolded). PASS.
+
+**End:** ACCEPT. TASK-LOE-002 flipped to done. Completed-at: 2026-04-27T12:00:00Z.
 
 ### SDET Review — TASK-LOE-005 — 2026-04-27
 

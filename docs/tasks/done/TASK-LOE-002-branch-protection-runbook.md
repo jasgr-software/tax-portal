@@ -1,13 +1,13 @@
 # TASK-LOE-002: Branch protection runbook
 
 **Epic**: chore/lights-out-enablement
-**Status**: review
+**Status**: done
 **Assigned to**: devops
 **Updated-by**: devops
 **Depends on**: TASK-LOE-001 (the runbook lists job names that must exist in `ci.yml` first)
 **E2e-required**: no
 **Started-at**: 2026-04-27T10:18:23Z
-**Completed-at**: —
+**Completed-at**: 2026-04-27T12:00:00Z
 **Complexity-estimate**: 2
 **Complexity-actual**: 2
 **Affected flows:** none (justification: chore touches operations docs, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [N/A] **Submission gate** — N/A (docs-only task; markdown formatting only)
 - [N/A] **Targeted e2e** — N/A (docs-only)
 - [x] **Security review** — `--method PUT` confirmed; `enforce_admins: true` (boolean, not string); `allow_force_pushes: false`; `allow_deletions: false`; `required_conversation_resolution: true`; no secrets in the runbook
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -117,6 +117,7 @@ The item-3 promotion PR (separate, future) will revisit this for workflow-file P
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
 - 2026-04-27 [devops] Starting implementation — materializing branch-protection runbook from spec outline; verified CI job names (lint-and-typecheck, security-scan, test-portal, test-admin all confirmed against ci.yml with matching name: fields); confirmed repo path jasgr-software/tax-portal | What's next: write docs/operations/branch-protection.md, then status → review | Blockers: none
 - 2026-04-27 [devops] Runbook written at docs/operations/branch-protection.md; gh api payloads syntax-verified (balanced braces, boolean field types, no trailing commas, Stage 1 and Stage 2 snippets identical except contexts array); CI job names confirmed against ci.yml (name: fields match job keys exactly); repo path jasgr-software/tax-portal confirmed via gh repo view; Autonomy Ceiling item 3 predicate (b) wording verified and cited; docs/operations/ was empty so no existing runbook format to match — ADR tone used instead | What's next: SDET review | Blockers: none
+- 2026-04-27 [sdet] Review complete — ACCEPT. All focus areas verified: Decision #1A fields exact match (all booleans, null not string); Stage 1/Stage 2 structurally identical except contexts; CI job names match ci.yml name: fields; Autonomy Ceiling item 3 predicate (b) quoted verbatim; enable + disable procedures present; rollback rationale concise; "do not apply" blockquote prominent; JSON syntax clean; security review confirmed. Status → done.
 
 ## Attempt Log
 
@@ -124,5 +125,5 @@ The item-3 promotion PR (separate, future) will revisit this for workflow-file P
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: Verified all SDET Review focus areas and ancillary checks. Decision #1A fields confirmed in both Stage 1 and Stage 2 payloads: `enforce_admins: true` (bool), `required_pull_request_reviews: null` (JSON null), `required_conversation_resolution: true` (bool), `allow_force_pushes: false` (bool), `allow_deletions: false` (bool), `required_status_checks.strict: true` (bool). Stage 1 and Stage 2 payloads are structurally identical except the `contexts` array (Stage 1: two entries; Stage 2: four entries). CI job names in the runbook match the `name:` fields in ci.yml exactly. Autonomy Ceiling item 3 predicate (b) wording quoted verbatim from agent-stack.md — cross-link accurate. Enable + disable procedures both present; rollback rationale concise and correct. `required_linear_history: false` and `block_creations: false` rationale present as table rows, not walls of text. "Do not apply" blockquote in § 1 is prominent and unambiguous. JSON payload syntax clean: balanced braces, boolean field types, JSON null (not string), no trailing commas, HEREDOC `<<'JSON'` prevents variable expansion. Repo path `jasgr-software/tax-portal` consistent throughout. Security review confirms `--method PUT` correct for the GitHub branch protection PUT endpoint; `--method DELETE` correct for disable. No secrets in the runbook. Operations-doc consistency rule does not apply (no Dockerfile/compose/secrets/env/ingress/DB-principal changes). Cross-surface vacuously satisfied (apps/ not yet scaffolded).
