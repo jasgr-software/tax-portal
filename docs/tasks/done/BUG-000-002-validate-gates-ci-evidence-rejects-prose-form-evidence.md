@@ -1,14 +1,14 @@
 # BUG-000-002: validate-gates.sh check_ci_evidence Item 1 regex rejects prose-form red-then-green evidence authorized by Gate Authoring Rules
 
 **Epic**: cross-cutting (BUG-000-NNN)
-**Status**: review
+**Status**: closed
 **Found in**: TASK-LOE-006 (surfaced during quad-review against the chore branch; affects TASK-LOE-003 also)
 **Category**: code-quality
 **Severity**: major — `lint-and-typecheck` CI job fails on the lights-out enablement chore PR; blocks the chore from shipping with green CI
 **Assigned to**: devops
 **Updated-by**: devops
 **Started-at**: 2026-04-27T11:02:14Z
-**Completed-at**: —
+**Completed-at**: 2026-04-27T12:45:00Z
 **Complexity-estimate**: 2
 **Complexity-actual**: 2
 
@@ -22,7 +22,7 @@
 - [N/A] **Submission gate** — N/A (bash script change; no `pnpm lint` / `type-check` / domain tests apply at this stage of pre-scaffold; live `bash scripts/validate-gates.sh` is the substitute submission gate)
 - [N/A] **Targeted e2e** — N/A (bash script + git hook surface, no UI)
 - [x] **Security review** — new Item 1 prose-form branch uses two `grep -qE` calls with no `eval`, no `$()` command substitution, all file references via `"$f"` (double-quoted variable, no word-split risk). Item 2 fix switches from double-quoted to single-quoted regex string — eliminates the bash command-substitution interpretation of backticks; no semantic change to the matched pattern (confirmed by spot-check: `` `ci.yml` `` and `ci.yml:35` both still match). No new unquoted variable expansions introduced.
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 - [N/A] **Post-merge verification** — N/A (no deployed surface)
 
 ## SDET Review focus areas
@@ -160,3 +160,10 @@ Both task files have prose-form red-then-green evidence per the In-flight regres
   | ci-evidence-prose-fail | 1 | 1 | check_ci_evidence Item 1 (new: ad-hoc prose rejected) |
 
   What's next: SDET review | Blockers: none
+
+- 2026-04-27 [sdet] Re-review ACCEPT — fix verified live; fixtures behave as expected; LOE-003 + LOE-006 + LOE-001 all pass check_ci_evidence; no stderr noise. Status → closed.
+
+## SDET Review
+
+**Decision**: approved
+**Notes**: Fix A correctness confirmed — Item 1 prose branch uses two independent grep calls joined with `&&`; both anchors (`RED:`+`GREEN:` or `Pre-rule`+`Post-rule`) must hit separately, preventing single-sentence "I tested it" prose from false-PASSing. Anchor strings verified present in both real LOE-003 and LOE-006 Work Logs via grep. Fix B correctness confirmed — outer quotes changed to single-quotes at line 474; backticks inside the regex are now bash-literal; both colon-form and backtick-form file refs still match. Live real-repo run exits 0 with zero stderr lines. Fixture ci-evidence-prose-pass exits 0 (PASS); fixture ci-evidence-prose-fail exits 1 with check_ci_evidence failing on Item 1 exactly as expected. TASK-LOE-001 continues to pass via CI run URL form (no regression). Required metadata present: Started-at, Complexity-estimate: 2, Complexity-actual: 2, Updated-by: devops. Pre-implementation Work Log entry ("Starting implementation") precedes review-shaped entry. Advisory: the `RED:`/`GREEN:` anchor bar is low enough that a task mentioning CSS red/green color names could theoretically false-PASS — judged acceptable given the anchor strings are contextually unusual outside red-then-green test evidence.

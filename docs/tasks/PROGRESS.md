@@ -43,6 +43,29 @@ _None._
 
 ---
 
+### SDET Review — BUG-000-002 — 2026-04-27
+
+**Start:** Focused re-review of BUG-000-002 fix (devops, commit c4917ec). Read: BUG-000-002 bug spec, `scripts/validate-gates.sh` lines 463–477, two new fixture directories, TASK-LOE-003 + TASK-LOE-006 Work Logs (anchor string verification), TASK-LOE-001 Work Log (no-regression check).
+
+**Actions:**
+- Metadata contract: `Started-at: 2026-04-27T11:02:14Z`, `Complexity-estimate: 2`, `Complexity-actual: 2`, `Updated-by: devops` — all present. PASS.
+- Dispatch checkpoint: pre-implementation Work Log entry ("Starting implementation", line 99) precedes review-shaped entry (line 101). PASS.
+- Fix A (Item 1 prose branch): two independent `grep -qE` calls joined with `&&` at lines 466–467. First call matches `(RED:|Pre-rule)`, second matches `(GREEN:|Post-rule)`. Both must hit; single-anchor files fail. Original two branches (CI run URL + `/tmp/*.log`) preserved unchanged at line 466. PASS.
+- Anchor string verification: `grep -n "RED:\|Pre-rule\|GREEN:\|Post-rule" TASK-LOE-003 TASK-LOE-006` — both files have their respective anchors. PASS.
+- Fix B (Item 2 quoting): outer quotes switched to single at line 474. Backtick inside regex is now bash-literal, not command substitution. Colon-form and backtick-form alternatives both structurally intact. PASS.
+- Live real-repo run: exit 0, ALL CHECKS PASSED (0 failures), 0 stderr lines (confirmed by redirect to /tmp/validate-gates-stderr.txt and `wc -l = 0`). PASS.
+- Fixture ci-evidence-prose-pass (`--fixture-dir`): exit 0, check_ci_evidence PASS. PASS.
+- Fixture ci-evidence-prose-fail (`--fixture-dir`): exit 1, check_ci_evidence FAIL on Item 1 exactly — TASK-TEST-003 ad-hoc prose rejected correctly. PASS.
+- TASK-LOE-001 no-regression: CI run URL form still satisfies Item 1; backtick file refs (`package.json`, `.github/workflows/ci.yml`) satisfy Item 2. PASS.
+- Security review: no `eval`, no `$()` command substitution, all file variables double-quoted (`"$f"`). PASS.
+- Advisory: `RED:`/`GREEN:` anchors are low enough that a task mentioning CSS color names could theoretically false-PASS. Judged acceptable — the anchor strings are contextually unusual outside red-then-green test evidence; no real-world task is expected to use `RED:` + `GREEN:` in an unrelated context.
+
+**End:** ACCEPT. Bug closed. No stderr noise. All fixture + live-repo results consistent with fix intent. Chore is ready for push + PR + quad-review verdict assembly.
+
+Flow changes this session: none.
+
+---
+
 ### SDET Quad-review — chore-close PR — 2026-04-27
 
 **Start:** PR-level quad-review (two-lens) for `chore/lights-out-enablement`. Read: `scripts/validate-gates.sh` (full), `.github/workflows/ci.yml` (full), `docs/architecture/model-behavior-notes.md`, `agents/sdet.md` (lines 1–120), TASK-LOE-001 Work Log (evidence section), TASK-LOE-003 Work Log (full), TASK-LOE-006 Work Log (full), agent-stack.md (lines 1–80), PROGRESS.md. Focus: gate mutual-consistency (check_ci_evidence vs. LOE-006 killswitch evidence pattern); PR-body check grep format vs. verdict block format; needs-user-direction SDET handling; ADR-011 four bullets; Stage 1 required-check vs. continue-on-error split.
