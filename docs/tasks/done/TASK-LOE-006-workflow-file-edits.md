@@ -1,13 +1,13 @@
 # TASK-LOE-006: Workflow file edits — PushNotification + RA-decides-CLARIFs + stuck-loop killswitch + SDET ADR-011 alignment
 
 **Epic**: chore/lights-out-enablement
-**Status**: review
+**Status**: done
 **Assigned to**: sa (Impl: sa)
 **Updated-by**: sa
 **Depends on**: TASK-LOE-005 (the SDET text update in § (e) below cites ADR-011, which TASK-LOE-005 creates)
 **E2e-required**: no
 **Started-at**: 2026-04-27T10:24:49Z
-**Completed-at**: —
+**Completed-at**: 2026-04-27T16:30:00Z
 **Complexity-estimate**: 4
 **Complexity-actual**: 4
 **Affected flows:** none (justification: chore touches workflow rules + agent specs, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [N/A] **Submission gate** — N/A (markdown-only edits to workflow files; no code, no lint, no type-check)
 - [N/A] **Targeted e2e** — N/A
 - [x] **Security review** — `PushNotification` § Do-not list explicitly bans firing from inside a notification handler ("never wire a hook that fires `PushNotification` in response to receiving one") and adds a same-condition spam-loop guard ("do not fire a second notification for the same condition" within an invocation). The killswitch BUG file template § (1) bullet on the unchanging-failure-mode quote includes a redaction-aware instruction: "When pasting CI output, redact obvious credential-pattern hits per § Autonomy Ceiling item 2 (commit/push) before the BUG file lands — the failure mode summary should not preserve secrets that may have appeared in transient logs." Both spam-loop and credential-leak vectors closed by spec wording. No code surface to attack.
-- [ ] **SDET Review** — approved (SA-implemented; SDET still reviews per `.claude/agent-phases.md` § SA Self-Implementation)
+- [x] **SDET Review** — approved (SA-implemented; SDET still reviews per `.claude/agent-phases.md` § SA Self-Implementation)
 
 ## SDET Review focus areas
 
@@ -197,11 +197,13 @@ Cite the rejection-criteria section of ADR-011 directly so the SDET text is a th
 
   | What's next: SDET review (per `.claude/agent-phases.md` § SA Self-Implementation, SDET still reviews SA-implemented tasks) | Blockers: none
 
+- 2026-04-27 [sdet] Review complete — ACCEPT. All five sub-edits verified in commit 53771dc. Gate Authoring Rules: all 3 items present and concrete. Status lifecycle grep: 1 match with needs-user-direction included. ADR-026 grep: 0 matches. Back-compat: no new required fields. Security: spam-loop guard + redaction-aware BUG template both confirmed. ADR-011 alignment: 4-bullet structure preserved, TypeScript/Prisma/Vitest throughout, ADR-011 § citations present. SA spec deviation (Escalation Protocol cross-reference) accepted as additive clarity. Status → done; Completed-at: 2026-04-27T16:30:00Z. | What's next: main session to advance to chore-close (quad-review PR + merge) | Blockers: none
+
 ## Attempt Log
 
 **Attempt count**: 0
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All five sub-edits verified. Gate Authoring Rules evidence items: (1) red-then-green pattern present and mechanically faithful — pre-rule scenario illustrates indefinite context-burn on `Cannot find module` loop; post-rule scenario correctly traces counter to 3, fires killswitch, creates BUG file, flips status, fires PushNotification, ends invocation. (2) Named code path is § Stuck-Loop Killswitch with the four-step Halt behavior list as the load-bearing anchor; most critical is step 2 (status flip), correctly identified as the cross-section anchor. (3) Two counterfactuals both falsifiable: "5 attempts" threshold weakens the ceiling by ~67%; "any 3 failures" without the consecutive+identical qualifier would false-positive on healthy iteration. All three items concrete and sufficient. Atomic batching confirmed (commit 53771dc: 5 workflow files + task file in one commit). ADR-026 grep: exit 1, 0 matches — dead pointer eliminated. Status lifecycle grep: 1 match in _TEMPLATE.md:4, and it includes `needs-user-direction`. agents/developer.md and agents/overwatch.md confirmed to contain only singular status references, not literal 4-state enumerations — no propagation required per spec. Back-compat verified: _TEMPLATE.md diff shows only Status comment changed, no new required field. Security review items: PushNotification § Do-not list explicitly bans "never wire a hook that fires PushNotification in response to receiving one" (spam-loop trap) and spam-loop guard states "do not fire a second notification for the same condition" — both spam-loop vectors closed. Killswitch step 1 includes redaction-aware instruction for credential-pattern hits in BUG file content — credential-leak vector closed. SDET ADR-011 alignment: 4-bullet structure preserved; all .NET/Dapper/Moq language replaced with TypeScript/Prisma/Vitest equivalents; each bullet cites specific ADR-011 section as thin pointer. ADR-011 has 6 rejection-criteria bullets; SDET text carries 4 (the task spec required 4 structural bullets — reject-speculative-interface, reject-DI-smuggling, accept-extraction-with-tests, accept-concrete-only; the 5th reject and RLS-assertion reject in ADR-011 are covered by the "read ADR-011 § Rejection criteria directly" instruction in the opening line of the sub-bullet). SA spec deviation (Escalation Protocol cross-reference in § Stuck-Loop Killswitch) is ACCEPTED — it clarifies complementary-not-duplicate counters (developer-side 4-attempt ceiling vs. SA-side 3-consecutive-identical trigger) and prevents future readers from inferring one supersedes the other. This is additive clarity, not a spec deviation requiring correction.

@@ -7,7 +7,7 @@
 **Lights-out enablement chore**  
 Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
 Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch (TASK-LOE-001 done; TASK-LOE-003 done (SDET approved 2026-04-27 on re-review); TASK-LOE-004 done; TASK-LOE-005 done; TASK-LOE-002 done)  
+Phase: Dispatch — all tasks done; main session to handle chore-close PR + quad review (all 6 tasks SDET approved 2026-04-27; TASK-LOE-006 done)  
 Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
 
 **Tasks:**
@@ -19,7 +19,7 @@ Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claud
 | `TASK-LOE-003-validate-gates-script.md` | devops | done (SDET approved 2026-04-27 on re-review) | none | yes | no |
 | `TASK-LOE-004-metrics-cost-reporting.md` | devops | done (SDET approved 2026-04-27; math hand-verified; MODEL_RATES updated) | none | no | no |
 | `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | done (SDET approved 2026-04-27) | none | no | no |
-| `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | backlog | TASK-LOE-005 | yes | no |
+| `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | done (SDET approved 2026-04-27) | TASK-LOE-005 | yes | no |
 
 Dispatch order: 1 → 3 → 4 → 5 → 2 → 6. Rationale: 1 first (CI infra is the longest task and unblocks 2). 3 + 4 are independent of 1 and can run after. 5 (ADR) feeds 6 (workflow edits cite the ADR), so 5 before 6. 2 depends on 1's job names existing in `ci.yml`, so 2 lands after 1 is reviewed (not necessarily after 1 is `done` — `review` is sufficient since the YAML is final at that point). 6 last because it's the broadest workflow edit + needs ADR-011 from 5.
 
@@ -42,6 +42,33 @@ _None._
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
 
 ---
+
+### SDET Review — TASK-LOE-006 — 2026-04-27
+
+**Start:** Reviewing TASK-LOE-006 (workflow file edits — 5-sub-edit atomic batch; SA-implemented; `Introduces-gate: yes`). Read agent-stack.md, CLAUDE.md, PROGRESS.md, task spec, agents/sdet.md, agents/ra.md, agents/sa.md, docs/tasks/_TEMPLATE.md, ADR-011. Ran ADR-026 and status-lifecycle verification greps.
+
+**Actions:**
+- Verified task metadata contract: `Started-at: 2026-04-27T10:24:49Z`, `Complexity-estimate: 4`, `Complexity-actual: 4` — all present and valid. PASS.
+- Verified dispatch checkpoint: SA self-implementation (`Impl: sa`); dispatch checkpoint does NOT apply per agent-stack.md § Dispatch Checkpoint § Scope. "Starting implementation" Work Log entry present as optional exercise. PASS.
+- Verified required task-spec fields: `Affected flows: none (justification: chore)`, `Affected requirements: none (justification: chore)`, `Introduces-gate: yes` — all explicitly populated. PASS.
+- Submission gate: N/A (markdown-only workflow file edits; Quality Gates checklist correctly marks [N/A]). PASS.
+- `E2e-required: no` — targeted e2e check SKIPPED. PASS.
+- Gate Authoring Rules evidence (Item 1 — red-then-green): pre-rule scenario shows SA burning indefinite context on identical `Cannot find module` failures with no stop trigger; post-rule scenario traces counter correctly to 3 → killswitch fires → BUG file + status flip + PushNotification + invocation end. Pattern mechanically faithful to § In-flight regression exception (agent-spec rule, no CI manifestation). PASS.
+- Gate Authoring Rules evidence (Item 2 — named code path): § Stuck-Loop Killswitch in `.claude/agent-stack.md` cited. Four-step Halt behavior list identified as load-bearing anchor. Step 2 (status flip to `needs-user-direction`) correctly identified as the cross-section anchor between killswitch and § Task Status Lifecycle — removal breaks "halt and wait" semantics. PASS.
+- Gate Authoring Rules evidence (Item 3 — counterfactual): two falsifiable counterfactuals given: (a) "5 attempts" threshold weakens ceiling by ~67%; (b) "any 3 failures" without consecutive+identical qualifier causes false positives on healthy iteration. Both are concrete and support counterfactual reasoning. PASS.
+- Atomic batching: commit `53771dc` contains `.claude/agent-stack.md`, `agents/ra.md`, `agents/sa.md`, `agents/sdet.md`, `docs/tasks/_TEMPLATE.md` + task file — 6 files in one commit. No partial/intermediate state. PASS.
+- ADR-026 grep: `grep -R "ADR-026" agents/ .claude/` → exit 1, 0 matches. Dead pointer eliminated. PASS.
+- Status lifecycle grep: `grep -RE "backlog \| in-progress \| review \| done" .claude/ agents/ docs/tasks/_TEMPLATE.md` → 1 match in `_TEMPLATE.md:4`, includes `needs-user-direction`. No bare 4-state enumerations remain. PASS.
+- `agents/developer.md` and `agents/overwatch.md`: grep confirmed neither contains a literal 4-status enumeration — only singular state references. No propagation required per spec § (d). PASS.
+- Back-compat: `_TEMPLATE.md` diff is one-line Status comment change. No new required front-matter field. Existing tasks in `docs/tasks/done/` unaffected. PASS.
+- Security review — PushNotification spam-loop guard: `agents/sdet.md` (via `.claude/agent-stack.md` § Tool Hygiene / PushNotification) contains: "never wire a hook that fires PushNotification in response to receiving one" (spam-loop trap) + "do not fire a second notification for the same condition" (within-invocation guard). Both vectors closed. PASS.
+- Security review — BUG file credential-leak prevention: § Stuck-Loop Killswitch step 1 bullet includes: "When pasting CI output, redact obvious credential-pattern hits per § Autonomy Ceiling item 2 (commit/push) before the BUG file lands — the failure mode summary should not preserve secrets that may have appeared in transient logs." Redaction-aware instruction present. PASS.
+- ADR-011 alignment: 4-bullet structure preserved (reject-speculative-interface, reject-DI-smuggling, accept-extraction-with-tests, accept-concrete-only). All .NET/Moq/`IServiceProvider`/`Func<T>` language replaced with TypeScript/Vitest/`vi.fn()`/`() => prisma`/DI-container equivalents. Each bullet cites specific ADR-011 section. Opening line directs SDET to "read that section directly" for full 6-bullet authority. Thin pointer confirmed. PASS.
+- SA spec deviation (Escalation Protocol cross-reference in § Stuck-Loop Killswitch): adds a clarifying sentence that the developer-side "hard stop at 4 attempts" and the SA-side "3 consecutive identical" rule are complementary with different counters and different scopes. This is additive clarity — prevents future readers from inferring one supersedes the other. Acceptable. PASS.
+- Cross-surface scope: vacuously satisfied — apps/ not yet scaffolded. PASS.
+- `needs-user-direction` skip rule in `agents/sdet.md`: confirmed present at the top of § Review Process, above the "For each task with status `review`:" loop. SDET correctly skips these tasks. PASS.
+
+**End:** ACCEPT. TASK-LOE-006 flipped to done. Completed-at: 2026-04-27T16:30:00Z. All 6 chore tasks SDET-approved. Main session to: push branch, open chore-close PR with quad-review markers ([sa], [ra], [sdet], [overwatch] + two-lens framework per agent-stack.md § Main Session Rules), then merge on completion.
 
 ### SDET Review — TASK-LOE-002 — 2026-04-27
 
