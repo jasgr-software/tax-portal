@@ -59,4 +59,6 @@ _None._
 - Commit: `chore(plan): TASK-LOE-007 dispatch checkpoint + Plan finding`. Single commit covering the spec edits + PROGRESS.md.
 - Spawn the [devops] developer subagent with the bump matrix (3 actions to v6, 2 actions to stay at v4), pointer to the spec, the Plan finding, the requirement to push for a draft-PR CI run and capture the run URL, and the reminder that base commit `483c60e` (PR #15 Close-finalize sweep) rides along untouched.
 
-**End:** Plan check complete; trigger condition #1 satisfied; bump matrix authored. Proceeding to Dispatch checkpoint and [devops] spawn.
+**End:** Plan check complete; trigger condition #1 satisfied; bump matrix authored. Dispatch checkpoint committed (`7c1ebc7`). [devops] spawn prompt composed and returned to main session for relay (this SA invocation is nested via `/sa` and lacks the `Agent` tool — see open issue noted in `PROGRESS-ARCHIVE.md:870`, "main session as dispatch relay" pattern). Main session executes the spawn; SA resumes after the [devops] developer returns.
+
+Flow changes this session: none.
