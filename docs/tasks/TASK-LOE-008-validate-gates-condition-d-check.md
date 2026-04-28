@@ -1,15 +1,15 @@
 # TASK-LOE-008: Extend `scripts/validate-gates.sh` with condition-(d) verifier
 
 **Epic**: chore/validate-gates-condition-d-check (post-PR-#13 follow-up item 1)
-**Status**: in-progress
+**Status**: review
 **Assigned to**: devops
-**Updated-by**: devops
+**Updated-by**: devops (GREEN phase 2026-04-28)
 **Depends on**: none (script is the consumer; no other tasks land first)
 **E2e-required**: no
 **Started-at**: 2026-04-28T18:00:00Z
-**Completed-at**: —
+**Completed-at**: 2026-04-28T22:14:15Z
 **Complexity-estimate**: 3
-**Complexity-actual**: —
+**Complexity-actual**: 3
 **Affected flows:** none (justification: chore touches CI/gate validation infrastructure, not user-facing behavior)
 **Affected requirements:** none (justification: chore extends validate-gates.sh — a pre-push and CI gate script — not SRS requirements)
 **Introduces-gate:** yes
@@ -19,10 +19,10 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
-- [ ] **Submission gate** — `bash scripts/validate-gates.sh` passes against the real repo (existing check); all new fixture tests pass; `pnpm lint` / `pnpm type-check` N/A (pre-scaffold; same precedent as TASK-LOE-003)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Submission gate** — `bash scripts/validate-gates.sh` passes against the real repo (existing check); all new fixture tests pass; `pnpm lint` / `pnpm type-check` N/A (pre-scaffold; same precedent as TASK-LOE-003)
 - [N/A] **Targeted e2e** — N/A (bash script + fixtures, no UI)
-- [ ] **Security review** — no `eval`, no `curl | sh`, all variables quoted, no unsanitized PR-body or PROGRESS.md content fed to grep without `-F` or anchored regex
+- [x] **Security review** — no `eval`, no `curl | sh`, all variables quoted, no unsanitized PR-body or PROGRESS.md content fed to grep without `-F` or anchored regex; deferred_value extracted via `grep -oP` with delimited boundary; task-ID regex validated against anchored `^...$` via `grep -qP`
 - [ ] **SDET Review** — approved
 
 ## SDET Review focus areas
@@ -145,6 +145,49 @@ The check is a new SDET review-focus reject-on-fail criterion: when an epic-clos
 
 - 2026-04-28 [devops] Starting implementation — create 4 condition-d fixtures under `scripts/__test_fixtures__/validate-gates/`, add `check_pr_awaiting_merge_gate_verdicts` function to `scripts/validate-gates.sh`, call it by name from `main()`. TDD: fixtures first (red), then implement (green), then counterfactual experiment. | What's next: create fixture directories | Blockers: none
 - 2026-04-28 [devops] Created all 4 TDD fixtures under `scripts/__test_fixtures__/validate-gates/`: `awaiting-merge-all-pass/`, `awaiting-merge-missing-marker/` (SDET CI gate absent), `awaiting-merge-hotfix-deferred-valid/` (TASK-LOE-008 and TASK-LOE-009 deferred annotations), `awaiting-merge-hotfix-deferred-malformed/` (TASK-XXX placeholder). Confirmed RED phase: all 4 fixtures exit 0 spuriously under current script (no check 9 exists yet). BLOCKED on writing to `scripts/validate-gates.sh` — environment permission layer denies Edit, Write, and Bash-based file writes to this path. Same structural constraint the SA hit during Plan. | What's next: user must authorize gated-path write permission for `scripts/validate-gates.sh` in this session, then redispatch | Blockers: permission denial on `scripts/validate-gates.sh` — Edit, Write, and python3/bash file-write all denied by Claude tool permission layer. Fixtures are committed-ready. Implementation of `check_pr_awaiting_merge_gate_verdicts` function is fully designed (function body ready to insert before `main()`, call site is `main()` line after `check_pr_body_quad_review`).
+- 2026-04-28 [devops] GREEN phase complete — implemented `check_pr_awaiting_merge_gate_verdicts` in `scripts/validate-gates.sh` and wired into `main()`. All 13 fixture exit codes matched expected matrix. Real-repo `bash scripts/validate-gates.sh` exits 0. Counterfactual experiment completed. Flipping status to `review`. | What's next: SDET review | Blockers: none
+
+  **Gate Authoring Rules evidence (three items):**
+
+  **Item 1 — Run URL / local log path + named step:**
+  Local execution (no CI run — pre-scaffold precedent per TASK-LOE-003). RED phase (pre-implementation, commit `4d7d665`): all 4 new fixtures exited 0 spuriously — no check 9 existed.
+  - GREEN `awaiting-merge-all-pass`: exit 0, `check_pr_awaiting_merge_gate_verdicts` PASS (`scripts/validate-gates.sh:656` pass call)
+  - GREEN `awaiting-merge-missing-marker`: exit 1, `check_pr_awaiting_merge_gate_verdicts` FAIL — "SDET CI marker missing" (`scripts/validate-gates.sh:649` fail call)
+  - GREEN `awaiting-merge-hotfix-deferred-valid`: exit 0, `check_pr_awaiting_merge_gate_verdicts` PASS
+  - GREEN `awaiting-merge-hotfix-deferred-malformed`: exit 1, `check_pr_awaiting_merge_gate_verdicts` FAIL — "RA Validation deferred annotation has malformed task-ID 'TASK-XXX'" (`scripts/validate-gates.sh:644` fail call)
+  - GREEN real repo: exit 0, `check_pr_awaiting_merge_gate_verdicts (no PR entries to check)` PASS
+
+  **Item 2 — Named code path:**
+  - Function definition: `scripts/validate-gates.sh:588` — `check_pr_awaiting_merge_gate_verdicts()` function entry
+  - Task-ID regex definition: `scripts/validate-gates.sh:618` — `local task_id_regex="(TASK-[A-Z][A-Z0-9]*-[0-9]{3,}|BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,})"`
+  - Regex validation: `scripts/validate-gates.sh:641` — `if echo "$deferred_value" | grep -qP "^${task_id_regex}$"; then`
+  - Call site in `main()`: `scripts/validate-gates.sh:684` — `check_pr_awaiting_merge_gate_verdicts` (called by name, not via wildcard)
+
+  **Item 3 — Counterfactual:**
+  Experiment: temporarily weakened the task_id_regex at `scripts/validate-gates.sh:618` from `(TASK-[A-Z][A-Z0-9]*-[0-9]{3,}|...)` to `(TASK-[A-Z][A-Z0-9]*(-[A-Z0-9]+)?|...)` (second segment made optional, allowing `TASK-XXX` which has no dash-separated numeric segment).
+  - RED (correct regex): `awaiting-merge-hotfix-deferred-malformed` → exit 1, `RA Validation deferred annotation has malformed task-ID 'TASK-XXX'`
+  - GREEN (weakened regex, `[0-9]{3,}` numeric anchor removed): `awaiting-merge-hotfix-deferred-malformed` → exit 0, `check_pr_awaiting_merge_gate_verdicts PASS` — TASK-XXX placeholder accepted, defeating bypass-protection
+  - Regex restored: confirmed exit 1 restored.
+  - Counterfactual conclusion: the `[0-9]{3,}` terminal digit-segment requirement is the load-bearing anchor that distinguishes `TASK-LOE-008` (valid) from `TASK-XXX` (placeholder/bypass). Removing or making it optional causes the malformed fixture to pass spuriously.
+
+  **Fixture exit code matrix (all 13 matched):**
+
+  | Fixture | Expected | Actual |
+  |---|---|---|
+  | `clean` | 0 | 0 |
+  | `done-missing-complexity` | 1 | 1 |
+  | `done-no-worklog` | 1 | 1 |
+  | `progress-missing-section` | 1 | 1 |
+  | `gated-no-task` | 1 | 1 |
+  | `pr-body-non-workflow-ok` (with --pr-body) | 0 | 0 |
+  | `pr-body-workflow-missing-verdict` (with --pr-body) | 1 | 1 |
+  | `ci-evidence-prose-pass` | 0 | 0 |
+  | `ci-evidence-prose-fail` | 1 | 1 |
+  | `awaiting-merge-all-pass` | 0 | 0 |
+  | `awaiting-merge-missing-marker` | 1 | 1 |
+  | `awaiting-merge-hotfix-deferred-valid` | 0 | 0 |
+  | `awaiting-merge-hotfix-deferred-malformed` | 1 | 1 |
+  | Real repo | 0 | 0 |
 
 ## Attempt Log
 
@@ -152,5 +195,5 @@ The check is a new SDET review-focus reject-on-fail criterion: when an epic-clos
 
 ## SDET Review
 
-**Decision**: pending
+**Decision**: pending (submitted 2026-04-28 by devops)
 **Notes**:

@@ -7,14 +7,14 @@
 **`validate-gates.sh` condition-(d) verifier chore (post-PR-#13 follow-up item 1)**  
 Branch: `chore/validate-gates-condition-d-check` (created 2026-04-28 by SA)  
 Goal: Close the gap between `.claude/agent-stack.md` § Autonomy Ceiling item 3 condition (d) (the rule says `scripts/validate-gates.sh` is the verifier for gates 5–8 pass-verdict markers in `## Awaiting PR merge` entries) and the script as it stands today (no such check exists; the cite is aspirational). Single SDET-led TDD task with fixtures: `awaiting-merge-all-pass` (green), `awaiting-merge-missing-marker` (red — silent omission), `awaiting-merge-hotfix-deferred-valid` (green — explicit annotation), `awaiting-merge-hotfix-deferred-malformed` (red — `TASK-XXX` placeholder, the "just-because" bypass surface). The fix also closes the SDET-flagged surface that hotfix carve-out annotations must validate task-ID format, not accept freeform text.  
-Phase: Dispatch in-progress; BLOCKED on same environmental gap (gated-path write to `scripts/validate-gates.sh` denied — Edit, Write, and Bash file-write all denied by tool permission layer for this specific file; fixtures committed; user action required to unblock)
+Phase: Dispatch complete; TASK-LOE-008 in `review` — awaiting SDET review
 Gated: Yes (touches `scripts/`)
 
 **Tasks:**
 
 | Task | Owner | Status | Depends on | Introduces-gate | E2e |
 |---|---|---|---|---|---|
-| `TASK-LOE-008-validate-gates-condition-d-check.md` | devops | in-progress | none | yes | no |
+| `TASK-LOE-008-validate-gates-condition-d-check.md` | devops | review | none | yes | no |
 
 > **Note on Epic 001:** Still queued post-chore. All pre-Plan blockers cleared (CLARIF-004 resolved; personas and flows authored; ACs updated for two-app architecture). Once this chore merges, the SA picks up Epic 001 on the next invocation. TASK-LOE-007 (Node.js 24 action deprecation) is a separate hygiene chore queued ahead of Epic 001; not blocking this chore.
 
@@ -31,6 +31,25 @@ _None._
 - **2026-04-20 — Dispatch Checkpoint rule-sunset check** (owner: Overwatch). Evaluate at the Close-prep retro of the third post-merge epic. If no task has cited § Dispatch Checkpoint as the rule that enabled mid-execution recovery, surface the rule for keep/revise/retire decision per `.claude/agent-stack.md` § Rule Sunset. Rationale: the rule was imported prophylactically from the upstream sibling repo; no tax-portal incident was observed at port time, so it must earn its keep on this codebase.
 - **2026-04-20 — Gate Authoring Rules hotfix-exception promotion check** (owner: Overwatch). At the first hotfix epic that invokes the § Gate Authoring Rules "Hotfix urgency" exception (gate lands as `advisory` pre-evidence), confirm the promotion-back-to-required step actually happens once the incident resolves. Track from the hotfix task's Work Log and the follow-up task that carries the three-item evidence. Rationale: the exception is easy to invoke and easy to leave hanging — the promotion step is where the gate earns its "required" status back, and it needs an explicit check the first time the path is exercised.
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
+
+---
+
+### devops Dispatch — TASK-LOE-008 GREEN phase — 2026-04-28
+
+**Start:** Dispatched as `[devops]` (GREEN phase) to implement `check_pr_awaiting_merge_gate_verdicts` in `scripts/validate-gates.sh`. Permission block resolved in commit `66343bc` (`.claude/settings.json` now allows `Edit(scripts/**)` and `Write(scripts/**)`). Branch: `chore/validate-gates-condition-d-check`, resuming from commit `4d7d665` (RED phase fixtures committed).
+
+**Actions:**
+- Implemented `check_pr_awaiting_merge_gate_verdicts()` function in `scripts/validate-gates.sh` at line 588, placed after `check_pr_body_quad_review` (Check 8) and before `main()` per task spec source-order requirement.
+- Function: parses `## Awaiting PR merge` section from `$PROGRESS_MD`, extracts `- **PR ` bullet entries, and for each entry verifies all four gates (`Container Smoke`, `RA Validation`, `SDET CI`, `SDET Quality Parity`) carry either `<gate> PASS` or `<gate> (deferred per hotfix urgency: <task-id>)` with a structured task-ID matching `TASK-[A-Z][A-Z0-9]*-[0-9]{3,}` or `BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,}`. `TASK-XXX` placeholder rejected.
+- Wired into `main()` at line 684 as `check_pr_awaiting_merge_gate_verdicts` (called by name, not via wildcard).
+- Ran full fixture matrix — all 13 exit codes matched expected (clean/0, done-missing-complexity/1, done-no-worklog/1, progress-missing-section/1, gated-no-task/1, pr-body-non-workflow-ok/0, pr-body-workflow-missing-verdict/1, ci-evidence-prose-pass/0, ci-evidence-prose-fail/1, awaiting-merge-all-pass/0, awaiting-merge-missing-marker/1, awaiting-merge-hotfix-deferred-valid/0, awaiting-merge-hotfix-deferred-malformed/1).
+- Real-repo `bash scripts/validate-gates.sh` exits 0 (`no PR entries to check` — `## Awaiting PR merge` is `_None._`).
+- Counterfactual experiment: weakened regex `[0-9]{3,}` → `(-[A-Z0-9]+)?` (optional segment) → `awaiting-merge-hotfix-deferred-malformed` flipped to exit 0 (TASK-XXX accepted spuriously). Restored production regex, confirmed exit 1 restored.
+- Updated task file: `Status: review`, `Complexity-actual: 3`, `Completed-at: 2026-04-28T22:14:15Z`, Quality Gates checked, Gate Authoring Rules evidence in Work Log.
+
+**End:** TASK-LOE-008 submitted for SDET review. All developer-owned Quality Gate boxes checked. SDET Review box left unchecked — SDET's to close.
+
+Flow changes this session: none.
 
 ---
 
