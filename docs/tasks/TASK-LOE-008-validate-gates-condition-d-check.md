@@ -1,13 +1,13 @@
 # TASK-LOE-008: Extend `scripts/validate-gates.sh` with condition-(d) verifier
 
 **Epic**: chore/validate-gates-condition-d-check (post-PR-#13 follow-up item 1)
-**Status**: review
+**Status**: done
 **Assigned to**: devops
-**Updated-by**: devops (GREEN phase 2026-04-28)
+**Updated-by**: sdet (SDET review 2026-04-28)
 **Depends on**: none (script is the consumer; no other tasks land first)
 **E2e-required**: no
 **Started-at**: 2026-04-28T18:00:00Z
-**Completed-at**: 2026-04-28T22:14:15Z
+**Completed-at**: 2026-04-28T22:30:46Z
 **Complexity-estimate**: 3
 **Complexity-actual**: 3
 **Affected flows:** none (justification: chore touches CI/gate validation infrastructure, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [x] **Submission gate** — `bash scripts/validate-gates.sh` passes against the real repo (existing check); all new fixture tests pass; `pnpm lint` / `pnpm type-check` N/A (pre-scaffold; same precedent as TASK-LOE-003)
 - [N/A] **Targeted e2e** — N/A (bash script + fixtures, no UI)
 - [x] **Security review** — no `eval`, no `curl | sh`, all variables quoted, no unsanitized PR-body or PROGRESS.md content fed to grep without `-F` or anchored regex; deferred_value extracted via `grep -oP` with delimited boundary; task-ID regex validated against anchored `^...$` via `grep -qP`
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -195,5 +195,7 @@ The check is a new SDET review-focus reject-on-fail criterion: when an epic-clos
 
 ## SDET Review
 
-**Decision**: pending (submitted 2026-04-28 by devops)
-**Notes**:
+**Decision**: approved (2026-04-28 by sdet)
+**Notes**: Re-ran full 14-fixture matrix (13 fixtures + real repo) — all exit codes matched expected. Verified: (1) `check_pr_awaiting_merge_gate_verdicts` called by name at `scripts/validate-gates.sh:684` in `main()` — no wildcard discovery; (2) Function definition at line 588, regex at line 618, regex validation at line 641, fail-malformed at line 644, fail-missing at line 649, pass at line 656 — all Work Log line citations accurate; (3) Counterfactual fixture (`awaiting-merge-hotfix-deferred-malformed`) has a complete `## Awaiting PR merge` section with all four gate markers and a real PR entry; failure is caused by the `TASK-XXX` placeholder in the `RA Validation` deferral annotation exercising the `[0-9]{3,}` regex anchor — not by omitting setup; (4) Gate Authoring Rules evidence — all three items present: local log path + named function entry (red-then-green form per TASK-LOE-003 precedent), named code path at file:line for definition + call site, counterfactual experiment documented with weakened-regex experiment; (5) `TASK-LOE-001` matches, `BUG-000-001` matches, `TASK-XXX` rejected — core protections verified. Advisory finding (not rejection): the spec's prose at § Implementation Notes line 119 claims the `TASK-[A-Z][A-Z0-9]*-[0-9]{3,}` regex covers `TASK-001-001`-style tasks (numeric-prefix), but `[A-Z]` requires a leading letter so `TASK-001-001` is rejected. The implementation correctly implements the regex the spec writes; the prose description is incorrect. No `TASK-001-001`-style IDs exist in the project; the BUG branch (`BUG-[A-Z0-9][A-Z0-9]*`) correctly handles the numeric case for bugs. Flagged for SA awareness — if numeric-prefix TASK IDs are introduced in a future epic, the regex will need updating. Cross-surface: vacuously satisfied (script-only). All pre-existing fixtures unaffected.
+
+- 2026-04-28 [sdet] Re-ran full 13-fixture matrix + real repo — all exit codes matched. Verified line numbers, regex specificity, counterfactual genuineness, named code path in main(), dispatch checkpoint ordering, Gate Authoring Rules evidence items 1–3, and structural task metadata. Advisory: TASK-001-001 regex gap (prose claims coverage, regex doesn't deliver — no real-world impact today). Approving. | What's next: SA Close-prep | Blockers: none

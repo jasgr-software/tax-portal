@@ -7,14 +7,14 @@
 **`validate-gates.sh` condition-(d) verifier chore (post-PR-#13 follow-up item 1)**  
 Branch: `chore/validate-gates-condition-d-check` (created 2026-04-28 by SA)  
 Goal: Close the gap between `.claude/agent-stack.md` § Autonomy Ceiling item 3 condition (d) (the rule says `scripts/validate-gates.sh` is the verifier for gates 5–8 pass-verdict markers in `## Awaiting PR merge` entries) and the script as it stands today (no such check exists; the cite is aspirational). Single SDET-led TDD task with fixtures: `awaiting-merge-all-pass` (green), `awaiting-merge-missing-marker` (red — silent omission), `awaiting-merge-hotfix-deferred-valid` (green — explicit annotation), `awaiting-merge-hotfix-deferred-malformed` (red — `TASK-XXX` placeholder, the "just-because" bypass surface). The fix also closes the SDET-flagged surface that hotfix carve-out annotations must validate task-ID format, not accept freeform text.  
-Phase: Dispatch complete; TASK-LOE-008 in `review` — awaiting SDET review
+Phase: SDET review complete; TASK-LOE-008 `done` — ready for SA Close-prep
 Gated: Yes (touches `scripts/`)
 
 **Tasks:**
 
 | Task | Owner | Status | Depends on | Introduces-gate | E2e |
 |---|---|---|---|---|---|
-| `TASK-LOE-008-validate-gates-condition-d-check.md` | devops | review | none | yes | no |
+| `TASK-LOE-008-validate-gates-condition-d-check.md` | devops | done | none | yes | no |
 
 > **Note on Epic 001:** Still queued post-chore. All pre-Plan blockers cleared (CLARIF-004 resolved; personas and flows authored; ACs updated for two-app architecture). Once this chore merges, the SA picks up Epic 001 on the next invocation. TASK-LOE-007 (Node.js 24 action deprecation) is a separate hygiene chore queued ahead of Epic 001; not blocking this chore.
 
@@ -31,6 +31,24 @@ _None._
 - **2026-04-20 — Dispatch Checkpoint rule-sunset check** (owner: Overwatch). Evaluate at the Close-prep retro of the third post-merge epic. If no task has cited § Dispatch Checkpoint as the rule that enabled mid-execution recovery, surface the rule for keep/revise/retire decision per `.claude/agent-stack.md` § Rule Sunset. Rationale: the rule was imported prophylactically from the upstream sibling repo; no tax-portal incident was observed at port time, so it must earn its keep on this codebase.
 - **2026-04-20 — Gate Authoring Rules hotfix-exception promotion check** (owner: Overwatch). At the first hotfix epic that invokes the § Gate Authoring Rules "Hotfix urgency" exception (gate lands as `advisory` pre-evidence), confirm the promotion-back-to-required step actually happens once the incident resolves. Track from the hotfix task's Work Log and the follow-up task that carries the three-item evidence. Rationale: the exception is easy to invoke and easy to leave hanging — the promotion step is where the gate earns its "required" status back, and it needs an explicit check the first time the path is exercised.
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
+
+---
+
+### sdet Review — TASK-LOE-008 — 2026-04-28
+
+**Start:** SDET review of TASK-LOE-008 (validate-gates condition-d verifier). Read: `.claude/agent-stack.md` (full), `TASK-LOE-008` spec (full), `scripts/validate-gates.sh` (full), all 4 new fixtures, PROGRESS.md (top 100 lines), commit log.
+
+**Actions:**
+- Re-ran full fixture matrix (13 fixtures + real repo) independently — all 14 runs produced expected exit codes. No developer self-report trusted without verification.
+- Verified counterfactual fixture (`awaiting-merge-hotfix-deferred-malformed`) is genuine: has complete `## Awaiting PR merge` section, all 4 gate markers present, real PR entry; failure specifically from `TASK-XXX` in `RA Validation` deferral exercising `[0-9]{3,}` regex anchor, not by omitting setup.
+- Verified `check_pr_awaiting_merge_gate_verdicts` called by name at line 684 of `main()` — no wildcard.
+- Verified regex: `TASK-LOE-001` matches, `BUG-000-001` matches, `TASK-XXX` rejected. All Work Log cited line numbers verified accurate (588, 618, 641, 644, 649, 656, 684).
+- Verified dispatch checkpoint ordering: commit `4d7d665` (task flip + Started-at + Complexity-estimate + "Starting implementation" entry + fixtures) precedes implementation commit `a268d21`. Correct.
+- Gate Authoring Rules evidence: all three items present (local log path + named step, named code path at file:line for definition + call site, counterfactual experiment documented with weakened-regex trial).
+- Advisory finding noted in SDET Review section: spec prose claims `TASK-001-001` matches `[A-Z][A-Z0-9]*` regex (incorrect); implementation correctly implements the regex literal. No `TASK-001-001`-style IDs exist; flagged for SA awareness.
+- Updated task: Status → done, SDET Review box ticked, decision prose written, Work Log approval entry appended, Completed-at set to 2026-04-28T22:30:46Z.
+
+**End:** TASK-LOE-008 approved. Status: done. Task is ready for SA Close-prep.
 
 ---
 
