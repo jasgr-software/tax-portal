@@ -1,15 +1,15 @@
 # TASK-LOE-007: Bump GitHub Actions to Node.js 24-compatible versions
 
 **Epic**: chore/lights-out-enablement (follow-up from PR #8)
-**Status**: in-progress
+**Status**: review
 **Assigned to**: devops
-**Updated-by**: sa
+**Updated-by**: devops
 **Depends on**: none
 **E2e-required**: no
 **Started-at**: 2026-04-28T23:52:21Z
 **Completed-at**: —
 **Complexity-estimate**: 2
-**Complexity-actual**: —
+**Complexity-actual**: 1
 **Affected flows:** none (justification: chore touches CI infrastructure only, not user-facing behavior)
 **Affected requirements:** none (justification: chore touches CI infrastructure, not SRS requirements)
 **Introduces-gate:** no
@@ -19,10 +19,10 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
 - [N/A] **Submission gate** — N/A (workflow YAML change, not source code; `pnpm lint` and `pnpm type-check` do not cover `.github/workflows/`)
 - [N/A] **Targeted e2e** — N/A (CI workflow change, not application behavior)
-- [ ] **Security review** — verify each pinned action's release notes for the new major version; confirm no new permissions or `with:` arguments are required by the new version that change the security posture
+- [x] **Security review** — verified each pinned action's release notes for the new major version; no new permissions or `with:` arguments required; no security posture change (see Work Log for per-action evidence)
 - [ ] **SDET Review** — approved
 
 ## SDET Review focus areas
@@ -128,6 +128,7 @@ If pickup-time research surfaces a new action used by a workflow file added betw
 
 - 2026-04-28 [sa] Plan check complete + Dispatch checkpoint. Trigger condition #1 (`@v5`-or-later published for all 5 actions) confirmed satisfied via `gh api repos/<owner>/<name>/releases?per_page=20`. Bump matrix authored: `actions/checkout` `@v4 → @v6` (latest v6.0.2; v5.0.0 introduced node24 per PR #2226; v6.0.0 added persist-credentials change requiring runner ≥ v2.329.0 for Docker-container-action scenarios — we don't use those, safe). `pnpm/action-setup` `@v4 → @v6` (v6.0.3 latest; v5.0.0 release notes "Updated the action to use Node.js 24"; v6 added pnpm v11 support, `with: { version: 9 }` preserved). `actions/setup-node` `@v4 → @v6` (v6.4.0 latest; v5.0.0 introduced node24 per PR #1325; v6 breaking change "Limit automatic caching to npm" applies to `cache: pnpm` users — we don't use the `cache` arg on setup-node). `github/codeql-action/init` and `github/codeql-action/analyze`: **stay at `@v4`** — v4 is the current major and already runs node24 per the release-note string `[v4+ only] The CodeQL Action now runs on Node.js v24` (PR #3169); action.yml at `ref=v4` confirms `using: node24` for both `init/` and `analyze/` entry points. Spec table line 47-52 has stale `node20` rows for the two codeql entries — historical Plan-time record, not amended. | What's next: spawn [devops] developer to perform the 3-action bump on `.github/workflows/ci.yml` and capture the draft-PR CI run URL. | Blockers: none.
 - 2026-04-28 [devops] Starting implementation — bump 3 actions (actions/checkout @v4→@v6, pnpm/action-setup @v4→@v6, actions/setup-node @v4→@v6) across all jobs in ci.yml; codeql @v4 lines unchanged per SA matrix | What's next: edit .github/workflows/ci.yml uses: lines with replace_all, then open draft PR for CI verification | Blockers: none
+- 2026-04-28 [devops] Implementation complete. CI run https://github.com/jasgr-software/tax-portal/actions/runs/25083861343 green (lint-and-typecheck: PASS 18s, security-scan: PASS 16s, test-portal: PASS 48s skipped pnpm-lock guard as expected, test-admin: PASS 51s same). Deprecation sweep: grep -i deprecat returned zero runtime-related deprecation warnings; only branch-name substring matches on "action-deprecation" in the branch name. Per-action verified versions (SA Plan matrix as binding source, confirmed by run): actions/checkout @v6 (v6.0.2, node24 via v5.0.0); pnpm/action-setup @v6 (v6.0.3, node24 via v5.0.0, with: version: 9 preserved); actions/setup-node @v6 (v6.4.0, node24 via v5.0.0, with: node-version: '20' preserved); github/codeql-action/init @v4 (no change, v4 already runs node24); github/codeql-action/analyze @v4 (no change, same). Security review: no new permissions or with: keys introduced by any of the three bumped actions; v6 breaking-change notes for checkout (persist-credentials path) and setup-node (cache auto-limit to npm) are non-applicable to this repo (no Docker container actions, no cache: arg on setup-node). Draft PR #16: https://github.com/jasgr-software/tax-portal/pull/16 | What's next: SDET review. | Blockers: none.
 
 ## Attempt Log
 
