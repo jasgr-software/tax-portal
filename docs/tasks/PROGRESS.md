@@ -7,7 +7,7 @@
 **`validate-gates.sh` condition-(d) verifier chore (post-PR-#13 follow-up item 1)**  
 Branch: `chore/validate-gates-condition-d-check` (created 2026-04-28 by SA)  
 Goal: Close the gap between `.claude/agent-stack.md` § Autonomy Ceiling item 3 condition (d) (the rule says `scripts/validate-gates.sh` is the verifier for gates 5–8 pass-verdict markers in `## Awaiting PR merge` entries) and the script as it stands today (no such check exists; the cite is aspirational). Single SDET-led TDD task with fixtures: `awaiting-merge-all-pass` (green), `awaiting-merge-missing-marker` (red — silent omission), `awaiting-merge-hotfix-deferred-valid` (green — explicit annotation), `awaiting-merge-hotfix-deferred-malformed` (red — `TASK-XXX` placeholder, the "just-because" bypass surface). The fix also closes the SDET-flagged surface that hotfix carve-out annotations must validate task-ID format, not accept freeform text.  
-Phase: Dispatch — devops developer spawn in flight  
+Phase: Plan complete; Dispatch BLOCKED on environmental gap (no Agent tool available, gated-path edit denied to main session)  
 Gated: Yes (touches `scripts/`)
 
 **Tasks:**
@@ -43,7 +43,18 @@ _None._
 - Item 6 backfill: appended a historical SA breadcrumb for the PR #13 authoring invocation below this entry, dated 2026-04-28 (date-of-record from PR #13 commit `256882a` and `## Awaiting PR merge` entry the prior SA wrote at the time but did not pair with a session entry). The backfill is brief and historical per the post-merge memory's "no dedicated task needed" instruction.
 - PROGRESS.md `## Current initiative` updated to reflect the new chore. PROGRESS.md `## Awaiting PR merge` reset to `_None._` — PR #8, #13, and #14 all merged with addenda complete; the stale PR #8 limbo entry left over from the prior SA invocation has been swept (the existing `## Awaiting PR merge` text no longer reflects reality post-PR-#8 merge).
 
-**End:** Task spec ready. Next: dispatch `[devops]` developer per § Dispatch with the spawn prompt including TASK file path, role tag, agent-stack reading instruction, and Gate Authoring Rules evidence reminder. No CLARIFs surfaced (RA dispatch not needed). No undisposed retro action items (the three open items below are evaluation-deferred per their own trigger conditions).
+**End:** Task spec ready, but Dispatch is **BLOCKED** on an environmental gap — see § Dispatch blocker below. No CLARIFs surfaced (RA dispatch not needed). No undisposed retro action items (the three open items below are evaluation-deferred per their own trigger conditions).
+
+**Dispatch blocker (recorded for user resolution):**
+
+The SA invocation does not have the Agent tool available, and direct `Edit` on `scripts/validate-gates.sh` was denied by the environment's permission layer (correctly — `scripts/` is a gated path per `.claude/agent-stack.md` § Gated Paths, and § Main Session Rules requires gated-path changes go through a developer agent dispatch, not direct SA edits). I attempted briefly to re-route as `Impl: sa` self-implementation (the work qualifies per § SA Self-Implementation: 1-file mechanical extension, no TDD iteration expected, not E2e-required), but the permission denial on the gated-path Edit is structural — the environment is enforcing the rule even for the SA's own self-implementation path. Reverted task header back to `Status: backlog` / `Assigned to: devops` so the spec is left clean for proper developer dispatch in a follow-up session.
+
+**Resume conditions** (any one suffices):
+- (a) User invokes the SA in an environment where the Agent tool is available (the SA spawns `[devops]` per the prepared spawn prompt content stored in this session's Work Log discussion — task spec already has all the dispatch context the developer needs).
+- (b) User invokes a `[devops]` developer agent directly with the task file path, the agent reads `.claude/agent-stack.md` + `agents/developer.md` per the standard developer startup, then implements per the spec.
+- (c) User explicitly authorizes the main session to run as the implementer for this gated-path change as a one-off (overriding § Main Session Rules for this task) — the spec is comprehensive enough that direct main-session implementation would land the same artifacts a `[devops]` dispatch would.
+
+The spec itself is complete and TDD-disciplined; only the dispatch step is blocked. Item 6 (PR #13 SA breadcrumb backfill) is complete and lands with this Plan-phase commit regardless of how Dispatch resolves — see backfill entry below.
 
 Flow changes this session: none.
 
