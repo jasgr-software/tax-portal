@@ -902,3 +902,25 @@ Flow changes this session: none.
 **End:** TASK-LOE-008 archived to `docs/tasks/done/`. PROGRESS.md updated. Chore is in PR limbo awaiting PR #15 raise + merge. SA invocation continues with PR raise (per dispatch instructions Phase 4); SA does NOT auto-merge per autonomy-ceiling rules — only the user can flip auto-merge on for this PR.
 
 Flow changes this session: none.
+
+---
+
+### SA Close-finalize — chore/validate-gates-condition-d-check (PR #15) — 2026-04-28
+
+**Start:** Run Close-finalize for the chore. PR #15 merged 2026-04-28T23:08:51Z as squash commit `423f101` on `main`; user pulled `main` (`git pull --ff-only`) and deleted the remote feature branch before invoking the SA. Working tree clean on `main`. Read: `.claude/agent-phases.md` § Close-finalize (full), `.claude/agent-stack.md` § Post-Close Protocol + § Autonomy Ceiling item 3 + § Tool Hygiene, `agents/sa.md` (Close-finalize section), PROGRESS.md (top + the swept SA Close-prep session entry from the prior invocation), `PROGRESS-ARCHIVE.md` (header + tail to confirm the structure is intact and the prior sweep landed cleanly). Phase-transition reflex executed: swept the SA Close-prep session entry to `PROGRESS-ARCHIVE.md` (appended at line 873 onward), updated `## Current initiative` to "all six PR-#13 follow-ups closed; Epic 001 is next; TASK-LOE-007 hygiene chore queued ahead," replaced `## Awaiting PR merge` with `_None._`.
+
+**Actions:**
+
+- **Sweep `## Awaiting PR merge`** — replaced the PR #15 entry with `_None._ (PR #15 merged 2026-04-28 as commit \`423f101\`; branch \`chore/validate-gates-condition-d-check\` deleted by user.)` — same form the prior SAs used for PRs #8/#13/#14 sweeps. No other PRs in limbo.
+- **Post-merge CI gate (gate 9)** — confirmed via `gh run list --branch main --limit 5`: run **25082346308** for HEAD `423f101` (`event: push`, `workflowName: CI`, `createdAt: 2026-04-28T23:08:54Z` — three seconds after merge), `status: completed`, `conclusion: success`. URL: https://github.com/jasgr-software/tax-portal/actions/runs/25082346308. Drilled into jobs via `gh run view 25082346308 --json jobs`: all four required branch-protection checks green on `423f101` — `lint-and-typecheck: success`, `test-portal: success`, `test-admin: success`, `security-scan: success`. (`report-failure` is `skipped` by design — only fires when something failed.) Gate 9 PASS. Gate 10 (post-merge staging smoke) is N/A: this chore is `Epic-deploys: no` (script-only, no runtime stack changes).
+- **Real-repo verify (post-sweep)** — re-ran `bash scripts/validate-gates.sh` against `main` after the `## Awaiting PR merge` sweep. Exit 0, ALL CHECKS PASSED. The new `check_pr_awaiting_merge_gate_verdicts` correctly reported `(no PR entries to check) PASS` — the post-sweep state. Output captured at `/tmp/close-finalize-validate-gates.log`. (Pre-sweep run was also exit 0 with the entry still present and all four gate markers PASS — captured during gate verification before the sweep ran.)
+- **No POST-bug archival** — no `BUG-EEE-POST-NNN` files were filed during PR limbo (no PR review findings, no merge-conflict issues, no post-merge-CI failures). Nothing to archive.
+- **No retro addendum file** — this chore had no separate `RETRO-EEE.md` file per `agent-phases.md` § Close-prep (chore retros run inline in PROGRESS.md, not as standalone files). The Close-prep retro content lives in the swept session entry now in `PROGRESS-ARCHIVE.md` lines 877-916. No addendum needed: post-merge CI green, no surprises, no rework, no POST bugs.
+- **No C4 model / ADR / SRS / release-roadmap updates** — chore Close-finalize per the dispatch instructions. The chore introduced no new architectural pattern (a single new function in an existing script, with the rule it verifies already documented in `.claude/agent-stack.md` § Autonomy Ceiling item 3 condition (d)).
+- **Retro action items** — left the two new items added in Close-prep (narrow the new check to epic-closing PRs only; `Impl: devops` gated-path write permission default) in `## Open retro action items` for future SAs. No new findings from Close-finalize.
+- **Cross-surface parity sunset tally** — already incremented to 1 of 3 in the Close-prep retro; not double-counting here.
+- **Memory pointer** — not updating `project_loe_chore_post_merge.md` from this dispatch; flagging for the main session to refresh that pointer to "merged 2026-04-28 as `423f101`, all 6 items closed, branch deleted" (memory is main-session-managed; the SA leaves the note here per dispatch instructions).
+
+**End:** Close-finalize complete. Chore archived. `## Current initiative` empty; `## Awaiting PR merge` is `_None._`; no active bugs; no active gates. Epic-start gate is now CLEAR — the next SA invocation may enter Plan on Epic 001 (or pick up TASK-LOE-007 first as the queued hygiene chore, depending on user direction). SA invocation ends after this commit; user pushes when ready.
+
+Flow changes this session: none.

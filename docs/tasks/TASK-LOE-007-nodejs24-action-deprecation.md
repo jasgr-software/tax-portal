@@ -1,14 +1,14 @@
 # TASK-LOE-007: Bump GitHub Actions to Node.js 24-compatible versions
 
 **Epic**: chore/lights-out-enablement (follow-up from PR #8)
-**Status**: backlog
+**Status**: in-progress
 **Assigned to**: devops
-**Updated-by**: —
+**Updated-by**: sa
 **Depends on**: none
 **E2e-required**: no
-**Started-at**: —
+**Started-at**: 2026-04-28T23:52:21Z
 **Completed-at**: —
-**Complexity-estimate**: —
+**Complexity-estimate**: 2
 **Complexity-actual**: —
 **Affected flows:** none (justification: chore touches CI infrastructure only, not user-facing behavior)
 **Affected requirements:** none (justification: chore touches CI infrastructure, not SRS requirements)
@@ -125,6 +125,8 @@ If pickup-time research surfaces a new action used by a workflow file added betw
 ## Work Log
 
 <!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
+
+- 2026-04-28 [sa] Plan check complete + Dispatch checkpoint. Trigger condition #1 (`@v5`-or-later published for all 5 actions) confirmed satisfied via `gh api repos/<owner>/<name>/releases?per_page=20`. Bump matrix authored: `actions/checkout` `@v4 → @v6` (latest v6.0.2; v5.0.0 introduced node24 per PR #2226; v6.0.0 added persist-credentials change requiring runner ≥ v2.329.0 for Docker-container-action scenarios — we don't use those, safe). `pnpm/action-setup` `@v4 → @v6` (v6.0.3 latest; v5.0.0 release notes "Updated the action to use Node.js 24"; v6 added pnpm v11 support, `with: { version: 9 }` preserved). `actions/setup-node` `@v4 → @v6` (v6.4.0 latest; v5.0.0 introduced node24 per PR #1325; v6 breaking change "Limit automatic caching to npm" applies to `cache: pnpm` users — we don't use the `cache` arg on setup-node). `github/codeql-action/init` and `github/codeql-action/analyze`: **stay at `@v4`** — v4 is the current major and already runs node24 per the release-note string `[v4+ only] The CodeQL Action now runs on Node.js v24` (PR #3169); action.yml at `ref=v4` confirms `using: node24` for both `init/` and `analyze/` entry points. Spec table line 47-52 has stale `node20` rows for the two codeql entries — historical Plan-time record, not amended. | What's next: spawn [devops] developer to perform the 3-action bump on `.github/workflows/ci.yml` and capture the draft-PR CI run URL. | Blockers: none.
 
 ## Attempt Log
 

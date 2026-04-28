@@ -4,11 +4,21 @@
 
 ## Current initiative
 
-_None._ All six post-PR-#13 quad-review follow-up items are now closed. Epic 001 is the next SA target; TASK-LOE-007 (Node.js 24 action deprecation) is queued as a hygiene chore ahead of it. Neither is blocking.
+**Name:** chore/task-loe-007-nodejs24-action-deprecation
+**Branch:** `chore/task-loe-007-nodejs24-action-deprecation` (off `main` at `483c60e` — the PR #15 Close-finalize sweep commit rides along with this PR)
+**Goal:** Bump GitHub Actions used in `.github/workflows/ci.yml` to `node24`-compatible majors before the GitHub June 2026 deadline. Single-task chore.
+**Phase:** Plan → Dispatch
+**Gated:** yes (`.github/workflows/` is a gated path)
+**Epic-type:** chore (single-task hygiene; no SRS surface)
+**Epic-deploys:** no (CI workflow change, no runtime stack)
+
+| Task | Status | Assignee | Notes |
+| ---- | ---- | ---- | ---- |
+| TASK-LOE-007 | backlog → in-progress (Dispatch) | devops | Pin bump on 5 actions in `ci.yml`. Plan check confirmed all 5 actions have node24-compatible majors published (trigger condition #1 satisfied). |
 
 ## Awaiting PR merge
 
-_None._ (PR #15 merged 2026-04-28 as commit `423f101`; branch `chore/validate-gates-condition-d-check` deleted by user.)
+_None._
 
 ## Active bugs
 
@@ -24,22 +34,29 @@ _None._
 
 ---
 
-### SA Close-finalize — chore/validate-gates-condition-d-check (PR #15) — 2026-04-28
+### SA Plan + Dispatch — TASK-LOE-007 — 2026-04-28
 
-**Start:** Run Close-finalize for the chore. PR #15 merged 2026-04-28T23:08:51Z as squash commit `423f101` on `main`; user pulled `main` (`git pull --ff-only`) and deleted the remote feature branch before invoking the SA. Working tree clean on `main`. Read: `.claude/agent-phases.md` § Close-finalize (full), `.claude/agent-stack.md` § Post-Close Protocol + § Autonomy Ceiling item 3 + § Tool Hygiene, `agents/sa.md` (Close-finalize section), PROGRESS.md (top + the swept SA Close-prep session entry from the prior invocation), `PROGRESS-ARCHIVE.md` (header + tail to confirm the structure is intact and the prior sweep landed cleanly). Phase-transition reflex executed: swept the SA Close-prep session entry to `PROGRESS-ARCHIVE.md` (appended at line 873 onward), updated `## Current initiative` to "all six PR-#13 follow-ups closed; Epic 001 is next; TASK-LOE-007 hygiene chore queued ahead," replaced `## Awaiting PR merge` with `_None._`.
+**Start:** Drive TASK-LOE-007 (bump CI actions to node24-compatible majors) through Plan → Dispatch → Audit (likely vacuous) → Review → Smoke → Validate → Close-prep. Branch `chore/task-loe-007-nodejs24-action-deprecation` already created off `main` HEAD `483c60e` (the PR #15 Close-finalize sweep that rides along with this PR — branch protection blocks direct main pushes, so the sweep needs to ride a chore PR; bundling here is the cleanest path). Spec is fully Plan-complete from PR #11 — this invocation flips Status backlog → in-progress and dispatches the [devops] developer. Read: `.claude/agent-stack.md` (full), `.claude/agent-phases.md` (full), `agents/sa.md` (full), CLAUDE.md (full), task spec (full), PROGRESS.md (top + Close-finalize entry above), `.github/workflows/ci.yml` (full), `docs/architecture/C4.md` index, `docs/architecture/TENETS.md`, `docs/decisions/` listing. Phase-transition reflex executed: swept the prior SA Close-finalize session entry to `PROGRESS-ARCHIVE.md` (appended at line 905 onward), updated `## Current initiative` to TASK-LOE-007 chore.
 
-**Actions:**
+**Actions (Plan check):**
 
-- **Sweep `## Awaiting PR merge`** — replaced the PR #15 entry with `_None._ (PR #15 merged 2026-04-28 as commit \`423f101\`; branch \`chore/validate-gates-condition-d-check\` deleted by user.)` — same form the prior SAs used for PRs #8/#13/#14 sweeps. No other PRs in limbo.
-- **Post-merge CI gate (gate 9)** — confirmed via `gh run list --branch main --limit 5`: run **25082346308** for HEAD `423f101` (`event: push`, `workflowName: CI`, `createdAt: 2026-04-28T23:08:54Z` — three seconds after merge), `status: completed`, `conclusion: success`. URL: https://github.com/jasgr-software/tax-portal/actions/runs/25082346308. Drilled into jobs via `gh run view 25082346308 --json jobs`: all four required branch-protection checks green on `423f101` — `lint-and-typecheck: success`, `test-portal: success`, `test-admin: success`, `security-scan: success`. (`report-failure` is `skipped` by design — only fires when something failed.) Gate 9 PASS. Gate 10 (post-merge staging smoke) is N/A: this chore is `Epic-deploys: no` (script-only, no runtime stack changes).
-- **Real-repo verify (post-sweep)** — re-ran `bash scripts/validate-gates.sh` against `main` after the `## Awaiting PR merge` sweep. Exit 0, ALL CHECKS PASSED. The new `check_pr_awaiting_merge_gate_verdicts` correctly reported `(no PR entries to check) PASS` — the post-sweep state. Output captured at `/tmp/close-finalize-validate-gates.log`. (Pre-sweep run was also exit 0 with the entry still present and all four gate markers PASS — captured during gate verification before the sweep ran.)
-- **No POST-bug archival** — no `BUG-EEE-POST-NNN` files were filed during PR limbo (no PR review findings, no merge-conflict issues, no post-merge-CI failures). Nothing to archive.
-- **No retro addendum file** — this chore had no separate `RETRO-EEE.md` file per `agent-phases.md` § Close-prep (chore retros run inline in PROGRESS.md, not as standalone files). The Close-prep retro content lives in the swept session entry now in `PROGRESS-ARCHIVE.md` lines 877-916. No addendum needed: post-merge CI green, no surprises, no rework, no POST bugs.
-- **No C4 model / ADR / SRS / release-roadmap updates** — chore Close-finalize per the dispatch instructions. The chore introduced no new architectural pattern (a single new function in an existing script, with the rule it verifies already documented in `.claude/agent-stack.md` § Autonomy Ceiling item 3 condition (d)).
-- **Retro action items** — left the two new items added in Close-prep (narrow the new check to epic-closing PRs only; `Impl: devops` gated-path write permission default) in `## Open retro action items` for future SAs. No new findings from Close-finalize.
-- **Cross-surface parity sunset tally** — already incremented to 1 of 3 in the Close-prep retro; not double-counting here.
-- **Memory pointer** — not updating `project_loe_chore_post_merge.md` from this dispatch; flagging for the main session to refresh that pointer to "merged 2026-04-28 as `423f101`, all 6 items closed, branch deleted" (memory is main-session-managed; the SA leaves the note here per dispatch instructions).
+- **Workflow file inventory verified.** `ls .github/workflows/` returns `ci.yml` only — the spec's "five actions" table at lines 47-52 still matches reality. `grep -nE 'uses:' .github/workflows/ci.yml` confirms 14 `uses:` lines: `actions/checkout@v4` ×4, `pnpm/action-setup@v4` ×4, `actions/setup-node@v4` ×4, `github/codeql-action/init@v4` ×1, `github/codeql-action/analyze@v4` ×1. All five actions still pinned at `@v4`. No workflow files were added since 2026-04-28; no spec table update needed.
+- **Trigger condition #1 verified — SATISFIED for all 5 actions.** Per-action `gh api` release-notes scan:
+  - `actions/checkout`: latest = `v6.0.2` (2026-01-09); `v5.0.0` (2025-08-11) introduced node24 per release-notes PR #2226 ("Update actions checkout to use node 24"); `v6.0.0` (2025-11-20) latest stable major (persist-credentials change to `$RUNNER_TEMP`, requires runner ≥ v2.329.0 for Docker container action scenarios — we don't use those, safe). **Bump target: `@v6`.**
+  - `pnpm/action-setup`: latest = `v6.0.3` (2026-04-21); `v5.0.0` (2026-03-17) release notes verbatim "Updated the action to use Node.js 24"; `v6.0.0` added pnpm v11 support (we use `with: { version: 9 }` which is preserved). action.yml at `ref=v6` confirms `runs: { using: node24 }`. **Bump target: `@v6`.**
+  - `actions/setup-node`: latest = `v6.4.0` (2026-04-20); `v5.0.0` (2025-09-04) introduced node24 per release-notes PR #1325 ("Upgrade action to use node24"); `v6.0.0` breaking change "Limit automatic caching to npm" — affects users of the `cache: pnpm` arg. **We don't use the `cache` arg on setup-node** (we use `pnpm/action-setup`'s separate cache, which defaults to `false` and we don't enable). action.yml at `ref=v6` confirms `runs: { using: 'node24' }`. **Bump target: `@v6`.**
+  - `github/codeql-action`: latest = `v4.35.2` (2026-04-15); v4 IS the node24 major per release-note string `[v4+ only] The CodeQL Action now runs on Node.js v24` (PR #3169). action.yml at `ref=v4` for both `init/` and `analyze/` confirms `using: node24`. **The current pin `@v4` already floats to node24 — no bump required.** The spec table's `node20` row for the two codeql entries is **stale** (the codeql-action versioning diverges from the standard major-version cadence, as the spec foreshadows at line 91). Documenting this finding here; spec table not amended (it stays as the historical Plan-time record).
+- **Bump matrix decision.** Three of five actions bump `@v4 → @v6`; two stay at `@v4` (codeql init + analyze, already on node24). All `with:` keys preserved (`version: 9` on pnpm setup, `node-version: '20'` on setup-node). No `cache` arg on setup-node, so the v6 cache-narrowing breaking change is non-applicable.
+- **No escalation needed.** Trigger condition #1 satisfied for all 5 actions. Trigger condition #2 (2026-05-01 deadline) is 3 days out but moot since #1 is satisfied. The chore is a clean hygiene bump, no fallback or vendor-fork or workaround needed.
+- **Quad review applicability check.** Per `.claude/agent-stack.md` § Main Session Rules / "Agent workflow file changes require quad review": quad review fires for changes to `agents/*.md` or `.claude/agent-stack.md`. Per § Gated Paths, `.github/workflows/` is a gated path requiring SA-orchestrated submission gate + SDET review, but the **quad review scope is narrower** than the gated-path scope — it covers only `agents/*.md` and `.claude/agent-stack.md`. CI workflow YAML changes are not in that narrower scope. **Quad review NOT required for this PR.** Standard SDET review path applies.
+- **Cross-surface scoping.** Per CLAUDE.md § Platform-frontend scope, webapp-developer tasks default to both `apps/portal/**` and `apps/admin/**`. This task is `Assigned to: devops`, not webapp-developer; it touches `.github/workflows/ci.yml` only — no `apps/` content. Cross-surface scoping is N/A.
+- **Plan-check exit conditions met.** Spec is Plan-complete with `Affected flows: none` + `Affected requirements: none` + `Introduces-gate: no` + `Relevant ADRs: none`. Branch created. Workflow file inventory matches spec. Trigger condition resolved. Bump matrix authored.
 
-**End:** Close-finalize complete. Chore archived. `## Current initiative` empty; `## Awaiting PR merge` is `_None._`; no active bugs; no active gates. Epic-start gate is now CLEAR — the next SA invocation may enter Plan on Epic 001 (or pick up TASK-LOE-007 first as the queued hygiene chore, depending on user direction). SA invocation ends after this commit; user pushes when ready.
+**Actions (Dispatch checkpoint):**
 
-Flow changes this session: none.
+- Edit `docs/tasks/TASK-LOE-007-nodejs24-action-deprecation.md` atomically: `Status: backlog → in-progress`, `Updated-by: sa`, `Started-at: 2026-04-28T<UTC>` (filled at edit time), `Complexity-estimate: 2` (pin bump on 5 actions with release-note review; codeql-action divergence raised the question but didn't add real work since v4 already runs node24). Add Work Log "Starting Plan check + dispatch" entry for the SA. (Single Edit atomic.)
+- Update PROGRESS.md `## Current initiative` (this file) to reflect this chore as the active initiative + add the task row. (This Write covers it.)
+- Commit: `chore(plan): TASK-LOE-007 dispatch checkpoint + Plan finding`. Single commit covering the spec edits + PROGRESS.md.
+- Spawn the [devops] developer subagent with the bump matrix (3 actions to v6, 2 actions to stay at v4), pointer to the spec, the Plan finding, the requirement to push for a draft-PR CI run and capture the run URL, and the reminder that base commit `483c60e` (PR #15 Close-finalize sweep) rides along untouched.
+
+**End:** Plan check complete; trigger condition #1 satisfied; bump matrix authored. Proceeding to Dispatch checkpoint and [devops] spawn.
