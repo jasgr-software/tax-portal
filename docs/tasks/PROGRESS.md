@@ -4,32 +4,23 @@
 
 ## Current initiative
 
-**Lights-out enablement chore**  
-Branch: `chore/lights-out-enablement` (created 2026-04-26 by SA)  
-Goal: Land the infrastructure that lets `.claude/agent-stack.md` § Autonomy Ceiling item 3 (PR merge auto-on-green) graduate from DEFERRED to PROMOTED. Six tasks: GitHub Actions CI workflow + SQL Server service container + auto-issue on failure (decisions #1A + #2A/B); branch protection runbook (decision #1A); `scripts/validate-gates.sh` backstop; extend `scripts/metrics-report.py` with cost reporting (decision #4B); new ADR for repository-interface-as-test-seam; and a single workflow-file edit batch (PushNotification call-sites per decision #2C, RA-decides-CLARIFs rule + legal/compliance/security carve-out per decision #3, stuck-loop killswitch per decision #5, plus SDET ADR-011 alignment fix for the round-2-port dead pointer).  
-Phase: Dispatch — all tasks done; main session to handle chore-close PR + quad review (all 6 tasks SDET approved 2026-04-27; TASK-LOE-006 done)  
-Gated: Yes (touches `.github/workflows/`, `scripts/`, `docs/decisions/`, `.claude/agent-stack.md`, `agents/*.md`)
+**`validate-gates.sh` condition-(d) verifier chore (post-PR-#13 follow-up item 1)**  
+Branch: `chore/validate-gates-condition-d-check` (created 2026-04-28 by SA)  
+Goal: Close the gap between `.claude/agent-stack.md` § Autonomy Ceiling item 3 condition (d) (the rule says `scripts/validate-gates.sh` is the verifier for gates 5–8 pass-verdict markers in `## Awaiting PR merge` entries) and the script as it stands today (no such check exists; the cite is aspirational). Single SDET-led TDD task with fixtures: `awaiting-merge-all-pass` (green), `awaiting-merge-missing-marker` (red — silent omission), `awaiting-merge-hotfix-deferred-valid` (green — explicit annotation), `awaiting-merge-hotfix-deferred-malformed` (red — `TASK-XXX` placeholder, the "just-because" bypass surface). The fix also closes the SDET-flagged surface that hotfix carve-out annotations must validate task-ID format, not accept freeform text.  
+Phase: Dispatch — devops developer spawn in flight  
+Gated: Yes (touches `scripts/`)
 
 **Tasks:**
 
 | Task | Owner | Status | Depends on | Introduces-gate | E2e |
 |---|---|---|---|---|---|
-| `TASK-LOE-001-ci-workflow.md` | devops | done (SDET approved 2026-04-27; follow-up: Node.js 20 action deprecation — create task before Epic 001) | none | yes | no |
-| `TASK-LOE-002-branch-protection-runbook.md` | devops | done (SDET approved 2026-04-27) | TASK-LOE-001 | no | no |
-| `TASK-LOE-003-validate-gates-script.md` | devops | done (SDET approved 2026-04-27 on re-review) | none | yes | no |
-| `TASK-LOE-004-metrics-cost-reporting.md` | devops | done (SDET approved 2026-04-27; math hand-verified; MODEL_RATES updated) | none | no | no |
-| `TASK-LOE-005-adr-repository-test-seam.md` | sa (`Impl: sa`) | done (SDET approved 2026-04-27) | none | no | no |
-| `TASK-LOE-006-workflow-file-edits.md` | sa (`Impl: sa`) | done (SDET approved 2026-04-27) | TASK-LOE-005 | yes | no |
+| `TASK-LOE-008-validate-gates-condition-d-check.md` | devops | backlog | none | yes | no |
 
-Dispatch order: 1 → 3 → 4 → 5 → 2 → 6. Rationale: 1 first (CI infra is the longest task and unblocks 2). 3 + 4 are independent of 1 and can run after. 5 (ADR) feeds 6 (workflow edits cite the ADR), so 5 before 6. 2 depends on 1's job names existing in `ci.yml`, so 2 lands after 1 is reviewed (not necessarily after 1 is `done` — `review` is sufficient since the YAML is final at that point). 6 last because it's the broadest workflow edit + needs ADR-011 from 5.
-
-_Decision context for the SA — read the **2026-04-26 Main Session Chore — Lights-out enablement decisions** entry below for the full discussion + locked decisions + per-task brief._
-
-> **Note on Epic 001:** Previously queued as `## Current initiative` (Foundation: Scaffold, Auth, DB, Routing & Deployment Pipeline). Deferred until this chore completes. All pre-Plan blockers for Epic 001 remain cleared (CLARIF-004 resolved; personas and flows authored; ACs updated for two-app architecture). Once this chore merges, the SA picks up Epic 001 on the next invocation.
+> **Note on Epic 001:** Still queued post-chore. All pre-Plan blockers cleared (CLARIF-004 resolved; personas and flows authored; ACs updated for two-app architecture). Once this chore merges, the SA picks up Epic 001 on the next invocation. TASK-LOE-007 (Node.js 24 action deprecation) is a separate hygiene chore queued ahead of Epic 001; not blocking this chore.
 
 ## Awaiting PR merge
 
-- **PR #8 — chore/lights-out-enablement** (opened 2026-04-27). All 6 chore tasks done; BUG-000-001 + BUG-000-002 closed. Quad-review verdicts in PR body: SA APPROVE / RA APPROVE / SDET APPROVE (after BUG-000-002 bundle resolved original CONCERNS) / Overwatch APPROVE. Post-merge actions queued in PR body: (1) apply Stage 1 branch protection per `docs/operations/branch-protection.md`; (2) resolve held `model-behavior-notes.md` seeding decision (rot-check trigger fires); (3) Node.js 20 action deprecation follow-up before Epic 001; (4) Autonomy Ceiling item 3 PR-merge promotion rewrite once Stage 1 branch protection lands. URL: https://github.com/jasgr-software/tax-portal/pull/8
+_None._ (PR #8 merged 2026-04-27; PR #13 merged 2026-04-28; PR #14 merged 2026-04-28 — all post-merge addenda complete.)
 
 ## Active bugs
 
@@ -40,6 +31,41 @@ _None._
 - **2026-04-20 — Dispatch Checkpoint rule-sunset check** (owner: Overwatch). Evaluate at the Close-prep retro of the third post-merge epic. If no task has cited § Dispatch Checkpoint as the rule that enabled mid-execution recovery, surface the rule for keep/revise/retire decision per `.claude/agent-stack.md` § Rule Sunset. Rationale: the rule was imported prophylactically from the upstream sibling repo; no tax-portal incident was observed at port time, so it must earn its keep on this codebase.
 - **2026-04-20 — Gate Authoring Rules hotfix-exception promotion check** (owner: Overwatch). At the first hotfix epic that invokes the § Gate Authoring Rules "Hotfix urgency" exception (gate lands as `advisory` pre-evidence), confirm the promotion-back-to-required step actually happens once the incident resolves. Track from the hotfix task's Work Log and the follow-up task that carries the three-item evidence. Rationale: the exception is easy to invoke and easy to leave hanging — the promotion step is where the gate earns its "required" status back, and it needs an explicit check the first time the path is exercised.
 - **2026-04-20 — `docs/architecture/model-behavior-notes.md` rot check** (owners: Overwatch, RA, SDET). After the next two quad reviews complete, evaluate whether Lens B (model-behavior lens) produced any cited entries into the notes file. If zero citations across two reviews, decide: (a) seed the file with the three candidate entries identified during the port review (`spec-shaped-green`, `breadcrumb-skip`, `gate-counterfactual-plausibility`), or (b) retire the Lens B requirement from `.claude/agent-stack.md` § Main Session Rules and remove the notes file. Rationale: the stub file's own rule is "observed failures, not speculative ones" — leaving it empty indefinitely signals the Lens B process isn't working; seeding it speculatively contradicts its charter. Two quad reviews is the forcing function for keep/seed/retire.
+
+---
+
+### SA Plan — `validate-gates.sh` condition-(d) verifier chore — 2026-04-28
+
+**Start:** Driving post-PR-#13 quad-review follow-up item 1 (BLOCKER) plus item 6 (PROGRESS.md breadcrumb backfill — ride-along, no dedicated task). Read: `.claude/agent-stack.md` (full), `.claude/agent-phases.md` (full), CLAUDE.md, PROGRESS.md, `scripts/validate-gates.sh` (full), `scripts/__test_fixtures__/validate-gates/` (inventory of 9 existing fixtures), `docs/tasks/done/TASK-LOE-003-validate-gates-script.md` (Work Log evidence shape precedent), TASK-LOE-007 (most recent chore precedent for spec format), `docs/tasks/_TEMPLATE.md`, the post-merge memory file, PR #14 body. Docker pre-flight: `docker info` exit 0 (Client + Engine running). Created branch `chore/validate-gates-condition-d-check` from `main`.
+
+**Actions:**
+- Drafted `docs/tasks/TASK-LOE-008-validate-gates-condition-d-check.md` (`Impl: developer` — devops; `Introduces-gate: yes`; `E2e-required: no`). Spec includes: parser shape suggestion (gate-name + `(PASS|deferred per hotfix urgency: <task-id>)`), task-ID regex (`TASK-[A-Z][A-Z0-9]*-\d{3,}` + `BUG-[A-Z0-9]+-\d{3,}`; placeholder `TASK-XXX` rejected), 4 mandatory fixture cases (all-pass / missing-marker / hotfix-deferred-valid / hotfix-deferred-malformed) plus a counterfactual experiment (comment out the regex anchor and confirm the malformed fixture flips to passing) for Gate Authoring Rules evidence Item 3. SDET focus areas list red-then-green local-execution evidence requirement and named-code-path requirement (function called by name from `main()`, not via wildcard).
+- Item 6 backfill: appended a historical SA breadcrumb for the PR #13 authoring invocation below this entry, dated 2026-04-28 (date-of-record from PR #13 commit `256882a` and `## Awaiting PR merge` entry the prior SA wrote at the time but did not pair with a session entry). The backfill is brief and historical per the post-merge memory's "no dedicated task needed" instruction.
+- PROGRESS.md `## Current initiative` updated to reflect the new chore. PROGRESS.md `## Awaiting PR merge` reset to `_None._` — PR #8, #13, and #14 all merged with addenda complete; the stale PR #8 limbo entry left over from the prior SA invocation has been swept (the existing `## Awaiting PR merge` text no longer reflects reality post-PR-#8 merge).
+
+**End:** Task spec ready. Next: dispatch `[devops]` developer per § Dispatch with the spawn prompt including TASK file path, role tag, agent-stack reading instruction, and Gate Authoring Rules evidence reminder. No CLARIFs surfaced (RA dispatch not needed). No undisposed retro action items (the three open items below are evaluation-deferred per their own trigger conditions).
+
+Flow changes this session: none.
+
+---
+
+### SA breadcrumb backfill — PR #13 authoring (recorded 2026-04-28)
+
+> **Backfill notice:** This session entry is a historical breadcrumb for the SA invocation that authored PR #13 (`chore/promote-pr-merge-autonomous`, merged 2026-04-28). The SA at the time did not write a session entry to PROGRESS.md per `.claude/agent-stack.md` § PROGRESS.md structure contract. Item 6 of the post-PR-#13 quad-review follow-up batch deferred the breadcrumb backfill "to the next SA invocation"; PR #14's body explicitly carved item 6 out of the doc-text PR. This entry is that backfill. Content reconstructed from PR #13 commit `256882a`, PR #13 body, and the SA's `## Awaiting PR merge` entry the prior SA did write but did not pair with a session entry.
+
+**Start (reconstructed):** Driving post-PR-#8 action item 4 (Autonomy Ceiling item 3 PR-merge promotion rewrite). Predicate satisfied: PR #9 had merged 2026-04-28T13:26Z through Stage 1 branch protection cleanly (`mergeStateStatus: CLEAN`, both required checks green, no manual override). The empirical validation event is the trigger.
+
+**Actions (reconstructed from the diff and PR body):**
+- Rewrote `.claude/agent-stack.md` § Autonomy Ceiling item 3 from DEFERRED to PROMOTED (with conditions). Added four conditions (a)–(d): green CI, ≥1 required check fail-closed, workflow-file four-eyes via user `LGTM` / `/approve`, and epic-closing PR pre-merge gate verdicts in `## Awaiting PR merge`.
+- Added off-limits list (direct commits to `main`, force-push, credential-pattern PRs, fork PRs, unresolved review threads, `do-not-auto-merge` label).
+- Added demotion path (user-edit, no automated demotion).
+- Added periodic-audit hook (Overwatch surfaces auto-merge count + post-merge-revert count at every Close-prep retro; one or more reverts triggers keep/demote review).
+- Cited `docs/operations/branch-protection.md` (condition (b) backing) and `scripts/validate-gates.sh` (condition (d) verifier — present-tense; aspirational at the time).
+- Raised PR #13 from branch `chore/promote-pr-merge-autonomous`. PR body listed two forward-looking findings the SA flagged in self-review: (1) `validate-gates.sh` does not yet check condition (d) — needs extension; (2) stale preamble at `.claude/agent-stack.md` line 61 still says item 3 is "held back," contradicting the new PROMOTED state in the same section.
+
+**End (reconstructed):** PR #13 raised. Independent quad review (RA + SDET + Overwatch + main session SA) surfaced 6 convergent follow-ups (the two SA-flagged items plus four reviewer findings: `<user-login>` resolution underspecified, hotfix-mini-epic exemption from condition (d) not addressed, `silent-stuck-no-notification` weakened by condition (b)'s in-session reasoning under unattended lights-out, and the present-tense `validate-gates.sh` cite being aspirational). Items 2–5 landed in PR #14 (merged 2026-04-28T17:52Z). Item 1 (validate-gates.sh extension) carved out as SDET-led TDD task — addressed by this current session's TASK-LOE-008. Item 6 (this missing breadcrumb) deferred to the next SA invocation — backfilled here.
+
+Flow changes this session: none (rule rewrite, no flows or requirements touched).
 
 ---
 
