@@ -150,12 +150,14 @@ The check is a new SDET review-focus reject-on-fail criterion: when an epic-clos
   **Gate Authoring Rules evidence (three items):**
 
   **Item 1 — Run URL / local log path + named step:**
-  Local execution (no CI run — pre-scaffold precedent per TASK-LOE-003). RED phase (pre-implementation, commit `4d7d665`): all 4 new fixtures exited 0 spuriously — no check 9 existed.
-  - GREEN `awaiting-merge-all-pass`: exit 0, `check_pr_awaiting_merge_gate_verdicts` PASS (`scripts/validate-gates.sh:656` pass call)
-  - GREEN `awaiting-merge-missing-marker`: exit 1, `check_pr_awaiting_merge_gate_verdicts` FAIL — "SDET CI marker missing" (`scripts/validate-gates.sh:649` fail call)
-  - GREEN `awaiting-merge-hotfix-deferred-valid`: exit 0, `check_pr_awaiting_merge_gate_verdicts` PASS
-  - GREEN `awaiting-merge-hotfix-deferred-malformed`: exit 1, `check_pr_awaiting_merge_gate_verdicts` FAIL — "RA Validation deferred annotation has malformed task-ID 'TASK-XXX'" (`scripts/validate-gates.sh:644` fail call)
-  - GREEN real repo: exit 0, `check_pr_awaiting_merge_gate_verdicts (no PR entries to check)` PASS
+  Local execution (no CI run — pre-scaffold precedent per TASK-LOE-003). Smoke re-run captured at `/tmp/smoke-task-loe-008.log` for the SA's independent post-Review verification.
+  RED: (pre-implementation, commit `4d7d665`) all 4 new fixtures exited 0 spuriously — no check 9 existed.
+  GREEN: (post-implementation, commit `a268d21`)
+  - `awaiting-merge-all-pass`: exit 0, `check_pr_awaiting_merge_gate_verdicts` PASS (`scripts/validate-gates.sh:656` pass call)
+  - `awaiting-merge-missing-marker`: exit 1, `check_pr_awaiting_merge_gate_verdicts` FAIL — "SDET CI marker missing" (`scripts/validate-gates.sh:649` fail call)
+  - `awaiting-merge-hotfix-deferred-valid`: exit 0, `check_pr_awaiting_merge_gate_verdicts` PASS
+  - `awaiting-merge-hotfix-deferred-malformed`: exit 1, `check_pr_awaiting_merge_gate_verdicts` FAIL — "RA Validation deferred annotation has malformed task-ID 'TASK-XXX'" (`scripts/validate-gates.sh:644` fail call)
+  - real repo: exit 0, `check_pr_awaiting_merge_gate_verdicts (no PR entries to check)` PASS (captured in `/tmp/smoke-task-loe-008.log`).
 
   **Item 2 — Named code path:**
   - Function definition: `scripts/validate-gates.sh:588` — `check_pr_awaiting_merge_gate_verdicts()` function entry
