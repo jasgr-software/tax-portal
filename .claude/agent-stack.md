@@ -64,7 +64,7 @@ The goal of this pipeline is "lights out" — the SA drives epics end-to-end wit
 
 1. **Context compaction (`/compact` request during SA Plan).** The SA asks the user to run `/compact` at the start of Plan to free context for the epic. The SA cannot run `/compact` itself — it is a user-side CLI action. **Graduation path:** none required; this is a user-driver action by design.
 
-2. **Commit/push (PROMOTED to autonomous, 2026-04-26).** The main session may commit and push to feature branches without per-step approval. Commit messages still follow the project convention (HEREDOC body, `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` trailer). **Off-limits:** direct commits to `main`, force-push to any branch, `--no-verify` / signing bypass, staging via `git add -A` or `git add .` (always name files explicitly to avoid sweeping in untracked secrets), and committing files matching credential patterns. The credential-pattern list is **non-exhaustive** — match liberally on intent, not just literal globs: `.env*`, `*credentials*`, `*secret*`, `*token*`, `*.pem`, `*.key`, `*.crt`, `*.cer`, `*.p12`, `*.pfx`, `id_rsa*`, `id_ed25519*`, `*.kdbx`, `*.gpg`, `.npmrc`, `.netrc`, anything containing what looks like an API key, password, or signing key in plaintext. **Demotion path:** if any commit pushes a credential, breaks `main`, or otherwise causes harm, the user may demote this checkpoint back to ask-first by updating this rule directly. **Periodic audit:** Overwatch surfaces credential-pattern hits and any `git add -A` / `git add .` invocations at every Close-prep retro; one or more hits triggers a keep/demote review of this rule. **Tie-in:** when committing on behalf of an epic, follow the SA's branch creation in Plan; never commit to a branch the SA hasn't authorized.
+2. **Commit/push (PROMOTED to autonomous, 2026-04-26).** The main session may commit and push to feature branches without per-step approval. Commit messages still follow the project convention (HEREDOC body, `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` trailer). **Off-limits:** direct commits to `main`, force-push to any branch, `--no-verify` / signing bypass, staging via `git add -A` or `git add .` (always name files explicitly to avoid sweeping in untracked secrets), and committing files matching credential patterns. The credential-pattern list is **non-exhaustive** — match liberally on intent, not just literal globs: `.env*`, `*credentials*`, `*secret*`, `*token*`, `*.pem`, `*.key`, `*.crt`, `*.cer`, `*.p12`, `*.pfx`, `id_rsa*`, `id_ed25519*`, `*.kdbx`, `*.gpg`, `.npmrc`, `.netrc`, anything containing what looks like an API key, password, or signing key in plaintext. **On a credential-pattern hit:** fire `PushNotification` per § Tool Hygiene / PushNotification with the matched filename and the credential-pattern category, refuse to stage the file, and surface the hit to the user. Do not silently skip the file — the user must see the attempt. **Demotion path:** if any commit pushes a credential, breaks `main`, or otherwise causes harm, the user may demote this checkpoint back to ask-first by updating this rule directly. **Periodic audit:** Overwatch surfaces credential-pattern hits and any `git add -A` / `git add .` invocations at every Close-prep retro; one or more hits triggers a keep/demote review of this rule. **Tie-in:** when committing on behalf of an epic, follow the SA's branch creation in Plan; never commit to a branch the SA hasn't authorized.
 
 3. **PR merge — DEFERRED PROMOTION (deferred 2026-04-26).** The main session does not merge PRs today; the user merges after reviewing the PR on GitHub. Promotion to auto-on-green was considered in the same pass that promoted item 2 and was **held back** because the graduation predicate is not yet in place. **Predicate (all three required before promotion):** (a) `.github/workflows/ci.yml` exists and runs the project's submission-gate commands (`pnpm lint`, `pnpm type-check`, `pnpm -r test`, plus security scan), (b) branch protection is configured on `main` with the CI jobs marked as required status checks (verifiable via `gh api repos/<owner>/<repo>/branches/main/protection/required_status_checks`), (c) `scripts/validate-gates.sh` exists and runs as the independent backstop for task-file gate completion + PR-body verdict checks. **Open structural questions to resolve before promotion** (from quad review 2026-04-26): (i) self-merge-by-same-identity — for workflow-file PRs (`agents/*.md` or `.claude/agent-stack.md`), require an explicit `/approve` or `LGTM` comment from the user before auto-merge fires (preserves four-eyes for the rules that govern merge authority while allowing autonomy elsewhere); (ii) condition (a) must be **fail-closed** — `gh pr checks <number>` must return at least one required check, not zero, otherwise refuse to merge; (iii) SDET CI gate + Container Smoke gate (epic-close gates that land in PROGRESS.md) must enter the merge predicate for epic-closing PRs, not just the quad-review verdicts. **When promotion lands:** rewrite this item with the auto-on-green rule, the explicit conditions (a)–(d), the off-limits list, and the demotion path. Until then, this item stays as a user-in-loop checkpoint. **Tracking:** the predicate work is queued under "lights-out enablement" and not blocking other epic work — Epic 001 scaffolding can land via manual user merges; auto-merge becomes available once the predicate ships.
 
@@ -74,7 +74,12 @@ The goal of this pipeline is "lights out" — the SA drives epics end-to-end wit
 
 5. **Epic-start gate stop (PR limbo).** Per `agent-phases.md` § Epic-start gate: if PROGRESS.md `## Awaiting PR merge` is non-empty when the SA is invoked for Plan, the SA stops and reports. **Resume condition:** user merges the limbo PR so Close-finalize can clear it, **or** authorizes a hotfix carve-out per § Post-Close Protocol (hotfix mini-epic targeting the limbo epic is the one permitted bypass).
 
-6. **RA requirements-authoring routes through the RA.** User-invoked requirements work (new epic, SRS refinement, observations-to-requirements promotion) is not main-session work. A batched user directive like "add EP-NNN epic" does not pre-authorize the main session to draft SRS/epic content — the main session dispatches the RA. **Graduation path:** none; RA authorship is the role boundary. The exception is appending to `docs/requirements/observations.md`, which the main session may do directly per § Gated Paths (RA-owned paths).
+6. **RA requirements-authoring routes through the RA — but RA-authored *resolution* is autonomous.** Two distinct activities live under the RA's domain and they have different autonomy postures:
+   - **Requirements *resolution* (RA-authored, no user pause).** When a CLARIF surfaces — during requirements work, during SA Plan, or mid-Dispatch — the RA actively resolves it by writing a decision with reasoning into the SRS. The SA's mid-Plan or mid-Dispatch RA dispatch (see `agents/sa.md` § Phases / Plan and Dispatch) is the pre-authorized path. The RA's resolution is binding; the SA does not pause for user confirmation. This is **not** a § Autonomy Ceiling checkpoint — it is autonomous RA work.
+   - **Requirements *authoring* (user-invoked, main session must dispatch RA).** New epics, SRS-level structural changes (new requirement areas, persona reshaping, flow restructuring), and observations-to-requirements promotion are user-invoked. A batched user directive like "add EP-NNN epic" does not pre-authorize the main session to draft SRS/epic content — the main session dispatches the RA. The user-in-loop here is the *invocation*, not approval of each RA edit.
+   - **Carve-out (escalates to user regardless of resolution vs. authoring).** The legal/compliance/security carve-out enumerated in `agents/ra.md` § Carve-out — escalate to user (data retention/deletion, PII/encryption/access-control/audit-log, auth/authorization model, IRS/state tax regulatory) escalates to user no matter which activity surfaced it. The RA writes the open question into the SRS (not a unilateral decision) and surfaces it via its PROGRESS.md session entry.
+   - **Graduation path:** none; the RA boundary is the role boundary. Resolution autonomy is already in place; authoring routes through user invocation by design.
+   - **Exception (unchanged):** the main session may **append** to `docs/requirements/observations.md` directly per § Gated Paths (RA-owned paths) to capture live user input — that is the one scope-preserved bypass.
 
 ---
 
@@ -93,6 +98,25 @@ These rules are binding on the **main session and every agent**. Agent files may
 - **Write tool beats heredoc for repo files.** Use `Write` to create files under repo control rather than `cat <<'EOF'` or `echo >`. The Write tool is auto-approved on allowed paths and triggers formatter hooks; heredoc fights both. Heredocs remain legitimate for content that intentionally lives outside the file system (Docker entrypoint scripts embedded in `Dockerfile`, stdin-piped configs, `/tmp/` log files). **`Write` creates artifacts; it does not substitute for execution evidence** — see § Submission Gate "E2e proof." A Work Log must still contain test-run output.
 - **No worktree isolation on Agent spawns** — see § Main Session Rules, last bullet.
 
+### PushNotification — when to use it
+
+`PushNotification` is the out-of-band channel that surfaces a structural event to the user even when the user is away from the terminal. It is reserved for **three specific events** — using it for routine status, mid-task progress, or anything that belongs in the Work Log produces alert fatigue and trains the user to ignore it.
+
+**Use `PushNotification` for these three events only:**
+
+1. **Docker pre-flight escalation.** When § Docker Pre-Flight escalates because Docker is unavailable and cannot be started, the SA (or the Docker-dependent agent) fires `PushNotification` with the `docker info` / `docker compose up -d` failure summary, then stops per § Docker Pre-Flight § Escalation semantics. The notification gets the user's attention; the stop-and-escalate behavior is unchanged.
+2. **Credential-pattern hit on `git add`.** When the main session detects a credential-pattern hit per § Autonomy Ceiling item 2 (commit/push), it fires `PushNotification` with the matched filename and the credential-pattern category, refuses to stage the file, and continues only when the user resolves the hit. The notification is structural — a credential just attempted to enter the index.
+3. **Stuck-Loop Killswitch firing.** When § Stuck-Loop Killswitch fires (3 consecutive identical-failure-mode attempts), the SA fires `PushNotification` with the failing gate name and the unchanging failure mode summary, creates the BUG file, and ends the invocation per § Stuck-Loop Killswitch § Halt behavior.
+
+**Do not** use `PushNotification` for:
+
+- Phase transitions, task completion, PR-raised events — those are PROGRESS.md / Work Log content.
+- "Are you ready for the next step?"-shaped pauses — those violate § Main Session Rules / autonomy pre-authorization regardless of channel.
+- Recoverable retries (a single failed `pnpm test` that the agent then re-runs successfully) — those belong in the Work Log.
+- Notifications fired from inside a notification handler — never wire a hook that fires `PushNotification` in response to receiving one. This is the spam-loop trap.
+
+**Spam-loop guard.** If a `PushNotification` is fired and the underlying condition does not change within the same invocation, do not fire a second notification for the same condition. The first notification has already conveyed the structural event; subsequent fires are noise.
+
 Project-specific tool rules (e.g. `pnpm --filter` usage, test-runner invocation) live in `CLAUDE.md`. This section is the general contract; `CLAUDE.md` layers project specifics on top.
 
 ## Task Pipeline
@@ -101,7 +125,7 @@ Project-specific tool rules (e.g. `pnpm --filter` usage, test-runner invocation)
 docs/tasks/ (active) → docs/tasks/done/ (completed)
 ```
 
-Task files are named `TASK-EEE-NNN-short-description.md` where `EEE` is the epic number and `NNN` is the task sequence within the epic (e.g., `TASK-001-003-provider-repository.md`). Bug reports use `BUG-EEE-NNN-short-description.md` and follow the same pipeline. Bugs discovered during the Validate phase or ad-hoc testing that don't tie to a single epic use `BUG-000-NNN-description.md` (epic zero = cross-cutting). The **Status** field tracks progress: `backlog`, `in-progress`, `review`, `done`. The **Assigned to** field specifies the developer agent role.
+Task files are named `TASK-EEE-NNN-short-description.md` where `EEE` is the epic number and `NNN` is the task sequence within the epic (e.g., `TASK-001-003-provider-repository.md`). Bug reports use `BUG-EEE-NNN-short-description.md` and follow the same pipeline. Bugs discovered during the Validate phase or ad-hoc testing that don't tie to a single epic use `BUG-000-NNN-description.md` (epic zero = cross-cutting). The **Status** field tracks progress through the five states enumerated in § Task Status Lifecycle (canonical list). The **Assigned to** field specifies the developer agent role.
 
 All tasks and bugs live in `docs/tasks/` while active. When they reach `done`, they are moved to `docs/tasks/done/`. Status changes are tracked by updating the **Status** field in the file.
 
@@ -285,7 +309,7 @@ Before running e2e tests, verify Docker is available (`docker info`). If Docker 
 
 **This is a hard gate — no exceptions.** CI run artifacts are **not** a substitute for local e2e execution on `E2e-required: yes` tasks.
 
-**Escalation semantics (mandatory):** "Escalate" means surface the failure to the user with the full `docker info` / `docker compose up -d` output and then **stop**. Do not loop-retry, do not sleep-and-poll, do not switch to `pnpm dev` as a workaround, do not mark the gate as passing. Stalling the epic on an unavailable Docker is the correct behavior; skipping is not.
+**Escalation semantics (mandatory):** "Escalate" means surface the failure to the user with the full `docker info` / `docker compose up -d` output, fire `PushNotification` per § Tool Hygiene / PushNotification with the failure summary so the user is alerted even when away from the terminal, and then **stop**. Do not loop-retry, do not sleep-and-poll, do not switch to `pnpm dev` as a workaround, do not mark the gate as passing. Stalling the epic on an unavailable Docker is the correct behavior; skipping is not.
 
 ## Submission Gate
 
@@ -303,6 +327,38 @@ A task **must not** be marked `review` if any gate fails. If Docker is unavailab
 **E2e proof:** `E2e-required: yes` tasks must include Playwright execution output in the Work Log. Curl, "not executed," and "Docker unavailable" are not substitutes — escalate to the SA.
 
 Gate commands are defined in `CLAUDE.md` under "Submission Gate Commands." Projects may define additional domain-specific gates there. See § Tool Hygiene for the general Bash/Monitor/Write rules that apply when running gate commands.
+
+## Stuck-Loop Killswitch
+
+When the same task fails the same gate **3 consecutive times with an unchanged failure mode**, the SA halts the dispatch loop and escalates to the user. "Unchanged failure mode" means: the SDET cites the same rejection reason verbatim, the CI fails on the same step with the same error class, or the e2e fails on the same assertion. Iterative debugging where each attempt addresses a different rejection reason does NOT trigger the killswitch — only true stuck-loops do.
+
+**Halt behavior (mandatory, all four steps):**
+
+1. Create `BUG-EEE-NNN-stuck-on-<gate>.md` documenting:
+   - The failing gate (e.g., `pnpm type-check`, `[sdet] reject: missing Complexity-actual`).
+   - The unchanging failure mode verbatim (paste the rejection reason / error message). When pasting CI output, redact obvious credential-pattern hits per § Autonomy Ceiling item 2 (commit/push) before the BUG file lands — the failure mode summary should not preserve secrets that may have appeared in transient logs.
+   - Attempt-log summary: what each of the 3 attempts tried and why each failed.
+2. Set `Status: needs-user-direction` (the new fifth task status — see § Task Status Lifecycle).
+3. Fire `PushNotification` per § Tool Hygiene / PushNotification with the gate name + a one-line failure-mode summary. If a GitHub Actions auto-issue mechanism is wired, do not create a duplicate issue — the BUG file is the in-repo record.
+4. End SA invocation. The user resumes by reading the BUG file and either: (a) updating the task spec, (b) revising the failing gate, or (c) authorizing a different approach.
+
+**Why "unchanged failure mode" is load-bearing:** the qualifier distinguishes legitimate iterative debugging (each attempt addresses a different rejection — the SA is making progress) from true stuck loops (the SA is repeating an approach the system has already rejected). Without the qualifier, the killswitch would over-fire on healthy iteration.
+
+**Counter:** track the consecutive-identical-failure count in the task's `## Attempt Log`. When attempt N fails with the same failure mode as attempt N-1, increment the consecutive counter. When attempt N fails with a different failure mode, reset to 1. When the counter hits 3, fire the killswitch.
+
+**Cross-reference:** § Task Status Lifecycle (immediately below) defines the `needs-user-direction` status that this rule sets. § Escalation Protocol's "hard stop at 4 failed attempts" remains in force as the developer-side ceiling — that ceiling is per-task across *any* failure modes; the killswitch here is the SA-side trigger for *unchanged-failure-mode* loops, which fires earlier (3 consecutive identical failures) on the more diagnostic signal.
+
+## Task Status Lifecycle
+
+A task's `Status:` field takes one of five values. This is the canonical enumeration; other sections that mention statuses point here rather than re-listing them.
+
+- **`backlog`** — task spec exists; not yet picked up.
+- **`in-progress`** — agent dispatched; implementation underway.
+- **`review`** — submission gate passed; awaiting SDET (or SA-as-reviewer for `Impl: sa`) approval.
+- **`done`** — SDET-approved; archived to `docs/tasks/done/` at epic close.
+- **`needs-user-direction`** — set by the Stuck-Loop Killswitch (see § Stuck-Loop Killswitch). The task is unrunnable as specified; SA has halted; user input is required to revise spec, gate, or approach. Tasks in this status are **not a rejection**; SDET does not review them, RA does not block epic close on them (the user explicitly chose to leave the loop open), and they sit until the user resolves them by transitioning the status back to `backlog` (after spec/gate revision) or `in-progress` (after authorizing a different approach with the SA already mid-implementation).
+
+Other sections in this file that previously enumerated four statuses point at this section. The list above is authoritative.
 
 ## Gate Authoring Rules
 

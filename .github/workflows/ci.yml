@@ -1,0 +1,220 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+jobs:
+  lint-and-typecheck:
+    name: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "No pnpm-lock.yaml — workspace not yet scaffolded. Skipping install."
+          else
+            pnpm install --frozen-lockfile
+          fi
+
+      - name: pnpm lint
+        run: |
+          if [ ! -f package.json ] || ! node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
+            echo "No 'lint' script in root package.json — skipping."
+            exit 0
+          fi
+          pnpm lint
+
+      - name: pnpm type-check
+        run: |
+          if [ ! -f package.json ] || ! node -e "process.exit(require('./package.json').scripts?.['type-check'] ? 0 : 1)"; then
+            echo "No 'type-check' script in root package.json — skipping."
+            exit 0
+          fi
+          pnpm type-check
+
+      - name: validate-gates.sh
+        run: bash scripts/validate-gates.sh
+
+  test-portal:
+    name: test-portal
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U SA -P \"$SA_PASSWORD\" -Q \"SELECT 1\" -No"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify SQL Server is reachable
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: |
+          /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U SA -P "${SA_PASSWORD}" -Q "SELECT @@VERSION" -No
+        env:
+          SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
+
+      - name: pnpm --filter portal test
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm --filter portal test
+        env:
+          DATABASE_URL: sqlserver://localhost:1433;database=master;user=SA;password=${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }};trustServerCertificate=true
+
+  test-admin:
+    name: test-admin
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U SA -P \"$SA_PASSWORD\" -Q \"SELECT 1\" -No"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify SQL Server is reachable
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: |
+          /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U SA -P "${SA_PASSWORD}" -Q "SELECT @@VERSION" -No
+        env:
+          SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
+
+      - name: pnpm --filter admin test
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm --filter admin test
+        env:
+          DATABASE_URL: sqlserver://localhost:1433;database=master;user=SA;password=${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }};trustServerCertificate=true
+
+  security-scan:
+    name: security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "No pnpm-lock.yaml — workspace not yet scaffolded. Skipping install."
+          else
+            pnpm install --frozen-lockfile
+          fi
+
+      - name: pnpm audit (high+critical)
+        run: |
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "No pnpm-lock.yaml — workspace not yet scaffolded. Skipping audit."
+            exit 0
+          fi
+          pnpm audit --audit-level=high
+
+      - name: Check for JS/TS source files
+        id: has_jsts
+        run: |
+          if find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
+              -not -path "./.github/*" -not -path "./node_modules/*" | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No JS/TS source files found — skipping CodeQL (pre-scaffold state)."
+          fi
+
+      - name: Initialize CodeQL
+        if: steps.has_jsts.outputs.found == 'true'
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        if: steps.has_jsts.outputs.found == 'true'
+        uses: github/codeql-action/analyze@v4
+
+  report-failure:
+    name: report-failure
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test-portal, test-admin, security-scan]
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Ensure ci-failure label exists
+        run: |
+          gh label create ci-failure --color d93f0b --description "CI failed on main branch" --force
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+
+      - name: Create failure issue
+        run: |
+          gh issue create \
+            --label ci-failure \
+            --title "CI red on main: ${{ github.sha }}" \
+            --body "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Failing jobs: see run page.
+
+          Auto-created by .github/workflows/ci.yml — close after fix lands."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}

@@ -1,0 +1,4 @@
+## Summary
+
+Added portal home page — no workflow files touched.
+No quad review required for this PR.
