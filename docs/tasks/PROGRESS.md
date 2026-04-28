@@ -43,6 +43,24 @@ _None._
 
 ---
 
+### SDET Independent Quad-review — PR #14 — 2026-04-28
+
+**Start:** Independent SDET-perspective quad review of PR #14 (`chore/post-pr13-policy-followups`). Convergent-finding follow-up batch from PR #13 quad review. Scope: 2 files (+6/−3 lines) — `.claude/agent-stack.md` and `docs/architecture/model-behavior-notes.md`. Read: PR body + diff (`gh pr diff 14`), `.claude/agent-stack.md` lines 59–80 (post-diff state), `scripts/validate-gates.sh` (full), `docs/architecture/model-behavior-notes.md` (full), `docs/tasks/PROGRESS.md`. Ran `gh pr checks 14 --required`, `gh pr view 14 --json statusCheckRollup,mergeStateStatus,comments`. Both Lens A (gate integrity, test coverage, verifiability) and Lens B (model-behavior failure modes) applied. Note: `gh api /user --jq '.login'` was denied by environment permissions — noted as limitation in Item 4 analysis.
+
+**Actions:**
+- CI state: `mergeStateStatus: CLEAN`. Required checks: lint-and-typecheck (PASS), security-scan (PASS) — 4 rows, 2 CI runs. Conditions (a) + (b) satisfied.
+- Item 2 (preamble fix): Line 61 now reads "Items 1 and 4–6 are exceptions" and "Item 3 was promoted to autonomous on 2026-04-28." Stale internal inconsistency from PR #13 is resolved. CLEAN.
+- Item 4 (`<user-login>` resolution): New sentence instructs SA to resolve via `gh api /user --jq '.login'`. Command is standard `gh` CLI. Returned string login substitutes cleanly into `.comments[] | select(.author.login == "<resolved>")` without escaping concerns. `clarif-deflection` surface eliminated.
+- Item 5 (hotfix carve-out): Annotation pattern `(deferred per hotfix urgency: TASK-XXX)` is explicit. "Silent omission still fails" stated clearly. `TASK-XXX` format is not constrained by a regex in the rule text — the validate-gates.sh extension (item 1) must add pattern validation to close the "just-because" bypass surface.
+- Item 3 (Known gap): Added to `silent-stuck-no-notification` entry. Failure mode concrete, tradeoff honest, candidate follow-up specific (fourth PushNotification event, spam-loop-guarded). All entry template fields present. `Last cited:` updated. COMPLETE.
+- Lens B / carve-out abuse: Carve-out applies only to `## Awaiting PR merge` entries (SA-authored structural artifact) — not self-service for arbitrary PR authors. Risk of abuse requires SA to be the abuser. Low threat level, but validate-gates.sh extension must validate `TASK-XXX` as structured task ID format.
+
+**End:** See SDET verdict block in parent session response. ACCEPT-WITH-NOTES (Lens A) / ACCEPT-WITH-NOTES (Lens B).
+
+Flow changes this session: none.
+
+---
+
 ### SDET Independent Quad-review — PR #13 — 2026-04-28
 
 **Start:** Independent SDET-perspective quad review of PR #13 (`chore/promote-pr-merge-autonomous`). This is the fourth reviewer (independent, not rubber-stamping SA self-review). Read: PR body + diff (`gh pr diff 13`), `.claude/agent-stack.md` (full), `scripts/validate-gates.sh` (full), `docs/operations/branch-protection.md` (full), `docs/architecture/model-behavior-notes.md` (full), `docs/tasks/PROGRESS.md`. Ran `gh pr checks 13 --required`, `gh pr checks 13` (full), `gh pr view 13 --json statusCheckRollup`. Both Lens A (gate integrity, test coverage, submission gate evidence) and Lens B (model-behavior failure modes) applied.
@@ -86,6 +104,27 @@ Flow changes this session: none.
 - Lens B — `clarif-deflection`: condition (d) definition ("A PR is an epic-closing PR when it appears in `docs/tasks/PROGRESS.md` `## Awaiting PR merge`") is machine-checkable — SA reads PROGRESS.md, no ambiguity requiring user deflection. Hotfix gap noted above could produce deflection in edge cases.
 
 **End:** ACCEPT-WITH-NOTES (Lens A) / ACCEPT-WITH-NOTES (Lens B). Two forward-looking findings (validate-gates.sh aspirational cite, stale preamble) and two ambiguities (user-login resolution, hotfix exemption from condition d). One Lens B finding (silent-stuck-no-notification weakened in unattended context). None are blockers for manual merge of this PR; all warrant documented follow-up.
+
+Flow changes this session: none.
+
+---
+
+### RA Independent Quad-review — PR #14 — 2026-04-28
+
+**Start:** Independent RA-perspective review of PR #14 (`chore/post-pr13-policy-followups`). Read: PR body + full diff (`gh pr diff 14`), `.claude/agent-stack.md` (full as-merged text), `docs/architecture/model-behavior-notes.md` (full), `.claude/agent-phases.md` (§ Post-Close Protocol, § Gate Authoring Rules), `docs/tasks/PROGRESS.md` prior session entries. CI status verified (`gh pr checks 14`). Applied Lens A (workflow/gate/content) + Lens B (model-behavior failure modes) independently across all four items.
+
+**Actions:**
+- Item 2 (preamble fix): Old text listed "Items 1, 3, and 4–6" as exceptions and stated item 3 "was held back." New text correctly reads "Items 1 and 4–6" and states item 3 was promoted 2026-04-28 with PR #9 empirical validation cite. Verified PR #9 accuracy in prior RA review session (confirmed mergedAt 2026-04-28T13:26:01Z). PASS.
+- Item 4 (`<user-login>` resolution): Inline `gh api /user --jq '.login'` instruction added directly after the detection command. Instruction is clear, placement is sequential (resolve-then-execute ordering), and explicitly states "the SA does not pause to ask the user for this value." PASS.
+- Item 5 (hotfix carve-out): `agent-phases.md` § Post-Close Protocol confirmed to define hotfix mini-epics (line 84). § Gate Authoring Rules § Exceptions: Hotfix urgency confirmed at line 420. Both cited cross-references are accurate. The `(deferred per hotfix urgency: TASK-XXX)` vs. `PASS` vs. silent omission three-way distinction is unambiguous. Forward reference to validate-gates.sh extension is correctly hedged ("once extended"). PASS — with one finding (see Lens B below).
+- Item 3 (`silent-stuck-no-notification` known-gap): Gap accurately acknowledges condition (b) refusal not firing PushNotification, unattended-lights-out exposure. Tradeoff justification ("intentional tradeoff documented here rather than fixed") is honest. Candidate follow-up ("fourth event for auto-merge precondition failures, spam-loop-guarded so it fires once per PR") is concrete and actionable. `Last cited:` updated to 2026-04-28 with correct attribution. PASS.
+- CI check: `lint-and-typecheck` PASS, `security-scan` PASS (two runs). Required checks ≥1. PASS.
+- Lens B — hotfix annotation forgery (spec-shaped-green surface): the hotfix carve-out allows condition (d) to be satisfied by a `(deferred per hotfix urgency: TASK-XXX)` annotation in PROGRESS.md. Since validate-gates.sh does NOT yet verify condition (d) content, a non-hotfix SA could today write a forged annotation and auto-merge would not detect it. However: (1) validate-gates.sh extension is the Item 1 follow-up (deferred to SDET-led task), not a gap this PR creates; (2) the spec-shaped-green entry in model-behavior-notes.md does not flag PROGRESS.md text as a production code path the entry covers; (3) condition (c) four-eyes LGTM is required for this specific PR and future workflow-file PRs, so the annotation-forgery vector on THIS PR is closed by the LGTM gate. Advisory finding — no new surface created by this PR; the gap predates it.
+- Lens B — `silent-stuck-no-notification` entry updated correctly. Gap subsection added under the existing entry without removing or weakening the three-event allowlist description. The mitigation's counterfactual remains correct — without PushNotification the user must manually poll. The Known Gap subsection accurately documents the intentional tradeoff without overstating the risk. PASS.
+- Lens B — dropping item 3 from exceptions list: item 3 is now promoted-with-conditions (like item 2), not removed from the ceiling. The exceptions list now reads "Items 1 and 4–6" — these are the remaining ask-first checkpoints. Item 3 is governed by its own item text (conditions a–d), not by the exceptions list. No weakening of the ceiling structure. PASS.
+- Historical context check: the "held back" language in the preamble was an active workflow rule (incorrect state), not a history record. PR #8 and PR #13 commit messages preserve the promotion history. Removing the stale rule text is correct; no historical context is lost. PASS.
+
+**End:** VERDICT — Lens A: ACCEPT / Lens B: ACCEPT-WITH-NOTES. All four items address their stated findings correctly. One advisory Lens B observation (hotfix annotation forgery surface predates this PR and is deferred to the validate-gates.sh extension task). No blockers.
 
 Flow changes this session: none.
 
