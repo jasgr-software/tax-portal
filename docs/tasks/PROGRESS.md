@@ -43,6 +43,30 @@ _None._
 
 ---
 
+### SDET Review — BUG-000-003 — 2026-04-27
+
+**Start:** Focused review of BUG-000-003 fix (devops, commit b03f68e). Read: BUG-000-003 bug spec (full), `.github/workflows/ci.yml` (current, full), `git show b03f68e -- .github/workflows/ci.yml` (diff), `package.json` (root). YAML validity: `python3 yaml.safe_load` — PASS. `bash scripts/validate-gates.sh` — ALL CHECKS PASSED (0 failures). Optional-chaining node simulations for all edge cases run locally.
+
+**Actions:**
+- Metadata contract: `Started-at: 2026-04-28T01:39:55Z`, `Complexity-estimate: 2`, `Complexity-actual: 2`, `Updated-by: devops` — all present. PASS.
+- Dispatch checkpoint: "Starting implementation" Work Log entry at line 137 precedes review-shaped entry at line 138. PASS.
+- Tool-hygiene: no `$()` in gate commands, no `cd &&`, no heredoc-over-Write, no `| tail`, no `sudo` in Work Log. PASS.
+- Lint guard (`[ ! -f package.json ] || ! node -e "...?.lint ? 0 : 1"`): verified all four states — no package.json (short-circuit before node), no lint script (node exits 1, `!` flips true, skips), lint defined (node exits 0, `!` flips false, runs), empty lint string (falsy, skips — advisory, not blocking). PASS.
+- Type-check guard bracket notation (`scripts?.['type-check']`): correct for hyphenated key. PASS.
+- Optional chaining portability: supported since Node 14; runner uses Node 20. PASS.
+- Install-step predicate swap (lint-and-typecheck + security-scan): both changed from `[ -f package.json ]` to `[ ! -f pnpm-lock.yaml ]` with if/else branches reordered correctly. Symmetric. PASS.
+- Six step-level `if: hashFiles('pnpm-lock.yaml') != ''` guards: 3 in test-portal (Install, Verify SQL, test run), 3 in test-admin (same). All present, all identical. PASS.
+- Post-Epic-001 forward-compat: when lockfile and lint/type-check scripts land, every guard enables naturally — no further YAML edits needed. PASS.
+- Security review: no eval, no shell-variable expansion in `node -e` strings, `hashFiles()` is GHA built-in evaluated at parse time. PASS.
+- `validate-gates.sh` live run: exit 0, ALL CHECKS PASSED (0 failures). PASS.
+- Advisory: `scripts.lint = ""` (empty string) is falsy — guard skips. Correct behavior for a non-runnable script; no realistic package.json defines an empty lint script in production use.
+
+**End:** ACCEPT. Bug closed. PR #8 CI expected to turn green on next push — `lint-and-typecheck` skips lint + type-check (no scripts in current package.json), runs validate-gates.sh to completion; `test-portal`/`test-admin` skip all three steps via `hashFiles` guard (no pnpm-lock.yaml); `security-scan` skips install + audit (no lockfile), runs CodeQL check (JS/TS source file detection gate unchanged).
+
+Flow changes this session: none.
+
+---
+
 ### SDET Review — BUG-000-002 — 2026-04-27
 
 **Start:** Focused re-review of BUG-000-002 fix (devops, commit c4917ec). Read: BUG-000-002 bug spec, `scripts/validate-gates.sh` lines 463–477, two new fixture directories, TASK-LOE-003 + TASK-LOE-006 Work Logs (anchor string verification), TASK-LOE-001 Work Log (no-regression check).
