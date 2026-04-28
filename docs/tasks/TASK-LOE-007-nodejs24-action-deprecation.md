@@ -1,0 +1,136 @@
+# TASK-LOE-007: Bump GitHub Actions to Node.js 24-compatible versions
+
+**Epic**: chore/lights-out-enablement (follow-up from PR #8)
+**Status**: backlog
+**Assigned to**: devops
+**Updated-by**: —
+**Depends on**: none
+**E2e-required**: no
+**Started-at**: —
+**Completed-at**: —
+**Complexity-estimate**: —
+**Complexity-actual**: —
+**Affected flows:** none (justification: chore touches CI infrastructure only, not user-facing behavior)
+**Affected requirements:** none (justification: chore touches CI infrastructure, not SRS requirements)
+**Introduces-gate:** no
+**Relevant ADRs:** none
+
+---
+
+## Quality Gates
+
+- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [N/A] **Submission gate** — N/A (workflow YAML change, not source code; `pnpm lint` and `pnpm type-check` do not cover `.github/workflows/`)
+- [N/A] **Targeted e2e** — N/A (CI workflow change, not application behavior)
+- [ ] **Security review** — verify each pinned action's release notes for the new major version; confirm no new permissions or `with:` arguments are required by the new version that change the security posture
+- [ ] **SDET Review** — approved
+
+## SDET Review focus areas
+
+- Verify each `uses:` line in `.github/workflows/ci.yml` is bumped to a version that supports the Node.js 24 runtime (verify against the action's release notes — runtime is documented per release).
+- Verify the version bump preserves all existing `with:` arguments (e.g., `node-version`, `cache`, `version` for pnpm/action-setup) — major-version bumps occasionally rename or remove `with:` keys.
+- Verify a sample CI run on the bump PR completes green: `lint-and-typecheck` + `security-scan` (the two required-by-branch-protection checks). Advisory `test-portal` / `test-admin` may still be skip/no-op if Epic 001 hasn't scaffolded the apps yet — that is expected, not a regression.
+- Verify no `Node.js 20` or `node20` deprecation warnings appear in the run logs after the bump (search the log for `deprecat` — should find no matches related to runtime).
+- Verify the version pins remain at major-version float (e.g. `@v5`), matching the project's existing `@v4` pin style. Do not introduce SHA-pinning in this task — that is a separate hardening decision out of scope here.
+
+## Context
+
+GitHub Actions has announced that the `node20` runtime will be retired with a forced cutover to `node24` in **June 2026** ([GitHub Changelog: Setting Node.js 24 as default for GitHub Actions](https://github.blog/changelog/) — verify exact deadline against the live announcement at pickup time). All actions used in this repo's `.github/workflows/` currently run on the `node20` runtime via their `@v4` major-version pins. Action authors typically publish a new major version (e.g. `@v5`) when they bump the runtime — but the cutover timing varies per action.
+
+This task is to bump every action used in `.github/workflows/` to a version that supports the `node24` runtime, **before** GitHub flips the global default and CI starts emitting deprecation warnings (or hard-failing once the runtime is fully retired).
+
+This is a chore follow-up from PR #8 (`chore/lights-out-enablement`) — that chore established the CI workflow and pinned these actions; this task tracks their continued hygiene.
+
+### Actions currently in use (as of 2026-04-28)
+
+| Action | Current pin | Runtime | Used in |
+| ---- | ---- | ---- | ---- |
+| `actions/checkout` | `@v4` | node20 | `ci.yml` (4 jobs: lint-and-typecheck, test-portal, test-admin, security-scan) |
+| `pnpm/action-setup` | `@v4` | node20 | `ci.yml` (3 jobs: lint-and-typecheck, test-portal, test-admin) |
+| `actions/setup-node` | `@v4` | node20 | `ci.yml` (3 jobs: lint-and-typecheck, test-portal, test-admin) |
+| `github/codeql-action/init` | `@v4` | node20 | `ci.yml` (security-scan job) |
+| `github/codeql-action/analyze` | `@v4` | node20 | `ci.yml` (security-scan job) |
+
+If new workflow files are added between now and pickup, the same bump applies to every `uses:` line in the new files.
+
+### Trigger conditions
+
+Pick this task up when **either** of:
+
+1. A `node24`-compatible major version (likely `@v5`) is published for **all five** actions above — at that point the bump is a clean, no-blocker hygiene chore, OR
+2. **2026-05-01** — one month before GitHub's June 2026 deadline. If any action has not yet published a `node24`-compatible version by that date, the chore turns into a real blocker that needs user escalation (the project may need to change action choices, vendor a fork, or accept temporary deprecation warnings).
+
+Whichever comes first.
+
+## Files to Create or Modify
+
+| File | Action | Responsibility |
+| ---- | ------ | -------------- |
+| `.github/workflows/ci.yml` | Modify (bump `uses:` pins on all five actions) | devops |
+| Any other `.github/workflows/*.yml` files added between 2026-04-28 and pickup | Modify (same bump applied to every `uses:` line on the five tracked actions, and any new actions introduced) | devops |
+
+## Tests to Write First
+
+There are no automated tests for a workflow-pin bump. Verification is via:
+
+- [ ] **Per-action release-note review** — for each of the five actions, read the release notes for the major version that introduces `node24` runtime. Confirm: (a) runtime is `node24` (or later), (b) no new required `with:` arguments, (c) no removed `with:` arguments that this repo currently uses. Capture the verified version in the Work Log.
+- [ ] **Draft-PR CI run** — push a draft PR with the bumped pins. Confirm `lint-and-typecheck` + `security-scan` pass green on the new versions. Capture the run URL in the Work Log.
+- [ ] **Deprecation-warning sweep** — search the draft-PR run logs for `deprecat` (case-insensitive). Should find no matches related to runtime. Note any other deprecation warnings found in the Work Log even if unrelated (these may be future task triggers).
+
+## Implementation Notes
+
+### Per-action upgrade research
+
+Before editing `ci.yml`, for each of the five actions:
+
+1. Visit the action's GitHub repo releases page (e.g. `github.com/actions/checkout/releases`).
+2. Find the release notes for the major version that introduces the `node24` runtime.
+3. Read the release notes for breaking changes (renamed/removed `with:` keys, new required permissions, output format changes).
+4. Note the new pin version (e.g. `@v5`).
+
+Likely (but verify against live release notes): `actions/checkout`, `actions/setup-node`, `pnpm/action-setup`, and the two `github/codeql-action` entry points all move to `@v5`. The `github/codeql-action` versioning sometimes diverges from the standard major-version cadence — verify it separately.
+
+### Pin update pattern
+
+Match the existing pin style: major-version float, no SHA-pinning. The repo currently uses `@v4` (which floats within the v4 major). When updating, use `@v5` (or whatever the correct new major is per release notes).
+
+### CI run verification
+
+After pushing the bump branch, watch the first PR CI run carefully:
+
+- `lint-and-typecheck` should pass at the same wall-clock speed as before (the runtime change is invisible to the job's actual work).
+- `security-scan` should pass; CodeQL output structure may change in `@v5` — read the full job output, not just the green check.
+- Advisory `test-portal` / `test-admin` will skip or no-op until Epic 001 scaffolds the apps. That is expected; do not interpret the skip as a regression.
+
+### Scope boundaries
+
+- Do NOT add new actions in this PR — scope is bumping existing pins only.
+- Do NOT change `name:` fields, runner labels, job dependencies, or any other workflow structure.
+- Do NOT introduce SHA-pinning in this task — that is a separate hardening decision.
+- Do NOT modify `.github/dependabot.yml` (if present) in this task — dependabot config is its own concern.
+
+If pickup-time research surfaces a new action used by a workflow file added between 2026-04-28 and the pickup date, include it in the bump. The "five actions" list above is a snapshot, not a hard scope freeze.
+
+## Definition of Done
+
+- [ ] All five tracked actions in `.github/workflows/ci.yml` (and any other workflow files present at pickup time) bumped to a `node24`-compatible version.
+- [ ] No `Node.js 20` / `node20` deprecation warnings in the bump-PR's CI run logs.
+- [ ] `lint-and-typecheck` + `security-scan` (the two branch-protection-required checks) pass green on the bump PR.
+- [ ] Branch protection's required-checks gate is satisfied without manual override.
+- [ ] PR description references this TASK file (`docs/tasks/TASK-LOE-007-nodejs24-action-deprecation.md`) and the GitHub June 2026 deadline.
+- [ ] Per-action verified version captured in the Work Log (one line per action).
+
+---
+
+## Work Log
+
+<!-- Format: - YYYY-MM-DD [role] What was done | What's next | Blockers -->
+
+## Attempt Log
+
+**Attempt count**: 0
+
+## SDET Review
+
+**Decision**: pending
+**Notes**:
