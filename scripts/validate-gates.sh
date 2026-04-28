@@ -571,6 +571,93 @@ check_pr_body_quad_review() {
 }
 
 # ---------------------------------------------------------------------------
+# Check 9: check_pr_awaiting_merge_gate_verdicts
+#
+# Reads ## Awaiting PR merge section from PROGRESS_MD.
+# If the section is empty / _None._ / no "- **PR " bullet entries → pass.
+# For each "- **PR " bullet entry: locate the "Quality gates 5–8:" clause and
+# verify each of the four named gates appears with either:
+#   <gate-name> PASS   (exact, case-sensitive)
+#   <gate-name> (deferred per hotfix urgency: <task-id>)
+#     where <task-id> matches TASK-[A-Z][A-Z0-9]*-[0-9]{3,} or
+#                              BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,}
+#
+# Implements .claude/agent-stack.md § Autonomy Ceiling item 3 condition (d).
+# ---------------------------------------------------------------------------
+
+check_pr_awaiting_merge_gate_verdicts() {
+  local check_name="check_pr_awaiting_merge_gate_verdicts"
+  local all_pass=1
+
+  if [[ ! -f "$PROGRESS_MD" ]]; then
+    fail "$check_name" "PROGRESS.md not found at $PROGRESS_MD"
+    return
+  fi
+
+  # Extract the ## Awaiting PR merge section content:
+  # everything between "## Awaiting PR merge" and the next "##" header or "---" separator.
+  local section_content
+  section_content="$(awk '/^## Awaiting PR merge/{found=1; next} found && /^(##|---)/{exit} found{print}' "$PROGRESS_MD")"
+
+  # Check if section is empty / _None._ / has no "- **PR " bullet entries
+  local pr_entries=()
+  while IFS= read -r line; do
+    if [[ "$line" == "- **PR "* ]]; then
+      pr_entries+=("$line")
+    fi
+  done <<< "$section_content"
+
+  if [[ ${#pr_entries[@]} -eq 0 ]]; then
+    pass "$check_name (no PR entries to check)"
+    return
+  fi
+
+  # The four canonical gate names (case-sensitive)
+  local gate_names=("Container Smoke" "RA Validation" "SDET CI" "SDET Quality Parity")
+  # Structured task-ID regex: TASK-[A-Z][A-Z0-9]*-[0-9]{3,} or BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,}
+  local task_id_regex="(TASK-[A-Z][A-Z0-9]*-[0-9]{3,}|BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,})"
+
+  for entry in "${pr_entries[@]}"; do
+    # Use the first token after "- **PR " as the PR identifier
+    local pr_id
+    pr_id="$(echo "$entry" | grep -oE '\*\*PR #[0-9]+ — [^*]+\*\*' | head -1)"
+    if [[ -z "$pr_id" ]]; then
+      pr_id="$(echo "$entry" | cut -c1-60)..."
+    fi
+
+    for gate in "${gate_names[@]}"; do
+      # Check for "<gate-name> PASS" (exact, case-sensitive)
+      if echo "$entry" | grep -qF "${gate} PASS"; then
+        continue
+      fi
+
+      # Check for "<gate-name> (deferred per hotfix urgency: <task-id>)"
+      # Extract the annotation value after "deferred per hotfix urgency: "
+      local deferred_value
+      deferred_value="$(echo "$entry" | grep -oP "(?<=${gate} \(deferred per hotfix urgency: )[^)]*" || true)"
+
+      if [[ -n "$deferred_value" ]]; then
+        # Validate the task-ID matches the structured regex
+        if echo "$deferred_value" | grep -qP "^${task_id_regex}$"; then
+          continue
+        else
+          fail "$check_name" "${gate} deferred annotation has malformed task-ID '${deferred_value}' in ${pr_id}"
+          all_pass=0
+        fi
+      else
+        # No PASS and no deferred annotation — silent omission
+        fail "$check_name" "${gate} marker missing in ${pr_id}"
+        all_pass=0
+      fi
+    done
+  done
+
+  if [[ $all_pass -eq 1 ]]; then
+    pass "$check_name"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -594,6 +681,7 @@ main() {
   check_playwright_artifacts
   check_ci_evidence
   check_pr_body_quad_review
+  check_pr_awaiting_merge_gate_verdicts
 
   echo ""
   if [[ ${#FAILURES[@]} -eq 0 ]]; then
