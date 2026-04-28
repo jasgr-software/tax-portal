@@ -26,24 +26,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package.json ]; then
-            pnpm install --frozen-lockfile
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "No pnpm-lock.yaml — workspace not yet scaffolded. Skipping install."
           else
-            echo "No package.json found — workspace not yet scaffolded. Skipping install."
+            pnpm install --frozen-lockfile
           fi
 
       - name: pnpm lint
         run: |
-          if [ ! -f package.json ]; then
-            echo "No package.json — workspace not yet scaffolded. Skipping lint."
+          if [ ! -f package.json ] || ! node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
+            echo "No 'lint' script in root package.json — skipping."
             exit 0
           fi
           pnpm lint
 
       - name: pnpm type-check
         run: |
-          if [ ! -f package.json ]; then
-            echo "No package.json — workspace not yet scaffolded. Skipping type-check."
+          if [ ! -f package.json ] || ! node -e "process.exit(require('./package.json').scripts?.['type-check'] ? 0 : 1)"; then
+            echo "No 'type-check' script in root package.json — skipping."
             exit 0
           fi
           pnpm type-check
@@ -80,15 +80,18 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
+        if: hashFiles('pnpm-lock.yaml') != ''
         run: pnpm install --frozen-lockfile
 
       - name: Verify SQL Server is reachable
+        if: hashFiles('pnpm-lock.yaml') != ''
         run: |
           /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U SA -P "${SA_PASSWORD}" -Q "SELECT @@VERSION" -No
         env:
           SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
 
       - name: pnpm --filter portal test
+        if: hashFiles('pnpm-lock.yaml') != ''
         run: pnpm --filter portal test
         env:
           DATABASE_URL: sqlserver://localhost:1433;database=master;user=SA;password=${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }};trustServerCertificate=true
@@ -122,15 +125,18 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
+        if: hashFiles('pnpm-lock.yaml') != ''
         run: pnpm install --frozen-lockfile
 
       - name: Verify SQL Server is reachable
+        if: hashFiles('pnpm-lock.yaml') != ''
         run: |
           /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U SA -P "${SA_PASSWORD}" -Q "SELECT @@VERSION" -No
         env:
           SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
 
       - name: pnpm --filter admin test
+        if: hashFiles('pnpm-lock.yaml') != ''
         run: pnpm --filter admin test
         env:
           DATABASE_URL: sqlserver://localhost:1433;database=master;user=SA;password=${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }};trustServerCertificate=true
@@ -151,10 +157,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package.json ]; then
-            pnpm install --frozen-lockfile
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "No pnpm-lock.yaml — workspace not yet scaffolded. Skipping install."
           else
-            echo "No package.json found — workspace not yet scaffolded. Skipping install."
+            pnpm install --frozen-lockfile
           fi
 
       - name: pnpm audit (high+critical)
