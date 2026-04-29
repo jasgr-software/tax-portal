@@ -1045,3 +1045,40 @@ Flow changes this session: none.
 **End:** Smoke + Validate + Close-prep all complete. PROGRESS.md `## Awaiting PR merge` populated. Task spec archived (file move via `git mv` in the Close-prep commit). PR #16 marked ready-for-review, auto-merged via `gh pr merge 16 --squash --delete-branch` after gates (a)–(d) confirmed. SA invocation ends here per `agent-phases.md` § Close-prep ("SA ends invocation. Request PR approval"). Close-finalize runs after merge.
 
 Flow changes this session: none.
+
+---
+
+### SA ADR-authorship (out-of-phase) — ADR-012 testing pyramid — 2026-04-29
+
+**Start:** Out-of-phase ADR-authorship invocation — this is **not** a Plan/Dispatch/Audit/Review/Smoke/Validate/Close-prep/Close-finalize phase. The SA was invoked directly by the user to draft `docs/decisions/ADR-012-testing-pyramid.md`, codifying a 9-tier testing pyramid adapted from a sibling .NET project for the tax-portal Next.js + Prisma + SQL Server + Clerk stack and the project's lights-out development model. PROGRESS.md `## Current initiative` remains `_None._` — this session does not open an initiative; the ADR is the only artifact. Constraints from the user: ADR is `Status: Proposed`; no edits to `_TEMPLATE.md`, `agents/sdet.md`, `validate-gates.sh`, `ci.yml`, or downstream files; no follow-up task files yet (user decides scope after reading). Read: `.claude/agent-stack.md` (workflow rules + Gate Authoring Rules), `agents/sa.md` (ADR Lifecycle), `docs/architecture/TENETS.md`, `docs/architecture/C4.md` (index), `docs/decisions/` listing, ADR-002 (SQL Server), ADR-003 (SESSION_CONTEXT), ADR-005 (RLS via Security Policies), ADR-006 (monorepo layout), ADR-007 (deferred deploy platform), ADR-011 (repository interface as test seam), and the ADR exemplars (005, 006). Read CLAUDE.md (esp. § Submission Gate Commands and § Platform-frontend scope).
+
+**Actions:**
+
+- Drafted `docs/decisions/ADR-012-testing-pyramid.md` with all required sections in the project ADR format: Status (Proposed), Date, Decision-makers, Context, Decision (pyramid table + four deltas: drop tier 4, fold tier 7→6b, promote tier 3 to required-on-PR, revise CLAUDE.md "E2E NOT required-on-PR" stance for the smoke subset), Codification mechanisms (1–5 with the lights-out keystone explicitly identified as mechanism 2 + 3), Roll-out (milestone-tied: Now / Epic 001 scaffolding / first feature epic with RLS / third-or-fourth feature task / first deploy pipeline / production platform decided), Consequences (positive / negative / neutral, including AST-promotion follow-up call-out for the wrapper-grep check), Alternatives considered (5 — the 3 required plus two extras: smaller-pyramid and defer-codification), Related ADRs (002, 003, 005, 006, 007, 011 with explicit per-ADR linkage).
+- Per-tier triggers structured with Applicability / Evidence / Promotion-trigger sub-fields per the user's spec for mechanism 1.
+- Cross-surface scoping (CLAUDE.md § Platform-frontend scope) explicitly built into the `check_rls_policy_test_coverage` and `Tier coverage:` block contracts so tier 3 + 5 + 6 default to both `apps/portal/**` and `apps/admin/**`.
+- ADR-011 § 5's "mocks do not exercise RLS" claim cited as the reason tier 3 is required-on-PR rather than substituted by tier 2 (load-bearing safety distinction preserved).
+- Constraint compliance verified: no edits to `_TEMPLATE.md`, `agents/sdet.md`, `validate-gates.sh`, `ci.yml`, or any other downstream file; no follow-up TASK files created. ADR is `Status: Proposed`.
+
+**End:** ADR drafted and written to `docs/decisions/ADR-012-testing-pyramid.md`. Out-of-phase invocation complete; PROGRESS.md `## Current initiative` remains `_None._`. No phase transition, no awaiting-merge entry change, no active-bug change, no new retro action items. Suggested follow-up tasks returned to user for scope decision (titles only — see assistant message). SA invocation ends.
+
+---
+
+### SA Close-finalize — TASK-LOE-007 — 2026-04-29
+
+**Start:** Resume after PR #16 merged 2026-04-29 as squash commit `c56f5ce` ("chore(ci): bump checkout/pnpm/setup-node to @v6 for node24 runtime (TASK-LOE-007) (#16)"). Local `main` aligned with `origin/main`; chore branch deleted on origin and locally; the local-only commit `483c60e` was skipped during the post-merge rebase as its content was already incorporated into `c56f5ce` via the squash. PR auto-merged with all required checks SUCCESS on head `46dd4221`. Read: `.claude/agent-stack.md`, `.claude/agent-phases.md` (Close-finalize phase + Post-Close Protocol), `agents/sa.md`, CLAUDE.md, current PROGRESS.md state.
+
+**Actions:**
+
+- **Gate 9 (Post-merge CI):** PASS. `gh run list --branch main --limit 5 --json databaseId,headSha,name,event,status,conclusion,createdAt,url` returned run **25105514306** on head `c56f5ce5ead48a965c3c1204bafc0eaa2278188b` (the squash-merge commit) with `event: push`, `status: completed`, `conclusion: success`, `createdAt: 2026-04-29T11:10:58Z`. Job-level verification: `gh run view 25105514306 --json jobs` confirmed all 4 required jobs `success` (`lint-and-typecheck`, `security-scan`, `test-portal`, `test-admin`); `report-failure` correctly `skipped` (conditional failure-reporter). Run URL: https://github.com/jasgr-software/tax-portal/actions/runs/25105514306.
+- **Gate 10 (Post-merge staging smoke):** N/A. `Epic-deploys: no` on TASK-LOE-007 — no staging deploy pipeline was triggered, no staging surface to smoke. Disposition recorded.
+- **POST bugs:** zero. `ls docs/tasks/ | grep -E '^BUG-LOE'` returned nothing — no `BUG-LOE-POST-NNN-*.md` files surfaced during PR review, CI-on-PR, the merge, or post-merge verification. Expected outcome for a YAML-only chore (no runtime code path to regress).
+- **RETRO file decision:** **no `RETRO-LOE-007.md` authored.** Decision basis: (a) precedent — the four prior chore PRs (#6, #8, #13, #14, #15) closed without producing a RETRO file (`find /home/jasgr/repos/tax-portal -name 'RETRO*'` → 0 results); (b) zero gate failures across the entire lifecycle (Plan/Dispatch/Audit/Review/Smoke/Validate/Close-prep/Close-finalize all clean); (c) the retro promotion bar (concrete quality gate failure per `.claude/agent-stack.md` § Retro Finding Classification) was not crossed; (d) the only retro-shaped observation — the pre-existing 2026-04-28 action item on verifier narrowing — was already re-cited in `## Open retro action items` at Close-prep and does not need a separate RETRO file to track. Per `agent-phases.md` § Post-Close Protocol § Retro addendum, a `## Post-Merge Addendum` is appended to the RETRO file *if one exists* — none exists, so no addendum is needed.
+- **PROGRESS sweep:** swept the `### SA Smoke + Validate + Close-prep — TASK-LOE-007 — 2026-04-29` session block from PROGRESS.md to PROGRESS-ARCHIVE.md (appended below the Plan + Dispatch entry). The four-action atomic phase-transition reflex (sweep → update Current initiative → append phase-start session entry) executed.
+- **`## Awaiting PR merge` cleared:** removed the PR #16 entry; replaced with `_None._` (no other awaiting-merge entries).
+- **`## Current initiative` reset:** set to `_None._`. Epic-level exit condition met per `agent-phases.md`: PROGRESS.md `## Current initiative` is empty and the SA is eligible to enter Plan on the next epic if the epic-start gate passes.
+- **`docs/plans/release-roadmap.md`:** N/A — chore tasks are not on the product roadmap (confirmed at Close-prep). No update.
+
+**End:** Close-finalize complete. All Close-finalize exit conditions met: PR merged, gate 9 PASS (run 25105514306 on `c56f5ce`), gate 10 N/A (`Epic-deploys: no`), zero `BUG-LOE-POST-*` files, no RETRO file required by chore convention, awaiting-merge entry removed, Current initiative reset. SA invocation ends. Backlog state: 5 retro action items open (all dispositioned-as-tracked), zero active bugs, zero awaiting-merge entries, zero current initiative. Eligible to enter Plan on the next epic.
+
+Flow changes this session: none.
