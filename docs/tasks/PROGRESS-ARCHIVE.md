@@ -4,6 +4,48 @@
 
 ---
 
+### SDET Review — TASK-LOE-007 — 2026-04-29
+
+**Start:** Review TASK-LOE-007 (Status: review). Chore — bump GitHub Actions to node24-compatible versions. Single workflow file change; no affected flows, requirements, or gates.
+
+**Actions:**
+
+- Read `.claude/agent-stack.md`, `agents/sdet.md`, task spec, `PROGRESS.md`, `.github/workflows/ci.yml`.
+- Ran mandatory rejection checklist (step 2): all clear — Quality Gates properly ticked/N/A'd, Work Log complete with breadcrumbs, no E2e-required concern, Complexity-actual=1/Complexity-estimate=2/Started-at populated, no tool-hygiene violations, pre-implementation Work Log entry present at line 130 (§ Dispatch Checkpoint satisfied), all required spec fields present with documented justification.
+- Independent CI verification: `gh run view 25083861343 --json conclusion,jobs` — `conclusion: success`; head `c4750184764936dc3cd13510b1672963be376a7f`; all 4 jobs success. Step names confirm `Run actions/checkout@v6`, `Run pnpm/action-setup@v6`, `Run actions/setup-node@v6` in every job. CodeQL steps correctly skipped (found=false, pre-scaffold `if:` guard — not a regression).
+- Diff verified at c475018: 12 `@v4→@v6` replacements across 4 jobs; `with:` args (`version: 9`, `node-version: '20'`) preserved; codeql-action stays `@v4`; no structural changes. Scope boundaries satisfied.
+- All SDET Review focus areas satisfied (node24 versions confirmed, with: preserved, CI green, no deprecation warnings, major-version float style matched).
+- Flow/gherkin/gate-authoring content checks N/A (Affected flows: none, Affected requirements: none, Introduces-gate: no — all with documented justification).
+
+**Decision:** APPROVED. TASK-LOE-007 set to Status: done, Completed-at: 2026-04-29T11:01:40Z.
+
+**End:** Review complete. SA may proceed to Close-prep (Smoke and Validate phases vacuous per Epic-deploys: no).
+
+---
+
+### SA Audit + Review-entry — TASK-LOE-007 — 2026-04-29
+
+**Start:** Resume TASK-LOE-007 (Status: review). Dispatch exited at 2026-04-28T23:52Z with [devops] returning Work Log green: actions/checkout @v4→@v6, pnpm/action-setup @v4→@v6, actions/setup-node @v4→@v6 applied; codeql-action @v4 untouched (already node24). CI run 25083861343 green on head `c4750184`. Draft PR #16 open. All Quality Gates ticked except SDET Review. This invocation drives Audit → Review. Read: `.claude/agent-stack.md`, `.claude/agent-phases.md`, `agents/sa.md`, `agents/sdet.md`, CLAUDE.md, PROGRESS.md, task spec, `.github/workflows/ci.yml`, `docs/architecture/C4.md` index, `docs/architecture/TENETS.md`, `docs/decisions/` listing.
+
+**Phase-transition reflex executed:** swept the prior `### SA Plan + Dispatch — TASK-LOE-007 — 2026-04-28` session entry to `PROGRESS-ARCHIVE.md` (appended below the prior Close-finalize entry). Updated `## Current initiative` Phase to `Review` and task-row Status to `review` with notes naming the CI run + PR. Appending this Audit/Review-entry session block now.
+
+**Actions (Audit phase — vacuous):**
+
+- Per `agent-phases.md` § Phase exit conditions, Audit is **vacuously satisfied** when zero blocking findings exist. For this single-task chore no mid-Dispatch Overwatch audit was triggered: zero risk signals (one task, mechanical pin bump, full Plan-time per-action research with bump matrix authored, [devops] returned green CI on first push at `c4750184`, no rejections, no scope expansion, no cross-task interaction). The Audit-phase entry is the explicit no-finding disposition the SA records; PROGRESS.md retains this entry as the audit artifact. Audit exits.
+
+**Actions (Review phase entry):**
+
+- **CI evidence corroboration** (independent of [devops] Work Log assertion). Verified `gh run view 25083861343 --json status,conclusion,jobs` directly: `conclusion: success`; head `c4750184764936dc3cd13510b1672963be376a7f`; head branch `chore/task-loe-007-nodejs24-action-deprecation`; 4 jobs all `success` (lint-and-typecheck, security-scan, test-portal, test-admin); report-failure correctly skipped (not on main). Step-level proof of action versions executing: every job's run/post-run step names show `Run actions/checkout@v6`, `Run pnpm/action-setup@v6`, `Run actions/setup-node@v6`. CodeQL `Initialize CodeQL` and `Perform CodeQL Analysis` steps are `skipped` because `Check for JS/TS source files` reported `found=false` in the pre-scaffold state — that is the workflow's intentional `if:` guard, not a regression. The codeql-action @v4 pin is therefore not exercised by this run, but the YAML edit kept the pin at `@v4` (already node24), so the bump matrix is intact regardless.
+- **Draft PR #16 status verified.** `gh pr view 16` → state OPEN, isDraft true, mergeStateStatus `CLEAN`, mergeable `MERGEABLE`. PR-event runs (25083923752 / 25083922464) on the head report all four required checks SUCCESS (lint-and-typecheck, test-portal, test-admin, security-scan). report-failure skipped on PR events (correct).
+- **Spec sanity check.** TASK-LOE-007 has Status `review`, Quality Gates checklist shows `[x]` Work Log, `[N/A]` Submission gate, `[N/A]` Targeted e2e, `[x]` Security review, `[ ]` SDET Review (the only unticked box, which is the SDET's gate to tick). `Started-at: 2026-04-28T23:52:21Z`, `Complexity-estimate: 2`, `Complexity-actual: 1` populated; `Completed-at: —` (SDET fills on close). Pre-implementation Work Log entry from [devops] at line 130 satisfies § Dispatch Checkpoint. `**Affected flows:** none (justification: ...)`, `**Affected requirements:** none (justification: ...)`, `**Introduces-gate:** no` all populated correctly.
+- **Spawn SDET for review.** Returning the spawn prompt to the main session for relay (nested `/sa` invocations cannot use the `Agent` tool — established pattern, see `PROGRESS-ARCHIVE.md:870`). The SDET prompt instructs read of `.claude/agent-stack.md`, `agents/sdet.md`, the task spec, the CI run JSON, and the workflow file diff (commit `c475018`); applies the standard mandatory rejection checklist (Quality Gates literal walk, gate evidence, ADR compliance, tool hygiene); since `Affected flows: none` + `Affected requirements: none` + `Introduces-gate: no` + `Relevant ADRs: none` are all explicit, the flow/gherkin/gate-authoring/ADR-compliance content checks are N/A (rejection only if any field were missing — they are not).
+
+**End:** Audit recorded vacuous (zero blocking findings). Review phase entered with all corroborating evidence verified — CI green on head, PR clean, task spec complete. SDET spawn prompt composed; main session relays. SA resumes after SDET returns. Next phase after Review: Smoke (likely vacuous per `Epic-deploys: no` and no runtime stack — will record disposition explicitly), then Validate (likely vacuous on the same grounds; SDET CI gate is the only normally-applicable check and is satisfied by the same green CI run already cited), then Close-prep.
+
+Flow changes this session: none.
+
+---
+
 ### sdet Review — TASK-LOE-008 — 2026-04-28
 
 **Start:** SDET review of TASK-LOE-008 (validate-gates condition-d verifier). Read: `.claude/agent-stack.md` (full), `TASK-LOE-008` spec (full), `scripts/validate-gates.sh` (full), all 4 new fixtures, PROGRESS.md (top 100 lines), commit log.
@@ -922,5 +964,36 @@ Flow changes this session: none.
 - **Memory pointer** — not updating `project_loe_chore_post_merge.md` from this dispatch; flagging for the main session to refresh that pointer to "merged 2026-04-28 as `423f101`, all 6 items closed, branch deleted" (memory is main-session-managed; the SA leaves the note here per dispatch instructions).
 
 **End:** Close-finalize complete. Chore archived. `## Current initiative` empty; `## Awaiting PR merge` is `_None._`; no active bugs; no active gates. Epic-start gate is now CLEAR — the next SA invocation may enter Plan on Epic 001 (or pick up TASK-LOE-007 first as the queued hygiene chore, depending on user direction). SA invocation ends after this commit; user pushes when ready.
+
+Flow changes this session: none.
+
+---
+
+### SA Plan + Dispatch — TASK-LOE-007 — 2026-04-28
+
+**Start:** Drive TASK-LOE-007 (bump CI actions to node24-compatible majors) through Plan → Dispatch → Audit (likely vacuous) → Review → Smoke → Validate → Close-prep. Branch `chore/task-loe-007-nodejs24-action-deprecation` already created off `main` HEAD `483c60e` (the PR #15 Close-finalize sweep that rides along with this PR — branch protection blocks direct main pushes, so the sweep needs to ride a chore PR; bundling here is the cleanest path). Spec is fully Plan-complete from PR #11 — this invocation flips Status backlog → in-progress and dispatches the [devops] developer. Read: `.claude/agent-stack.md` (full), `.claude/agent-phases.md` (full), `agents/sa.md` (full), CLAUDE.md (full), task spec (full), PROGRESS.md (top + Close-finalize entry above), `.github/workflows/ci.yml` (full), `docs/architecture/C4.md` index, `docs/architecture/TENETS.md`, `docs/decisions/` listing. Phase-transition reflex executed: swept the prior SA Close-finalize session entry to `PROGRESS-ARCHIVE.md` (appended at line 905 onward), updated `## Current initiative` to TASK-LOE-007 chore.
+
+**Actions (Plan check):**
+
+- **Workflow file inventory verified.** `ls .github/workflows/` returns `ci.yml` only — the spec's "five actions" table at lines 47-52 still matches reality. `grep -nE 'uses:' .github/workflows/ci.yml` confirms 14 `uses:` lines: `actions/checkout@v4` ×4, `pnpm/action-setup@v4` ×4, `actions/setup-node@v4` ×4, `github/codeql-action/init@v4` ×1, `github/codeql-action/analyze@v4` ×1. All five actions still pinned at `@v4`. No workflow files were added since 2026-04-28; no spec table update needed.
+- **Trigger condition #1 verified — SATISFIED for all 5 actions.** Per-action `gh api` release-notes scan:
+  - `actions/checkout`: latest = `v6.0.2` (2026-01-09); `v5.0.0` (2025-08-11) introduced node24 per release-notes PR #2226 ("Update actions checkout to use node 24"); `v6.0.0` (2025-11-20) latest stable major (persist-credentials change to `$RUNNER_TEMP`, requires runner ≥ v2.329.0 for Docker container action scenarios — we don't use those, safe). **Bump target: `@v6`.**
+  - `pnpm/action-setup`: latest = `v6.0.3` (2026-04-21); `v5.0.0` (2026-03-17) release notes verbatim "Updated the action to use Node.js 24"; `v6.0.0` added pnpm v11 support (we use `with: { version: 9 }` which is preserved). action.yml at `ref=v6` confirms `runs: { using: node24 }`. **Bump target: `@v6`.**
+  - `actions/setup-node`: latest = `v6.4.0` (2026-04-20); `v5.0.0` (2025-09-04) introduced node24 per release-notes PR #1325 ("Upgrade action to use node24"); `v6.0.0` breaking change "Limit automatic caching to npm" — affects users of the `cache: pnpm` arg. **We don't use the `cache` arg on setup-node** (we use `pnpm/action-setup`'s separate cache, which defaults to `false` and we don't enable). action.yml at `ref=v6` confirms `runs: { using: 'node24' }`. **Bump target: `@v6`.**
+  - `github/codeql-action`: latest = `v4.35.2` (2026-04-15); v4 IS the node24 major per release-note string `[v4+ only] The CodeQL Action now runs on Node.js v24` (PR #3169). action.yml at `ref=v4` for both `init/` and `analyze/` confirms `using: node24`. **The current pin `@v4` already floats to node24 — no bump required.** The spec table's `node20` row for the two codeql entries is **stale** (the codeql-action versioning diverges from the standard major-version cadence, as the spec foreshadows at line 91). Documenting this finding here; spec table not amended (it stays as the historical Plan-time record).
+- **Bump matrix decision.** Three of five actions bump `@v4 → @v6`; two stay at `@v4` (codeql init + analyze, already on node24). All `with:` keys preserved (`version: 9` on pnpm setup, `node-version: '20'` on setup-node). No `cache` arg on setup-node, so the v6 cache-narrowing breaking change is non-applicable.
+- **No escalation needed.** Trigger condition #1 satisfied for all 5 actions. Trigger condition #2 (2026-05-01 deadline) is 3 days out but moot since #1 is satisfied. The chore is a clean hygiene bump, no fallback or vendor-fork or workaround needed.
+- **Quad review applicability check.** Per `.claude/agent-stack.md` § Main Session Rules / "Agent workflow file changes require quad review": quad review fires for changes to `agents/*.md` or `.claude/agent-stack.md`. Per § Gated Paths, `.github/workflows/` is a gated path requiring SA-orchestrated submission gate + SDET review, but the **quad review scope is narrower** than the gated-path scope — it covers only `agents/*.md` and `.claude/agent-stack.md`. CI workflow YAML changes are not in that narrower scope. **Quad review NOT required for this PR.** Standard SDET review path applies.
+- **Cross-surface scoping.** Per CLAUDE.md § Platform-frontend scope, webapp-developer tasks default to both `apps/portal/**` and `apps/admin/**`. This task is `Assigned to: devops`, not webapp-developer; it touches `.github/workflows/ci.yml` only — no `apps/` content. Cross-surface scoping is N/A.
+- **Plan-check exit conditions met.** Spec is Plan-complete with `Affected flows: none` + `Affected requirements: none` + `Introduces-gate: no` + `Relevant ADRs: none`. Branch created. Workflow file inventory matches spec. Trigger condition resolved. Bump matrix authored.
+
+**Actions (Dispatch checkpoint):**
+
+- Edit `docs/tasks/TASK-LOE-007-nodejs24-action-deprecation.md` atomically: `Status: backlog → in-progress`, `Updated-by: sa`, `Started-at: 2026-04-28T<UTC>` (filled at edit time), `Complexity-estimate: 2` (pin bump on 5 actions with release-note review; codeql-action divergence raised the question but didn't add real work since v4 already runs node24). Add Work Log "Starting Plan check + dispatch" entry for the SA. (Single Edit atomic.)
+- Update PROGRESS.md `## Current initiative` (this file) to reflect this chore as the active initiative + add the task row. (This Write covers it.)
+- Commit: `chore(plan): TASK-LOE-007 dispatch checkpoint + Plan finding`. Single commit covering the spec edits + PROGRESS.md.
+- Spawn the [devops] developer subagent with the bump matrix (3 actions to v6, 2 actions to stay at v4), pointer to the spec, the Plan finding, the requirement to push for a draft-PR CI run and capture the run URL, and the reminder that base commit `483c60e` (PR #15 Close-finalize sweep) rides along untouched.
+
+**End:** Plan check complete; trigger condition #1 satisfied; bump matrix authored. Dispatch checkpoint committed (`7c1ebc7`). [devops] spawn prompt composed and returned to main session for relay (this SA invocation is nested via `/sa` and lacks the `Agent` tool — see open issue noted in `PROGRESS-ARCHIVE.md:870`, "main session as dispatch relay" pattern). Main session executes the spawn; SA resumes after the [devops] developer returns.
 
 Flow changes this session: none.

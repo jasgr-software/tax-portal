@@ -1,13 +1,13 @@
 # TASK-LOE-007: Bump GitHub Actions to Node.js 24-compatible versions
 
 **Epic**: chore/lights-out-enablement (follow-up from PR #8)
-**Status**: review
+**Status**: done
 **Assigned to**: devops
 **Updated-by**: devops
 **Depends on**: none
 **E2e-required**: no
 **Started-at**: 2026-04-28T23:52:21Z
-**Completed-at**: —
+**Completed-at**: 2026-04-29T11:01:40Z
 **Complexity-estimate**: 2
 **Complexity-actual**: 1
 **Affected flows:** none (justification: chore touches CI infrastructure only, not user-facing behavior)
@@ -23,7 +23,7 @@
 - [N/A] **Submission gate** — N/A (workflow YAML change, not source code; `pnpm lint` and `pnpm type-check` do not cover `.github/workflows/`)
 - [N/A] **Targeted e2e** — N/A (CI workflow change, not application behavior)
 - [x] **Security review** — verified each pinned action's release notes for the new major version; no new permissions or `with:` arguments required; no security posture change (see Work Log for per-action evidence)
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -129,6 +129,7 @@ If pickup-time research surfaces a new action used by a workflow file added betw
 - 2026-04-28 [sa] Plan check complete + Dispatch checkpoint. Trigger condition #1 (`@v5`-or-later published for all 5 actions) confirmed satisfied via `gh api repos/<owner>/<name>/releases?per_page=20`. Bump matrix authored: `actions/checkout` `@v4 → @v6` (latest v6.0.2; v5.0.0 introduced node24 per PR #2226; v6.0.0 added persist-credentials change requiring runner ≥ v2.329.0 for Docker-container-action scenarios — we don't use those, safe). `pnpm/action-setup` `@v4 → @v6` (v6.0.3 latest; v5.0.0 release notes "Updated the action to use Node.js 24"; v6 added pnpm v11 support, `with: { version: 9 }` preserved). `actions/setup-node` `@v4 → @v6` (v6.4.0 latest; v5.0.0 introduced node24 per PR #1325; v6 breaking change "Limit automatic caching to npm" applies to `cache: pnpm` users — we don't use the `cache` arg on setup-node). `github/codeql-action/init` and `github/codeql-action/analyze`: **stay at `@v4`** — v4 is the current major and already runs node24 per the release-note string `[v4+ only] The CodeQL Action now runs on Node.js v24` (PR #3169); action.yml at `ref=v4` confirms `using: node24` for both `init/` and `analyze/` entry points. Spec table line 47-52 has stale `node20` rows for the two codeql entries — historical Plan-time record, not amended. | What's next: spawn [devops] developer to perform the 3-action bump on `.github/workflows/ci.yml` and capture the draft-PR CI run URL. | Blockers: none.
 - 2026-04-28 [devops] Starting implementation — bump 3 actions (actions/checkout @v4→@v6, pnpm/action-setup @v4→@v6, actions/setup-node @v4→@v6) across all jobs in ci.yml; codeql @v4 lines unchanged per SA matrix | What's next: edit .github/workflows/ci.yml uses: lines with replace_all, then open draft PR for CI verification | Blockers: none
 - 2026-04-28 [devops] Implementation complete. CI run https://github.com/jasgr-software/tax-portal/actions/runs/25083861343 green (lint-and-typecheck: PASS 18s, security-scan: PASS 16s, test-portal: PASS 48s skipped pnpm-lock guard as expected, test-admin: PASS 51s same). Deprecation sweep: grep -i deprecat returned zero runtime-related deprecation warnings; only branch-name substring matches on "action-deprecation" in the branch name. Per-action verified versions (SA Plan matrix as binding source, confirmed by run): actions/checkout @v6 (v6.0.2, node24 via v5.0.0); pnpm/action-setup @v6 (v6.0.3, node24 via v5.0.0, with: version: 9 preserved); actions/setup-node @v6 (v6.4.0, node24 via v5.0.0, with: node-version: '20' preserved); github/codeql-action/init @v4 (no change, v4 already runs node24); github/codeql-action/analyze @v4 (no change, same). Security review: no new permissions or with: keys introduced by any of the three bumped actions; v6 breaking-change notes for checkout (persist-credentials path) and setup-node (cache auto-limit to npm) are non-applicable to this repo (no Docker container actions, no cache: arg on setup-node). Draft PR #16: https://github.com/jasgr-software/tax-portal/pull/16 | What's next: SDET review. | Blockers: none.
+- 2026-04-29 [sdet] APPROVED. Independent CI verification via `gh run view 25083861343 --json conclusion,jobs` — conclusion: success, head c4750184, all 4 jobs success, step-level action names confirm @v6 across all jobs. CodeQL steps correctly skipped (found=false, pre-scaffold guard). Diff scope clean: 12 @v4→@v6 replacements only, no with: keys altered, no structural changes. All mandatory rejection checks passed. Status set done. | What's next: SA Close-prep. | Blockers: none.
 
 ## Attempt Log
 
@@ -136,5 +137,5 @@ If pickup-time research surfaces a new action used by a workflow file added betw
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: Mechanical pin-bump chore. All mandatory rejection checks pass. CI run 25083861343 independently verified via `gh run view` — `conclusion: success` on head `c4750184`, all 4 jobs pass. Step-level evidence in the JSON confirms `Run actions/checkout@v6`, `Run pnpm/action-setup@v6`, `Run actions/setup-node@v6` executing in every job (lint-and-typecheck, test-portal, test-admin, security-scan). CodeQL init/analyze steps correctly skipped (`found=false` from the pre-scaffold `if:` guard — not a regression). Diff at c475018 limited to 12 `@v4→@v6` replacements across 4 jobs in `.github/workflows/ci.yml` plus 1-line Complexity-actual field in the task spec — no `with:` keys altered, no structural changes. `version: 9` (pnpm) and `node-version: '20'` (setup-node) preserved. codeql-action pins remain at `@v4` (already node24, per SA Plan research). Deprecation sweep: developer log + CI step names confirm zero runtime-deprecation warnings. Major-version float pin style (`@v6`) matches existing project convention. Security review box ticked with correct per-action release-note justification. Pre-implementation Work Log entry present (§ Dispatch Checkpoint satisfied). `Started-at`, `Complexity-estimate`, `Complexity-actual` all populated. `Affected flows: none`, `Affected requirements: none`, `Introduces-gate: no` — flow/gherkin/gate-authoring content checks are N/A with documented justification. No ADRs referenced — ADR compliance N/A.
