@@ -17,6 +17,27 @@ The four fields above are the Task Metadata Contract — see .claude/agent-stack
 or out of range. RA rejects epic close if any done task is missing any of the four.
 -->
 
+**Affected flows:** <!-- list flow file(s) from docs/requirements/flows/, or "none — <justification>" -->
+**Affected requirements:** <!-- list REQ-IDs from SRS, or "none — <justification>" -->
+**Introduces-gate:** <!-- yes | no | advisory. yes → three-item evidence in Work Log per agent-stack.md § Gate Authoring Rules -->
+**Tier coverage:**
+- Tier 2 (unit): <!-- authored — <path> | N/A — <justification> | pending — backfill in TASK-XXX -->
+- Tier 3 (integration): <!-- authored — <path> | N/A — <justification> | pending — backfill in TASK-XXX -->
+- Tier 5 (component): <!-- authored — <path> | N/A — <justification> | pending — backfill in TASK-XXX -->
+- Tier 6 (e2e smoke): <!-- authored — <path> | N/A — <justification> | pending — backfill in TASK-XXX -->
+- Tier 6b (presentation matrix): <!-- authored — <path> | N/A — <justification> | pending — backfill in TASK-XXX -->
+
+<!-- Tier coverage valid values: authored — <path>, N/A — <justification>, or pending — backfill in TASK-XXX.
+     "N/A" must include a non-empty justification explaining why the tier does not apply (not just "N/A — N/A").
+     "pending" must cite the follow-up task the SA created to backfill the deferred coverage.
+     For webapp-developer tasks, entries default to both apps/portal/** and apps/admin/**
+     (CLAUDE.md § Platform-frontend scope); single-surface scoping requires the standard
+     "Single-surface: <sibling> does not have this pattern" breadcrumb in the Work Log.
+     Source of truth: ADR-012 § Mechanism 2. Tiers 1, 4, 7, 8, 9 are excluded from this block:
+     tier 1 is global (applies to every task with TS/YAML/Bicep/shell, not declared per-task);
+     tier 4 dropped (ADR-012 § Decision delta 1); tier 7 folded into 6b (ADR-012 § Decision delta 2);
+     tiers 8 and 9 deferred (ADR-012 § Roll-out). -->
+
 ---
 
 ## Quality Gates
