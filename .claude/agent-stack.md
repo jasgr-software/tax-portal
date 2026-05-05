@@ -15,7 +15,7 @@ Five specialised role types collaborate on the project. Each has strict boundari
 | Role                          | Agent File            | Responsibility                                                                                                                                                                                                                                                                                                                                 |
 | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Requirements Analyst (RA)** | `agents/ra.md`        | Owns the SRS, user personas, and user flows. Defines epics, refines requirements, cascades changes to personas and flows, validates completed work end-to-end. Does not write implementation code. At epic completion, runs the full e2e suite as a final gate and updates requirements status.                                               |
-| **System Architect (SA)**     | `agents/sa.md`        | The autonomous orchestrator. Drives epic execution through phases. Owns workflow files, task breakdown, and architecture model. Spawns all other agents as subagents. Creates ADRs for significant decisions. May self-implement simple tasks (see § SA Self-Implementation) to preserve context; delegates complex tasks to developer agents. |
+| **System Architect (SA)**     | `agents/sa.md`        | The autonomous orchestrator. Drives epic execution through phases. Owns workflow files, task breakdown, and architecture model. **Composes** dispatch prompts that the main session executes — Claude Code does not support nested-Agent-from-subagent, so the SA does not spawn subagents directly (see `agents/sa.md` § Composing Dispatch Prompts). Creates ADRs for significant decisions. May self-implement simple tasks (see § SA Self-Implementation) to preserve context; delegates complex tasks to developer agents. |
 | **Developer (1–N)**           | `agents/developer.md` | Implements tasks in their assigned domain. Scopes TDD tests against the affected user flows and gherkin scenarios, writes tests first, implements until green, runs the submission gate, then submits for review. Multiple developer roles can be defined per project (e.g., backend, frontend, mobile, infrastructure).                      |
 | **SDET / Validator**          | `agents/sdet.md`      | Owns executable gherkin feature specs under `docs/requirements/features/`. Reviews developer work for flow coverage, gherkin alignment, security flaws, edge cases, convention compliance, and documentation gaps. Verifies developer gate evidence but does not re-run tests — the CI gate is the independent test verification. Never approves based on code review alone. Rejects with actionable bug reports. |
 | **Overwatch**                 | `agents/overwatch.md` | Read-only auditor. Monitors for rule violations, scope creep, and inefficiencies. Advisory only — SDET remains the approval authority.                                                                                                                                                                                                         |
@@ -468,12 +468,22 @@ Execution phase:     User → SA (drives the entire epic autonomously)
 
 The **RA** and **SA** have different invocation modes:
 
-- **SA** — always invoked directly by the user. Spawns all other agents as subagents.
+- **SA** — always invoked directly by the user (or by the main session as the dispatch executor between dispatch turns). The SA does **not** spawn subagents directly: Claude Code does not support nested-Agent-from-subagent (the `Agent` tool is silently stripped from subagent tool surfaces — see https://code.claude.com/docs/en/agent-teams.md § Limitations). Instead, the SA composes dispatch prompts and returns them in a `## Next Dispatch` handoff block (see `agents/sa.md` § Composing Dispatch Prompts § Handoff format). The **main session** reads the block, calls the `Agent` tool with the verbatim prompt, captures the implementer's result, and re-invokes the SA with that result appended. This preserves the autonomous-orchestrator role of the SA while routing the actual `Agent` tool call through the only context that has access to it.
 - **RA** — has two invocation modes:
   - **Requirements definition** (Epic Lifecycle steps 1-2): invoked directly by the user to define/refine epics and the SRS.
-  - **Validation gate** (Validate phase): spawned as a subagent of the SA to run the e2e completion gate. In this mode the RA executes its validation procedure and reports results back to the SA.
+  - **Validation gate** (Validate phase): the SA composes the RA dispatch prompt; the main session spawns the RA as a subagent. The RA executes its validation procedure and returns results to the main session, which re-invokes the SA with the result.
 
 **Agent identification (mandatory):** Every agent spawn prompt **must** include: (1) the instruction to read `.claude/agent-stack.md` for workflow rules, (2) the instruction to read their agent file (`agents/{role}.md`) for role instructions, and (3) the self-identification instruction: _"You are the **{role name}**. Begin every response with `[{role-tag}]`."_ Developer agents must update task files (Status, Updated-by, Work Log). SA, RA, and SDET must update `docs/tasks/PROGRESS.md`.
+
+**Main-session dispatch executor — minimal contract:**
+
+1. On invocation by the user, spawn the SA via `Agent(subagent_type="sa", prompt=…)`.
+2. When the SA returns a `## Next Dispatch` block, parse out `Subagent type` and the verbatim prompt body.
+3. Call `Agent(subagent_type=<that type>, prompt=<verbatim prompt body>)`.
+4. When the implementer returns, re-invoke the SA via `Agent(subagent_type="sa", prompt=…)` with the implementer's full output appended after a `## Implementer result` heading. Repeat from step 2.
+5. When the SA returns without a `## Next Dispatch` block, surface its `## Next` text to the user.
+
+The main session does not paraphrase, narrow, or edit the SA-composed prompt — that contract is strict. If the prompt looks wrong, re-invoke the SA with a `## Main session note: <reason>` rather than editing.
 
 _SA Phases, Epic Lifecycle, and Epic Scorecard have moved to `.claude/agent-phases.md` to reduce context load for non-SA agents. The SA reads that file during startup; other agents do not need it._
 
