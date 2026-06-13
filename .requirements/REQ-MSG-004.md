@@ -29,12 +29,15 @@ message and remain available to the thread's participants as long as the message
   in a thread they participate in.
 - **AC-MSG-004-04** — Attachments remain available for as long as the message that carries them is
   retained.
+- **AC-MSG-004-05** — Message attachments are subject to the same file-type and size rules as engagement
+  document upload, and to malware scanning before they are made available (see REQ-NFR-009).
 
 ## Notes
-- Allowed attachment file types and per-attachment size limits are not specified in the seed. Resolved
-  provisionally as: the same file-type and size constraints that govern engagement document upload
-  apply to message attachments, for consistency.
+- **OQ-008 resolved (2026-06-13):** message attachments mirror engagement document-upload policy (no
+  file-type restrictions per REQ-FILE-002, same size limits), AND all uploads are malware-scanned via the
+  new cross-cutting security requirement REQ-NFR-009.
 
 ## Links
-- Related: REQ-MSG-003 (plain text body), REQ-MSG-001 (engagement thread); File Exchange domain (document upload constraints)
+- Related: REQ-MSG-003 (plain text body), REQ-MSG-001 (engagement thread), REQ-FILE-002 (document upload
+  constraints), REQ-NFR-009 (malware scanning of all uploads)
 - Open questions: none

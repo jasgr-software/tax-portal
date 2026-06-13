@@ -3,12 +3,11 @@ id: REQ-NFR-007
 title: Verified electronic signature of the engagement letter
 domain: NFR
 type: constraint
-status: clarifying
+status: accepted
 source:
   - seed/SRS-snapshot.md#REQ-NFR-007
   - seed/intake.md
-open_questions:
-  - OQ-005
+open_questions: []
 ---
 
 # REQ-NFR-007 — Verified electronic signature of the engagement letter
@@ -27,14 +26,15 @@ signed.
 
 ## Notes
 - This captures the property — verified e-signature with trustworthy completion confirmation. The
-  specific e-signature service is an implementation decision recorded outside this spec.
-
-## Open questions
-- **OQ-005** — Is the e-signature capability self-hosted or provided as a cloud service? This affects
-  environment configuration, how the completion confirmation reaches the system, and operational cost.
-  Unresolved; this requirement stays `clarifying` until answered.
+  specific e-signature service, and whether it is self-hosted or a cloud service, are implementation
+  decisions recorded outside this spec (an ADR), not requirements.
+- **OQ-005 resolved (2026-06-13):** the self-hosted-vs-cloud hosting model is a HOW and is out of scope
+  for the requirements layer; this requirement stands as the e-sign capability only, and the hosting
+  choice is deferred to an implementation ADR. If an underlying driver later emerges (e.g. cost control
+  or that signed documents must stay under the firm's control), it should be captured as its own
+  WHAT-level NFR.
 
 ## Links
 - Related: REQ-ONBD-002 (engagement-letter e-sign hard gate — Onboarding), REQ-IDNT-007 (engagement
   letter default template), REQ-DASH-013 (engagement letter template management)
-- Open questions: OQ-005
+- Open questions: none

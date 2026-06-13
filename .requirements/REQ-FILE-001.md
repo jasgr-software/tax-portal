@@ -34,5 +34,5 @@ uploaded for one engagement is part of that engagement's document set, available
 
 ## Links
 - Related: REQ-FILE-010 (folders), REQ-FILE-003 (access is authorized, never public),
-  REQ-AUTH-007 (engagement participants)
+  REQ-AUTH-007 (engagement participants), REQ-NFR-009 (uploaded files are malware-scanned)
 - Open questions: none

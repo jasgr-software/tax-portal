@@ -3,11 +3,11 @@ id: REQ-LIFE-002
 title: Simplified client-facing status labels
 domain: LIFE
 type: feature
-status: clarifying
+status: accepted
 source:
   - seed/SRS-snapshot.md#REQ-LIFE-002
   - seed/intake.md
-open_questions: [OQ-002]
+open_questions: []
 ---
 
 # REQ-LIFE-002 — Simplified client-facing status labels
@@ -24,17 +24,19 @@ distinct from the internal stage names. Each internal stage maps to a client-fac
 only ever see the client-facing label.
 
 ## Acceptance criteria
-- **AC-LIFE-002-01** — Each internal status (New, In Progress, Review, Complete) maps to a
-  client-facing label that is shown to clients instead of the internal name.
-- **AC-LIFE-002-02** — Clients never see the raw internal stage names.
-- **AC-LIFE-002-03** — The client-facing labels read as plain, friendly language appropriate for a
-  non-specialist (the exact wording is pending OQ-002).
+- **AC-LIFE-002-01** — Each internal status maps to a client-facing label shown to clients instead of
+  the internal name, per this mapping: New → "Received", In Progress → "In Progress",
+  Review → "In Progress", Complete → "Completed".
+- **AC-LIFE-002-02** — Clients never see the raw internal stage names; in particular, the internal
+  "Review" stage is not surfaced to the client and appears to them as "In Progress".
+- **AC-LIFE-002-03** — From the client's perspective the engagement presents three distinct states:
+  "Received", "In Progress", and "Completed".
 
-## Open questions
-- **OQ-002** — The exact client-facing label for each internal status (New, In Progress, Review,
-  Complete) is not yet defined and must be confirmed by the product owner before this requirement can
-  be marked accepted.
+## Notes
+- **OQ-002 resolved (2026-06-13):** simplified client-facing labels with the internal Review stage
+  hidden (it surfaces to the client as "In Progress"), consistent with REQ-LIFE-004. Mapping fixed in
+  v1 (not accountant-configurable).
 
 ## Links
 - Related: REQ-LIFE-001 (status pipeline), REQ-LIFE-004 (Review is internal-only)
-- Open questions: OQ-002
+- Open questions: none

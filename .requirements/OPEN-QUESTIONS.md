@@ -13,34 +13,43 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 ---
 
 ## OQ-001 — Decline message retention
-- **Status:** open
+- **Status:** resolved
 - **Affects:** REQ-DOOR-008
 - **Question:** When the accountant declines an engagement request, is the decline message retained in
   the portal for the accountant's records, or sent via email only with no portal retention? A
   financial-context communication may benefit from being retained for audit purposes.
 - **Proposed default:** (none — **escalation carve-out: data retention / audit scope.** User decision required.)
-- **Resolution:** _pending_
+- **Resolution:** **2026-06-13 — retain with the request.** The decline reason is retained in the
+  portal, attached to the declined request record, for the accountant's reference (the request record is
+  retained regardless; the prospect remains accountless). REQ-DOOR-008 → accepted, with AC-DOOR-008-04
+  added for portal-side retention.
 - **Provenance:** CLARIF-001
 
 ## OQ-002 — Client-facing engagement status labels
-- **Status:** open
+- **Status:** resolved
 - **Affects:** REQ-LIFE-002
 - **Question:** What are the client-facing status labels for each internal status (New, In Progress,
   Review, Complete)? These must be defined before the engagement lifecycle is built.
 - **Proposed default:** Mirror the internal labels verbatim ("New", "In Progress", "Review",
   "Complete") until the product owner supplies friendlier client-facing copy.
-- **Resolution:** _pending_
+- **Resolution:** **2026-06-13 — simplified mapping, Review hidden.** Client-facing labels: New →
+  "Received", In Progress → "In Progress", Review → "In Progress", Complete → "Completed". The internal
+  Review stage is not surfaced to the client (consistent with REQ-LIFE-004); clients see three states.
+  Mapping is fixed in v1 (not accountant-configurable). REQ-LIFE-002 → accepted.
 - **Provenance:** CLARIF-002
 
 ## OQ-003 — Duplicate engagement attempt behavior
-- **Status:** open
+- **Status:** resolved
 - **Affects:** REQ-LIFE-011
 - **Question:** When a duplicate engagement is attempted (same service + tax year + client), what
   should the system do? (a) show an error and block, (b) silently redirect to the existing engagement,
   (c) warn the accountant and allow override.
 - **Proposed default:** (c) warn the accountant and allow override — least destructive, preserves
   accountant judgment.
-- **Resolution:** _pending_
+- **Resolution:** **2026-06-13 — (c) warn + allow override.** On a duplicate attempt the accountant is
+  warned and shown the existing matching engagement, and may navigate to it or deliberately override to
+  create a second. Not a hard block, not a silent redirect. Applies at engagement creation (the
+  accountant's action). REQ-LIFE-011 → accepted.
 - **Provenance:** CLARIF-003
 
 ## OQ-004 — Hard delete vs. retention precedence
@@ -61,13 +70,17 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 - **Provenance:** CLARIF-005
 
 ## OQ-005 — Docuseal hosting model
-- **Status:** open
+- **Status:** resolved
 - **Affects:** REQ-NFR-007
 - **Question:** Is Docuseal self-hosted or Docuseal Cloud? This affects environment configuration,
   webhook URL accessibility, and operational cost.
 - **Proposed default:** Self-hosted (matches the local dev stack). Note: this is partly an
   operational/infra decision and should be confirmed with whoever owns deployment.
-- **Resolution:** _pending_
+- **Resolution:** **2026-06-13 — out of scope (HOW → ADR).** Self-hosted vs cloud is a deployment/ops
+  decision, not a requirement; this WHAT-not-HOW layer captures only the e-sign capability (REQ-NFR-007).
+  The hosting choice is deferred to an implementation ADR. If a real driver emerges (cost control, or
+  signed documents must stay under the firm's control), capture it as its own WHAT-level NFR.
+  REQ-NFR-007 → accepted.
 - **Provenance:** CLARIF-006
 
 ## OQ-006 — Message thread retention ("kept forever")
@@ -93,39 +106,44 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 - **Provenance:** authoring run (MSG)
 
 ## OQ-008 — Message attachment file-type / size / scanning policy
-- **Status:** open
-- **Affects:** REQ-MSG-004
+- **Status:** resolved
+- **Affects:** REQ-MSG-004, REQ-NFR-009 (new)
 - **Question:** Should message attachments be governed by the same access-control, file-type, and size
   rules as engagement documents, or have their own policy (e.g. tighter limits, allowed extensions,
   virus scanning)?
 - **Proposed default (in effect):** Message attachments inherit the same file-type and size constraints
   as engagement document upload.
-- **Resolution:** _pending — REQ-MSG-004 is authored `accepted` with the default applied; non-blocking.
-  Confirm or override._
+- **Resolution:** **2026-06-13 — mirror documents + add malware scanning for all uploads.** Message
+  attachments follow the same file-type/size rules as engagement document upload (REQ-FILE-002). A new
+  cross-cutting security requirement **REQ-NFR-009** was added: every upload (documents and message
+  attachments) is scanned for malware before it is made available. REQ-MSG-004 → AC-MSG-004-05 added.
 - **Provenance:** authoring run (MSG)
 
 ## OQ-009 — Onboarding document-checklist completeness gate
-- **Status:** open
+- **Status:** resolved
 - **Affects:** REQ-ONBD-004, REQ-ONBD-005
 - **Question:** Must the document-upload step require ALL checklist items before it is satisfied, or may
   the accountant mark some items optional so the step can complete with only required ones provided?
 - **Proposed default (in effect):** Every item on the accountant-defined checklist is required; the step
   is satisfied only when all are provided (the accountant expresses optionality by what she puts on the
   checklist).
-- **Resolution:** _pending — REQ-ONBD-004/005 authored `accepted` with the default applied;
-  non-blocking. Confirm or override._
+- **Resolution:** **2026-06-13 — confirmed (default stands).** All checklist items are required; the
+  accountant expresses optionality by curating the checklist. No per-item optional flag in v1.
+  REQ-ONBD-004/005 already encode this; no change needed.
 - **Provenance:** authoring run (ONBD)
 
 ## OQ-010 — Document-request overdue threshold
-- **Status:** open
+- **Status:** resolved
 - **Affects:** REQ-FILE-012
 - **Question:** How is a document request's due point determined so "overdue" can be computed —
   per-request due date set by the accountant, a fixed interval after creation, or tied to an engagement
   deadline?
 - **Proposed default (in effect):** Overdue is relative to an accountant-set due point on the request,
   falling back to a configurable global interval after creation when none is set.
-- **Resolution:** _pending — REQ-FILE-012 authored `accepted` with the default applied; non-blocking.
-  Confirm or override._
+- **Resolution:** **2026-06-13 — confirmed (default stands).** A document request becomes overdue
+  relative to an accountant-set due date on the request; if none is set, a configurable global interval
+  after creation applies (consistent with REQ-DASH-008 reminder cadence). REQ-FILE-012 already encodes
+  this; no change needed.
 - **Provenance:** authoring run (FILE)
 
 ---
