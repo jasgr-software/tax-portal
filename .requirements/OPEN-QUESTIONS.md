@@ -44,14 +44,20 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 - **Provenance:** CLARIF-003
 
 ## OQ-004 — Hard delete vs. retention precedence
-- **Status:** open
+- **Status:** resolved
 - **Affects:** REQ-IDNT-005, REQ-FILE-005, REQ-AUTH-008
 - **Question:** Hard delete (REQ-IDNT-005) conflicts with 7-year document retention (REQ-FILE-005) and
   indefinite client access (REQ-AUTH-008). What is the precedence? Does a hard delete override the
   retention rule? Are files physically removed from object storage, or only the DB records?
 - **Proposed default:** (none — **escalation carve-out: data deletion / retention / access-control
   scope.** User decision required.)
-- **Resolution:** _pending_
+- **Resolution:** **2026-06-13 — Option D (defer).** Permanent hard-delete of a client and all
+  associated data is **deferred from v1**. In v1, client data is kept per the 7-year retention rule
+  (REQ-FILE-005) and clients retain indefinite access (REQ-AUTH-008); the precedence/physical-erasure
+  question is therefore moot for v1. True permanent deletion — and any non-destructive
+  deactivate/close mechanism — is deferred to a later version, to be designed once the retention/legal
+  policy is settled. **Consequences:** REQ-IDNT-005 (client hard delete) is descoped from v1 (to be
+  authored as deferred when the IDNT domain is processed); REQ-AUTH-008 is unblocked → accepted.
 - **Provenance:** CLARIF-005
 
 ## OQ-005 — Docuseal hosting model

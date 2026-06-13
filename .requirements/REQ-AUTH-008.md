@@ -3,11 +3,11 @@ id: REQ-AUTH-008
 title: Indefinite client access after completion
 domain: AUTH
 type: feature
-status: clarifying
+status: accepted
 source:
   - seed/SRS-snapshot.md#REQ-AUTH-008
   - seed/intake.md
-open_questions: [OQ-004]
+open_questions: []
 ---
 
 # REQ-AUTH-008 — Indefinite client access after completion
@@ -21,7 +21,9 @@ without having to ask the accountant to dig it out.
 ## Proposed solution
 After an engagement is marked complete, its CLIENT participant(s) keep the ability to sign in and view
 that engagement and its associated data indefinitely. Completion ends the active work, not the client's
-access to their own history.
+access to their own history. In v1 there is no permanent deletion of a client or their data (deferred —
+see OQ-004 / REQ-IDNT-005), so this access holds unconditionally, and the data also remains under the
+7-year retention rule (REQ-FILE-005).
 
 ## Acceptance criteria
 - **AC-AUTH-008-01** — After an engagement is marked complete, its CLIENT participant(s) retain the
@@ -29,14 +31,13 @@ access to their own history.
 - **AC-AUTH-008-02** — A CLIENT can view their historical (completed) engagements and their associated
   data indefinitely after completion.
 
-## Open questions
-- **OQ-004** — Indefinite access here is in tension with the accountant's ability to hard-delete a
-  client and all associated data, and with the document-retention rule. The precedence between
-  indefinite access, hard deletion, and retention is unresolved and requires a user decision (a
-  data-deletion / retention / access-control carve-out). Until resolved, the behavior when a deletion
-  is requested against an indefinitely-accessible history is undefined.
+## Notes
+- **OQ-004 resolved (2026-06-13 — defer):** permanent hard-delete of a client/data is deferred from
+  v1, so indefinite access is no longer in tension with deletion or retention. v1 keeps client data per
+  the 7-year retention rule and preserves client access; true permanent deletion is a later-version
+  concern.
 
 ## Links
 - Related: REQ-AUTH-007 (engagement participants), REQ-FILE-005 (document retention — File Exchange),
-  REQ-IDNT-005 (client hard delete — Identity & Settings)
-- Open questions: OQ-004
+  REQ-IDNT-005 (client hard delete — deferred from v1, Identity & Settings)
+- Open questions: none
