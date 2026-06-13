@@ -70,6 +70,64 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 - **Resolution:** _pending_
 - **Provenance:** CLARIF-006
 
+## OQ-006 — Message thread retention ("kept forever")
+- **Status:** resolved
+- **Affects:** REQ-MSG-006
+- **Question:** Are message threads kept forever with no deletion path in v1, or is there a maximum
+  retention / purge after some period?
+- **Proposed default:** Indefinite retention; archive-not-delete on engagement close.
+- **Resolution:** **2026-06-13 — seed-specified.** The seed states threads are kept forever and
+  archived (not deleted) on close; this is consistent with the v1 no-hard-delete stance (OQ-004) and
+  indefinite client access (REQ-AUTH-008). REQ-MSG-006 authored `accepted` as such.
+- **Provenance:** authoring run (MSG)
+
+## OQ-007 — Notification history retention period
+- **Status:** resolved
+- **Affects:** REQ-MSG-016
+- **Question:** Confirm the 90-day floor for notification history, and whether there is an upper bound
+  after which notification records are purged.
+- **Proposed default:** Retain notification records (read and unread) for at least 90 days; no upper
+  bound in v1.
+- **Resolution:** **2026-06-13 — seed-specified.** The seed sets a 90-day minimum; no purge ceiling is
+  defined for v1. REQ-MSG-016 authored `accepted` as such.
+- **Provenance:** authoring run (MSG)
+
+## OQ-008 — Message attachment file-type / size / scanning policy
+- **Status:** open
+- **Affects:** REQ-MSG-004
+- **Question:** Should message attachments be governed by the same access-control, file-type, and size
+  rules as engagement documents, or have their own policy (e.g. tighter limits, allowed extensions,
+  virus scanning)?
+- **Proposed default (in effect):** Message attachments inherit the same file-type and size constraints
+  as engagement document upload.
+- **Resolution:** _pending — REQ-MSG-004 is authored `accepted` with the default applied; non-blocking.
+  Confirm or override._
+- **Provenance:** authoring run (MSG)
+
+## OQ-009 — Onboarding document-checklist completeness gate
+- **Status:** open
+- **Affects:** REQ-ONBD-004, REQ-ONBD-005
+- **Question:** Must the document-upload step require ALL checklist items before it is satisfied, or may
+  the accountant mark some items optional so the step can complete with only required ones provided?
+- **Proposed default (in effect):** Every item on the accountant-defined checklist is required; the step
+  is satisfied only when all are provided (the accountant expresses optionality by what she puts on the
+  checklist).
+- **Resolution:** _pending — REQ-ONBD-004/005 authored `accepted` with the default applied;
+  non-blocking. Confirm or override._
+- **Provenance:** authoring run (ONBD)
+
+## OQ-010 — Document-request overdue threshold
+- **Status:** open
+- **Affects:** REQ-FILE-012
+- **Question:** How is a document request's due point determined so "overdue" can be computed —
+  per-request due date set by the accountant, a fixed interval after creation, or tied to an engagement
+  deadline?
+- **Proposed default (in effect):** Overdue is relative to an accountant-set due point on the request,
+  falling back to a configurable global interval after creation when none is set.
+- **Resolution:** _pending — REQ-FILE-012 authored `accepted` with the default applied; non-blocking.
+  Confirm or override._
+- **Provenance:** authoring run (FILE)
+
 ---
 
 _Resolved before this ledger was created: **CLARIF-004** (portal names) — settled 2026-04-16 as
