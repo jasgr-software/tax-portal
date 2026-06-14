@@ -2,7 +2,7 @@
 
 **Status**: backlog
 **Found in**: TASK-NNN <!-- the task being reviewed when the bug was discovered -->
-**Category**: <!-- security | edge-case | tenet-violation | test-coverage | code-quality | accessibility | i18n -->
+**Category**: <!-- security | edge-case | architecture-violation | test-coverage | code-quality | accessibility | i18n -->
 **Severity**: <!-- critical | major | minor -->
 **Assigned to**: — <!-- webapp-developer | devops -->
 **Updated-by**: —

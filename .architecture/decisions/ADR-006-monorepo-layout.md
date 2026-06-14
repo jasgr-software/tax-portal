@@ -97,7 +97,7 @@ tax-portal/
     validate-policies.ts          # RLS-policy-coverage drift detector (ADR-005 § Migration track)
   infra/                          # Reserved — empty in v1 (no IaC; deploy platform deferred, ADR-007)
   docs/
-    architecture/                 # C4 + TENETS (SA-owned)
+    architecture/                 # C4 (SA-owned)
     decisions/                    # ADRs (SA-owned)
     requirements/                 # SRS + epics (RA-owned)
     tasks/                        # PROGRESS.md + TASK / BUG files

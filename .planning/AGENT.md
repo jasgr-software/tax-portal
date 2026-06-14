@@ -44,7 +44,7 @@ paths anywhere else in your reasoning.
 
 - If `sources.md` declares a **requirements source**, that source's acceptance units (e.g.
   `AC-<DOMAIN>-NNN-NN`) are what your `COVERAGE.md` tracks to full acceptance.
-- If it declares an **architecture source**, those decisions/tenets are what each epic's
+- If it declares an **architecture source**, those decisions are what each epic's
   *architecture-adherence* set cites.
 - If a declared source is **absent or empty**, degrade gracefully: plan from `seed/intake.md` alone
   (ad-hoc planning), and track only what the seed defines. Never fail because a source is missing.
@@ -54,7 +54,7 @@ paths anywhere else in your reasoning.
 - `seed/sources.md` (source declaration) and `seed/intake.md` (raw planning intent + ad-hoc
   requirements). New planning intent arrives by being **added to `seed/`** — that is the only ingestion
   surface.
-- The **requirements source** (the REQ/AC corpus) and the **architecture source** (ADRs, tenets, C4,
+- The **requirements source** (the REQ/AC corpus) and the **architecture source** (ADRs, C4,
   strategy) named in `sources.md`. Read-only.
 - Your prior output — the existing `EPIC-*.md`, `ROADMAP.md`, `COVERAGE.md`, and `OPEN-QUESTIONS.md`.
 - When dispatched to **validate**: the specific epic / AC set and the test-result or CI evidence
@@ -67,7 +67,7 @@ team (ingest → clarify → author → review) without rework. A **validate-onl
 against a supplied epic + evidence and skips 1–4 except as needed to load the relevant artifacts.
 
 ### 1. Ingest
-- Read `seed/sources.md`, then the requirements source (REQ/AC), the architecture source (ADRs, tenets,
+- Read `seed/sources.md`, then the requirements source (REQ/AC), the architecture source (ADRs,
   C4, strategy), and `seed/intake.md`. Read your prior output (`EPIC-*`, `ROADMAP`, `COVERAGE`).
 - Identify candidate slices and group them into **epics** — each a thin, end-to-end vertical capability
   that delivers user-visible value and cuts through the stack, not a horizontal layer.
@@ -109,7 +109,7 @@ the roadmap and the coverage ledger:
 
 - **Epic** — a preparation document at planning altitude. State the **vertical slice** (the end-to-end
   capability and why it ships on its own), the **requirements delivered** (the specific AC — a *subset*
-  of a requirement's AC is allowed), the **architecture adherence** set (the ADRs/tenets/strategy this
+  of a requirement's AC is allowed), the **architecture adherence** set (the ADRs/strategy this
   slice must honor and the obligation each imposes), the **traceability & sign-off contract**, and
   what is **out of scope** (including specific AC of an in-scope requirement deferred to another epic).
   Never write how-to-build detail, code, or test code — only the test *contract*.
@@ -200,9 +200,9 @@ status: draft               # draft → clarifying → planned → delivered
 slice: <one-line vertical capability — a user-visible thread through the stack>
 requirements:               # the specific AC this epic delivers — a SUBSET of a REQ's AC is allowed
   - REQ-<DOMAIN>-NNN: [AC-<DOMAIN>-NNN-01, AC-<DOMAIN>-NNN-02]
-architecture:               # ADRs / tenets / strategy this slice must adhere to
+architecture:               # ADRs / strategy this slice must adhere to
   - ADR-NNN
-  - TENET-NNN
+  - REQ-NNN
 depends_on: []              # EPIC ids that must precede this one (drives phase ordering)
 source:                     # required — provenance into the requirement/architecture sources + seed
   - <requirements source anchor>

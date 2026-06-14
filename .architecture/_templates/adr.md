@@ -4,7 +4,7 @@ title: <short title>
 status: Proposed          # Proposed | Accepted | Superseded by ADR-MMM
 date: YYYY-MM-DD
 deciders: [<decider>, user]
-related: [ADR-..., TENET-...]   # or []
+related: [ADR-..., REQ-...]   # or []
 source:                   # seed / project provenance — drives incremental re-ingestion
   - seed/<file>#<anchor>
 open_decisions: []        # OD-NNN ids currently blocking this ADR (empty when Accepted)
@@ -15,11 +15,11 @@ open_decisions: []        # OD-NNN ids currently blocking this ADR (empty when A
 **Status:** Proposed
 **Date:** YYYY-MM-DD
 **Deciders:** <decider> (with user direction)
-**Related:** <ADR-… , TENET-… , or "none">
+**Related:** <ADR-… , REQ-… , or "none">
 
 ## Context
 <The forces at play — technical, product, and organizational. What problem or pressure makes a decision
-necessary? State the constraints (tenets, prior ADRs, regulatory) the decision must respect. HOW/why,
+necessary? State the constraints (prior ADRs, requirements, regulatory) the decision must respect. HOW/why,
 never the product WHAT.>
 
 ## Decision

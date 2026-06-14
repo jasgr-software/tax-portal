@@ -4,7 +4,24 @@
 
 ## Current initiative
 
-_None._
+**RA session 3 — 2026-06-14 — Tenet retirement safety-net (no active epic)**
+
+Task: before deleting `.architecture/TENETS.md`, verify that the four product-feature tenets (TENET-002, TENET-003, TENET-004, TENET-006) have non-negotiable/no-bypass invariant language captured in the SRS requirements layer.
+
+Actions taken (all edits in `docs/requirements/SRS.md`):
+
+- **REQ-DOOR-004** — added explicit no-bypass text: "no feature may reintroduce a gate that requires account creation before submitting an engagement request." Carries TENET-002.
+- **REQ-MSG-007** — added explicit no-bypass text: "no feature may make email the primary delivery path for any substantive notification or content." Carries TENET-003.
+- **REQ-MSG-008** — extended to prohibit substantive content in email bodies (message text, file names, status values) regardless of implementation convenience. Carries TENET-003.
+- **REQ-ONBD-002** — extended "hard gate" language: "enforced server-side (not UI-only). No admin override, API bypass, or developer shortcut may skip this check." Carries TENET-004.
+- **REQ-ONBD-005** — added: "No bypass mechanism (admin shortcut, API override, or feature flag) may advance engagement status past `New` without all three conditions being satisfied." Carries TENET-004.
+- **REQ-LIFE-003** — added explicit enumeration of prohibited automation: "timer-based transitions, document-count thresholds, scheduled jobs that advance pipeline status, and AI/rules-engine inferences about readiness." Carries TENET-006.
+
+No epic files, flows, or personas required changes (the tightenings are requirement-level; no workflow steps changed). No new requirements added, no IDs changed.
+
+Note: TENET-001 (security posture) stays in ADRs (ADR-003/ADR-005) — REQ-AUTH-*/REQ-NFR-001/REQ-NFR-002 already capture the observable security behavior at the requirement level; the architectural rationale lives correctly in the ADRs. No RA action needed on TENET-001.
+
+Session complete. No open questions. No SDET flag needed (no gherkin features exist yet for DOOR/MSG/ONBD/LIFE).
 
 ## Awaiting PR merge
 

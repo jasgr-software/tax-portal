@@ -211,7 +211,6 @@ pnpm db:reset                                # Drop + recreate local DB, re-run 
 - `.claude/agent-phases.md` — SA-only phase lifecycle reference
 - `agents/*.md` — individual agent role definitions (SA, RA, Developer, SDET, Overwatch, PD-*)
 - `docs/architecture/C4.md` — living C4 architecture model; the SA updates this after each epic
-- `docs/architecture/TENETS.md` — architectural tenets; read this before implementing anything
 - `docs/requirements/intake.md` — raw requirements document (user-provided source material)
 - `docs/requirements/SRS.md` — Software Requirements Specification (RA-owned, living document — produced from intake)
 - `docs/requirements/ep-NNN-name.md` — epic-level requirements with acceptance criteria

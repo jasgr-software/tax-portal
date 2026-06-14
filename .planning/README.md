@@ -2,7 +2,7 @@
 
 This folder is a **self-contained, workflow-agnostic description of *what to build next and in what
 order*.** It is the product-owner counterpart to `.requirements/` (the **what** — requirements +
-acceptance criteria) and `.architecture/` (the **how** — decisions, C4, tenets, strategy). This layer
+acceptance criteria) and `.architecture/` (the **how** — decisions, C4, strategy). This layer
 decomposes those two sources into a **phased roadmap of vertically-sliced epics**, MVP-first, and tracks
 every acceptance criterion from `planned` to signed off.
 
@@ -85,11 +85,11 @@ status: planned           # draft → clarifying → planned → delivered
 slice: Anonymous visitor browses active services and submits an engagement request
 requirements:             # the specific AC this epic delivers — a SUBSET of a REQ's AC is allowed
   - REQ-DOOR-001: [AC-DOOR-001-01, AC-DOOR-001-02, AC-DOOR-001-03]
-architecture: [ADR-006, TENET-002]
+architecture: [ADR-006, REQ-DOOR-004]
 depends_on: []
 source:
   - .requirements/REQ-DOOR-001.md
-  - .architecture/TENETS.md#tenet-002
+  - .architecture/decisions/ADR-006-monorepo.md
 open_questions: []
 ```
 
@@ -120,7 +120,7 @@ and `Provenance`.
 - `EPIC-NNN` — epic. Zero-padded, globally unique, **never reused or renumbered**.
 - `PQ-NNN` — planning open question, globally unique.
 - Phases are `Phase 1` … `Phase N`; Phase 1 is always the MVP.
-- `REQ-*` / `AC-*` / `ADR-*` / `TENET-*` ids are owned by the requirement and architecture sources — this
+- `REQ-*` / `AC-*` / `ADR-*` ids are owned by the requirement and architecture sources — this
   layer **cites** them, it never mints them.
 
 **Status**

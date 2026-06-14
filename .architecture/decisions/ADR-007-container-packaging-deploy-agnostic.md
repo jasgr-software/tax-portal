@@ -194,4 +194,4 @@ Technically feasible via Docker BuildKit with a shared intermediate. Attractive 
 - **ADR-008** — Object storage; both apps bind the same adapter.
 - **ADR-010** — Cross-app navigation & session boundaries; how users flow between the two hosts.
 - **SRS** — REQ-NFR-003, REQ-NFR-004 (tech stack, being generalised by RA), REQ-IDNT-001 (custom domain), REQ-MSG-012 (real-time delivery — deferred Tier-2 ADR).
-- **Tenet 1** — Security non-negotiable; two images + two ingress routes + non-root runner supports per-app hardening.
+- **ADR-005 / ADR-020** — security non-negotiable; two images + two ingress routes + non-root runner supports per-app hardening.

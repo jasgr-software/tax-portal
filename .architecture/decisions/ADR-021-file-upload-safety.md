@@ -4,7 +4,7 @@ title: File-upload safety — scan-before-available pipeline, AV engine deferred
 status: Accepted   # Posture decidable (quarantine/scan-before-available pipeline, MIME validation, size limits); the AV engine/vendor is deferred (defer-but-constrain — capability contract defined). No carve-out blocks this ADR.
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-007, ADR-008, ADR-009, ADR-013, TENET-001]
+related: [ADR-005, ADR-007, ADR-008, ADR-009, ADR-013, ADR-020]
 source:
   - .requirements/REQ-NFR-009.md   # all uploaded files are scanned for malware — the WHAT (this ADR decides the scan-before-available HOW)
   - architecture-dispatch-2026-06-14#adr-d-file-upload-safety   # dispatch: decide upload safety; defer AV engine (defer-but-constrain)
@@ -20,7 +20,7 @@ open_decisions: []   # AV engine/vendor is a defer-but-constrain tool deferral w
 **Status:** Accepted. The upload-safety *posture* is decided; the specific antivirus engine/vendor is deferred under the **defer-but-constrain** pattern (ADR-007/013/016) with a capability contract. No escalation carve-out blocks this ADR.
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (with user direction)
-**Related:** ADR-009 (two-phase upload, `pending`→`active`, content-type=any, AV-deferred note), ADR-008 (`FileStorage` port; reconciliation sweeps), ADR-007 (no local FS beyond `/tmp`; cron workload; defer-but-constrain), ADR-013 (port discipline; Azure-cheapest default); TENET-001 (security non-negotiable); **REQ-NFR-009** (all uploaded files are scanned for malware — the requirement this ADR's scan-before-available pipeline satisfies)
+**Related:** ADR-009 (two-phase upload, `pending`→`active`, content-type=any, AV-deferred note), ADR-008 (`FileStorage` port; reconciliation sweeps), ADR-007 (no local FS beyond `/tmp`; cron workload; defer-but-constrain), ADR-013 (port discipline; Azure-cheapest default), ADR-005 (RLS trust boundary) + ADR-020 (encryption / security posture); **REQ-NFR-009** (all uploaded files are scanned for malware — the requirement this ADR's scan-before-available pipeline satisfies)
 
 ## Context
 
@@ -28,13 +28,13 @@ Client-uploaded files that the accountant later downloads are a **malware vector
 
 This ADR fills that gap **now, before implementation**, deciding the upload-safety posture and reserving the AV engine choice for later (defer-but-constrain). The forces:
 
-1. **Malware risk is real (TENET-001).** Even with a small, semi-trusted client base, a single malicious upload reaching the accountant's machine is a serious incident. "Trusted known clients" (ADR-009's deferral rationale) is not a safety guarantee.
+1. **Malware risk is real (security non-negotiable — ADR-005 / ADR-020).** Even with a small, semi-trusted client base, a single malicious upload reaching the accountant's machine is a serious incident. "Trusted known clients" (ADR-009's deferral rationale) is not a safety guarantee.
 2. **The two-phase upload already gives us a quarantine seam.** A file in `pending` is not yet `active`; inserting a scan between "object landed" and "marked active/available" fits the existing ADR-009 state machine without new architecture.
 3. **No local filesystem beyond `/tmp` (ADR-007).** Scanning must operate on the object in storage (or a streamed copy), not a persisted local file.
 4. **Cloud portability (ADR-013).** The AV engine must sit behind a port and be a deploy-time choice — not a vendor SDK baked into a route handler. Azure-cheapest default is the design target, but no Azure dependency today.
 5. **Defer the engine, not the posture.** Like the deployment host (ADR-007), the observability backend (ADR-016), and the UI design (ADR-015), the *tool* stays open while the *contract* is locked.
 
-Scope is **how, not what**: this decides the upload-safety *mechanism*, not the product requirement asserting *that* uploads must be scanned for malware (REQ-NFR-009 / TENET-001 own that).
+Scope is **how, not what**: this decides the upload-safety *mechanism*, not the product requirement asserting *that* uploads must be scanned for malware (REQ-NFR-009 owns that).
 
 ## Decision
 
@@ -69,7 +69,7 @@ The concrete scanner is **not decided here** — exactly as ADR-007 defers the h
 
 1. **Scan an object in storage** (by key, or a streamed copy) and return a verdict: `clean` / `infected(threat)` / `indeterminate`.
 2. **Operate out-of-band** without holding the client request open and without requiring a persisted local file beyond `/tmp` (ADR-007).
-3. **Be reachable behind the port** — no vendor scanner SDK imported into a route handler (ADR-013/TENET-008); swapping engines is a single adapter change.
+3. **Be reachable behind the port** — no vendor scanner SDK imported into a route handler (ADR-013); swapping engines is a single adapter change.
 4. **Support a no-op/dev binding** — local dev and tests run with a no-op or stub scanner (analogous to ADR-008's `MemoryAdapter` and ADR-016's no-op exporter) so the pipeline is exercised without a real engine. A `cloud`/prod binding that is requested but unbound **fails closed** (mirrors ADR-008's fail-closed boot), never silently passing files through unscanned.
 
 **Azure-cheapest default target (not a commitment):** Microsoft Defender for Storage (malware scanning on Blob) is the natural Azure default to design toward (ADR-013), with ClamAV-in-a-container as a portable self-hosted alternative and third-party scan APIs as further options — but no code depends on any of them; the port keeps it a deploy-time choice.
@@ -92,6 +92,6 @@ Upload safety is a **security posture** but not one of the AGENT.md §2 escalati
 - **No AV scanning (keep ADR-009's deferral indefinitely).** Rejected — ADR-009 deferred AV to "Phase 4 or 5" on a "trusted clients" rationale; that is an acceptance-risk the malware vector does not justify leaving unowned. Deciding the *pipeline* now (engine still deferred) costs nothing in lock-in and removes the unbounded deferral.
 - **Scan synchronously inside the client's upload request.** Rejected — would hold the request open for the scan duration, fight large uploads, and require buffering the file in the app (ADR-008 explicitly avoids upload-via-server). Out-of-band scan in the `pending` quarantine state fits the existing two-phase machine.
 - **Restrict allowed content types to a safe allow-list (e.g. PDF/images only).** Rejected as the baseline — REQ-FILE-002 / ADR-009 allow any type (tax workflows involve varied formats). MIME *validation* (bytes match declared type) plus AV scanning is the chosen control; an executable deny-list at the scan gate is an ops-tunable, not a blanket type restriction.
-- **Pick the AV engine now (e.g. commit to ClamAV or Defender).** Rejected — contradicts the deferral directive and TENET-008/ADR-013 (a vendor scanner SDK in app code is proprietary coupling). The defer-but-constrain pattern (ADR-007/016) keeps the engine open behind a `FileScanner` port with a capability contract.
+- **Pick the AV engine now (e.g. commit to ClamAV or Defender).** Rejected — contradicts the deferral directive and ADR-013 (a vendor scanner SDK in app code is proprietary coupling). The defer-but-constrain pattern (ADR-007/016) keeps the engine open behind a `FileScanner` port with a capability contract.
 - **Treat upload safety as a no-default escalation carve-out.** Rejected — unlike ADR-018/019/020, no sub-decision here is data-retention/encryption/trust-boundary *policy*; it is a mechanism decision plus a tool deferral. The §2 carve-out does not apply; this ADR is Accepted.
 - **Fold into ADR-009 by amending it.** Rejected — ADRs are immutable; ADR-009 scoped AV as "deferred." This ADR `related:`-links it and lands the decision rather than rewriting the immutable record.

@@ -4,7 +4,7 @@ title: Data retention, deletion & lifecycle architecture (7-year hold)
 status: Accepted   # The deletion/erasure/legal-hold/purge POLICY now lives in the requirements layer (REQ-FILE-005/006/013/014/015); OD-004 resolved 2026-06-14. This ADR keeps only the HOW.
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-002, ADR-005, ADR-008, ADR-009, ADR-019, TENET-001, TENET-005]
+related: [ADR-002, ADR-005, ADR-008, ADR-009, ADR-019, ADR-020]
 source:
   - .requirements/REQ-FILE-005.md   # 7-year retention after engagement completion — the retention WINDOW (the WHAT)
   - .requirements/REQ-FILE-006.md   # deletion is soft; files retained through the retention period (the WHAT)
@@ -26,23 +26,23 @@ open_decisions: []   # OD-004 resolved; policy now owned by REQ-FILE-005/006/013
 **Status:** Accepted. The deletion/erasure/legal-hold/purge **policy** is now owned by the requirements layer — a 2026-06-14 design session resolved the former escalation carve-out (OD-004) into ratified requirements: REQ-FILE-005 (7-year window), REQ-FILE-006 (soft-delete within the window), REQ-FILE-013 (post-retention purge is accountant-confirmed, never automatic), REQ-FILE-014 (legal hold suspends purge indefinitely), REQ-FILE-015 (retention governs during the window; client erasure = access-revocation only). This ADR keeps only the **HOW** — the mechanism that makes those requirements expressible. OD-004 is resolved; no open decision blocks this ADR.
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (with user direction)
-**Related:** ADR-002 (temporal tables, soft-delete columns, `DATETIMEOFFSET`, raw-SQL track), ADR-005 (RLS `deletedAt` filter, admin-pool purge), ADR-008 (storage retention obligation + tiering), ADR-009 (soft-delete + version history; the CLARIF-005 hard-delete slot), ADR-019 (every purge / soft-delete / legal-hold change is audit-logged); TENET-001 (security non-negotiable), TENET-005 (clients never lose access)
+**Related:** ADR-002 (temporal tables, soft-delete columns, `DATETIMEOFFSET`, raw-SQL track), ADR-005 (RLS `deletedAt` filter, admin-pool purge), ADR-008 (storage retention obligation + tiering), ADR-009 (soft-delete + version history; the CLARIF-005 hard-delete slot), ADR-019 (every purge / soft-delete / legal-hold change is audit-logged), ADR-020 (encryption / security posture)
 
 ## Context
 
-The product commits to **7-year document retention** (IRS records-retention norms) and to "clients never lose access" (TENET-005, intake force 6). This is a data-*lifecycle* commitment, and lifecycle decisions shape the schema from the very first migration: whether a row is ever physically removed, how its history is preserved, what "delete a client" or "delete an engagement" actually does, and what happens when the 7-year clock finally expires. Retrofitting soft-delete columns and temporal history onto a live schema is far more expensive than designing them in — so the lifecycle posture must be set **before implementation begins**, not discovered during Epic 008.
+The product commits to **7-year document retention** (IRS records-retention norms) and to "clients never lose access" (intake force 6) — the never-lose-access principle this ADR realizes as a schema-wide invariant. This is a data-*lifecycle* commitment, and lifecycle decisions shape the schema from the very first migration: whether a row is ever physically removed, how its history is preserved, what "delete a client" or "delete an engagement" actually does, and what happens when the 7-year clock finally expires. Retrofitting soft-delete columns and temporal history onto a live schema is far more expensive than designing them in — so the lifecycle posture must be set **before implementation begins**, not discovered during Epic 008.
 
 Several prior decisions already touch this area but none owns the lifecycle as a whole:
 
 - **ADR-002** establishes temporal tables (`SYSTEM_VERSIONING = ON`) as "the preferred mechanism" for audit/retention-sensitive tables, `DATETIMEOFFSET` everywhere, and the raw-SQL migration track where temporal/system-versioning DDL lives. It names the lifecycle mechanism but does not decide the lifecycle.
 - **ADR-009** decides document soft-delete (`Document.deletedAt`), version history (new row + new storage key per version, never overwrite), and explicitly **carves out** the hard-delete-vs-retention conflict as **CLARIF-005** (a requirements-side clarification), proposing — but not ratifying — a default. ADR-009 owns the *document storage-object* slice of this.
 - **ADR-005** already filters `deletedAt IS NULL` in the CLIENT branch of the `Document` RLS predicate and routes purges through the admin pool, and notes cron "7-year retention purges" as an admin-pool workload.
-- **TENET-005** states the principle: "Soft-delete only for documents (7-year IRS retention). Hard delete only on explicit accountant request."
+- **The never-lose-access principle** (intake force 6): soft-delete only for documents (7-year IRS retention); hard delete only on explicit accountant request. This ADR is where that principle becomes a decided mechanism.
 
 The forces in tension:
 
 1. **7-year retention vs. data minimization / erasure.** A client may request deletion of their data; the firm may have a regulatory obligation to *retain* tax records for 7 years. These can directly conflict — the resolution is a legal/compliance call, not an architecture call.
-2. **"Never lose access" vs. "delete."** TENET-005 says completed engagements remain accessible indefinitely; "delete a client" cannot mean "destroy the engagement record" without a deliberate, governed decision.
+2. **"Never lose access" vs. "delete."** The never-lose-access principle requires completed engagements to remain accessible indefinitely; "delete a client" cannot mean "destroy the engagement record" without a deliberate, governed decision.
 3. **Soft-delete reversibility vs. true erasure.** Soft-delete (a tombstone flag) keeps the row and its bytes; true erasure (purge) destroys them. The retention obligation wants the former during the window; an erasure right may want the latter — and the two cannot both be the default.
 4. **History preservation.** Even a soft-deleted/edited row should leave an immutable trail of what it was and when it changed (this is distinct from, and complementary to, the audit trail in ADR-019).
 
@@ -59,7 +59,7 @@ Scope is **how, not what**: the retention *duration*, the purge *policy* (accoun
 Every client-scoped, retention-relevant entity — `User`, `Engagement`, `Document` (already, ADR-009), `Folder`, `Thread`, `Message`, `OnboardingState`, and their kin — carries a **tombstone column** (`deletedAt DATETIMEOFFSET NULL`, per ADR-002's timestamp convention) rather than being removed by `DELETE`. Application code never issues a physical `DELETE` on these tables on the request path; "delete" means "set `deletedAt`."
 
 - Soft-deleted rows are filtered from CLIENT views by the RLS predicate's `deletedAt IS NULL` clause (ADR-005), and remain visible to ACCOUNTANT in an archive view (ADR-009 already establishes this for `Document` — this generalizes the pattern).
-- This realizes TENET-005 ("clients never lose access; soft-delete only") as a schema-wide invariant, not a per-table afterthought.
+- This realizes the never-lose-access principle ("clients never lose access; soft-delete only") as a schema-wide invariant, not a per-table afterthought.
 
 ### 2. Temporal tables are the history mechanism (decided)
 
@@ -129,7 +129,7 @@ A **legal-hold** marker (a hold flag/record on an engagement, or on a client to 
 
 ## Alternatives considered
 
-- **Hard-delete by default, no soft-delete.** Rejected outright — violates TENET-005 ("clients never lose access") and makes the 7-year retention obligation unenforceable (deleted rows cannot be retained). A non-starter for a records-retention-bound tax portal.
+- **Hard-delete by default, no soft-delete.** Rejected outright — violates the never-lose-access principle this ADR enforces ("clients never lose access") and makes the 7-year retention obligation unenforceable (deleted rows cannot be retained). A non-starter for a records-retention-bound tax portal.
 - **Application-maintained shadow history tables instead of temporal tables.** Rejected — re-implements in app code what SQL Server 2022 gives natively (and ADR-002 already named), is error-prone, and adds a second source of truth for row history. Temporal tables are in the box/Azure intersection, so there is no portability reason to hand-roll.
 - **Resolve the deletion/erasure/purge policy inside this ADR (the architecture layer).** Rejected — AGENT.md §2: deletion, erasure, data retention, and the retention-vs-erasure conflict are escalation matter the user must own. They were originally held as OD-004 (no default) and have now been ratified **in the requirements layer** (REQ-FILE-013/014/015), where product policy belongs. This ADR cites those requirements as `source:` and decides only the mechanism — keeping the *what* in requirements and the *how* here.
 - **Make purge automatic on retention-window expiry (a scheduled sweep that destroys data when the clock elapses).** Rejected — REQ-FILE-013 (AC-04) mandates that expiry creates *eligibility only*, never automatic deletion; permanent destruction of professional records must be accountant-initiated and explicitly confirmed. The retention-purge cron surfaces eligibility and executes confirmed purges; it never autonomously destroys data.

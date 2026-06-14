@@ -7,7 +7,7 @@
 
 ## Context
 
-The portal's access model (REQ-AUTH-002, REQ-AUTH-003, REQ-NFR-001, amended Tenet 7) requires row-level security enforced **at the database**, not the app. The authenticated caller's identity must reach the DB engine on every request so that policy predicates can filter rows by ownership.
+The portal's access model (REQ-AUTH-002, REQ-AUTH-003, REQ-NFR-001, ADR-005) requires row-level security enforced **at the database**, not the app. The authenticated caller's identity must reach the DB engine on every request so that policy predicates can filter rows by ownership.
 
 Under the original Supabase plan, this was solved by a Supabase JWT template: the Clerk session token was minted in a shape Supabase Auth could verify, and Postgres RLS predicates read the verified claims via `auth.jwt()`. The database itself was a JWT verifier.
 
@@ -20,7 +20,7 @@ SQL Server offers several mechanisms:
 3. **`EXECUTE AS USER`** — re-impersonate as a specific DB user for the current batch. Powerful but requires a DB user per app identity, which does not scale (one DB user per Clerk user means thousands of principals).
 4. **One DB user per Clerk user** — literally provision a DB login/user per client. Pool-breaking, administratively toxic, rejected on sight.
 5. **JWT-in-DB via CLR or external HTTP** — write a CLR function that verifies the Clerk JWT by calling JWKS. Rejected — CLR is a maintenance and security burden and is disabled by default on most managed engines (Azure SQL disables it entirely).
-6. **App-side RLS only** — let the app compose `WHERE userId = @caller` into every query. Violates Tenet 7 (amended): the DB is the trust boundary. Rejected.
+6. **App-side RLS only** — let the app compose `WHERE userId = @caller` into every query. Violates the database-trust-boundary principle (ADR-005): the DB is the trust boundary. Rejected.
 
 The accepted solution is (1). The design below nails down the operational discipline required to make it safe.
 
@@ -174,7 +174,7 @@ Require every data access to go through stored procedures that take `@clerk_user
 
 ### App-side RLS (WHERE userId = @caller in every query)
 
-Defeats the point of RLS: one missed filter leaks data. Violates Tenet 7.
+Defeats the point of RLS: one missed filter leaks data. Violates the database-trust-boundary principle (ADR-005).
 
 ### JWT-in-DB
 
@@ -211,5 +211,5 @@ Add a second key, `clerk_jwt_hash`, that the app compares against the incoming s
 - **ADR-004** — Prisma as sole ORM; the `$extends` wrapper lives in the Prisma client module.
 - **ADR-005** — RLS via Security Policies; the read side of the contract — predicates consume what this ADR writes.
 - **ADR-006** — Monorepo layout; `packages/db/` holds the wrapped client and the request-context helper.
-- **Tenet 7 (amended)** — database is the trust boundary; the app propagates identity.
+- **Database-trust-boundary principle** — the database is the trust boundary (ADR-005); the app propagates identity (this ADR).
 - **SRS** — REQ-AUTH-003, REQ-NFR-001.

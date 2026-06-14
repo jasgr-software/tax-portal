@@ -4,7 +4,7 @@ title: Anti-abuse & rate limiting on public endpoints — bot-protection vendor 
 status: Accepted   # Posture decidable (rate limiting, bot/CAPTCHA gate, abuse handling on the public front door); the CAPTCHA/bot-protection vendor is deferred (defer-but-constrain). No carve-out blocks this ADR.
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-001, ADR-003, ADR-007, ADR-013, TENET-001, TENET-002]
+related: [ADR-001, ADR-003, ADR-005, ADR-007, ADR-013, ADR-020, REQ-DOOR-004]
 source:
   - architecture-dispatch-2026-06-14#adr-e-anti-abuse-rate-limiting   # dispatch: decide anti-abuse posture for the anonymous front door; defer CAPTCHA vendor
   - decisions/ADR-007-container-packaging-deploy-agnostic.md   # in-memory rate-limiter counters are single-process-only; >1-replica state-migration implication
@@ -19,11 +19,11 @@ open_decisions: []   # CAPTCHA/bot-protection vendor is a defer-but-constrain to
 **Status:** Accepted. The anti-abuse *posture* is decided; the specific CAPTCHA/bot-protection vendor is deferred under the **defer-but-constrain** pattern (ADR-007/013/016/021) with a capability contract. No escalation carve-out blocks this ADR.
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (with user direction)
-**Related:** ADR-001 (public allow-list routes — the abuse target), ADR-003 (anonymous paths use the admin pool), ADR-007 (in-memory rate-limiter counters are single-process-only — the >1-replica implication), ADR-013 (port discipline; Azure-cheapest default); TENET-001 (security non-negotiable), TENET-002 (self-serve front door — must stay accessible)
+**Related:** ADR-001 (public allow-list routes — the abuse target), ADR-003 (anonymous paths use the admin pool), ADR-007 (in-memory rate-limiter counters are single-process-only — the >1-replica implication), ADR-013 (port discipline; Azure-cheapest default), ADR-005 (RLS trust boundary) + ADR-020 (encryption / security posture), REQ-DOOR-004 (self-serve front door — must stay accessible)
 
 ## Context
 
-**Epic 001 is the anonymous public front door.** Prospective clients browse the services page and submit an **engagement-request form without an account** (TENET-002, ADR-001's public allow-list routes). An unauthenticated, internet-facing form that writes to the database is a classic **spam/abuse target**: bots flooding the request form, scripted submissions, content/contact-form spam, and resource-exhaustion attempts.
+**Epic 001 is the anonymous public front door.** Prospective clients browse the services page and submit an **engagement-request form without an account** (REQ-DOOR-004, ADR-001's public allow-list routes). An unauthenticated, internet-facing form that writes to the database is a classic **spam/abuse target**: bots flooding the request form, scripted submissions, content/contact-form spam, and resource-exhaustion attempts.
 
 Two prior decisions bear directly on this:
 
@@ -33,13 +33,13 @@ Two prior decisions bear directly on this:
 
 The gap: there is **no recorded anti-abuse posture** — no decision on rate limiting (per-IP / per-endpoint), bot/CAPTCHA protection, or abuse handling. This must be decided before the public front door ships in Epic 001. The forces:
 
-1. **The front door must stay self-serve (TENET-002).** Anti-abuse must not reintroduce an "account required before request" gate, and must not make the form hostile to legitimate prospects.
-2. **Security non-negotiable (TENET-001).** The exposed admin-pool write needs an edge defense.
+1. **The front door must stay self-serve (REQ-DOOR-004).** Anti-abuse must not reintroduce an "account required before request" gate, and must not make the form hostile to legitimate prospects.
+2. **Security non-negotiable (ADR-005 / ADR-020).** The exposed admin-pool write needs an edge defense.
 3. **Single-process assumption is fragile (ADR-007).** The chosen rate-limit mechanism must have a clear migration path to shared state when replicas scale beyond one.
 4. **Cloud portability (ADR-013).** Bot-protection must sit behind a port and be a deploy-time vendor choice — no CAPTCHA vendor SDK baked into a route handler.
 5. **Defer the vendor, not the posture** — the defer-but-constrain pattern (ADR-007/016/021).
 
-Scope is **how, not what**: this decides the anti-abuse *mechanism*, not a product requirement asserting the form must resist spam (TENET-001/002 / requirements own that).
+Scope is **how, not what**: this decides the anti-abuse *mechanism*, not a product requirement asserting the form must resist spam (REQ-DOOR-004 and the requirements layer own that).
 
 ## Decision
 
@@ -49,7 +49,7 @@ Scope is **how, not what**: this decides the anti-abuse *mechanism*, not a produ
 
 - The public allow-list endpoints (engagement-request submission especially; the services page read is lower-risk) are rate-limited **per source IP and per endpoint** at the app edge (middleware / route handler), independent of authentication (these callers are anonymous).
 - Limits are **configurable** (env/config, not hard-coded), with conservative defaults tuned so a legitimate prospect submitting one request is never blocked while a flood is throttled.
-- Exceeding the limit returns a `429` with a retry hint; it does **not** reintroduce an account gate (TENET-002).
+- Exceeding the limit returns a `429` with a retry hint; it does **not** reintroduce an account gate (REQ-DOOR-004).
 
 ### 2. Rate-limit state is single-process in v1 — with an explicit >1-replica migration (decided; reconciles ADR-007)
 
@@ -62,8 +62,8 @@ This directly reconciles **ADR-007's in-memory-counters note**:
 ### 3. Bot / CAPTCHA protection on the request form (decided posture; vendor deferred)
 
 - The engagement-request submission carries a **bot-protection challenge** (CAPTCHA / invisible challenge / proof-of-work — the *mechanism class* is decided: a bot gate exists on the public write).
-- It sits behind a **`BotProtection` port**; the concrete vendor (hCaptcha, Cloudflare Turnstile, reCAPTCHA, etc.) is **deferred** (defer-but-constrain). No vendor SDK in a route handler (ADR-013/TENET-008); verification goes through the port's server-side check.
-- The challenge must degrade gracefully for legitimate users (TENET-002 — the front door stays self-serve and usable); an invisible/low-friction challenge is preferred over a hard interactive puzzle where the vendor supports it.
+- It sits behind a **`BotProtection` port**; the concrete vendor (hCaptcha, Cloudflare Turnstile, reCAPTCHA, etc.) is **deferred** (defer-but-constrain). No vendor SDK in a route handler (ADR-013); verification goes through the port's server-side check.
+- The challenge must degrade gracefully for legitimate users (REQ-DOOR-004 — the front door stays self-serve and usable); an invisible/low-friction challenge is preferred over a hard interactive puzzle where the vendor supports it.
 
 ### 4. Abuse handling (decided)
 
@@ -90,15 +90,15 @@ Anti-abuse is a **security posture** but not an AGENT.md §2 escalation item —
 - **The public front door has an edge defense from day one.** The anonymous admin-pool write (ADR-003) is no longer unthrottled. **Code follow-up flagged for `[webapp-developer]`:** a `RateLimiter` port (in-memory v1 impl + shared-store impl stub) and per-IP/per-endpoint limiting middleware on the public allow-list; a `BotProtection` port with a no-op dev binding and server-side verification on the engagement-request submission; `429` handling that preserves the self-serve flow; abuse-event audit logging (ADR-019) + operational metrics (ADR-016/017); extend the ESLint SDK-ban list to flag CAPTCHA-vendor SDK imports in routes. **DevOps follow-up:** vendor + shared-store wiring at Phase 5; the >1-replica scaling trigger documented in `docs/operations/runbook.md` (and the inventory if a store/WAF is added).
 - **ADR-007's single-process caveat now has an owner and a trigger.** The "in-memory rate-limiter counters are single-process-only" note is reconciled into an explicit scaling trigger: scaling either app to >1 replica **requires** migrating rate-limit state to a shared store first, or the limit silently multiplies. A deviation review flags an unported in-memory limiter under multi-replica config.
 - **The vendor stays deferred.** Like ADR-007/016/021, the bot-protection vendor is a Phase-5-style tool deferral behind a port; the app is indifferent to Turnstile vs. hCaptcha vs. WAF rules.
-- **TENET-002 preserved.** No account gate is introduced; the bot challenge and rate limits are tuned to leave legitimate single submissions unobstructed.
+- **REQ-DOOR-004 preserved.** No account gate is introduced; the bot challenge and rate limits are tuned to leave legitimate single submissions unobstructed.
 - **No new always-on burden today.** v1 runs in-memory limiting + no-op/dev bot-protection; nothing anti-abuse-specific is operated until the vendor/store is bound at Phase 5.
 
 ## Alternatives considered
 
-- **No anti-abuse controls (rely on the accept/decline human gate alone).** Rejected — the human gate handles *content* spam after the fact but does nothing against volumetric bot floods or resource exhaustion against an unauthenticated admin-pool write (ADR-003). An edge defense is required (TENET-001).
-- **Require an account / login before submitting a request.** Rejected — directly violates TENET-002 (self-serve front door; "no account required before request"). Anti-abuse must protect the anonymous flow, not eliminate it.
+- **No anti-abuse controls (rely on the accept/decline human gate alone).** Rejected — the human gate handles *content* spam after the fact but does nothing against volumetric bot floods or resource exhaustion against an unauthenticated admin-pool write (ADR-003). An edge defense is required (ADR-005 / ADR-020).
+- **Require an account / login before submitting a request.** Rejected — directly violates REQ-DOOR-004 (self-serve front door; "no account required before request"). Anti-abuse must protect the anonymous flow, not eliminate it.
 - **In-memory rate limiting with no migration plan.** Rejected — ADR-007 already flagged that per-process counters break at >1 replica; leaving it implicit is an abuse hole waiting for the first horizontal scale-out. The decision names the scaling trigger and the shared-store migration explicitly.
-- **Pick the CAPTCHA/bot-protection vendor now.** Rejected — contradicts the deferral directive and TENET-008/ADR-013 (a CAPTCHA vendor SDK in a route is proprietary coupling). Defer-but-constrain (ADR-007/016/021): the vendor stays open behind a `BotProtection` port with a capability contract.
+- **Pick the CAPTCHA/bot-protection vendor now.** Rejected — contradicts the deferral directive and ADR-013 (a CAPTCHA vendor SDK in a route is proprietary coupling). Defer-but-constrain (ADR-007/016/021): the vendor stays open behind a `BotProtection` port with a capability contract.
 - **Rely solely on a future platform WAF/front-door for rate limiting (no app-level limiter).** Rejected as the *baseline* — the platform is deferred (ADR-007), so no WAF is guaranteed in v1; an app-edge limiter works on every candidate host and on local dev. A platform WAF is a welcome *additional* layer at Phase 5 (and the Azure-cheapest default target), not a substitute for the app-level control.
 - **Treat anti-abuse as a no-default escalation carve-out.** Rejected — no sub-decision here is data-retention/encryption/trust-boundary *policy*; it is a mechanism decision plus a vendor deferral. The §2 carve-out does not apply; Accepted.
 - **Fold into ADR-001/ADR-007 by amending them.** Rejected — ADRs are immutable; this `related:`-links ADR-001 (the public surface) and ADR-007 (the single-process caveat) and lands a new decision rather than rewriting them.

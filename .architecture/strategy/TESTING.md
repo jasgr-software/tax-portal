@@ -15,7 +15,7 @@
 
 Testing is a **contract, not a convention**: a single pyramid every agent recognizes, with per-tier
 **applicability / evidence / promotion** triggers the SA writes into task specs and the SDET verifies.
-The single load-bearing principle: **the database is the trust boundary** (TENET-007, ADR-003, ADR-005),
+The single load-bearing principle: **the database is the trust boundary** (ADR-003, ADR-005),
 so the integration tier that exercises row-level security through the real engine cannot be advisory.
 
 ## The pyramid
@@ -50,7 +50,7 @@ ADR-012 § Codification mechanisms defines five mechanisms; the load-bearing one
 ## Governing decisions
 
 - **ADR-012** — the pyramid itself (this strategy's rationale of record).
-- **ADR-003 / ADR-005 / TENET-007** — the trust boundary, which forces tier 3 to required-on-PR.
+- **ADR-003 / ADR-005** — the trust boundary, which forces tier 3 to required-on-PR.
 - **ADR-011** — repository interface as the test seam (enables tier-2 mocking; concrete repos exercised
   by tier 3).
 - **ADR-006** — two front ends + per-app Playwright configs; coverage spans `apps/portal` **and**

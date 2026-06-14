@@ -10,7 +10,7 @@
 - **2026-06-14** — Roadmap seeded. Phasing strategy established; Phase 1 (MVP) opened with the public
   front-door slice (EPIC-001 authored). Later phases and the backlog sketched as named epics to be
   authored on subsequent Planning Agent runs. Sources: `.requirements/` (DOOR/AUTH/… domains),
-  `.architecture/` (ADR-001..012, TENET-001..007).
+  `.architecture/` (ADR-001..022).
 
 ## Phasing strategy
 

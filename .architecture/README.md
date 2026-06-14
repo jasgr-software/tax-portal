@@ -2,13 +2,13 @@
 
 This folder is a **self-contained, portable description of *how* the system is built and why.** It is
 the architecture counterpart to `.requirements/`: where that layer owns the **what** (requirements +
-acceptance criteria), this layer owns the **how** — the architectural decisions, the C4 design, the
-architectural tenets, and the testing and CI/CD strategies. It is readable and runnable by any executor
+acceptance criteria), this layer owns the **how** — the architectural decisions, the C4 design, and
+the testing and CI/CD strategies. It is readable and runnable by any executor
 — this repo's agents, the main session, or an external tool.
 
 Like `.requirements/`, this layer is **self-contained and workflow-agnostic.** Its agent both authors
 the standards and offers a **deviation-review capability** — scanning a diff or design for drift from the
-recorded ADRs, tenets, C4, or strategies — and **neither depends on any orchestration workflow.** A host
+recorded ADRs, C4, or strategies — and **neither depends on any orchestration workflow.** A host
 multi-agent workflow *may* invoke the agent (for example, to scan a change before merge or to refresh the
 C4 model after one lands), but those dispatch points are defined by that workflow in its own adapter, not
 here.
@@ -20,7 +20,6 @@ here.
 ├── README.md            # this file — lifecycle, schemas, conventions
 ├── AGENT.md             # the Architecture Agent — canonical role definition (source of truth)
 ├── OPEN-DECISIONS.md    # ledger of open decisions + logged deviations (OD-NNN), each with a proposed default
-├── TENETS.md            # architectural tenets (TENET-NNN) — read before implementing anything
 ├── _templates/          # copy-to-create shapes
 │   ├── adr.md
 │   ├── c4-level.md
@@ -45,7 +44,7 @@ here.
 ## Lifecycle
 
 ```
-seed/ + project state  ──►  Architecture Agent  ──►  ADRs · C4 · TENETS · strategy  (+ OPEN-DECISIONS.md)
+seed/ + project state  ──►  Architecture Agent  ──►  ADRs · C4 · strategy  (+ OPEN-DECISIONS.md)
 (intent + observed code)     ingest → reconcile          one ADR per decision; living C4 + strategy docs;
                              → author → review           deviation reports during design/code review
 ```
@@ -94,7 +93,7 @@ title: <short title>
 status: Accepted          # Proposed → Accepted → Superseded by ADR-MMM
 date: YYYY-MM-DD
 deciders: [<decider>, user]
-related: [ADR-..., TENET-...]
+related: [ADR-..., REQ-...]
 source:                   # seed / project provenance — drives incremental re-ingestion
   - seed/tech-stack.md#<anchor>
 open_decisions: []        # OD-NNN ids currently blocking this ADR (empty when Accepted)
@@ -106,11 +105,6 @@ Body: **Context**, **Decision**, **Consequences**, **Alternatives considered**.
 
 A living description at one of the four C4 levels (Context, Containers, Components, Code). See
 `_templates/c4-level.md`. `c4/README.md` is the index.
-
-### Tenet — `TENETS.md` entry
-
-A numbered, stable `TENET-NNN` principle with a short rationale and an amendment history. Tenets are the
-non-negotiables that ADRs and code must not violate; a deviation cites the specific `TENET-NNN`.
 
 ### Strategy — `strategy/{TESTING,CICD}.md`
 
@@ -128,7 +122,6 @@ amendment-history block. The strategy doc is the authoritative current state; th
 
 **IDs**
 - `ADR-NNN` — decision record. Zero-padded, globally unique, **never reused or renumbered**.
-- `TENET-NNN` — architectural tenet. Zero-padded, stable; cited by deviations.
 - `OD-NNN` — open decision / logged deviation, globally unique.
 - C4 levels are `L1`–`L4`.
 
@@ -154,7 +147,7 @@ architectural choices (naming, file layout, doc structure) are the agent's to re
 
 ## Scope boundary
 
-This folder owns **architectural decisions, the C4 model, the tenets, and the testing + CI/CD strategy**,
+This folder owns **architectural decisions, the C4 model, and the testing + CI/CD strategy**,
 plus the agent that produces them. It does **not** own product requirements (those live in
 `.requirements/`), nor the **agent/model-behavior governance** of the multi-agent workflow itself —
 `docs/architecture/model-behavior-notes.md` stays where it is, because it governs how the *agents* behave
@@ -165,5 +158,5 @@ audits it.
 
 - **Generic / portable:** this folder structure, `AGENT.md`, these README conventions, `_templates/`,
   all ID schemes, and the four-phase methodology (ingest → reconcile → author → review).
-- **Project-specific:** the `seed/` content, the actual ADRs, the C4 levels, the tenets, and the two
+- **Project-specific:** the `seed/` content, the actual ADRs, the C4 levels, and the two
   strategy docs. A new project keeps the structure and conventions, replaces the content.

@@ -6,9 +6,9 @@ status: draft              # draft → clarifying → planned → delivered
 slice: <one-line vertical capability — a user-visible thread through the stack>
 requirements:              # the specific AC this epic delivers — a SUBSET of a REQ's AC is allowed
   - REQ-<DOMAIN>-NNN: [AC-<DOMAIN>-NNN-01, AC-<DOMAIN>-NNN-02]   # remaining AC of this REQ may belong to other epics
-architecture:              # ADRs / tenets / strategy this slice must adhere to
+architecture:              # ADRs / requirements / strategy this slice must adhere to
   - ADR-NNN
-  - TENET-NNN
+  - REQ-NNN
 depends_on: []             # EPIC ids that must precede this one
 source:                    # provenance into the requirement/architecture sources + seed — drives re-ingestion
   - <requirements source anchor, e.g. .requirements/REQ-DOMAIN-NNN.md>
@@ -35,11 +35,11 @@ epic may deliver a subset of a requirement's AC and leave the rest to other epic
   - **AC-<DOMAIN>-NNN-02** — <…>
 
 ## Architecture adherence
-<The ADRs / tenets / strategy this slice must honor, and the concrete obligation each imposes on the
+<The ADRs / requirements / strategy this slice must honor, and the concrete obligation each imposes on the
 implementer. Cite ids the architecture source owns.>
 
 - **ADR-NNN — <title>** — <the obligation this slice must satisfy>
-- **TENET-NNN — <title>** — <the invariant this slice must not violate>
+- **REQ-NNN — <title>** — <the invariant this slice must not violate>
 
 ## Traceability & sign-off contract
 <The instructions to the implementing agents. Fixed contract — restate per epic so the epic is
@@ -67,6 +67,6 @@ epics without losing the remainder.>
 
 ## Links
 - Requirements: <REQ-… ids this epic touches>
-- Architecture: <ADR-… / TENET-… ids>
+- Architecture: <ADR-… / REQ-… ids>
 - Epics: depends on <EPIC-…>; related <EPIC-…>
 - Open questions: <PQ-… , or "none">

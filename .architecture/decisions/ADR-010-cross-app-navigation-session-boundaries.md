@@ -226,4 +226,4 @@ Clerk issues session cookies scoped to `.<firm-apex>`; both apps receive the coo
 - **ADR-006** — Monorepo layout; defines the two-app structure.
 - **ADR-007** — Container packaging; two images, two ingress routes, one session.
 - **SRS** — REQ-AUTH-001 through REQ-AUTH-009, REQ-IDNT-001.
-- **Tenet 1** (amended) — Security non-negotiable; middleware role gates + RLS + 2FA.
+- **ADR-005 / ADR-020** — security non-negotiable; middleware role gates + RLS + 2FA + encryption.

@@ -4,7 +4,7 @@ title: Application framework — Next.js 14 (App Router) + TypeScript, with the 
 status: Accepted
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-003, ADR-004, ADR-006, ADR-007, ADR-008, ADR-010, ADR-011, ADR-012, ADR-013, TENET-007, TENET-008]
+related: [ADR-003, ADR-004, ADR-005, ADR-006, ADR-007, ADR-008, ADR-010, ADR-011, ADR-012, ADR-013]
 source:
   - seed/tech-stack.md#decided-stack   # Framework row + Language row (both governing ADR "—")
   - seed/intake.md#delivery--operations-philosophy   # "Type safety end to end" bullet
@@ -21,7 +21,7 @@ open_decisions: []
 **Status:** Accepted
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (with user direction)
-**Related:** ADR-003 (identity propagation via middleware), ADR-004 (Prisma), ADR-006 (monorepo / two front ends), ADR-007 (container packaging / standalone output), ADR-008 (object storage route handlers), ADR-010 (cross-app navigation), ADR-011 (repository seam / constructor-injection typing), ADR-012 (testing pyramid — "the compiler is the contract"), ADR-013 (cloud portability); TENET-007 (identity propagation), TENET-008 (cloud-neutral)
+**Related:** ADR-003 (identity propagation via middleware), ADR-004 (Prisma), ADR-006 (monorepo / two front ends), ADR-007 (container packaging / standalone output), ADR-008 (object storage route handlers), ADR-010 (cross-app navigation), ADR-011 (repository seam / constructor-injection typing), ADR-012 (testing pyramid — "the compiler is the contract"), ADR-013 (cloud portability), ADR-005 (RLS / DB trust boundary — identity propagation)
 
 ## Context
 
@@ -36,7 +36,7 @@ The application framework and language are **load-bearing across the existing de
 
 So the framework and language are decided in fact but undocumented — an "undocumented-decision" gap. This ADR locks them in and, critically, **codifies the server-actions-vs-route-handlers convention** that the above ADRs lean on but never wrote down: reviewers today cannot cite a standard when a developer reaches for the wrong primitive.
 
-This must respect the trust boundary (TENET-007 / ADR-003 — identity is set in middleware before any DB query, on *every* server entrypoint), cloud neutrality (TENET-008 / ADR-013 — no edge runtime, no `@vercel/*`, no provider SDK in a route handler or server action), and the two-frontend topology (ADR-006).
+This must respect the trust boundary (ADR-005 / ADR-003 — identity is set in middleware before any DB query, on *every* server entrypoint), cloud neutrality (ADR-013 — no edge runtime, no `@vercel/*`, no provider SDK in a route handler or server action), and the two-frontend topology (ADR-006).
 
 Scope is **how, not what**: this decides the build technology and the server-entrypoint convention, not any product behavior.
 
@@ -48,7 +48,7 @@ Scope is **how, not what**: this decides the build technology and the server-ent
 
 - **App Router only.** No Pages Router. Routing, layouts, and server entrypoints follow the `app/` directory model already described in ADR-006.
 - **Server-first.** Server Components by default; `'use client'` only where interactivity requires it. This keeps data access on the server, where the `SESSION_CONTEXT` identity contract (ADR-003) holds.
-- **Standalone output** (`output: 'standalone'`, `outputFileTracingRoot` at the repo root) — already required by ADR-007 for the container image shape. No edge runtime, no `@vercel/*` (ADR-007, ADR-013, TENET-008).
+- **Standalone output** (`output: 'standalone'`, `outputFileTracingRoot` at the repo root) — already required by ADR-007 for the container image shape. No edge runtime, no `@vercel/*` (ADR-007, ADR-013).
 - **Identity middleware is mandatory on both apps.** Each app's `middleware.ts` verifies the Clerk session and enters `withRequestContext()` before any handler runs (ADR-003). This ADR makes Next.js middleware the *named* mechanism for that obligation; it is not optional anywhere a request can reach the DB.
 
 ### 2. Language — TypeScript
@@ -57,7 +57,7 @@ TypeScript is the single application language across both apps and all shared `p
 
 - **`strict` mode on.** `strict: true` in the shared `tsconfig` base; both apps and all packages extend it. No `// @ts-nocheck` files, no implicit `any` in committed code.
 - **The compiler is the cross-module contract.** Per ADR-012, there is no OpenAPI/codegen boundary inside the monorepo — server actions, route handlers, and the repository interfaces (ADR-011) are joined by hand-typed signatures and Prisma-generated types. The `type-check` gate (ADR-012 Tier 1) is therefore a hard contract gate, not a nicety: a type error is a broken cross-module contract.
-- **Typed seams.** Repository constructor injection (ADR-011) and the storage port (ADR-008) are typed interfaces; the compiler enforces adapter conformance. This is the portability mechanism TENET-008 relies on — swapping an adapter is a typed, single-file change.
+- **Typed seams.** Repository constructor injection (ADR-011) and the storage port (ADR-008) are typed interfaces; the compiler enforces adapter conformance. This is the portability mechanism ADR-013 relies on — swapping an adapter is a typed, single-file change.
 
 ### 3. Server-actions-vs-route-handlers convention (the new citable standard)
 
@@ -76,8 +76,8 @@ Both primitives run server-side under the App Router and both sit *after* the id
 **Decision rule, one line:** *if our own UI invokes it, prefer a Server Action; if something external addresses it by URL, or it needs an explicit HTTP/streaming contract, it is a Route Handler.*
 
 **Invariants for both:**
-- Neither may bypass the identity middleware. A server action or route handler that touches the DB must run inside the request context (ADR-003 / TENET-007); the anonymous paths (public services page, engagement-request submission) use the admin pool explicitly, never the request pool.
-- Neither may import a cloud provider SDK directly — storage, signed-URL minting, email, realtime go through their ports (ADR-008/009, ADR-013, TENET-008).
+- Neither may bypass the identity middleware. A server action or route handler that touches the DB must run inside the request context (ADR-003 / ADR-005); the anonymous paths (public services page, engagement-request submission) use the admin pool explicitly, never the request pool.
+- Neither may import a cloud provider SDK directly — storage, signed-URL minting, email, realtime go through their ports (ADR-008/009, ADR-013).
 - No business logic in `packages/ui` components reaching into either primitive (ADR-006 boundary).
 
 ### Enforcement is a developer task (flagged, not written here)

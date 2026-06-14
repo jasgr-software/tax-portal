@@ -21,7 +21,6 @@
 - **location:** `.architecture/`
 - **artifacts:**
   - `decisions/ADR-NNN-<slug>.md` — architectural decision records (cited as `ADR-NNN`)
-  - `TENETS.md` — architectural tenets (cited as `TENET-NNN`)
   - `c4/` — the C4 model (L1–L4)
   - `strategy/TESTING.md` — the testing pyramid / tier contract an epic's test contract draws on
   - `strategy/CICD.md` — the CI gate (the independent pass/fail source the validate phase consumes)
@@ -30,7 +29,7 @@
 ## Notes
 
 - **Both sources are present for this project**, so each epic decomposes real requirements (`REQ-*`) and
-  cites real decisions (`ADR-*` / `TENET-*`), and `COVERAGE.md` tracks the full `AC-*` corpus to
+  cites real decisions (`ADR-*`), and `COVERAGE.md` tracks the full `AC-*` corpus to
   acceptance.
 - **A future project retargets here.** Point these entries at a single design document, a different set
   of folders, or whatever that project uses. If a project has **no** requirements/architecture layers,
