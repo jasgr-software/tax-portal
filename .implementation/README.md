@@ -38,7 +38,7 @@ Requirements, design, and planning are **not removed** from the team — they ar
 
 | Activity         | Upstream (owned outside the team)                                  | Inside the team (per brief)                                                          |
 | ---------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| **Requirements** | Product SRS, personas, product-wide flows; the acceptance + methodology contract (gherkin, TDD, e2e/coverage) — canonically produced by `.planning/` | Clarify/understand the brief for this slice; honor the contract handed down         |
+| **Requirements** | Product requirements (the *what*) live in `.requirements/`; personas, targeted user flows, and the acceptance scenarios + methodology contract (gherkin, TDD, e2e/coverage) are owned by `.planning/` | Clarify/understand the brief for this slice; honor the contract handed down — bind gherkin only when the brief mandates it |
 | **Design**       | System architecture, ADRs, C4, cross-cutting tech choices          | Implementation design of the slice, within cited constraints; record `// DECISION:` |
 | **Planning**     | Roadmap, epic sequencing, cross-product coverage                   | Task decomposition + sequencing of the slice                                        |
 | **Build**        | —                                                                  | Implement per the brief's mandated methodology; write the executable tests          |

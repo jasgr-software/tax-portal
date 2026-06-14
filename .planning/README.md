@@ -23,13 +23,20 @@ the acceptance coverage, and the agent that authors them.
 ├── ROADMAP.md           # the living, phased plan (Phase 1 = MVP → … → full acceptance)
 ├── COVERAGE.md          # the acceptance ledger — one row per AC → epic → test binding → status
 ├── OPEN-QUESTIONS.md    # planning ambiguity ledger (PQ-NNN), each with a proposed default
+├── personas/            # user archetypes — one file per actor (created on first authored persona)
+│   └── <slug>.md
+├── flows/               # targeted, lightweight per-slice user flows (created on first authored flow)
+│   └── <slug>.md
 ├── _templates/          # copy-to-create shapes
 │   ├── epic.md
+│   ├── persona.md
+│   ├── flow.md
 │   └── open-question.md
 ├── seed/                # ingestion surface — read-only to the agent
 │   ├── sources.md       # THE generalization knob — declares where the requirement/architecture sources live
 │   └── intake.md        # raw planning intent + ad-hoc requirements
 └── EPIC-NNN-<slug>.md   # one file per vertically-sliced epic, authored by the agent
+                         #   (acceptance scenarios live INSIDE the epic — there is no .feature tree)
 ```
 
 ## Lifecycle
@@ -93,8 +100,9 @@ source:
 open_questions: []
 ```
 
-Body sections: **Vertical slice**, **Requirements delivered**, **Architecture adherence**, **Traceability
-& sign-off contract**, **Out of scope** (incl. AC split to other epics), **Links**. `EPIC-001` is the
+Body sections: **Vertical slice**, **Requirements delivered**, **Architecture adherence**, **Acceptance
+scenarios** (Given/When/Then per in-scope AC), **Traceability & sign-off contract**, **Out of scope**
+(incl. AC split to other epics), **Links** (incl. the personas and flows it touches). `EPIC-001` is the
 worked reference example.
 
 ### Roadmap — `ROADMAP.md`
@@ -113,6 +121,30 @@ an **Orphans** section (source AC not yet placed — the work remaining), and a 
 `PQ-NNN` with `Status` (open → resolved), `Affects` (the epic/requirement/phase it blocks), the
 `Question`, a `Proposed default` (so planning is never blocked — except carve-out items), a `Resolution`,
 and `Provenance`.
+
+### Persona — `personas/<slug>.md`
+
+A user archetype the product serves (see `_templates/persona.md`): the actor's role, goals, context,
+pain points, and what they touch in the product. Authored **as the roadmap reaches an actor that has
+none** — not an exhaustive upfront set. Filed by descriptive kebab-case slug (e.g.
+`personas/jane-accountant.md`); the slug is its identity.
+
+### User flow — `flows/<slug>.md`
+
+A **targeted, lightweight** end-to-end flow (see `_templates/flow.md`): the actor, the trigger, the
+happy-path steps through the stack, and the key alternate/error branches — scoped to the slice that
+realizes it. Built out **incrementally as epics are authored** (a per-slice flow, not a product-wide
+flow catalogue) and grown as later epics extend the same journey. Filed by descriptive kebab-case slug
+(e.g. `flows/engagement-request.md`).
+
+### Acceptance scenario — embedded in `EPIC-NNN-<slug>.md`
+
+The behavior contract, written as **Given/When/Then** scenarios in the epic's *Acceptance scenarios*
+section — one or more per in-scope AC, with the scenario title carrying the AC id it covers. **There is
+no standalone `.feature` tree**: the scenarios live inside the epic and a build brief surfaces them into
+its `acceptance_scenarios`. Whether the downstream `.implementation/` team binds them to executable
+gherkin step definitions is that brief's optional, methodology-driven call — planning owns the scenario
+*text*, not the binding.
 
 ## Conventions
 
@@ -136,6 +168,13 @@ epic, the Orphans section, or the Deferred section.
 AC id** passes in CI. The agent verifies this from evidence in the validate phase; it never runs tests
 and never signs off without evidence.
 
+**Behavior contract — personas, targeted flows, epic-embedded scenarios.** Personas are authored as the
+roadmap reaches an actor that needs one; user flows are **targeted and lightweight**, built out
+**incrementally as epics are authored** rather than as an exhaustive upfront set; acceptance scenarios are
+**Given/When/Then text inside the epic** (no `.feature` tree). Surfacing scenarios into a brief's
+`acceptance_scenarios` is planning's job; **binding** them to executable gherkin is optional and
+brief-driven, done downstream in `.implementation/` only when a brief sets `acceptance_format: gherkin`.
+
 **What and in what order — never how.** This layer decides scope, slicing, and sequencing, and specifies
 the test *contract*. The mechanisms that satisfy a slice (framework, schema, endpoints, components, test
 code) live in `.architecture/` and the implementation. If you catch yourself writing how-to-build detail,
@@ -151,18 +190,25 @@ foundational slice lands in) are the agent's to resolve.
 
 ## Scope boundary
 
-This folder owns **the roadmap, the epics, the acceptance coverage ledger, and the planning
-open-questions ledger**, plus the agent that produces them. It does **not** own product requirements
+This folder owns **the roadmap, the epics, the acceptance coverage ledger, the planning open-questions
+ledger, and the behavior contract** (personas, targeted user flows, and the epics' Given/When/Then
+acceptance scenarios), plus the agent that produces them. It does **not** own product requirements
 (those live in the requirements source, e.g. `.requirements/`), architecture decisions (the architecture
-source, e.g. `.architecture/`), application code, or tests. It **reads and references** the sources and
-**specifies the test contract**; implementers write the code and the tests, and CI is the independent
-test gate the validate phase consumes.
+source, e.g. `.architecture/`), application code, tests, or executable gherkin step definitions. It
+**reads and references** the sources and **specifies the behavior and test contract**; implementers write
+the code and the tests, and CI is the independent test gate the validate phase consumes.
+
+> **Legacy note.** Pre-restructuring personas and flows still sit under `docs/requirements/{personas,flows}/`
+> as untouched read-only legacy. They are **not yet migrated** into this layer — that is a separate pass,
+> tracked by OQ-011 in `.requirements/OPEN-QUESTIONS.md` (still open). New personas/flows are authored here
+> under `personas/` and `flows/`.
 
 ## Reusability
 
-- **Generic / portable:** this folder structure, `AGENT.md`, these README conventions, `_templates/`, all
-  ID schemes, the five-phase methodology (ingest → clarify → author → self-review → validate), the
-  ROADMAP/EPIC/COVERAGE artifact shapes, and the **AC-id test-tag** traceability convention.
+- **Generic / portable:** this folder structure, `AGENT.md`, these README conventions, `_templates/`
+  (epic, persona, flow, open-question), all ID schemes, the five-phase methodology (ingest → clarify →
+  author → self-review → validate), the ROADMAP/EPIC/COVERAGE artifact shapes, the persona/flow/
+  acceptance-scenario behavior-contract shapes, and the **AC-id test-tag** traceability convention.
 - **Project-specific:** the `seed/` content (especially `sources.md`, which names this project's
   requirement and architecture sources), the actual epics, the roadmap phases, and the coverage rows. A
   new project keeps the structure and conventions, repoints `sources.md`, and replaces the content — or,

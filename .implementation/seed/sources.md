@@ -41,8 +41,11 @@ layer, and it never edits one (it may *raise* a question back via `OPEN-QUESTION
   - **location:** `.planning/`
   - **artifacts:** `EPIC-NNN-*.md`, `ROADMAP.md`, `COVERAGE.md`
   - **use:** when a brief is produced from a planning epic, the epic is the canonical producer of the brief's
-    acceptance criteria and methodology (gherkin scenarios, TDD mandate, e2e/coverage targets). The team
-    reports completion back (which AC were satisfied) for the planning layer to absorb into `COVERAGE.md`.
+    acceptance criteria, behavior contract (personas, targeted user flows, and the epic's Given/When/Then
+    acceptance scenarios), and methodology (gherkin format, TDD mandate, e2e/coverage targets). The team
+    reads cited personas/flows/scenarios as read-only context, binds the scenarios to executable gherkin
+    only when the brief sets `acceptance_format: gherkin`, and reports completion back (which AC were
+    satisfied) for the planning layer to absorb into `COVERAGE.md`.
 
 ## Notes
 
