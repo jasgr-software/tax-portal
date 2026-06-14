@@ -2,7 +2,7 @@
 # scripts/validate-gates.sh
 #
 # Programmatic gate validation backstop for the tax-portal multi-agent workflow.
-# See .claude/agent-stack.md § Programmatic Gate Validation.
+# See .implementation/ENGINE.md § Programmatic Gate Validation.
 #
 # Usage:
 #   bash scripts/validate-gates.sh                              # full check against real repo
@@ -51,14 +51,14 @@ done
 # instead of the real repo. Individual checks pick up their paths from these vars.
 
 if [[ -n "$FIXTURE_DIR" ]]; then
-  TASKS_DIR="${FIXTURE_DIR}/docs/tasks"
-  TASKS_DONE_DIR="${FIXTURE_DIR}/docs/tasks/done"
-  PROGRESS_MD="${FIXTURE_DIR}/docs/tasks/PROGRESS.md"
+  TASKS_DIR="${FIXTURE_DIR}/.implementation/tasks"
+  TASKS_DONE_DIR="${FIXTURE_DIR}/.implementation/tasks/done"
+  PROGRESS_MD="${FIXTURE_DIR}/.implementation/tasks/PROGRESS.md"
   REPO_SCAN_ROOT="${FIXTURE_DIR}"
 else
-  TASKS_DIR="${REPO_ROOT}/docs/tasks"
-  TASKS_DONE_DIR="${REPO_ROOT}/docs/tasks/done"
-  PROGRESS_MD="${REPO_ROOT}/docs/tasks/PROGRESS.md"
+  TASKS_DIR="${REPO_ROOT}/.implementation/tasks"
+  TASKS_DONE_DIR="${REPO_ROOT}/.implementation/tasks/done"
+  PROGRESS_MD="${REPO_ROOT}/.implementation/tasks/PROGRESS.md"
   REPO_SCAN_ROOT="${REPO_ROOT}"
 fi
 
@@ -208,7 +208,7 @@ check_bug_files_present_for_done() {
 # Check 3: check_progress_md_structure
 #
 # PROGRESS.md must contain all 5 section headers per
-# .claude/agent-stack.md § PROGRESS.md structure contract:
+# .implementation/ENGINE.md § PROGRESS.md structure contract:
 #   1. ## Current initiative
 #   2. ## Awaiting PR merge
 #   3. ## Active bugs
@@ -462,7 +462,7 @@ check_ci_evidence() {
 
       # Item 1: Run URL, local log path, or prose red-then-green evidence.
       # Prose branch requires two anchors (RED:+GREEN: or Pre-rule+Post-rule) per
-      # agent-stack.md § Gate Authoring Rules § In-flight regression exception.
+      # .implementation/ENGINE.md § Gate Authoring Rules § In-flight regression exception.
       if ! grep -qE "(https://github\.com/.*/actions/runs/[0-9]+|/tmp/[a-zA-Z0-9_-]+\.log)" "$f" && \
          ! { grep -qE "(RED:|Pre-rule)" "$f" && grep -qE "(GREEN:|Post-rule)" "$f"; }; then
         fail "$check_name" "$fname: Introduces-gate done task missing run URL or local log path"
@@ -497,7 +497,7 @@ check_ci_evidence() {
 # Check 8: check_pr_body_quad_review
 #
 # Only active when --pr-body <file> is passed.
-# If changed files include .claude/agent-stack.md or agents/*.md,
+# If changed files include .implementation/ENGINE.md or .implementation/agents/*.md,
 # the PR body must contain all four verdict markers: [sa], [ra], [sdet], [overwatch].
 # ---------------------------------------------------------------------------
 
@@ -543,7 +543,7 @@ check_pr_body_quad_review() {
   local is_workflow_pr=0
   for f in "${changed_files[@]}"; do
     case "$f" in
-      .claude/agent-stack.md|agents/*.md)
+      .implementation/ENGINE.md|.implementation/agents/*.md)
         is_workflow_pr=1
         break
         ;;
@@ -582,7 +582,7 @@ check_pr_body_quad_review() {
 #     where <task-id> matches TASK-[A-Z][A-Z0-9]*-[0-9]{3,} or
 #                              BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,}
 #
-# Implements .claude/agent-stack.md § Autonomy Ceiling item 3 condition (d).
+# Implements .implementation/ENGINE.md § Autonomy Ceiling item 3 condition (d).
 # ---------------------------------------------------------------------------
 
 check_pr_awaiting_merge_gate_verdicts() {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PostToolUse hook (Edit|Write): snapshot task file state from docs/tasks/.
+"""PostToolUse hook (Edit|Write): snapshot task file state from .implementation/tasks/.
 
 Records one JSONL line per edit to a task file. Skips templates and aggregator
 files (PROGRESS.md, README.md, etc.). The report script computes state
@@ -26,7 +26,7 @@ SKIP_FILES = {
     "_TEMPLATE.md",
     "_BUG_TEMPLATE.md",
 }
-TASK_PATH_RE = re.compile(r"docs/tasks/([^/]+\.md)$")
+TASK_PATH_RE = re.compile(r"\.implementation/tasks/([^/]+\.md)$")
 TASK_ID_RE = re.compile(
     r"^(?:TASK-\d{3}-\d{3}|BUG-\d{3}-\d{3}|RETRO-\d{3}|EP-(?:\d{3}|NEXT))"
 )

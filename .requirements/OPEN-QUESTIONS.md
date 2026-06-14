@@ -157,6 +157,23 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
   this; no change needed.
 - **Provenance:** authoring run (FILE)
 
+## OQ-011 — Adopt or drop the legacy user flows & personas
+- **Status:** open
+- **Affects:** (layer-level — no single REQ)
+- **Question:** The `.implementation/` refactor (2026-06-14) retired the legacy `docs/` agent structure but
+  left `docs/requirements/flows/` (6 user-flow files) and `docs/requirements/personas/` (4 persona files)
+  with no home in the new layers. They predate this `.requirements/` layer and overlap with the acceptance
+  criteria now carried on `REQ-*` files. Should the `.requirements/` layer **absorb** them (migrate flows →
+  a `flows/` artifact type and personas → a `personas/` artifact type under `.requirements/`, reconciled
+  against the REQ acceptance criteria), or **drop** them (the REQ acceptance criteria + persona context in
+  the SRS snapshot already cover their content)?
+- **Proposed default:** Drop. The REQ acceptance criteria are the canonical "what"; product-wide flows and
+  personas, if still wanted, are better re-derived as a first-class `.requirements/` artifact type than
+  migrated verbatim from the retired `docs/` tree. Until the Requirements Agent decides, the files remain in
+  `docs/requirements/{flows,personas}/` untouched (read-only legacy).
+- **Provenance:** `.implementation/` refactor, 2026-06-14 (flagged from the implementation layer; ownership
+  is this layer's).
+
 ---
 
 _Resolved before this ledger was created: **CLARIF-004** (portal names) — settled 2026-04-16 as

@@ -5,7 +5,7 @@
 # Installed by: bash scripts/hooks/install.sh
 #
 # Runs scripts/validate-gates.sh before every push. Any check failure blocks
-# the push. Bypass via --no-verify is off-limits per .claude/agent-stack.md
+# the push. Bypass via --no-verify is off-limits per .implementation/ENGINE.md
 # § Autonomy Ceiling item 2 — this hook intentionally does not parse or honor
 # that flag; the git client itself handles the flag before invoking hooks.
 #
@@ -28,7 +28,7 @@ if ! bash "$SCRIPT"; then
   echo "" >&2
   echo "[pre-push] Push BLOCKED — one or more gate checks failed." >&2
   echo "[pre-push] Fix the issues above and retry. If --no-verify is genuinely needed," >&2
-  echo "[pre-push] it requires explicit user authorization per agent-stack.md § Autonomy Ceiling item 2." >&2
+  echo "[pre-push] it requires explicit user authorization per .implementation/ENGINE.md § Autonomy Ceiling item 2." >&2
   exit 1
 fi
 

@@ -1,14 +1,13 @@
 # CLAUDE.md
 
-This file provides project-specific guidance to Claude Code. For the reusable multi-agent workflow engine, see `.claude/agent-stack.md`. For individual agent instructions, see `agents/*.md`.
+This file provides project-specific guidance to Claude Code. For the reusable multi-agent implementation engine, see `.implementation/ENGINE.md` (rules) and `.implementation/PHASES.md` (orchestrator phases). For individual agent instructions, see `.implementation/AGENT.md` (the Implementation Orchestrator) and `.implementation/agents/*.md`.
 
 ## Main Session Rules
 
-Generic rules live in `.claude/agent-stack.md` § Main Session Rules. Project-specific additions:
+Generic rules live in `.implementation/ENGINE.md` § Main Session Rules. Project-specific additions:
 
-- **"Application code" scope:** source files, Prisma schema, infrastructure config, Dockerfiles, GitHub workflows, and configuration. The main session may only modify: `CLAUDE.md`, `docs/tasks/`, `docs/architecture/`, `docs/decisions/`, `agents/*.md`, `.claude/`, and memory files.
-- **Requirements exception:** the main session may append to `docs/requirements/observations.md` (user input capture, not requirements authoring). All other requirements changes go through the RA.
-- **Initial intake:** `docs/requirements/intake.md` is the raw source document the user provided. The RA processes it into `docs/requirements/SRS.md` + epic files during its first invocation.
+- **"Application code" scope:** source files, Prisma schema, infrastructure config, Dockerfiles, GitHub workflows, and configuration. The main session may only modify: `CLAUDE.md`, `.implementation/**` (engine, phases, agents, the task pipeline, operations), `.claude/`, and memory files.
+- **Upstream layers are read-only here:** product requirements (`.requirements/`), system architecture (`.architecture/`), and delivery planning (`.planning/`) are owned by their own agents and are not edited as part of an implementation run. The implementation team reads them only when a build brief cites them.
 
 ## Product Vision
 
@@ -41,12 +40,11 @@ Not a tax preparation, calculation, or filing tool. No IRS integrations, no paym
 
 ## Agent Team — Project Configuration
 
-The workflow engine (`.claude/agent-stack.md`) defines generic roles. This section maps them to this project's tech stacks, directories, and role tags.
+The workflow engine (`.implementation/ENGINE.md`) defines generic roles. This section maps them to this project's tech stacks, directories, and role tags.
 
 | Role Tag             | Agent Role           | Model      | Assigned Directories                                                          | Tech Stack                                                                 |
 | -------------------- | -------------------- | ---------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `[sa]`               | System Architect     | Opus 4.6   | `CLAUDE.md`, `docs/tasks/`, `docs/architecture/`, `docs/decisions/`           | —                                                                          |
-| `[ra]`               | Requirements Analyst | Sonnet 4.6 | `docs/requirements/`                                                          | —                                                                          |
+| `[io]`               | Implementation Orchestrator | Opus 4.6 | `.implementation/AGENT.md`, `.implementation/ENGINE.md`, `.implementation/PHASES.md`, `.implementation/tasks/` | —                                                  |
 | `[webapp-developer]` | Developer            | Sonnet 4.6 | `apps/portal`, `apps/admin`, `packages/`, `prisma/`, `db/`                    | Next.js 14 (App Router), TypeScript, Clerk, Prisma (sqlserver provider), SQL Server 2022, Tailwind, shadcn/ui, Playwright, Vitest. Two front-ends: `apps/portal` (Client Portal — client-facing) and `apps/admin` (Tax Portal — accountant-facing). See ADR-006. |
 | `[devops]`           | Developer            | Sonnet 4.6 | `infra/`, `.github/workflows/`, Dockerfiles, `docker-compose*.yml`            | OCI containers (multi-stage Dockerfile), GitHub Actions, Docker + Docker Compose (local dev). Production deploy platform deferred — see ADR-007. |
 | `[sdet]`             | SDET / Validator     | Sonnet 4.6 | (reviews all directories)                                                     | —                                                                          |
@@ -54,23 +52,23 @@ The workflow engine (`.claude/agent-stack.md`) defines generic roles. This secti
 
 ### Platform-frontend scope (portal + admin are two frontends of one platform)
 
-`apps/portal` (Client Portal) and `apps/admin` (Tax Portal) are two frontends of one platform — see ADR-006. Audits, e2e sweeps, flake-isolation passes, mirror-file checks, and "does this pattern exist elsewhere" questions default to **both** `apps/portal/**` and `apps/admin/**`. Running a gate or audit against only one surface is insufficient unless the task spec scopes to a single surface by name. This applies to every role — webapp-developer implementation scope, SDET Validate + mirror-file audits, SA Plan briefs, and Overwatch reviews.
+`apps/portal` (Client Portal) and `apps/admin` (Tax Portal) are two frontends of one platform — see ADR-006. Audits, e2e sweeps, flake-isolation passes, mirror-file checks, and "does this pattern exist elsewhere" questions default to **both** `apps/portal/**` and `apps/admin/**`. Running a gate or audit against only one surface is insufficient unless the task spec scopes to a single surface by name. This applies to every role — webapp-developer implementation scope, SDET Validate + mirror-file audits, IO Plan briefs, and Overwatch reviews.
 
 **Sunset trigger:** if 3 consecutive Close-prep retros pass with zero cross-surface-parity findings, Overwatch flags this rule for keep/remove review.
 
 ### Domain-specific notes
 
 - **Web App Developer**: Two migration tracks per ADR-002 and ADR-006 — **Prisma track** (`prisma/schema.prisma` → `pnpm prisma migrate dev` locally, `pnpm prisma migrate deploy` in CI) for entity schema; **raw SQL track** (`db/migrations/NNNN-description.sql`) for things Prisma can't express (security policies, predicate functions, temporal tables, filtered indexes). Raw-SQL migrations are applied via `scripts/db-migrate.ts`. Security policies live in `db/policies/` as versioned raw SQL — per ADR-005. Every request-scoped DB query must go through the `packages/db` Prisma wrapper that sets `SESSION_CONTEXT` before the first real query (ADR-003). Direct Prisma access in route handlers outside that wrapper is a convention violation. E2E tests run against the full local stack (SQL Server container + Next.js + Azurite + Mailhog) and validate complete user workflows. Every UI app must include Playwright config, e2e test helpers, and an `e2e:run` script. The app is not considered scaffolded without e2e infrastructure.
-- **DevOps**: When a task changes Dockerfile content, docker-compose service topology, secrets, environment variables, ingress wiring, or the admin/app DB principal split, **must update `docs/operations/inventory.md` and `docs/operations/runbook.md`**. Production platform is deferred (ADR-007) — but the capability contract the eventual host must satisfy is authoritative.
-- **SDET**: For infrastructure tasks, **must verify `docs/operations/inventory.md` and `docs/operations/runbook.md` are consistent** with any environment, secret, or configuration changes — reject if stale. For RLS policy tasks, an integration test per policy ("CLIENT-A cannot read CLIENT-B's rows") is a hard requirement per ADR-005.
+- **DevOps**: When a task changes Dockerfile content, docker-compose service topology, secrets, environment variables, ingress wiring, or the admin/app DB principal split, **must update `.implementation/operations/inventory.md` and `.implementation/operations/runbook.md`**. Production platform is deferred (ADR-007) — but the capability contract the eventual host must satisfy is authoritative.
+- **SDET**: For infrastructure tasks, **must verify `.implementation/operations/inventory.md` and `.implementation/operations/runbook.md` are consistent** with any environment, secret, or configuration changes — reject if stale. For RLS policy tasks, an integration test per policy ("CLIENT-A cannot read CLIENT-B's rows") is a hard requirement per ADR-005.
 
-### SA-specific: E2e-required triggers
+### IO-specific: E2e defaults (brief-overridable)
 
-The SA sets `E2e-required: yes` on any task touching: auth flows (Clerk), SQL Server security policies or `SESSION_CONTEXT` propagation, file upload/download (signed URLs), Docuseal e-sign integration, email sending, SSE subscription streams, or cross-module boundaries (e.g. onboarding gate).
+These are **project defaults** the IO applies when a build brief does not specify e2e expectations; a brief's `methodology.e2e` overrides them. By default the IO sets `E2e-required: yes` on any task touching: auth flows (Clerk), SQL Server security policies or `SESSION_CONTEXT` propagation, file upload/download (signed URLs), Docuseal e-sign integration, email sending, SSE subscription streams, or cross-module boundaries (e.g. onboarding gate).
 
 ## Submission Gate Commands
 
-These are the project-specific commands referenced by the generic submission gate in `.claude/agent-stack.md`.
+These are the project-specific commands referenced by the generic submission gate in `.implementation/ENGINE.md`.
 
 > **Long-running command output capture:** When a developer or SDET agent runs a command that may produce several thousand lines of output (e.g. `pnpm ci:local`, `pnpm --filter web e2e:run`), **do not pipe through `| tail`** — pipe buffering can strand the final completion marker behind a blocked buffer. The correct pattern is: (1) run the command with `run_in_background: true` via the Bash tool, redirecting full output to a file (`>/tmp/<name>.log 2>&1`), and (2) use the **Monitor** tool to tail the file for specific completion markers. See § Tool Usage Notes below.
 
@@ -103,17 +101,17 @@ pnpm --filter admin e2e:run -- --grep '<feature>'    # Targeted e2e (admin)
 pnpm e2e:cross-app                                   # Cross-app redirect + navigation specs (ADR-010)
 ```
 
-### Executable gherkin tooling (planned — Epic 001 scope)
+### Executable gherkin tooling (brief-driven; tooling not yet chosen)
 
-Per `agent-stack.md` § Quality Artifacts, SDET authors gherkin `.feature` files under `docs/requirements/features/`. These are **intended to be executable** — bound to Playwright via Cucumber step definitions so scenarios are machine-verifiable (not just prose). The concrete tooling is set up during Epic 001 scaffolding and has not been chosen yet (candidates: `@cucumber/cucumber` with a Playwright fixture; `playwright-bdd`; or a custom binder).
+Gherkin is **not** an engine mandate — it applies only when a build brief sets `methodology.acceptance_format: gherkin` (canonically produced by `.planning/`). When a brief mandates it, the SDET authors `.feature` files as a validation artifact derived from the brief's acceptance criteria (see `.implementation/agents/sdet.md` § Acceptance Scenarios). These are **intended to be executable** — bound to Playwright via Cucumber step definitions. The concrete tooling has not been chosen yet (candidates: `@cucumber/cucumber` with a Playwright fixture; `playwright-bdd`; or a custom binder) and is set up during the first slice that requires it.
 
-**Current state — until Epic 001 lands the tooling:**
+**Current state — until the tooling lands:**
 
 - `.feature` files are **human-readable specs**. SDET review compares implementation behavior against scenarios via prose — not machine-verified.
-- Playwright e2e tests are written in standard `.spec.ts` form but must cover the behavior described by `.feature` scenarios for the task's requirements.
-- When Cucumber tooling is integrated, this section will be updated with: the package choice, the step-definition directory convention, the dry-run command (to catch undefined steps), and the CI run command.
+- Playwright e2e tests are written in standard `.spec.ts` form but must cover the behavior described by the brief's acceptance scenarios.
+- When Cucumber tooling is integrated, this section will be updated with: the package choice, the step-definition directory convention, the dry-run command, and the CI run command.
 
-**Step definition directory (provisional):** `apps/<app>/e2e/steps/<area>.steps.ts` — to be confirmed during Epic 001.
+**Provisional locations:** `.feature` files under `apps/<app>/e2e/features/`; step definitions under `apps/<app>/e2e/steps/<area>.steps.ts`.
 
 ### Full CI (epic completion)
 
@@ -121,7 +119,7 @@ Per `agent-stack.md` § Quality Artifacts, SDET authors gherkin `.feature` files
 pnpm ci:local      # lint → type-check → build → test
 ```
 
-### Full E2E gate (RA epic validation)
+### Full E2E gate (SDET slice validation)
 
 ```bash
 pnpm --filter web e2e:run
@@ -207,15 +205,14 @@ pnpm db:reset                                # Drop + recreate local DB, re-run 
 
 ## Key Documentation
 
-- `.claude/agent-stack.md` — multi-agent workflow engine (reusable rules all agents follow)
-- `.claude/agent-phases.md` — SA-only phase lifecycle reference
-- `agents/*.md` — individual agent role definitions (SA, RA, Developer, SDET, Overwatch, PD-*)
-- `docs/architecture/C4.md` — living C4 architecture model; the SA updates this after each epic
-- `docs/requirements/intake.md` — raw requirements document (user-provided source material)
-- `docs/requirements/SRS.md` — Software Requirements Specification (RA-owned, living document — produced from intake)
-- `docs/requirements/ep-NNN-name.md` — epic-level requirements with acceptance criteria
-- `docs/decisions/` — architecture decision records; consult before making structural choices
-- `.planning/` — **standalone, workflow-decoupled delivery-planning layer** (the "Product Owner"). Decomposes the requirement + architecture sources into a phased roadmap of vertically-sliced epics and tracks every acceptance criterion to sign-off. Owned by its own canonical agent, `.planning/AGENT.md` — read that to author/validate; it is self-contained and not wired into the SA workflow. Key files: `.planning/ROADMAP.md` (phased plan), `.planning/COVERAGE.md` (per-AC acceptance ledger), `.planning/EPIC-NNN-*.md` (epics), `.planning/seed/sources.md` (declares the requirement/architecture sources — the only project-coupling point). Joins `.requirements/` (the *what*) and `.architecture/` (the *how*) as the third standalone layer (the *what-next-and-in-what-order*).
+- `.implementation/ENGINE.md` — multi-agent implementation engine (reusable rules all roster agents follow)
+- `.implementation/PHASES.md` — IO-only phase lifecycle reference
+- `.implementation/AGENT.md` — the Implementation Orchestrator (canonical entry role)
+- `.implementation/agents/*.md` — roster role definitions (developer, SDET, Overwatch)
+- `.implementation/README.md` — implementation layer overview + the build-brief input contract (`_templates/build-brief.md`)
+- `.requirements/` — **standalone requirements layer** (the *what*): `REQ-*` with acceptance criteria; owned by `.requirements/AGENT.md`
+- `.architecture/` — **standalone architecture layer** (the *how*): ADRs (`decisions/ADR-*`), the C4 model (`c4/`), and strategy docs; owned by `.architecture/AGENT.md`
+- `.planning/` — **standalone, workflow-decoupled delivery-planning layer** (the "Product Owner"). Decomposes the requirement + architecture sources into a phased roadmap of vertically-sliced epics and tracks every acceptance criterion to sign-off. Owned by its own canonical agent, `.planning/AGENT.md` — read that to author/validate; it is self-contained and not wired into the implementation workflow. A `.planning/` epic is a canonical **producer of build briefs** for `.implementation/`. Key files: `.planning/ROADMAP.md` (phased plan), `.planning/COVERAGE.md` (per-AC acceptance ledger), `.planning/EPIC-NNN-*.md` (epics), `.planning/seed/sources.md` (declares the requirement/architecture sources — the only project-coupling point). Joins `.requirements/` (the *what*) and `.architecture/` (the *how*) as the third standalone layer (the *what-next-and-in-what-order*).
 
 ## Tool Usage Notes
 

@@ -12,7 +12,7 @@
 **Complexity-actual**: — <!-- 1-5, set when marking review -->
 
 <!--
-The four fields above are the Task Metadata Contract — see .claude/agent-stack.md
+The four fields above are the Task Metadata Contract — see .implementation/ENGINE.md
 § Task Metadata Contract. Same enforcement as tasks.
 -->
 
@@ -28,7 +28,7 @@ Targeted e2e is N/A unless the bug touches an `E2e-required: yes` surface.
 Post-merge verification is N/A unless the bug affects a deployed surface
 (staging or production). The SDET walks this list — every unticked Mandatory
 box is a rejection, including unticked boxes that should have been marked
-`[N/A]`. See `agents/sdet.md` § Review Process for the underlying rules.
+`[N/A]`. See `.implementation/agents/sdet.md` § Review Process for the underlying rules.
 -->
 
 - [ ] **Reproduction confirmed** — documented in Reproduction / Evidence section below
@@ -49,7 +49,7 @@ that apply to this fix:
 - "Fix touches middleware — verify HTTP security headers"
 - "Endpoint behavior change — walk OWASP Top 10"
 - "Bumps a dependency — run vulnerability scan on the upgrade"
-- "Touches Dockerfile/compose — update docs/operations/inventory.md / runbook.md"
+- "Touches Dockerfile/compose — update .implementation/operations/ docs"
 Leave blank only when none of the conditional checks apply.
 -->
 
