@@ -5,7 +5,7 @@ Fires when the main Claude Code session finishes a turn (stops talking
 and waits for user input). Each stop is a potential pause — the higher
 the stop count per session, the more user check-ins the session
 required. This is the direct measurement surface for the § Autonomy
-Pre-authorization rule in agent-stack.md: if the rule is working, stops
+Pre-authorization rule in .implementation/ENGINE.md: if the rule is working, stops
 per session should trend down over time.
 
 Lightweight capture: session_id + timestamp + stop_reason. Transcript

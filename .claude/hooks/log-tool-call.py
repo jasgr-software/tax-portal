@@ -24,7 +24,7 @@ METRICS_FILE = REPO_ROOT / ".claude" / "metrics" / "tool-calls.jsonl"
 SKIP_TOOLS = {"Agent", "Skill"}
 
 # Group tools for anti-pattern detection (e.g. Bash-heavy agents when
-# dedicated tools fit better per agent-stack.md § Tool Hygiene).
+# dedicated tools fit better per .implementation/ENGINE.md § Tool Hygiene).
 TOOL_GROUPS = {
     "Bash": "bash",
     "Read": "file",

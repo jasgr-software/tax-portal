@@ -17,9 +17,11 @@ This audit surfaces likely-stale files so the user can decide to update or delet
 
 1. **Locate the memory directory.** It's at `~/.claude/projects/<repo-slug>/memory/`. The slug for this repo is `-home-jasgr-repos-tax-portal`.
 
-2. **Build the "merged epics" set.** Two sources, union them:
-   - `ls docs/requirements/implemented/ 2>/dev/null | grep -oE 'ep-[0-9]+[a-z]?' | tr a-z A-Z` — every archived epic.
-   - `git log --oneline -200 main | grep -oE 'EP-[0-9]+' | sort -u` — every epic mentioned in recent merge commits.
+2. **Build the "delivered work" set.** Epics/briefs are now a planning concept (`.planning/`); merged work is
+   detected from git history:
+   - `git log --oneline -200 main | grep -oiE '(EP|EPIC|BRIEF)-[0-9]+' | tr a-z A-Z | sort -u` — every
+     epic/brief mentioned in recent merge commits.
+   - Optionally cross-reference `.planning/COVERAGE.md` for delivered acceptance criteria.
 
 3. **For each `project_*.md` and `ep*_status.md` memory file, check three things:**
    - **Epic-reference staleness:** does the file's name or body reference an `EP-NNN` (or `epNNN`) that is in the merged set? If so, the file is likely describing closed work as if open. Flag.
