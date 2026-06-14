@@ -4,7 +4,7 @@ title: Observability — OpenTelemetry-compliant instrumentation, backend/vendor
 status: Accepted   # OTel-compliant, tool-deferred. The telemetry-data-redaction aspect was carved out as OD-003; OD-003 is now RESOLVED — the ratified data-handling policy is ADR-017.
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-003, ADR-004, ADR-005, ADR-006, ADR-007, ADR-013, ADR-014, ADR-017, TENET-001, TENET-008]
+related: [ADR-003, ADR-004, ADR-005, ADR-006, ADR-007, ADR-013, ADR-014, ADR-017, ADR-020]
 source:
   - architecture-dispatch-2026-06-14#observability-otel-compliant-tool-deferred   # user directive: "should not decide the observability tool now but should be OTel compliant"
   - decisions/ADR-007-container-packaging-deploy-agnostic.md   # logs to stdout/stderr; long-lived Node process; SSE; defer-but-constrain shape; cron as own workload
@@ -20,7 +20,7 @@ open_decisions: []   # OD-003 (telemetry data-redaction policy) was the escalati
 **Status:** Accepted. The telemetry-data-redaction policy aspect was carved out as OD-003 (no default; user sign-off required); **OD-003 is now resolved and the ratified data-handling policy is ADR-017** — see § The telemetry-data policy is a carve-out.
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (with user direction)
-**Related:** ADR-003 (request context / identity correlation), ADR-004 (Prisma log field, third-party-store caution), ADR-005 (RLS trust boundary), ADR-006 (two front ends + cron), ADR-007 (stdout logs / long-lived process / SSE / defer-but-constrain), ADR-013 (cloud-neutral, Azure-cheapest default), ADR-014 (Next.js/TypeScript host), ADR-017 (telemetry data-handling policy — resolves the OD-003 carve-out below); TENET-001 (security non-negotiable), TENET-008 (no proprietary lock-in)
+**Related:** ADR-003 (request context / identity correlation), ADR-004 (Prisma log field, third-party-store caution), ADR-005 (RLS trust boundary), ADR-006 (two front ends + cron), ADR-007 (stdout logs / long-lived process / SSE / defer-but-constrain), ADR-013 (cloud-neutral, Azure-cheapest default), ADR-014 (Next.js/TypeScript host), ADR-017 (telemetry data-handling policy — resolves the OD-003 carve-out below), ADR-020 (encryption / security posture)
 
 ## Context
 
@@ -30,11 +30,11 @@ The user's directive: **"We should not decide on the observability tool now, but
 
 The constraints this must respect:
 
-- **TENET-008 / ADR-013 — no proprietary lock-in, Azure-cheapest default.** Observability is the operability analog of the cloud-portability discipline: instrument through an open standard, keep the backend swappable, and pick the cheapest Azure-compatible default *only at deploy time*. Azure Monitor / Application Insights ingests OTLP, so OTel-compliance keeps it as a cheap default without coupling to it.
+- **ADR-013 — no proprietary lock-in, Azure-cheapest default.** Observability is the operability analog of the cloud-portability discipline: instrument through an open standard, keep the backend swappable, and pick the cheapest Azure-compatible default *only at deploy time*. Azure Monitor / Application Insights ingests OTLP, so OTel-compliance keeps it as a cheap default without coupling to it.
 - **ADR-007 — logs to stdout/stderr; long-lived Node process; SSE; cron as its own workload.** Whatever we decide must not contradict the stdout log contract, must handle long-lived SSE connections, and must treat the future cron image as its own telemetry-emitting workload.
 - **ADR-006 — two front ends (`apps/portal`, `apps/admin`) plus a future cron workload.** Each is an independent deploy unit and must be independently attributable in telemetry.
 - **ADR-003 / ADR-004 — identity is propagated via request context and already lands as a log field.** Telemetry correlation should ride that same request context.
-- **TENET-001 / ADR-005 — this is a tax portal behind an RLS trust boundary, handling SSNs, tax documents, and financial data.** *What* telemetry is permitted to capture is a security-posture and data-handling question. ADR-004 already records the warning: the Clerk-user-id-tagged query logs are "Sensitive — must not go to third-party log stores without redaction." That warning has never been turned into a policy. **This is an escalation carve-out — see § The telemetry-data policy is a carve-out.**
+- **ADR-005 / ADR-020 — this is a tax portal behind an RLS trust boundary, handling SSNs, tax documents, and financial data.** *What* telemetry is permitted to capture is a security-posture and data-handling question. ADR-004 already records the warning: the Clerk-user-id-tagged query logs are "Sensitive — must not go to third-party log stores without redaction." That warning has never been turned into a policy. **This is an escalation carve-out — see § The telemetry-data policy is a carve-out.**
 
 Scope is **how, not what**: this decides the instrumentation technology and the export contract, not any product behavior or any monitoring/alerting requirement (those, if they arise, belong to the requirements layer).
 
@@ -74,7 +74,7 @@ An **OTel Collector may sit between the app and the backend** as a deployment-ti
 
 > **Update (2026-06-14): OD-003 is resolved. The ratified telemetry data-handling policy is [ADR-017](./ADR-017-telemetry-data-handling-policy.md).** This section records what was carved out at authoring time and remains accurate as history; the open questions below are now **answered by ADR-017** (no PII in any signal; SQL statement shapes only — bound values redacted; no request/response bodies or document contents; the principal identifier is HMAC-hashed, never raw; redaction enforced **at the source, in-process, before OTLP export**; retention configurable, default 7 days). The "conservative holding posture" referenced below is **superseded** by ADR-017 as the now-decided policy. ADR-016's own decision is unchanged.
 
-**What telemetry is permitted to capture is a security-posture + data-handling decision and is escalated to the user with NO default.** Per AGENT.md §2, security posture, data retention, and the trust boundary are escalation carve-outs the Architecture Agent must not self-resolve. For a tax portal behind the RLS trust boundary (ADR-005, TENET-001), the load-bearing unresolved questions are:
+**What telemetry is permitted to capture is a security-posture + data-handling decision and is escalated to the user with NO default.** Per AGENT.md §2, security posture, data retention, and the trust boundary are escalation carve-outs the Architecture Agent must not self-resolve. For a tax portal behind the RLS trust boundary (ADR-005, ADR-020), the load-bearing unresolved questions are:
 
 - Whether PII / sensitive values may appear in **trace attributes, span names, log fields, exception/stack payloads**;
 - Whether **SQL parameter values** (ADR-004's query logs) may be captured, or only parameterized statement shapes;
@@ -95,9 +95,9 @@ The Architecture Agent does not write code. The following are flagged for `[weba
 
 ## Consequences
 
-- **Observability is now a citable standard.** A change that imports a vendor observability agent into app code, hard-codes a backend endpoint, instruments with raw `console.log` instead of the OTel log signal, or wraps an SSE stream in a single never-closing span is a **deviation finding** (against this ADR, and TENET-008 for the vendor-SDK case).
+- **Observability is now a citable standard.** A change that imports a vendor observability agent into app code, hard-codes a backend endpoint, instruments with raw `console.log` instead of the OTel log signal, or wraps an SSE stream in a single never-closing span is a **deviation finding** (against this ADR, and ADR-013 for the vendor-SDK case).
 - **The backend stays genuinely deferred.** Like ADR-007's deployment host, the vendor decision is Phase-5-style. The app speaks OTLP to a configurable endpoint and is indifferent to whether that is a collector, Azure Monitor, Grafana/Tempo, Honeycomb, or Jaeger. No Azure dependency is added today.
-- **Cheap and portable are the same target again.** OTLP-compliance keeps Azure Monitor as the cheap default (it ingests OTLP) without locking to it — the TENET-008 pattern repeats for observability.
+- **Cheap and portable are the same target again.** OTLP-compliance keeps Azure Monitor as the cheap default (it ingests OTLP) without locking to it — the ADR-013 pattern repeats for observability.
 - **The stdout contract and SSE posture are unchanged** — ADR-007's rules hold; this ADR layers structured/OTel-log-compatible records and an SSE-aware tracing convention on top.
 - **A code task is owed** — the bootstrap, env config, ESLint rule, and (post-OD-003) redaction are developer deliverables. Until they land, the standard is enforced by review.
 - **One aspect was carved out, not the whole ADR — now resolved.** OD-003 (telemetry data-redaction policy) was an escalation carve-out with **no default** requiring user sign-off. It is **resolved as of 2026-06-14: the ratified policy is ADR-017** (no PII in any signal, HMAC-hashed correlation ids, redact-at-source, 7-day default retention). The core instrumentation/export/deferral decision here was always Accepted; the data policy it deferred now lives in ADR-017.
@@ -106,9 +106,9 @@ The Architecture Agent does not write code. The following are flagged for `[weba
 
 ## Alternatives considered
 
-- **Pick an observability vendor now (Datadog / New Relic / Application Insights) and use its SDK.** Rejected — directly contradicts the user's directive ("should not decide the tool now") and TENET-008 (a vendor agent in app code is exactly the proprietary coupling ADR-013 keeps out). Baking a vendor SDK in is the observability version of the `@vercel/*`/edge-runtime lock-in this project avoids elsewhere.
+- **Pick an observability vendor now (Datadog / New Relic / Application Insights) and use its SDK.** Rejected — directly contradicts the user's directive ("should not decide the tool now") and ADR-013 (a vendor agent in app code is exactly the proprietary coupling ADR-013 keeps out). Baking a vendor SDK in is the observability version of the `@vercel/*`/edge-runtime lock-in this project avoids elsewhere.
 - **Stay purely open with no instrumentation standard (ad-hoc `console.log`).** Rejected — leaves every workload to instrument arbitrarily; no later backend can ingest the result cleanly, distributed correlation is impossible, and the choice erodes by accident. ADR-007/ADR-015 showed the answer: defer the decision (the backend), lock the constraints (OTel + OTLP).
 - **Logs-only, no distributed tracing or metrics.** Considered and rejected as the standard — for two independently-deployed front ends plus a cron workload sharing a DB and storage, request flow and latency across the request-context/`SESSION_CONTEXT` seam are exactly what needs tracing; logs alone cannot tie a slow client request to its DB queries. OTel gives all three signals through one SDK at marginal extra cost, so adopting traces+metrics+logs together is cheaper than retrofitting tracing later. (A *reduced sampling rate* for traces is a fine deploy-time tuning knob — that is config, not a signal we drop.)
-- **Self-resolve the telemetry-data policy with a sensible default (e.g. "scrub everything").** Rejected — AGENT.md §2 forbids it: telemetry capture of PII behind the RLS trust boundary is a security-posture + data-handling decision (TENET-001, ADR-005) reserved for the user. Recorded as OD-003 with **no** default; only the data-policy aspect is blocked, so the rest of the ADR can still be Accepted.
+- **Self-resolve the telemetry-data policy with a sensible default (e.g. "scrub everything").** Rejected — AGENT.md §2 forbids it: telemetry capture of PII behind the RLS trust boundary is a security-posture + data-handling decision (ADR-005, ADR-020) reserved for the user. Recorded as OD-003 with **no** default; only the data-policy aspect is blocked, so the rest of the ADR can still be Accepted.
 - **Edit ADR-007 in place to fold in the observability posture.** Rejected — ADRs are immutable in this layer. This is a separate, later refinement that `related:`-links ADR-007/ADR-013 rather than rewriting them.
 - **Author a separate telemetry-data-policy ADR now (split the carve-out into its own ADR).** Considered — the concerns *do* separate cleanly (instrumentation standard vs. data-handling policy). Rejected for *now* on granularity grounds: at authoring time the data policy had no decided content yet (a no-default carve-out awaiting the user). This was the correct call: when the user set the policy, the right shape was a **new ADR** capturing it (`related:`-linking this one and resolving OD-003), not an edit to this immutable record — which is exactly [ADR-017](./ADR-017-telemetry-data-handling-policy.md).

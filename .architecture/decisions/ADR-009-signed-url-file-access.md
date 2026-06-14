@@ -167,7 +167,7 @@ App-issued short-lived URL → browser GETs `/api/documents/{id}/download` → a
 
 ### Public URLs with a "security through obscurity" UUID
 
-Long-form UUID URLs that anyone with the link can access. Rejected on sight — violates REQ-FILE-003 explicitly, violates Tenet 1, violates basic confidentiality for tax documents.
+Long-form UUID URLs that anyone with the link can access. Rejected on sight — violates REQ-FILE-003 explicitly, violates the security posture (ADR-005 / ADR-020), violates basic confidentiality for tax documents.
 
 ### Content-addressed storage (key = SHA-256 of content)
 
@@ -205,5 +205,5 @@ ClamAV / Windows Defender / third-party scanner on every upload before marking `
 - **ADR-005** — RLS via Security Policies; RLS on `Document` + `Folder` is the gate that makes authorize-then-sign safe.
 - **ADR-008** — Object storage abstraction; defines the `FileStorage` port this ADR consumes.
 - **SRS** — REQ-FILE-001 through REQ-FILE-012, REQ-NFR-002, REQ-AUTH-008, REQ-IDNT-005, CLARIF-005.
-- **Tenet 1** — Security and data privacy non-negotiable.
-- **Tenet 5** — Clients never lose access; soft-delete + 7-year retention derive from this.
+- **ADR-005 / ADR-020** — security and data privacy non-negotiable.
+- **ADR-018** — clients never lose access; soft-delete + 7-year retention derive from this.

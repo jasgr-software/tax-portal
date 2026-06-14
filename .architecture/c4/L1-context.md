@@ -22,5 +22,6 @@ _TBD._
 
 ## Notes
 
-Governing tenets: TENET-001, TENET-002, TENET-007. Governing ADRs: ADR-001 (Clerk), ADR-006 (two front
-ends).
+Governing ADRs: ADR-005 + ADR-020 (security / RLS + encryption), ADR-005 + ADR-003 (DB trust boundary +
+identity propagation), ADR-001 (Clerk), ADR-006 (two front ends). Governing requirements: REQ-DOOR-004
+(self-serve front door).

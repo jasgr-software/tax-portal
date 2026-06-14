@@ -21,7 +21,7 @@ gates, and the branch-protection posture.>
 
 ## Governing decisions
 
-<Bullet list of the ADRs and tenets that govern this strategy, each with a one-line note on what it
+<Bullet list of the ADRs and requirements that govern this strategy, each with a one-line note on what it
 contributes.>
 
 ## Current vs. planned

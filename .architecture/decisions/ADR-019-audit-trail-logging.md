@@ -4,7 +4,7 @@ title: Audit trail — tamper-evident, identifiable who/what/when logging (inver
 status: Accepted   # The audit-trail PROPERTIES (existence, tamper-evidence, completeness, access, retention) now live in the requirements layer (REQ-NFR-010/011); OD-005 resolved 2026-06-14. This ADR keeps only the HOW (ledger tables, same-txn write, RLS read, purge-excluded retention).
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-002, ADR-003, ADR-004, ADR-005, ADR-016, ADR-017, ADR-018, TENET-001, TENET-007]
+related: [ADR-002, ADR-003, ADR-004, ADR-005, ADR-016, ADR-017, ADR-018, ADR-020]
 source:
   - .requirements/REQ-NFR-010.md   # system maintains an audit trail of security-significant events (events / access / retention) — the WHAT
   - .requirements/REQ-NFR-011.md   # audit trail is tamper-evident and complete — the WHAT (the properties this ADR's mechanism satisfies)
@@ -23,14 +23,14 @@ open_decisions: []   # OD-005 resolved; audit properties now owned by REQ-NFR-01
 **Status:** Accepted. The audit-trail **properties** — that it exists, records the security-significant event set, is readable by the accountant/admin only, is retained ≥7 years and survives purge (REQ-NFR-010), and is **tamper-evident and complete** (REQ-NFR-011) — are now owned by the requirements layer, resolved from the former OD-005 carve-out by the 2026-06-14 design session. This ADR keeps only the **HOW**: SQL Server 2022 append-only **ledger tables** for tamper-evidence, the audit write **in the same DB transaction as the mutation** (fail-closed) for completeness, **RLS** for accountant/admin-only read, and audit retention **excluded from the ADR-018 purge job**. OD-005 is resolved; no open decision blocks this ADR.
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (with user direction)
-**Related:** ADR-003 (identity context — the "who"), ADR-004 (Prisma mutation seam), ADR-005 (RLS — who may read the audit log), ADR-016 / ADR-017 (telemetry — the deliberate *inverse* data rule), ADR-002 (append-only / temporal storage), ADR-018 (data lifecycle — temporal history is a *different* record than the audit log); TENET-001 (security non-negotiable), TENET-007 (DB trust boundary, identity propagation)
+**Related:** ADR-003 (identity context — the "who"), ADR-004 (Prisma mutation seam), ADR-005 (RLS — who may read the audit log), ADR-016 / ADR-017 (telemetry — the deliberate *inverse* data rule), ADR-002 (append-only / temporal storage), ADR-018 (data lifecycle — temporal history is a *different* record than the audit log), ADR-020 (encryption / security posture)
 
 ## Context
 
 A tax portal handling SSNs, tax documents, and financial data needs a **tamper-evident audit trail**: a durable, identifiable record of *who did what, when, and from where*. The audit-worthy events are at minimum:
 
 - **Document access and downloads** — every signed-URL mint / download authorization (ADR-009 already logs issuance; this makes it a first-class audit record).
-- **Engagement state transitions** — New → In Progress → Review → Complete (the human-driven lifecycle, TENET-006).
+- **Engagement state transitions** — New → In Progress → Review → Complete (the human-driven lifecycle, REQ-LIFE-003).
 - **Admin actions** — accountant accept/decline of requests, invitations, soft-deletes, purges (ADR-018), role-significant operations.
 - **Auth-significant events** — sign-in, sign-out, role changes, invitation acceptance (the events Clerk + the app mediate, ADR-001/003).
 
@@ -62,7 +62,7 @@ Scope is **how, not what**: REQ-NFR-010/011 own *that* an audit must exist and t
 
 ### 1. A dedicated audit store on SQL Server 2022 append-only ledger tables — tamper-evident, separate from telemetry and temporal history (decided)
 
-Audit records live in a dedicated store in the **primary SQL Server database** (ADR-002), on the same trusted side of the trust boundary as the data it records (TENET-007). It is **not** an OTel signal, **not** routed through the observability pipeline, and **not** the temporal-history side-table.
+Audit records live in a dedicated store in the **primary SQL Server database** (ADR-002), on the same trusted side of the trust boundary as the data it records (ADR-005 / ADR-003). It is **not** an OTel signal, **not** routed through the observability pipeline, and **not** the temporal-history side-table.
 
 - **Tamper-evidence is delivered by SQL Server 2022 ledger tables** — specifically append-only ledger tables. Ledger is native to SQL Server 2022, cryptographically verifiable (rows are hashed into a Merkle tree whose digests can be verified against tampering), and prevents/derives evidence of UPDATE/DELETE on existing rows. This **satisfies REQ-NFR-011 tamper-evidence** without a hand-rolled hash-chain or an external WORM sink, and keeps the store inside the **box SQL Server 2022 ∩ Azure SQL Database intersection** (ADR-013) — ledger is available in both, so it adds no portability risk.
 - **Append-only by design.** Audit rows are inserted, never updated or deleted by application code; the append-only ledger constraint makes any out-of-band alteration cryptographically detectable (the verifiable-database guarantee), not merely a convention.

@@ -9,7 +9,7 @@
 
 The portal exchanges files between accountant and clients (REQ-FILE-001 through REQ-FILE-012): tax documents, W-2s, receipts, scanned forms, returns. Requirements:
 
-- AES-256 encryption at rest (REQ-FILE-003, Tenet 1).
+- AES-256 encryption at rest (REQ-FILE-003, ADR-020).
 - Never publicly accessible — every download/upload via time-limited signed URL (REQ-FILE-003, REQ-NFR-002).
 - 7-year retention after engagement completion (REQ-FILE-005).
 - Soft-delete semantics (REQ-FILE-006).
@@ -242,4 +242,4 @@ Transactional consistency is handled instead by the two-step upload pattern (ADR
 - **ADR-007** — Container packaging; the storage adapter is orthogonal to the host, making both deferrable.
 - **ADR-009** — Signed-URL file access; the behavioural-layer ADR that consumes this ADR's port.
 - **SRS** — REQ-FILE-002, REQ-FILE-003, REQ-FILE-005, REQ-FILE-006, REQ-FILE-009, REQ-NFR-002.
-- **Tenet 1** — Security non-negotiable; encryption-at-rest and signed URLs derive from this.
+- **ADR-005 / ADR-020** — security non-negotiable; encryption-at-rest and signed URLs derive from this.

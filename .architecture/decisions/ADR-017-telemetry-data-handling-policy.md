@@ -4,7 +4,7 @@ title: Telemetry data-handling policy — no PII, hashed correlation ids, redact
 status: Accepted
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-003, ADR-004, ADR-005, ADR-007, ADR-013, ADR-016, TENET-001, TENET-008]
+related: [ADR-003, ADR-004, ADR-005, ADR-007, ADR-013, ADR-016, ADR-020]
 source:
   - architecture-dispatch-2026-06-14#telemetry-data-handling-policy-resolves-od-003   # user decision resolving OD-003
   - decisions/ADR-016-observability-otel-compliant-backend-deferred.md   # the instrumentation standard this policy governs the data-handling of
@@ -21,21 +21,21 @@ source:
 **Status:** Accepted
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (encoding the user's data-handling decision)
-**Related:** ADR-016 (the OTel instrumentation/export standard this governs the data of), ADR-003 (request context where the correlation id is derived), ADR-004 (the raw Clerk-user-id log field + SQL query logs this now governs), ADR-005 (RLS / DB trust boundary), ADR-007 (stdout structured-log contract), ADR-013 (cloud-neutral — deferred backend stays untrusted); TENET-001 (security non-negotiable), TENET-008 (no proprietary lock-in)
+**Related:** ADR-016 (the OTel instrumentation/export standard this governs the data of), ADR-003 (request context where the correlation id is derived), ADR-004 (the raw Clerk-user-id log field + SQL query logs this now governs), ADR-005 (RLS / DB trust boundary), ADR-007 (stdout structured-log contract), ADR-013 (cloud-neutral, no proprietary lock-in — deferred backend stays untrusted), ADR-020 (encryption / security posture)
 
 ## Context
 
 ADR-016 made the portal OpenTelemetry-compliant — both front ends and the cron workload emit traces, metrics, and logs through the OTel SDK and export via OTLP to a configurable endpoint, with the backend/vendor deferred. ADR-016's core instrumentation/export/deferral decision was Accepted, but **what that telemetry is permitted to capture** was carved out as **OD-003** — an escalation item (security posture, data retention, trust boundary) that AGENT.md §2 forbids the Architecture Agent from self-resolving, recorded with **no proposed default** and left blocking the telemetry-data-policy aspect of ADR-016.
 
-This is a tax portal behind the RLS trust boundary (ADR-005, TENET-001), handling SSNs, tax documents, intake answers, message contents, and financial data. ADR-004 already records — but never turned into policy — that the Clerk-user-id-tagged query logs are "Sensitive — must not go to third-party log stores without redaction," and that Prisma surfaces every emitted SQL statement. ADR-016 ran on a **conservative holding posture** ("capture no PII in telemetry") explicitly marked as a holding pattern, not the decided policy.
+This is a tax portal behind the RLS trust boundary (ADR-005, ADR-020), handling SSNs, tax documents, intake answers, message contents, and financial data. ADR-004 already records — but never turned into policy — that the Clerk-user-id-tagged query logs are "Sensitive — must not go to third-party log stores without redaction," and that Prisma surfaces every emitted SQL statement. ADR-016 ran on a **conservative holding posture** ("capture no PII in telemetry") explicitly marked as a holding pattern, not the decided policy.
 
 **The user has now resolved OD-003.** This ADR encodes that decision as the ratified telemetry data-handling policy. It is a **how/policy** decision — data-handling for telemetry — not a product requirement; no monitoring or alerting *need* is asserted here (that would belong to the requirements layer). The constraints it must respect:
 
-- **TENET-001 / ADR-005 — the DB (RLS) is the trust boundary.** Telemetry is an egress channel out of the trusted process. For a tax portal, that channel must never carry the sensitive data the trust boundary exists to protect.
+- **ADR-005 / ADR-020 — the DB (RLS) is the trust boundary; security is non-negotiable.** Telemetry is an egress channel out of the trusted process. For a tax portal, that channel must never carry the sensitive data the trust boundary exists to protect.
 - **ADR-003 — identity is carried in the `AsyncLocalStorage` request context.** That context (the same seam that feeds `SESSION_CONTEXT` and ADR-004's Prisma log field) is where any correlation identifier is derived — and therefore the correct place to hash it before it enters telemetry.
 - **ADR-004 — the Clerk user id currently lands raw as a log field, and SQL statements are logged.** Both are now governed by this policy; the raw id must become a hashed id, and bound parameter values must be excluded.
 - **ADR-007 — logs are structured JSON to stdout/stderr.** This policy constrains the *contents* of those records; it does not change the stdout contract.
-- **ADR-013 / TENET-008 — the backend is deferred and cloud-neutral.** A deferred, not-yet-chosen backend (and any Collector in front of it) is **untrusted**. PII must not depend on a backend's access controls, because there is no backend to trust yet — and the design must not assume one later.
+- **ADR-013 — the backend is deferred and cloud-neutral.** A deferred, not-yet-chosen backend (and any Collector in front of it) is **untrusted**. PII must not depend on a backend's access controls, because there is no backend to trust yet — and the design must not assume one later.
 - **ADR-016 — the instrumentation standard.** This policy is the data-handling layer on top of it; it does not alter ADR-016's instrumentation, export, or deferral decisions.
 
 ## Decision
@@ -81,7 +81,7 @@ Telemetry retention is **configurable via env/deploy config, defaulting to 1 wee
 Redaction and hashing happen **in-process, before any data leaves the app** over OTLP.
 
 - PII **never reaches the Collector or backend, even in transit.** A signal is scrubbed and the correlation id is HMAC-hashed by an **in-app OTel span/log processor** in the shared `packages/observability` bootstrap (ADR-016), before the OTLP exporter sees it.
-- This is the **strictest reading of "no PII"** and the **only one valid while the backend is deferred and untrusted** (ADR-013/TENET-008). It does not rely on any Collector- or backend-side access control, because there is no chosen, trusted backend to rely on — and it must remain true even once one is chosen.
+- This is the **strictest reading of "no PII"** and the **only one valid while the backend is deferred and untrusted** (ADR-013). It does not rely on any Collector- or backend-side access control, because there is no chosen, trusted backend to rely on — and it must remain true even once one is chosen.
 - A Collector-side redaction processor (which ADR-016 floated as "the natural place to enforce egress-side redaction once OD-003 is resolved") is **superseded as the primary boundary**: it MAY exist as defense-in-depth, but it is **not** where the guarantee lives. The guarantee is at the source.
 
 ## Consequences
@@ -92,12 +92,12 @@ Redaction and hashing happen **in-process, before any data leaves the app** over
 - **A new app secret is owed.** The HMAC secret is a distinct configured env secret — added to `.env.example`, the operations inventory, and the secret inventory; absent in local dev, the processor still hashes (with a dev placeholder) and never emits the raw id.
 - **The redaction implementation is now unblocked.** ADR-016 deferred the redaction/scrubbing implementation "until OD-003 resolved." OD-003 is resolved; the in-app processor is now a ready developer task (see below).
 - **No new operational burden today** beyond ADR-016's — there is still nothing observability-specific to *run* until a backend is chosen (Phase 5). The retention requirement is a capability the eventual backend must satisfy, plus a config default; it adds no runtime today.
-- **The trust boundary is preserved end-to-end.** Telemetry can no longer become a side channel that leaks across the RLS boundary (ADR-005/TENET-001) — the egress channel carries structural data and stable-but-opaque correlation ids only.
+- **The trust boundary is preserved end-to-end.** Telemetry can no longer become a side channel that leaks across the RLS boundary (ADR-005/ADR-020) — the egress channel carries structural data and stable-but-opaque correlation ids only.
 
 ## Alternatives considered
 
-- **Redact at the Collector (egress-side redaction in the OTel Collector).** Rejected. PII would leave the application process in cleartext and traverse the network to the Collector before being scrubbed; for a deferred, not-yet-chosen — therefore untrusted — backend (ADR-013/TENET-008), nothing the app can rely on sits between it and an unknown sink. ADR-016 floated the Collector as the "natural place" for redaction; with the backend deferred and the data this sensitive, the boundary must be at the source. (A Collector processor may still exist as defense-in-depth, but it is not where the guarantee lives.)
-- **Allow PII in telemetry, protected by backend access controls.** Rejected. This is a trust-boundary violation for a tax portal (TENET-001, ADR-005): it makes the confidentiality of SSNs/financial data depend on a third-party observability backend's access model, exactly the proprietary-trust coupling TENET-008 and ADR-013 keep out — and there is no chosen backend to trust in the first place.
+- **Redact at the Collector (egress-side redaction in the OTel Collector).** Rejected. PII would leave the application process in cleartext and traverse the network to the Collector before being scrubbed; for a deferred, not-yet-chosen — therefore untrusted — backend (ADR-013), nothing the app can rely on sits between it and an unknown sink. ADR-016 floated the Collector as the "natural place" for redaction; with the backend deferred and the data this sensitive, the boundary must be at the source. (A Collector processor may still exist as defense-in-depth, but it is not where the guarantee lives.)
+- **Allow PII in telemetry, protected by backend access controls.** Rejected. This is a trust-boundary violation for a tax portal (ADR-005, ADR-020): it makes the confidentiality of SSNs/financial data depend on a third-party observability backend's access model, exactly the proprietary-trust coupling ADR-013 keeps out — and there is no chosen backend to trust in the first place.
 - **Correlate on the raw principal identifier (raw Clerk user id, as ADR-004 logs it today).** Rejected. A raw, low-entropy identifier in telemetry re-identifies the principal directly and lets anyone with telemetry access tie operational data back to a named client. Hashing is required; HMAC specifically (over a bare digest) so the value stays stable enough to correlate but is not reversible or rainbow-table-able.
 - **Configurable retention with no policy default (defer entirely to deploy time).** Rejected. With the backend deferred, leaving retention undefined would let the eventual host default to an arbitrarily long window, accumulating telemetry indefinitely — at odds with data-minimization for a tax portal. A bounded default (7 days, configurable) is set as both a backend capability requirement and a deploy default.
 - **Fold this policy into ADR-016 by editing it.** Rejected — ADRs are immutable in this layer, and ADR-016 itself anticipated this shape: "Once the user sets the policy, the right shape is a new ADR … that would `related:`-link this one and resolve OD-003." This ADR is that record.

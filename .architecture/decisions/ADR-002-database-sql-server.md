@@ -7,7 +7,7 @@
 
 ## Context
 
-The original tech stack (intake.md, SRS v1.0, Tenet 7 as written) specified Postgres via Supabase. The user has since directed that the portal use **SQL Server** as the primary datastore, with the deployment platform and production SQL Server edition deliberately left open. The switch affects every data-plane concern: ORM selection, RLS implementation, identity propagation into the DB, and the shape of the local dev environment.
+The original tech stack (intake.md, SRS v1.0, the trust-boundary principle now in ADR-005/ADR-003 as originally written) specified Postgres via Supabase. The user has since directed that the portal use **SQL Server** as the primary datastore, with the deployment platform and production SQL Server edition deliberately left open. The switch affects every data-plane concern: ORM selection, RLS implementation, identity propagation into the DB, and the shape of the local dev environment.
 
 Reasons the user chose SQL Server (summarised from the walk-through):
 
@@ -176,7 +176,7 @@ SQL Server 2025 is expected to introduce a first-class `JSON` type. When the pro
 - **Portability.** The stack is now portable across any SQL Server engine: Azure SQL DB, MI, self-hosted, Developer edition for dev. The deployment decision is genuinely open.
 - **Prisma version lock.** Prisma minor releases occasionally regress the SQL Server provider. Pin the Prisma major+minor in `package.json` (not a caret range) and bump deliberately.
 - **Temporal tables are available** for audit (retention-sensitive tables like `Document`, `Engagement`, `OnboardingState`). When an audit-trail epic materializes, temporal tables are the preferred mechanism. Defined in raw migrations.
-- **Tenet 7 amended** — see TENETS.md. The database is the trust boundary; the app propagates identity. RLS moves from Supabase to SQL Server security policies (ADR-005).
+- **Trust-boundary posture (ADR-005 / ADR-003).** The database is the trust boundary; the app propagates identity. RLS moves from Supabase to SQL Server security policies (ADR-005).
 
 ## Related
 

@@ -10,9 +10,8 @@ requirements:
   - REQ-DOOR-003: [AC-DOOR-003-01, AC-DOOR-003-02, AC-DOOR-003-03, AC-DOOR-003-04]
   - REQ-DOOR-004: [AC-DOOR-004-01, AC-DOOR-004-02, AC-DOOR-004-03, AC-DOOR-004-04, AC-DOOR-004-05]
 architecture:
-  - TENET-002      # front door is self-serve (no account before request)
-  - TENET-001      # security & data privacy (the request carries prospect PII)
-  - TENET-007      # RLS at the DB; the request is accountant-read-only
+  - REQ-DOOR-004   # front door is self-serve (no account before request)
+  - ADR-020        # security & data privacy — encryption at rest (the request carries prospect PII)
   - ADR-006        # monorepo — the public door lives in apps/portal (Client Portal)
   - ADR-002        # SQL Server is the datastore for the engagement-request entity
   - ADR-004        # Prisma single-track for the entity schema
@@ -25,7 +24,6 @@ source:
   - .requirements/REQ-DOOR-002.md
   - .requirements/REQ-DOOR-003.md
   - .requirements/REQ-DOOR-004.md
-  - .architecture/TENETS.md#tenet-002
   - .architecture/decisions/ADR-005-rls-via-security-policies.md
 open_questions: []
 ---
@@ -70,13 +68,13 @@ notification, accept/decline, invite — is EPIC-003.)
 
 ## Architecture adherence
 
-- **TENET-002 — The front door is self-serve.** The entire slice must work for an anonymous actor; no
+- **REQ-DOOR-004 — The front door is self-serve.** The entire slice must work for an anonymous actor; no
   "create an account to continue" gate may be introduced before request submission. This is the slice's
   defining invariant.
-- **TENET-001 — Security & data privacy.** The request carries prospect PII (name + contact method).
+- **ADR-020 — Security & data privacy (encryption at rest).** The request carries prospect PII (name + contact method).
   It must be stored under the same encryption-at-rest posture as other client data, and the public write
   path must not expose existing requests to the anonymous submitter.
-- **TENET-007 / ADR-005 / ADR-003 — DB is the trust boundary.** The `engagement_request` entity is
+- **ADR-005 / ADR-003 — DB is the trust boundary.** The `engagement_request` entity is
   **read-restricted to the accountant** by a SQL Server security policy (an anonymous or client caller
   can never read requests). The anonymous *submission* is a deliberate **public write with no
   `SESSION_CONTEXT` identity** — adherence obligation: route it through a controlled, minimal write path
@@ -122,6 +120,6 @@ notification, accept/decline, invite — is EPIC-003.)
 
 ## Links
 - Requirements: REQ-DOOR-001, REQ-DOOR-002 (partial), REQ-DOOR-003, REQ-DOOR-004
-- Architecture: TENET-001, TENET-002, TENET-007, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-012
+- Architecture: REQ-DOOR-004, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-012, ADR-020
 - Epics: related EPIC-002 (catalog CRUD), EPIC-003 (accountant inbox), EPIC-004 (auth)
 - Open questions: none

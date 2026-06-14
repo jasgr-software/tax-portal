@@ -25,4 +25,4 @@ ADR(s) that govern it.>
 ## Notes
 
 <Anything a reader needs to interpret the level correctly — deferred elements, planned changes, links to
-the relevant ADRs and tenets.>
+the relevant ADRs and requirements.>

@@ -163,5 +163,5 @@ Create two Clerk organizations, "Client Portal Users" and "Tax Portal Users," an
 - **ADR-006** — Monorepo layout; defines the two-app structure this ADR authenticates.
 - **ADR-010** — Cross-app navigation & session boundaries; defines what happens on role-mismatched navigation, cross-app deep links, and session continuity.
 - **SRS** — REQ-AUTH-001 through REQ-AUTH-009, REQ-NFR-004.
-- **Tenet 1** (amended) — Security non-negotiable; RLS + role middleware + 2FA stack.
-- **Tenet 7** — the database is the trust boundary; the app's obligation is identity propagation.
+- **ADR-005 / ADR-020** — security non-negotiable; RLS + role middleware + 2FA + encryption stack.
+- **ADR-005 / ADR-003** — the database is the trust boundary; the app's obligation is identity propagation.

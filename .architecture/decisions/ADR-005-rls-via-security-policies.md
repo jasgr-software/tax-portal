@@ -7,7 +7,7 @@
 
 ## Context
 
-Tenet 7 (amended this session) places the trust boundary for row-level access at the database, not the application. With SQL Server as the datastore (ADR-002) and Clerk identity propagated via `SESSION_CONTEXT` (ADR-003), the remaining question is: **how are the actual access rules expressed and enforced in SQL Server?**
+The trust boundary for row-level access belongs at the database, not the application (the principle this ADR enforces, with identity propagation owned by ADR-003). With SQL Server as the datastore (ADR-002) and Clerk identity propagated via `SESSION_CONTEXT` (ADR-003), the remaining question is: **how are the actual access rules expressed and enforced in SQL Server?**
 
 Postgres's RLS is declarative and per-table: `ENABLE ROW LEVEL SECURITY`, then `CREATE POLICY name ON table FOR SELECT USING (...)`. SQL Server's equivalent is **Security Policies**, which are more flexible but also more ceremonial:
 
@@ -185,7 +185,7 @@ Service-catalog tables (`Service`, `IntakeTemplate`) are **accountant-managed, c
 
 ### Enforce row-level access in the app, not the DB
 
-Let Prisma always include `WHERE userId = @caller` — the approach proposed under early Supabase-alternative discussions. Rejected. Violates Tenet 7 (amended). One missed filter leaks data. The DB is where the trust boundary belongs.
+Let Prisma always include `WHERE userId = @caller` — the approach proposed under early Supabase-alternative discussions. Rejected. Violates the database-trust-boundary principle this ADR enforces. One missed filter leaks data. The DB is where the trust boundary belongs.
 
 ### Views + `WITH CHECK OPTION`
 
@@ -213,7 +213,7 @@ Client-side encryption for the most sensitive columns. Again, a different concer
 
 ## Consequences
 
-- **The DB is the gate.** App bugs that forget an authorization check still return zero rows to the wrong user — not leaked rows. This is the guarantee Tenet 7 (amended) is buying.
+- **The DB is the gate.** App bugs that forget an authorization check still return zero rows to the wrong user — not leaked rows. This is the guarantee the database-trust-boundary principle is buying.
 - **Predicate performance is the load-bearing perf concern.** Every scoped query eats a predicate evaluation. Mitigations A–C are the toolbox. If a page load hits RLS-scoped tables 10+ times, it earns a budget conversation and likely an access-set-table rollout.
 - **Migration discipline.** Schema changes that touch scoped tables must ship with policy updates in the same commit. A drift-detection CI check (`scripts/validate-policies.ts`) compares `db/policies/` file presence against the list of tables with `client-scoped: true` annotations in `prisma/schema.prisma`. Missing coverage fails the PR.
 - **Admin exemption is audited.** The admin branch in every predicate is a hole by design. Any code path that writes data must be reviewed for "is it OK that this runs under admin?" Webhooks, cron, and migrations have documented justifications in ADR-001, this ADR, and ADR-003.
@@ -229,5 +229,5 @@ Client-side encryption for the most sensitive columns. Again, a different concer
 - **ADR-003** — `SESSION_CONTEXT` propagation; writes the identity this ADR reads.
 - **ADR-004** — Prisma ORM; defines how the app layer sends queries to the engine (and why there is no second ORM bypass).
 - **ADR-006** — Monorepo layout; defines `db/policies/` as the home for these files.
-- **Tenet 7 (amended)** — "Row-level security is enforced at the database; the app is responsible for identity propagation."
+- **Database-trust-boundary principle** — row-level security is enforced at the database (this ADR); the app is responsible for identity propagation (ADR-003).
 - **SRS** — REQ-AUTH-002, REQ-AUTH-003, REQ-NFR-001.

@@ -4,7 +4,7 @@ title: UI foundation locked, visual design deferred (Tailwind + shadcn/ui in pac
 status: Accepted
 date: 2026-06-14
 deciders: [Architecture Agent, user]
-related: [ADR-006, ADR-007, ADR-013, ADR-014, TENET-008]
+related: [ADR-006, ADR-007, ADR-013, ADR-014]
 source:
   - seed/tech-stack.md#decided-stack   # UI row "Tailwind CSS + shadcn/ui", governing ADR "—"
   - decisions/ADR-006-monorepo-layout.md   # packages/ui — shadcn primitives, styling contract, theming
@@ -19,7 +19,7 @@ open_decisions: []   # OD-002 (token-contract formalization timing) carries a pr
 **Status:** Accepted
 **Date:** 2026-06-14
 **Deciders:** Architecture Agent (with user direction)
-**Related:** ADR-006 (`packages/ui`), ADR-007 (defer-but-constrain posture — the shape this ADR mirrors), ADR-013 (cloud portability), ADR-014 (Next.js/React host); TENET-008 (no proprietary lock-in)
+**Related:** ADR-006 (`packages/ui`), ADR-007 (defer-but-constrain posture — the shape this ADR mirrors), ADR-013 (cloud portability — no proprietary lock-in), ADR-014 (Next.js/React host)
 
 ## Context
 
@@ -45,7 +45,7 @@ Scope is **how, not what** — this locks the structural foundation and constrai
 1. **Baseline primitive layer: Tailwind CSS + shadcn/ui.** Utility-first Tailwind for styling; shadcn/ui primitives (copy-in, owned-in-repo components, not a versioned black-box dependency) as the baseline component set. This confirms ADR-006's existing posture as a governed standard.
 2. **A single shared component home: `packages/ui`.** Per ADR-006, shared presentational primitives and thin layout shells live **only** in `packages/ui` — one discoverable place, app-neutral, no business logic, no data access, no server actions (the ADR-006 boundary: "if it imports from `@tax-portal/db`, it is not in `packages/ui`"). App-specific composed components stay in their app. There is exactly one component library.
 3. **Design tokens are the canonical source for theme/visual decisions.** All theme-level visual values (color, spacing, radius, typography scale, etc.) are expressed as **design tokens** in the Tailwind theme / `packages/ui` shared preset — never hard-coded in component bodies. Tokens are the one place a visual decision is recorded; components consume tokens. (ADR-006 already routes both apps through a shared Tailwind preset with CSS-variable theming — this names that the **canonical token layer**.)
-4. **No bespoke styling escape hatches.** No CSS-in-JS runtimes (styled-components, Emotion, etc.), no proprietary component DSLs, no one-off styling patterns that bypass Tailwind + tokens. Styling is Tailwind classes against the token theme. This keeps the system uniform, discoverable, and reproducible by any later design path — and aligns with TENET-008's no-proprietary-runtime stance (a CSS-in-JS runtime is the styling-layer analog of the lock-in this project avoids elsewhere).
+4. **No bespoke styling escape hatches.** No CSS-in-JS runtimes (styled-components, Emotion, etc.), no proprietary component DSLs, no one-off styling patterns that bypass Tailwind + tokens. Styling is Tailwind classes against the token theme. This keeps the system uniform, discoverable, and reproducible by any later design path — and aligns with ADR-013's no-proprietary-runtime stance (a CSS-in-JS runtime is the styling-layer analog of the lock-in this project avoids elsewhere).
 
 ### Explicitly defer — the design itself
 
@@ -73,7 +73,7 @@ Whether `packages/ui` should ship a **formal, exported token contract** (e.g. a 
 
 ## Consequences
 
-- **The UI foundation is now a citable standard.** A change that adds a CSS-in-JS runtime, a second component library, a proprietary component DSL, a one-off styling pattern, or hard-coded theme values bypassing tokens is a **deviation finding** against this ADR (and TENET-008 for the proprietary-runtime cases).
+- **The UI foundation is now a citable standard.** A change that adds a CSS-in-JS runtime, a second component library, a proprietary component DSL, a one-off styling pattern, or hard-coded theme values bypassing tokens is a **deviation finding** against this ADR (and ADR-013 for the proprietary-runtime cases).
 - **The visual design stays genuinely open.** Nothing here decides palette, type, or component inventory — the deferral is real, matching ADR-007's deployment deferral. UX work starts unconstrained *in its design choices* but constrained *in its structural expression*.
 - **Later UX work is cheaper and tool-ready.** A single named library + canonical tokens is exactly what a repo-reading, component-name-referencing design tool inherits cleanly — and what a human designer or any other tool benefits from equally. The bias is paid for now in discipline (no bespoke styling), not in code.
 - **No coupling to Claude Design.** This ADR does not depend on Anthropic's tool, its availability, or its output format. If the user uses a different path, every constraint still holds because they are stack-portable, not tool-specific.
@@ -84,6 +84,6 @@ Whether `packages/ui` should ship a **formal, exported token contract** (e.g. a 
 
 - **Author a full UI-stack ADR now (decide the design system + visual design).** Rejected — directly contradicts the user's explicit deferral of UX work, and would bake in palette/type/component-inventory decisions before any UX research. This is the ADR-007 mistake in reverse: deciding the deferred thing prematurely.
 - **Defer the UI layer entirely (decide nothing now).** Rejected — leaving the foundation open lets bespoke styling, a CSS-in-JS runtime, or a duplicate component set creep in before UX work starts, eroding the option space and making any later tool's repo inheritance inaccurate. ADR-007 showed the answer: defer the decision, lock the constraints.
-- **Lock the foundation but couple it to Claude Design specifically.** Rejected — Claude Design is "likely" and research-preview, and its code-output format is undocumented. Coupling an Accepted ADR to a preview tool is the kind of dependency TENET-008 warns against. We couple to the portable constraints the tool *implies* (named components, tokens, standard styling), which serve any design path.
-- **Allow a CSS-in-JS runtime (styled-components / Emotion) for ergonomic theming.** Rejected — it is a proprietary styling runtime (the styling analog of the runtimes TENET-008 keeps out of app code), it fragments the styling story away from Tailwind + tokens, and it produces components a repo-reading design tool cannot reliably reproduce. Tailwind + CSS-variable tokens cover the theming need without the runtime.
+- **Lock the foundation but couple it to Claude Design specifically.** Rejected — Claude Design is "likely" and research-preview, and its code-output format is undocumented. Coupling an Accepted ADR to a preview tool is the kind of dependency ADR-013 warns against. We couple to the portable constraints the tool *implies* (named components, tokens, standard styling), which serve any design path.
+- **Allow a CSS-in-JS runtime (styled-components / Emotion) for ergonomic theming.** Rejected — it is a proprietary styling runtime (the styling analog of the runtimes ADR-013 keeps out of app code), it fragments the styling story away from Tailwind + tokens, and it produces components a repo-reading design tool cannot reliably reproduce. Tailwind + CSS-variable tokens cover the theming need without the runtime.
 - **Tokens as an afterthought (hard-code visual values, extract tokens later).** Rejected — the canonical-token-layer constraint is the cheapest thing to honor now and the most expensive to retrofit. A design tool inherits a system *by its tokens and component names*; building those in from the start is what makes the deferred-UX path clean. (The remaining question — how *formal* the token contract should be pre-UX — is the narrow, genuinely-premature slice raised as OD-002, not the whole tokens-as-canonical decision.)
