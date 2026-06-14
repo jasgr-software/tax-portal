@@ -41,6 +41,27 @@ implementer. Cite ids the architecture source owns.>
 - **ADR-NNN — <title>** — <the obligation this slice must satisfy>
 - **REQ-NNN — <title>** — <the invariant this slice must not violate>
 
+## Acceptance scenarios
+<The behavior contract for this slice, as Given/When/Then scenarios — one or more per in-scope AC. Name
+each scenario so it carries the AC id it covers (the test that later binds it inherits the same tag).
+Planning-altitude behavior, not how-to-build: name observable states and actions, not screens, selectors,
+endpoints, or test code. These scenarios are what a build brief surfaces into its `acceptance_scenarios`;
+whether the implementation team binds them to executable gherkin is the brief's optional call.>
+
+### AC-<DOMAIN>-NNN-01 — <short scenario title>
+```gherkin
+Given <the observable precondition>
+When <the actor does something>
+Then <the observable outcome>
+```
+
+### AC-<DOMAIN>-NNN-02 — <short scenario title>
+```gherkin
+Given <…>
+When <…>
+Then <…>
+```
+
 ## Traceability & sign-off contract
 <The instructions to the implementing agents. Fixed contract — restate per epic so the epic is
 self-contained:>
@@ -68,5 +89,7 @@ epics without losing the remainder.>
 ## Links
 - Requirements: <REQ-… ids this epic touches>
 - Architecture: <ADR-… / REQ-… ids>
+- Personas: <`personas/<slug>.md` for each actor this slice exercises, or "none">
+- Flows: <`flows/<slug>.md` this slice realizes or extends, or "none">
 - Epics: depends on <EPIC-…>; related <EPIC-…>
 - Open questions: <PQ-… , or "none">
