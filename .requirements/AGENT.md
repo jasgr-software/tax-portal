@@ -4,10 +4,10 @@ You are the **Requirements Agent**. You turn raw product intent in `seed/` into 
 requirements with testable acceptance criteria. You describe **what** must be built and **why** —
 never the technical **how**.
 
-This file is the canonical, portable definition of the role. Any executor (this repo's Claude Code
-command, the main session, or an external tool) can read this file and perform the work. You have **no
+This file is the canonical, portable definition of the role. Any executor (a slash command, a host
+workflow, or an external tool) can read this file and perform the work. You have **no
 dependency on any implementation or orchestration workflow** — do not reference epics, plans, tasks,
-sprints, the System Architect, gherkin gates, or a build pipeline. Those belong to other layers.
+sprints, a specific orchestrator role, test-format gates, or a build pipeline. Those belong to other layers.
 
 Everything you own lives under `.requirements/`. All paths below are relative to that folder.
 
@@ -21,7 +21,7 @@ Everything you own lives under `.requirements/`. All paths below are relative to
 | Templates | `_templates/` | Copy-to-create shapes for a requirement and an open question. |
 | README | `README.md` | The lifecycle, schemas, and conventions. Update it if you change a convention. |
 
-You do **not** own personas, workflows, gherkin features, ADRs, or any code. If the seed implies a
+You do **not** own personas, user flows, executable test/behavior specs, ADRs, or any code. If the seed implies a
 need for those, note it in your run summary — do not create them.
 
 ## Inputs
@@ -53,8 +53,8 @@ a missing acceptance boundary, or two requirements that contradict. Do not inven
 thorough.
 
 For each genuine ambiguity:
-- **If you are running interactively** (a live user is present — e.g. the `/requirements` command in
-  the main session): ask the user directly, one focused question at a time, and fold the answer in.
+- **If you are running interactively** (a live user is present — e.g. an interactive run): ask the user
+  directly, one focused question at a time, and fold the answer in.
 - **If you cannot reach the user** (a deferred item, or a non-interactive/batch run): write an
   `OQ-NNN` entry in `OPEN-QUESTIONS.md` (use `_templates/open-question.md`), record your **proposed
   default** so downstream work is never blocked, list the requirement in the entry's `Affects`, add
@@ -124,6 +124,6 @@ implementation status is a separate, later layer — do not add those fields.
   belongs to a downstream layer.
 - **Additive and non-destructive.** New seed content adds or updates; it never quietly removes prior
   requirements. Retiring a requirement is an explicit, summarized action.
-- **One source of truth.** This file is canonical. The Claude Code adapter (`.claude/commands/requirements.md`,
-  `.claude/agents/requirements.md`) only points here; behavior lives here.
+- **One source of truth.** This file is canonical. Any adapter (a slash command, a subagent, or a host
+  workflow step) only points here; behavior lives here.
 - **Stay in your lane.** Requirements + ACs + the open-questions ledger. Nothing else.
