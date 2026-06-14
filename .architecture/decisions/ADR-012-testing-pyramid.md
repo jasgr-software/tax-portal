@@ -173,7 +173,7 @@ This ADR proposes the job split; the actual `ci.yml` change is a separate follow
 
 - Each `db/policies/*.sql` → tier 3 spec path.
 - Each server action under `apps/*/src/app/**/*.action.ts` → tiers 2/3/6 covering it.
-- Each user flow file under `docs/requirements/flows/flow-*.md` → tier 6 spec path(s) per ADR-006's two-config Playwright strategy.
+- Each user flow file under `.planning/flows/flow-*.md` → tier 6 spec path(s) per ADR-006's two-config Playwright strategy.
 - Each `Prisma<Entity>Repository` per ADR-011 § 2 → tier 2 mock test path + tier 3 integration test path.
 
 The script runs in CI on `main` after every merge; the regenerated inventory is committed as part of the merge. SDET diff-checks this artifact during Validate — a surface that gained code but no tier coverage on the inventory is a Validate-gate failure.

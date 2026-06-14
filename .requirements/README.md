@@ -101,6 +101,6 @@ implementation status is a **separate, later layer** that will sit on top of thi
 
 This folder owns **requirements + acceptance criteria + the open-questions ledger**, and the agent that
 produces them. It does **not** own personas, user workflows, gherkin features, architecture decisions,
-or any code — those live elsewhere (today under `docs/`) and are deliberately out of scope for this
-layer. Migrating or wiring those into this structure, and adding the implementation-tracking layer, are
-future passes.
+or any code. Personas and user flows live in `.planning/` (`.planning/personas/`, `.planning/flows/`),
+which owns the behavior contract; architecture decisions live in `.architecture/`; the `docs/` tree has
+been retired. Adding the implementation-tracking layer is a future pass.
