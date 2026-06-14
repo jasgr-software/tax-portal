@@ -4,6 +4,7 @@
 **Date:** 2026-04-29
 **Decision-makers:** chris.cox (project owner), SA
 **Related:** ADR-002 (SQL Server), ADR-003 (Identity propagation via SESSION_CONTEXT), ADR-005 (RLS via Security Policies), ADR-006 (Monorepo layout — two front ends, packages, e2e split), ADR-007 (Container packaging — deploy platform deferred), ADR-011 (Repository interface as test seam)
+**Living strategy:** This ADR is the rationale of record. The at-a-glance, continuously-updated posture lives in [`../strategy/TESTING.md`](../strategy/TESTING.md) (and [`../strategy/CICD.md`](../strategy/CICD.md) for the pipeline that realizes it).
 
 ## Context
 

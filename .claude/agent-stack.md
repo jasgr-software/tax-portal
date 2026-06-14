@@ -10,7 +10,7 @@ This pipeline is designed to run **autonomously** — no human in the workflow. 
 
 ## Agent Roles
 
-Five specialised role types collaborate on the project. Each has strict boundaries. Projects define how many Developer instances they need (e.g., backend, frontend, mobile, infrastructure) in `CLAUDE.md`.
+Six specialised role types collaborate on the project. Each has strict boundaries. Projects define how many Developer instances they need (e.g., backend, frontend, mobile, infrastructure) in `CLAUDE.md`.
 
 | Role                          | Agent File            | Responsibility                                                                                                                                                                                                                                                                                                                                 |
 | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -19,6 +19,9 @@ Five specialised role types collaborate on the project. Each has strict boundari
 | **Developer (1–N)**           | `agents/developer.md` | Implements tasks in their assigned domain. Scopes TDD tests against the affected user flows and gherkin scenarios, writes tests first, implements until green, runs the submission gate, then submits for review. Multiple developer roles can be defined per project (e.g., backend, frontend, mobile, infrastructure).                      |
 | **SDET / Validator**          | `agents/sdet.md`      | Owns executable gherkin feature specs under `docs/requirements/features/`. Reviews developer work for flow coverage, gherkin alignment, security flaws, edge cases, convention compliance, and documentation gaps. Verifies developer gate evidence but does not re-run tests — the CI gate is the independent test verification. Never approves based on code review alone. Rejects with actionable bug reports. |
 | **Overwatch**                 | `agents/overwatch.md` | Read-only auditor. Monitors for rule violations, scope creep, and inefficiencies. Advisory only — SDET remains the approval authority.                                                                                                                                                                                                         |
+| **Architecture Agent**        | `.architecture/AGENT.md` | Owns *how* the system is built — ADRs, the C4 model, the architectural tenets, and the testing + CI/CD strategy (all under `.architecture/`). Authors and maintains these as a standalone layer, and is **dispatched during Review (the architecture scan) and Close-prep (C4/ADR updates)**, and on demand for design/code-deviation review. Returns deviation reports the SA dispositions; flags code changes for developers but does not write application code. Adapter: `.claude/agents/architect.md`; interactive command: `/architecture`. |
+
+**Review division of labor (by *subject*, not by file).** The **Architecture Agent** checks drift from ADRs / tenets / the C4 model / the testing+CI-CD strategy. **Overwatch** checks workflow-rule violations, scope creep, and inefficiencies. The **SDET** checks test coverage, gherkin/flow alignment, and gate evidence. All three may read the same files; they do not overlap in what they judge. The SDET remains the per-task approval authority; the Architecture Agent and Overwatch are advisory inputs the SA dispositions.
 
 ## Gated Paths
 
@@ -41,6 +44,10 @@ The single rule that determines whether work needs quality gates: **any change t
 **RA-owned paths** (read-only for main session and all non-RA agents):
 
 - `docs/requirements/**` — SRS, epic files, and archive. Only the RA agent may edit these. Exception: the main session may **append** (not rewrite) to `docs/requirements/observations.md` to capture live user input, then hand off to the RA for requirements authoring. All other edits under `docs/requirements/` — including creating, modifying, or moving epic files — must go through the RA.
+
+**Architecture-owned paths** (read-only for main session and all non-Architecture agents):
+
+- `.architecture/**` — ADRs, the C4 model, tenets, and the testing/CI-CD strategy. Only the Architecture Agent may edit these. Exception: the main session may **add** raw architecture intent under `.architecture/seed/`, then hand off to the Architecture Agent. All other edits under `.architecture/` go through the Architecture Agent (`/architecture` or SA dispatch). Note: `docs/architecture/model-behavior-notes.md` is **not** part of this layer — it governs agent/model behavior for quad review and remains under the ungated `docs/` taxonomy.
 
 **Only one initiative is active at a time** — the `## Current initiative` section in PROGRESS.md holds exactly one unit of work.
 
