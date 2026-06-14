@@ -6,7 +6,7 @@ This file provides project-specific guidance to Claude Code. For the reusable mu
 
 Generic rules live in `.implementation/ENGINE.md` § Main Session Rules. Project-specific additions:
 
-- **"Application code" scope:** source files, Prisma schema, infrastructure config, Dockerfiles, GitHub workflows, and configuration. The main session may only modify: `CLAUDE.md`, `.implementation/**` (engine, phases, agents, the task pipeline, operations), `.claude/`, and memory files.
+- **"Application code" scope:** source files, Prisma schema, infrastructure config, Dockerfiles, GitHub workflows, and configuration. The main session may only modify: `CLAUDE.md`, `.implementation/**` (engine, phases, agents, the task pipeline, operations), `.pr-review/**` (the standalone PR-review panel + fixer — main-session-owned tooling, not an upstream product layer), `.claude/`, and memory files.
 - **Upstream layers are read-only here:** product requirements (`.requirements/`), system architecture (`.architecture/`), and delivery planning (`.planning/`) are owned by their own agents and are not edited as part of an implementation run. The implementation team reads them only when a build brief cites them.
 
 ## Product Vision
@@ -213,9 +213,11 @@ pnpm db:reset                                # Drop + recreate local DB, re-run 
 - `.requirements/` — **standalone requirements layer** (the *what*): `REQ-*` with acceptance criteria; owned by `.requirements/AGENT.md`
 - `.architecture/` — **standalone architecture layer** (the *how*): ADRs (`decisions/ADR-*`), the C4 model (`c4/`), and strategy docs; owned by `.architecture/AGENT.md`
 - `.planning/` — **standalone, workflow-decoupled delivery-planning layer** (the "Product Owner"). Decomposes the requirement + architecture sources into a phased roadmap of vertically-sliced epics and tracks every acceptance criterion to sign-off. Owned by its own canonical agent, `.planning/AGENT.md` — read that to author/validate; it is self-contained and not wired into the implementation workflow. A `.planning/` epic is a canonical **producer of build briefs** for `.implementation/`. It also owns the **behavior contract**: user personas (`.planning/personas/`), targeted per-slice user flows (`.planning/flows/`, built out incrementally as epics are authored), and each epic's Given/When/Then **acceptance scenarios** (embedded in the epic — there is no standalone `.feature` tree). Key files: `.planning/ROADMAP.md` (phased plan), `.planning/COVERAGE.md` (per-AC acceptance ledger), `.planning/EPIC-NNN-*.md` (epics), `.planning/personas/` + `.planning/flows/` (behavior contract), `.planning/seed/sources.md` (declares the requirement/architecture sources — the only project-coupling point). Joins `.requirements/` (the *what*) and `.architecture/` (the *how*) as the third standalone layer (the *what-next-and-in-what-order*).
+- `.pr-review/` — **standalone PR-review layer** (3-lens advisory panel + `pr-fixer`). See `.pr-review/README.md`.
 
 ## Tool Usage Notes
 
 - **Use `Monitor` for long-running tail/poll work** — CI run polling (`gh run watch` or a `gh run view --json conclusion` loop), Docker log tailing during e2e debugging (`docker compose logs -f | grep --line-buffered -E 'ERROR|FAIL'`), file-change watching (`inotifywait`), and Vercel deploy health polling. Do NOT use blocking foreground `Bash` calls or `sleep` loops for these — Monitor streams stdout lines as chat events so you keep working while notifications arrive. Use `Bash run_in_background` only for one-shot "wake me up when this one thing finishes" work. Always pipe through `grep --line-buffered` with a specific filter — raw tails will be auto-stopped for volume.
 - **Use the `claude-code-guide` agent for authoritative Claude Code feature questions** — it has WebFetch against the official docs. Do not guess release dates or feature availability from memory.
 - **Do not write to `.claude/agent-status.json`.** The file is not used by this project; no agent (main or sub) should create, update, or read it.
+- **`/pr-review <PR#>` and `/pr-fix <PR#>`** — see `.pr-review/README.md`.
