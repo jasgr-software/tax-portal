@@ -216,6 +216,7 @@ pnpm db:reset                                # Drop + recreate local DB, re-run 
 - `docs/requirements/SRS.md` — Software Requirements Specification (RA-owned, living document — produced from intake)
 - `docs/requirements/ep-NNN-name.md` — epic-level requirements with acceptance criteria
 - `docs/decisions/` — architecture decision records; consult before making structural choices
+- `.planning/` — **standalone, workflow-decoupled delivery-planning layer** (the "Product Owner"). Decomposes the requirement + architecture sources into a phased roadmap of vertically-sliced epics and tracks every acceptance criterion to sign-off. Owned by its own canonical agent, `.planning/AGENT.md` — read that to author/validate; it is self-contained and not wired into the SA workflow. Key files: `.planning/ROADMAP.md` (phased plan), `.planning/COVERAGE.md` (per-AC acceptance ledger), `.planning/EPIC-NNN-*.md` (epics), `.planning/seed/sources.md` (declares the requirement/architecture sources — the only project-coupling point). Joins `.requirements/` (the *what*) and `.architecture/` (the *how*) as the third standalone layer (the *what-next-and-in-what-order*).
 
 ## Tool Usage Notes
 
