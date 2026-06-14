@@ -11,7 +11,7 @@ plan and offers a **validate capability** — confirming, from CI/test evidence,
 criteria are implemented — and **neither depends on any orchestration workflow.** A host multi-agent
 workflow *may* invoke the agent (to plan the next phase, or to validate a finished epic before sign-off),
 but those dispatch points are defined by that workflow in its own adapter, not here. There are no
-`docs/tasks/`, sprints, build pipelines, or developer instructions in here — just the roadmap, the epics,
+`.implementation/tasks/`, sprints, build pipelines, or developer instructions in here — just the roadmap, the epics,
 the acceptance coverage, and the agent that authors them.
 
 ## What's here
