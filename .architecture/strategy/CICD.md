@@ -1,7 +1,7 @@
 # CI/CD Strategy
 
 > **Living document.** The authoritative *current* CI/CD posture. The executable source of truth is
-> `.github/workflows/ci.yml`; the branch-protection state lives in `docs/operations/branch-protection.md`
+> `.github/workflows/ci.yml`; the branch-protection state lives in `.implementation/operations/branch-protection.md`
 > (GitHub repo config cannot live in the repo). This file is the at-a-glance strategy that ties them to
 > the testing pyramid (`strategy/TESTING.md`) and the merge-autonomy rules. Update the amendment history
 > when jobs or required checks change.
@@ -10,13 +10,13 @@
 
 - **2026-06-13** — Extracted into `.architecture/strategy/` as the living CI/CD surface.
 - **2026-04-28** — Stage 1 branch protection applied (`lint-and-typecheck` + `security-scan` required);
-  PR-merge promoted to autonomous-on-green (`.claude/agent-stack.md` § Autonomy Ceiling item 3).
+  PR-merge promoted to autonomous-on-green (`.implementation/ENGINE.md` § Autonomy Ceiling item 3).
 
 ## Summary
 
 CI runs on every push and PR via GitHub Actions. A small, **staged** set of required status checks backs
 the lights-out merge model: a PR auto-merges only when its required checks are green
-(`.claude/agent-stack.md` § Autonomy Ceiling item 3). Required checks grow in stages as the apps and
+(`.implementation/ENGINE.md` § Autonomy Ceiling item 3). Required checks grow in stages as the apps and
 tests land — the pipeline is never allowed to mark advisory jobs as "required."
 
 ## Pipeline — `.github/workflows/ci.yml`
@@ -38,7 +38,7 @@ first RLS policy exists), `e2e-smoke-portal` / `e2e-smoke-admin` (tier 6 smoke s
 
 ## Branch protection (staged)
 
-Authoritative operator runbook: `docs/operations/branch-protection.md`.
+Authoritative operator runbook: `.implementation/operations/branch-protection.md`.
 
 - **Stage 1 (active):** required checks = `lint-and-typecheck`, `security-scan`. `strict: true`,
   `enforce_admins: true`, `required_conversation_resolution: true`, no force-push, no deletion.
@@ -49,9 +49,9 @@ Authoritative operator runbook: `docs/operations/branch-protection.md`.
 
 ## Merge autonomy
 
-PR-merge is autonomous-on-green with conditions (`.claude/agent-stack.md` § Autonomy Ceiling item 3):
+PR-merge is autonomous-on-green with conditions (`.implementation/ENGINE.md` § Autonomy Ceiling item 3):
 (a) green required CI, (b) ≥1 required check reported (fail-closed), (c) workflow-file PRs —
-`.claude/agent-stack.md`, `.claude/agent-phases.md`, `agents/*.md` — need an explicit user `LGTM`,
+`.implementation/ENGINE.md`, `.implementation/PHASES.md`, `.implementation/agents/*.md` — need an explicit user `LGTM`,
 (d) epic-closing PRs need the pre-merge epic gates (5–8) recorded in PROGRESS.md. `scripts/validate-gates.sh`
 is the independent backstop. Deploy pipeline is deferred (ADR-007).
 

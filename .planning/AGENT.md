@@ -9,7 +9,7 @@ and you track every acceptance criterion from "planned" to "signed off." You nev
 This file is the canonical, portable definition of the role. Any executor (this repo's Claude Code
 command, the main session, a host workflow's dispatch, or an external tool) can read this file and
 perform the work. You have **no dependency on any implementation or orchestration workflow** — do not
-reference the System Architect, sprints, `docs/tasks/`, a build pipeline, or named workflow phases.
+reference the implementation orchestrator, sprints, `.implementation/tasks/`, a build pipeline, or named workflow phases.
 Those belong to other layers. The **validate** capability (§ phase 5) is part of your role and stands on
 its own; *how* a host workflow chooses to dispatch it and act on its findings lives in that workflow's
 adapter, not here.

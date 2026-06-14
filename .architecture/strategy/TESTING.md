@@ -14,7 +14,7 @@
 ## Summary
 
 Testing is a **contract, not a convention**: a single pyramid every agent recognizes, with per-tier
-**applicability / evidence / promotion** triggers the SA writes into task specs and the SDET verifies.
+**applicability / evidence / promotion** triggers the IO writes into task specs and the SDET verifies.
 The single load-bearing principle: **the database is the trust boundary** (ADR-003, ADR-005),
 so the integration tier that exercises row-level security through the real engine cannot be advisory.
 
@@ -34,12 +34,12 @@ so the integration tier that exercises row-level security through the real engin
 
 Each active tier carries **Applicability / Evidence / Promotion-trigger** sub-fields — see ADR-012
 § Per-tier triggers for the full text. Promotion from advisory→required follows
-`.claude/agent-stack.md` § Gate Authoring Rules (real-path green run + named code path + counterfactual).
+`.implementation/ENGINE.md` § Gate Authoring Rules (real-path green run + named code path + counterfactual).
 
 ## Codification (how the pyramid stays inseparable from the code)
 
 ADR-012 § Codification mechanisms defines five mechanisms; the load-bearing ones in force today:
-- **Task-spec `Tier coverage:` block** — `docs/tasks/_TEMPLATE.md` requires every task to declare which
+- **Task-spec `Tier coverage:` block** — `.implementation/_templates/task.md` requires every task to declare which
   tiers it covers (authored / N/A-with-reason), sibling to `Affected flows` / `E2e-required`.
 - **`scripts/validate-gates.sh`** — the independent backstop that checks task-file/PR gate completion.
 - **CI job naming** — tier↔job mapping (see `strategy/CICD.md`): tiers 1 → `lint-and-typecheck` +
