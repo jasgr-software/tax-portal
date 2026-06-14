@@ -19,12 +19,12 @@ reusable. Its single configuration knob is `seed/sources.md`.
   create branches, or merge — all of that belongs to the engine and its own rules. A Conductor that
   re-implements the IO is a bug.
 
-## The engine is a swappable backend
+## The implementation engine is a backend
 
 The Conductor depends on the implementation engine **only through the build-brief contract**, declared in
-`seed/sources.md`. `.implementation/` (the in-repo IO, via `/io`) is the **default binding**; any engine
-that consumes a build brief and produces a merged PR + completion report (e.g. an external one like open-swe)
-drops in by editing `seed/sources.md` alone. The brief is the interface.
+`seed/sources.md`. `.implementation/` (the in-repo IO, via `/io`) is the **default binding**; another engine
+that consumes a build brief and produces a merged PR + completion report can be retargeted by editing
+`seed/sources.md`. The brief is the interface.
 
 ## How to run
 
@@ -52,7 +52,7 @@ around any guardrail. See `PHASES.md` § Stop/defer matrix.
 ```
 .orchestration/
 ├── README.md            # this file
-├── AGENT.md             # the Conductor — canonical role + the 8-phase lifecycle + epic→brief mapping
+├── AGENT.md             # the Conductor — canonical role + the 9-phase lifecycle + epic→brief mapping
 ├── ENGINE.md            # shared rules: autonomy boundary, engine interface, readiness gate, state contract
 ├── PHASES.md            # per-phase responsibilities + exit conditions + the Stop/defer matrix
 ├── STATE.md             # the run ledger — single source of truth for a run (resumable)

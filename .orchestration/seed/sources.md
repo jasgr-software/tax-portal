@@ -25,11 +25,11 @@
 - **note:** read-only. The Conductor never edits `.planning/` directly; the only roadmap mutation is via the
   **validate** capability below (the planning agent writes `COVERAGE.md`, not the main session).
 
-## Implementation engine (brief → merged PR — required, swappable)
+## Implementation engine (brief → merged PR — required)
 
-> The engine is a **backend behind the build-brief contract.** The Conductor composes a brief and hands it
-> off; the engine plans, builds, validates, opens a PR, and (per its own rules) merges and finalizes. Swap
-> engines by editing this block — the Conductor's lifecycle does not change.
+> The engine is a backend behind the build-brief contract: the Conductor composes a brief and hands it off;
+> the engine plans, builds, validates, opens a PR, and (per its own rules) merges and finalizes. To retarget
+> a different engine, edit this block — the Conductor's lifecycle does not change.
 
 - **default binding:** `.implementation/` (the in-repo Implementation Orchestrator)
 - **invoke:** `/io <brief-path>` (the IO drives Plan → Dispatch → Audit → Review → Smoke → Validate →
@@ -44,9 +44,8 @@
   autonomy (`.implementation/ENGINE.md` § Autonomy Ceiling, conditions a–d).
 - **output contract the Conductor relies on:** a merged PR + a completion/handoff report naming which AC
   were satisfied (so the validate step has targets) + the green CI evidence (run id / SHA).
-- **swap example:** to use an external engine, change `invoke:` to that engine's entry, point `brief
-  contract` at the shape it consumes, and set how it signals completion. If the engine does not honor the
-  build-brief shape above, the Conductor's Compose step targets the shape declared here.
+- **retargeting:** point `invoke:` and `brief contract:` at another engine that consumes a brief and
+  produces the same output contract; nothing outside this block changes.
 
 ## Review + fix (harden the opened PR — required)
 
