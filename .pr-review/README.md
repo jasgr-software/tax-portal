@@ -93,9 +93,10 @@ read only the PR (diff + changed files), never `.architecture/`/`.planning/`/`.r
 conventions, and apply no project-specific rules. Only the **fixer** is project-aware (it must run the
 submission gate) and only it writes code, and only to the PR branch under review.
 
-It **complements, does not replace**: the `/code-review` and `/security-review` skills (lower-level, local
-diff), and the `.implementation/` SDET review gate (tied to the build pipeline). Use `.pr-review/` when you
-want an independent, multi-lens review posted on a real PR, and an agent to take that PR to green.
+It **complements, does not replace**: the `/code-review` and `/security-review` skills, if installed (those
+are user-global skills, not in-repo artifacts), and the `.implementation/` SDET review gate (tied to the
+build pipeline). Use `.pr-review/` when you want an independent, multi-lens review posted on a real PR, and
+an agent to take that PR to green.
 
 ## Reusability
 

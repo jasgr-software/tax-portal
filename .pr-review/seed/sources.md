@@ -36,7 +36,7 @@
 ## Notes
 
 - **Complements, does not replace.** This layer is independent of the `/code-review` and `/security-review`
-  skills and the `.implementation/` SDET review gate.
+  skills (user-global, if installed) and the `.implementation/` SDET review gate.
 - **Advisory.** The panel does not own branch protection or required checks; its verdict is textual.
 - **A future project retargets here.** The panel is portable as-is; only this file (the fixer's gate/CI
   location) and `CLAUDE.md`'s gate commands are project-specific.

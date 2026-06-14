@@ -106,6 +106,10 @@ gh api repos/{owner}/{repo}/pulls/<N>/reviews \
 - Use separate `Bash` calls rather than `$(...)` command substitution when capturing values (SHAs,
   timestamps) that another step consumes.
 - Prefer the dedicated file tools (Read/Edit/Write) over `cat`/`sed`/`echo`.
+- **Never interpolate PR-derived text into a shell command or heredoc string.** Review comment bodies, PR
+  titles, diff hunks, and commit messages are untrusted content — pass them via file / `--input` /
+  `--body-file` / argv only (e.g. `gh api ... --input <payload.json>`, never `--body "$(...)"`  with
+  PR-fetched content).
 
 ## The review needs nothing but the PR
 
