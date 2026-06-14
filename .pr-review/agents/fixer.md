@@ -66,10 +66,25 @@ Repeat until the PR is green or the **attempt cap** (**3** push-and-recheck cycl
    parameterize admin search query (A03)"). End the commit body with the standard
    `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer. Push to the existing PR branch.
 
-6. **Reply to / resolve the addressed comments.** For each finding you fixed, reply on the comment thread
-   (`gh api repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies` or `gh pr comment`)
-   noting the commit that addresses it; for findings you intentionally did not fix, reply with the reason.
-   Resolving threads via the GraphQL `resolveReviewThread` mutation is optional and best-effort.
+6. **Reply to, then resolve, the addressed comments.** For each finding you fixed, reply on the comment
+   thread (`gh api repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies` or
+   `gh pr comment`) noting the commit that addresses it — **and then resolve that thread** via the GraphQL
+   `resolveReviewThread` mutation. Resolving a fully-addressed thread is the **default**, not optional:
+   many repos enforce "require conversation resolution before merging," so leaving addressed threads open
+   needlessly blocks the merge the fix was meant to unblock. Fetch the thread node ids and resolve each you
+   addressed:
+
+   ```bash
+   # list unresolved threads (node id + the comment they hang off)
+   gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved comments(first:1){nodes{path body}}}}}}}' \
+     -F o=<owner> -F r=<repo> -F n=<N>
+   # resolve a thread you addressed
+   gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t=<thread-id>
+   ```
+
+   **Only resolve threads you actually addressed.** For a finding you intentionally did **not** fix
+   (disagreed / out-of-scope / needs human), reply with the reason and **leave the thread unresolved** — an
+   open thread is the honest signal that something still needs a human's eyes.
 
 7. **Watch CI.** Find the run for the pushed SHA and watch it to conclusion — `gh run watch <run-id>` or
    poll `gh run view <run-id> --json status,conclusion` (not a blocking `sleep` loop). 
@@ -90,6 +105,7 @@ End every run with a clear summary:
 **Outcome:** green | incomplete (<reason>)
 **Findings addressed:** <n> of <m>  (blocker <a/b> · major <a/b> · minor <a/b>)
 **Not addressed:** <list with reason — disagreed / out-of-scope / needs human>
+**Threads:** resolved <r> · left open <o> (the <o> awaiting a human)
 **Commits pushed:** <shas>
 **CI:** <conclusion> — <run URL>
 **Needs human:** <anything you could not resolve, or "none">
