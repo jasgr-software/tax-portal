@@ -72,9 +72,9 @@ seed/ + project state  ──►  Architecture Agent  ──►  ADRs · C4 · s
 - **In Claude Code (interactive — recommended):** `/architecture [optional scope, e.g. "review the
   staged diff" or "author L2 container model"]`. Runs the agent inline so it can ask you clarifying
   questions and pause.
-- **As a subagent (batch / non-interactive):** the `.claude/agents/architect.md` form. It cannot hold a
-  live conversation, so it degrades to **ledger-only** clarification — every ambiguity becomes an
-  `OD-NNN` with a proposed default instead of a question to you.
+- **As a subagent (batch / non-interactive):** the `architecture` subagent type
+  (`.claude/agents/architecture.md`). It cannot hold a live conversation, so it degrades to **ledger-only**
+  clarification — every ambiguity becomes an `OD-NNN` with a proposed default instead of a question to you.
 - **Invoked by a host workflow:** an orchestrator may dispatch this agent — for example, to scan a diff
   for deviations, or to refresh the C4 model and ADRs after a change lands. Those dispatch points belong
   to that workflow's own definition, not to this layer. See `AGENT.md` § Review.
