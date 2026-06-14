@@ -24,16 +24,19 @@ early would expose the practice to compliance risk.
   rather than left to manual discipline.
 
 ## Notes
-- **Retention/deletion semantics — resolved (cross-cutting, OQ-004 deferred):** permanent hard-delete of
-  a client/data is deferred from v1, so in v1 no path bypasses the 7-year retention guarantee. The
-  later-version accountant-initiated hard-delete carve-out (REQ-IDNT-005) is the only mechanism that
-  could ever override retention, and it is out of v1 scope.
+- **Retention/deletion semantics — updated (OQ-004 addendum 2026-06-14):** During the 7-year retention
+  window, no path bypasses the retention guarantee; retention is the governing rule. After the window
+  elapses, data is purge-eligible and may be permanently removed by an explicit accountant-confirmed
+  purge (REQ-FILE-013) — this is the v1 mechanism that can remove data from the retention guarantee
+  after the window expires. A legal hold (REQ-FILE-014) blocks purge eligibility even post-expiry.
+  Wholesale permanent deletion of a client identity (REQ-IDNT-005) remains deferred from v1.
 - "Permanently removed" here means the document leaving the retention guarantee entirely; ordinary
   user-visible deletion is a reversible/soft action that keeps the document within the retention window
   (see REQ-FILE-006).
 
 ## Links
 - Related: REQ-FILE-005 (7-year retention period — File Exchange), REQ-FILE-006 (soft-delete within
-  retention), REQ-IDNT-005 (accountant hard-delete — deferred from v1), REQ-AUTH-008 (indefinite client
-  access)
+  retention), REQ-FILE-013 (post-retention purge — how data leaves the retention guarantee post-expiry),
+  REQ-FILE-014 (legal hold — blocks purge eligibility), REQ-IDNT-005 (wholesale client deletion —
+  deferred from v1), REQ-AUTH-008 (indefinite client access)
 - Open questions: none

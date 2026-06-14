@@ -42,13 +42,18 @@ the legal hold lift?).
 ## Notes
 - **Permanent deletion is DEFERRED from v1 and is NOT built in v1.** In v1, client data is retained per
   the 7-year retention rule (REQ-FILE-005) and clients keep indefinite access (REQ-AUTH-008).
-- **OQ-004 resolved (2026-06-13 — defer):** the conflict between hard delete, 7-year retention, and
-  indefinite client access is resolved for v1 by deferring permanent deletion entirely. This is a settled
-  decision; this requirement is not a clarifying item. The original clarification (CLARIF-005 in the seed)
-  — precedence of deletion over retention, and whether stored files are physically erased — is carried
-  forward as the design question for the later-version effort.
+- **OQ-004 resolved (2026-06-13 — defer); addendum 2026-06-14:** the 2026-06-14 decision brought
+  post-retention document/engagement purge into v1 (REQ-FILE-013), but that is a narrower capability —
+  purge of a specific engagement's data after the retention window. This requirement (wholesale permanent
+  deletion of a client identity and all associated history) remains deferred from v1 and is unaffected
+  by the 2026-06-14 decision. The two capabilities are related but distinct: REQ-FILE-013 handles
+  engagement-level post-retention purge; this requirement handles the future client-identity erasure
+  path. When REQ-IDNT-005 is eventually designed, the interaction with REQ-FILE-013, REQ-FILE-014
+  (legal hold), and REQ-FILE-015 (precedence rule) must be considered.
 
 ## Links
 - Related: REQ-FILE-005 (7-year document retention), REQ-AUTH-008 (indefinite client access),
-  REQ-NFR-006 (retention enforced programmatically)
-- Open questions: none (OQ-004 resolved — defer)
+  REQ-NFR-006 (retention enforced by system), REQ-FILE-013 (engagement-level post-retention purge —
+  related but narrower; in v1), REQ-FILE-014 (legal hold), REQ-FILE-015 (retention-vs-erasure
+  precedence)
+- Open questions: none (OQ-004 resolved — defer; 2026-06-14 purge decision does not affect this deferral)

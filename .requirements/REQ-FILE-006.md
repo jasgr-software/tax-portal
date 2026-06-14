@@ -29,6 +29,13 @@ elapses.
   and is not permanently destroyed within that period.
 - **AC-FILE-006-03** — A file marked as deleted remains recoverable until its retention period elapses.
 
+## Notes
+- Soft-delete (marking a file as deleted) is distinct from purge (REQ-FILE-013). Soft-delete is
+  available at any time during or after the retention window, removes the file from the working view,
+  but keeps the underlying data. Purge is a post-retention accountant-confirmed action that permanently
+  removes data after the retention window has elapsed and any legal hold (REQ-FILE-014) is lifted.
+
 ## Links
-- Related: REQ-FILE-004 (only accountant deletes), REQ-FILE-005 (7-year retention governs)
+- Related: REQ-FILE-004 (only accountant deletes), REQ-FILE-005 (7-year retention governs),
+  REQ-FILE-013 (post-retention purge — distinct from soft-delete)
 - Open questions: none

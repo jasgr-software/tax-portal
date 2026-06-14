@@ -54,7 +54,7 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 
 ## OQ-004 — Hard delete vs. retention precedence
 - **Status:** resolved
-- **Affects:** REQ-IDNT-005, REQ-FILE-005, REQ-AUTH-008
+- **Affects:** REQ-IDNT-005, REQ-FILE-005, REQ-AUTH-008, REQ-FILE-013, REQ-FILE-014, REQ-FILE-015
 - **Question:** Hard delete (REQ-IDNT-005) conflicts with 7-year document retention (REQ-FILE-005) and
   indefinite client access (REQ-AUTH-008). What is the precedence? Does a hard delete override the
   retention rule? Are files physically removed from object storage, or only the DB records?
@@ -67,6 +67,17 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
   deactivate/close mechanism — is deferred to a later version, to be designed once the retention/legal
   policy is settled. **Consequences:** REQ-IDNT-005 (client hard delete) is descoped from v1 (to be
   authored as deferred when the IDNT domain is processed); REQ-AUTH-008 is unblocked → accepted.
+- **Resolution addendum — 2026-06-14 (partial reversal for purge):** The user decision of 2026-06-14
+  partially supersedes the 2026-06-13 deferral. **Post-retention accountant-confirmed purge is brought
+  into v1** — after the 7-year window elapses, the accountant may explicitly purge engagement data
+  (never automatically). This resolves the post-retention side of the precedence question: retention
+  governs during the window; after the window, purge is available under accountant control. Legal hold
+  (new) suspends purge eligibility regardless of age. Client-erasure requests during the retention
+  window are honored as access-revocation only, not data destruction. **The deferral of REQ-IDNT-005
+  (wholesale permanent deletion of a client identity) is NOT reversed** — wholesale client erasure
+  remains out of v1 scope. New requirements added: REQ-FILE-013 (post-retention purge),
+  REQ-FILE-014 (legal hold), REQ-FILE-015 (retention-vs-erasure precedence). REQ-FILE-005 updated with
+  reconciliation note.
 - **Provenance:** CLARIF-005
 
 ## OQ-005 — Docuseal hosting model
