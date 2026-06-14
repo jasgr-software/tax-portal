@@ -10,6 +10,7 @@ description: >
   panel; returns structured findings to the lead (reviewer-correctness), which
   aggregates and posts. Does NOT post to GitHub itself. See .pr-review/AGENT.md.
 model: opus
+effort: xhigh
 tools:
   - Read
   - Glob

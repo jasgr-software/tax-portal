@@ -10,6 +10,7 @@ description: >
   findings, dedupes, assigns the advisory verdict, and posts the one consolidated
   GitHub PR review. See .pr-review/AGENT.md.
 model: opus
+effort: xhigh
 tools:
   - Read
   - Glob

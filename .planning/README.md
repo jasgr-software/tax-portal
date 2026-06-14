@@ -71,10 +71,14 @@ stale; unchanged ones are left exactly as-is.
 
 ## How to run the agent
 
-- **Any executor:** point it at `.planning/AGENT.md` and have it follow that file. The role is fully
-  defined there. (Per this project's decision, no Claude Code slash-command / subagent adapter is wired
-  yet — the layer is invoked by reading `AGENT.md`. A host workflow may add a thin adapter later that
-  only points here; behavior stays in `AGENT.md`.)
+- **In Claude Code (interactive — recommended):** `/planning [optional scope]`. Runs the agent inline so
+  it can ask you clarifying questions and pause.
+- **As a subagent (batch / non-interactive):** the `planning` subagent type (`.claude/agents/planning.md`).
+  It cannot hold a live conversation, so it degrades to **ledger-only** clarification — every ambiguity
+  becomes a `PQ-NNN` with a proposed default instead of a question.
+- **Any other executor:** point it at `.planning/AGENT.md` and have it follow that file. The role is fully
+  defined there. The Claude Code slash-command and subagent are **thin adapters** that only point here;
+  behavior stays in `AGENT.md`, so the layer remains portable.
 - **Interactive vs. batch:** with a live user present the agent asks clarifying questions directly; with
   no user reachable it degrades to **ledger-only** clarification — every ambiguity becomes a `PQ-NNN`
   with a proposed default instead of a question.

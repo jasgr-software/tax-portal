@@ -7,6 +7,7 @@ description: >
   executable tests that bind the brief's acceptance contract, runs the submission gate,
   then submits for review.
 model: sonnet
+effort: high
 tools:
   - Read
   - Glob

@@ -7,6 +7,7 @@ description: >
   Claude Code does not support nested-Agent-from-subagent, so the IO does not spawn subagents itself.
   Does not own product requirements, system architecture, or the roadmap; reads them read-only when cited.
 model: opus
+effort: high
 tools:
   - Read
   - Glob

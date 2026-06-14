@@ -6,6 +6,7 @@ description: >
   or build pipeline. Batch/non-interactive form; degrades to ledger-only clarification. For an
   interactive run that can ask the user questions, use the /requirements command instead.
 model: sonnet
+effort: medium
 tools:
   - Read
   - Glob
