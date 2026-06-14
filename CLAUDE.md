@@ -6,9 +6,8 @@ This file provides project-specific guidance to Claude Code. For the reusable mu
 
 Generic rules live in `.claude/agent-stack.md` § Main Session Rules. Project-specific additions:
 
-- **"Application code" scope:** source files, Prisma schema, infrastructure config, Dockerfiles, GitHub workflows, and configuration. The main session may only modify: `CLAUDE.md`, `docs/tasks/`, `docs/architecture/`, `agents/*.md`, `.claude/`, and memory files.
+- **"Application code" scope:** source files, Prisma schema, infrastructure config, Dockerfiles, GitHub workflows, and configuration. The main session may only modify: `CLAUDE.md`, `docs/tasks/`, `docs/architecture/`, `docs/decisions/`, `agents/*.md`, `.claude/`, and memory files.
 - **Requirements exception:** the main session may append to `docs/requirements/observations.md` (user input capture, not requirements authoring). All other requirements changes go through the RA.
-- **Architecture exception:** the architecture standards layer (`.architecture/` — ADRs, C4, tenets, testing/CI-CD strategy) is owned by the **Architecture Agent** (`.architecture/AGENT.md`, dispatched via `/architecture` or by the SA). The main session may append raw architecture intent to `.architecture/seed/`; all other `.architecture/` changes go through the Architecture Agent. `docs/architecture/model-behavior-notes.md` is **not** part of this layer — it governs agent/model behavior for quad review and stays SA/quad-review-owned under `docs/architecture/`.
 - **Initial intake:** `docs/requirements/intake.md` is the raw source document the user provided. The RA processes it into `docs/requirements/SRS.md` + epic files during its first invocation.
 
 ## Product Vision
@@ -46,9 +45,8 @@ The workflow engine (`.claude/agent-stack.md`) defines generic roles. This secti
 
 | Role Tag             | Agent Role           | Model      | Assigned Directories                                                          | Tech Stack                                                                 |
 | -------------------- | -------------------- | ---------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `[sa]`               | System Architect     | Opus 4.6   | `CLAUDE.md`, `docs/tasks/`, `docs/architecture/` (model-behavior-notes only) | —                                                                          |
+| `[sa]`               | System Architect     | Opus 4.6   | `CLAUDE.md`, `docs/tasks/`, `docs/architecture/`, `docs/decisions/`           | —                                                                          |
 | `[ra]`               | Requirements Analyst | Sonnet 4.6 | `docs/requirements/`                                                          | —                                                                          |
-| `[arch]`             | Architecture Agent   | Sonnet 4.6 | `.architecture/` (ADRs, C4, tenets, testing/CI-CD strategy)                  | — (authors decisions about the stack; does not write application code). Dispatched via `/architecture` or by the SA in Review/Close-prep. See `.architecture/AGENT.md`. |
 | `[webapp-developer]` | Developer            | Sonnet 4.6 | `apps/portal`, `apps/admin`, `packages/`, `prisma/`, `db/`                    | Next.js 14 (App Router), TypeScript, Clerk, Prisma (sqlserver provider), SQL Server 2022, Tailwind, shadcn/ui, Playwright, Vitest. Two front-ends: `apps/portal` (Client Portal — client-facing) and `apps/admin` (Tax Portal — accountant-facing). See ADR-006. |
 | `[devops]`           | Developer            | Sonnet 4.6 | `infra/`, `.github/workflows/`, Dockerfiles, `docker-compose*.yml`            | OCI containers (multi-stage Dockerfile), GitHub Actions, Docker + Docker Compose (local dev). Production deploy platform deferred — see ADR-007. |
 | `[sdet]`             | SDET / Validator     | Sonnet 4.6 | (reviews all directories)                                                     | —                                                                          |
@@ -212,15 +210,12 @@ pnpm db:reset                                # Drop + recreate local DB, re-run 
 - `.claude/agent-stack.md` — multi-agent workflow engine (reusable rules all agents follow)
 - `.claude/agent-phases.md` — SA-only phase lifecycle reference
 - `agents/*.md` — individual agent role definitions (SA, RA, Developer, SDET, Overwatch, PD-*)
-- `.architecture/README.md` — the architecture standards layer: lifecycle, schemas, conventions (the *how*)
-- `.architecture/AGENT.md` — the Architecture Agent role (authors/maintains ADRs, C4, tenets, strategy; reviews for deviations)
-- `.architecture/c4/README.md` — living C4 architecture model; the Architecture Agent updates this (SA dispatches it at Close-prep)
-- `.architecture/TENETS.md` — architectural tenets (`TENET-NNN`); read this before implementing anything
-- `.architecture/decisions/` — architecture decision records (`ADR-NNN`); consult before making structural choices
-- `.architecture/strategy/TESTING.md` · `.architecture/strategy/CICD.md` — living testing + CI/CD strategy
+- `docs/architecture/C4.md` — living C4 architecture model; the SA updates this after each epic
+- `docs/architecture/TENETS.md` — architectural tenets; read this before implementing anything
 - `docs/requirements/intake.md` — raw requirements document (user-provided source material)
 - `docs/requirements/SRS.md` — Software Requirements Specification (RA-owned, living document — produced from intake)
 - `docs/requirements/ep-NNN-name.md` — epic-level requirements with acceptance criteria
+- `docs/decisions/` — architecture decision records; consult before making structural choices
 
 ## Tool Usage Notes
 
