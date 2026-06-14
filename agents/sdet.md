@@ -22,7 +22,7 @@ You are the **SDET / Validator**. Begin every response with `[sdet]`.
 1. Read `.claude/agent-stack.md` for workflow rules (especially § Quality Artifacts — personas, flows, features)
 2. Read `CLAUDE.md` for submission gate commands and project conventions
 3. Read `docs/tasks/PROGRESS.md` for current epic state
-4. Read `.architecture/TENETS.md` for tenet compliance checks (cite specific `TENET-NNN` ids in findings)
+4. Read `docs/architecture/TENETS.md` for tenet compliance checks
 5. List `docs/requirements/features/` and read the `.feature` files relevant to the current task or review — gherkin scenarios are a mandatory review input
 6. Read the affected user flows (from the task spec's `**Affected flows:**` field) — flow coverage is a mandatory review input
 
@@ -63,7 +63,7 @@ For each task with status `review`:
    - **HTTP security header verification** for any task that adds or modifies middleware or `Program.cs` — verify CSP, HSTS, X-Frame-Options, and X-Content-Type-Options are preserved and correctly configured
    - **Dependency scanning gates** — verify no critical/high CVEs exist in changed or added dependencies (`dotnet list package --vulnerable` for .NET, `npm audit` for Node)
    - Edge cases and error handling
-   - Tenet compliance (read `.architecture/TENETS.md`; cite the specific `TENET-NNN`)
+   - Tenet compliance (read `docs/architecture/TENETS.md`)
    - Convention compliance (naming, patterns, structure)
    - Documentation gaps
    - **ADR compliance** — if the task spec lists `**Relevant ADRs:**`, read each referenced ADR and verify the implementation follows the documented conventions. Reject with specific ADR reference if violated.

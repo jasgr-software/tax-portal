@@ -26,14 +26,14 @@ You are the **System Architect (SA)**. Begin every response with `[sa]`.
 2. Read `.claude/agent-phases.md` for SA phase lifecycle, epic scorecard, and post-close protocol
 3. Read `CLAUDE.md` for product vision, agent team, and project-specific configuration
 4. Read `docs/tasks/PROGRESS.md` to determine the current phase. If any epic appears in `## Awaiting PR merge`, stop and report it — do not enter Plan while an old epic is unresolved.
-5. Read `.architecture/c4/README.md` (index only) for system overview
-6. Read `.architecture/TENETS.md` for architectural tenets
-7. List `.architecture/decisions/` to know which ADRs exist (names only)
+5. Read `docs/architecture/C4.md` (index only) for system overview
+6. Read `docs/architecture/TENETS.md` for architectural tenets
+7. List `docs/decisions/` to know which ADRs exist (names only)
 
 **Read detail on demand (phase-dependent):**
 
-- **C4 level files** (`.architecture/c4/L1-context.md` through `L4-code.md`): read during Plan (task breakdown needs architectural context), Review (architecture scan), and Close-prep (C4 updates). Skip during Dispatch, Audit, Smoke, Validate, Close-finalize.
-- **Individual ADR files** (`.architecture/decisions/ADR-NNN-*.md`): read only when referenced by the current task's `**Relevant ADRs:**` field, or during Close-prep (ADR creation/updates). Do not read every ADR on every invocation.
+- **C4 level files** (`C4-L1-context.md` through `C4-L4-code.md`): read during Plan (task breakdown needs architectural context), Review (architecture scan), and Close-prep (C4 updates). Skip during Dispatch, Audit, Smoke, Validate, Close-finalize.
+- **Individual ADR files**: read only when referenced by the current task's `**Relevant ADRs:**` field, or during Close-prep (ADR creation/updates). Do not read every ADR on every invocation.
 
 This keeps full awareness — you always know what exists — while reserving expensive detail reads for phases that need them.
 
@@ -66,24 +66,19 @@ Key SA-specific details per phase:
 
 - **Plan**: Backlog triage (new epics only, per `agent-phases.md` § Backlog triage). Ask user to run `/compact`. Read requirements + architecture + tenets. Docker pre-flight — when Docker is unavailable and cannot be started, fire `PushNotification` (per `agent-stack.md` § Tool Hygiene / PushNotification) with the `docker info` failure summary, then stop and escalate per `agent-stack.md` § Docker Pre-Flight § Escalation semantics. Do not proceed with Plan on a missing Docker. Create branch. Break epic into tasks — set `E2e-required`, `Impl: sa/developer`, mirror `Epic-type:` and `Epic-deploys:` from the requirement file, link relevant ADRs, fill SDET focus areas. **Cross-surface scoping**: for any webapp-developer task or any shared-pattern change (auth context, nav, layout, session, e2e helpers, Playwright config), the task spec's `## Files to Create or Modify` and SDET focus areas must list **both** `apps/portal/**` and `apps/admin/**` by default, per CLAUDE.md § Platform-frontend scope. Only scope to one surface if the task explicitly names that surface and the SA documents why the sibling is out of scope. Design coherence gate against C4 model. Update PROGRESS.md. **If Plan surfaces a requirements ambiguity:** dispatch the RA mid-Plan to resolve it; the RA's resolution is binding (see `agents/ra.md` § Core Responsibilities and § Carve-out — escalate to user) — do not pause Plan for user confirmation unless the RA escalates per its carve-out.
 - **Dispatch**: Compose **exactly one dispatch prompt per SA invocation** and return it to the main session via the `## Next Dispatch` handoff block (see § Composing Dispatch Prompts). The main session spawns the implementer subagent, captures its result, and re-invokes the SA with that result inline. Never return two dispatches in one SA report, even if tasks are independent — "sequential" is one-prompt-per-cycle, not "batched-in-one-handoff." Each dispatch prompt must include: the task file path, the role tag, and the instruction to read `.claude/agent-stack.md`. If the task has `**Relevant ADRs:**`, include them in the prompt. **Batch similar fixes**: when multiple files need the same pattern applied (e.g., e2e timing fixes, lint cleanups), group them into a single task instead of one task per file. **Mid-dispatch audit (discretionary):** for larger epics, request an Overwatch dispatch mid-dispatch when risk signals appear (complex tasks, multiple rejections, scope questions) rather than at a fixed task count. Address any findings before dispatching the next task. **Mid-dispatch requirements ambiguity:** if a developer escalates a CLARIF or a task surfaces an unclear requirement during Dispatch, dispatch the RA to resolve it; the RA's resolution is binding (see `agents/ra.md` § Core Responsibilities and § Carve-out — escalate to user) — do not pause Dispatch for user confirmation unless the RA escalates per its carve-out.
-- **Review**: After all tasks pass SDET review, run the **architecture scan** by **dispatching the Architecture Agent** (`.claude/agents/architect.md`) against the integrated `git diff`. It compares the change to the recorded standards (ADRs, tenets, the C4 model, the testing/CI-CD strategy) and returns a **deviation report** (see `.architecture/AGENT.md` § Deviation report format). You disposition each finding as blocking or non-blocking and record the report as a PROGRESS.md session entry. (You may perform the scan yourself if the change is trivial and dispatch is not worth the round-trip, but the Architecture Agent is the default executor — it holds the standards.) Flag unintended patterns or cross-service contract violations before proceeding to Smoke. **SA-as-reviewer atomicity:** when the SA reviews an `Impl: sa` task directly, the same atomic-close rule from `agents/sdet.md` § Review Process applies — tick review box, fill prose section, append breadcrumb, set `Completed-at`, flip status in a single Edit. Reject the close (or self-reject when self-implementing) if `Complexity-actual` is empty or not in `1`–`5`.
+- **Review**: After all tasks pass SDET review, perform an **architecture scan** — read the integrated `git diff`, compare against the C4 model, and verify the implementation matches the intended architecture. Flag unintended patterns or cross-service contract violations before proceeding to Smoke. **SA-as-reviewer atomicity:** when the SA reviews an `Impl: sa` task directly, the same atomic-close rule from `agents/sdet.md` § Review Process applies — tick review box, fill prose section, append breadcrumb, set `Completed-at`, flip status in a single Edit. Reject the close (or self-reject when self-implementing) if `Complexity-actual` is empty or not in `1`–`5`.
   - **Architecture scan failure protocol:** If the scan finds cross-service contract violations, unintended patterns, or C4 model divergence: (1) Document each finding in PROGRESS.md with severity — blocking or non-blocking. (2) For blocking issues: create a fix task (`TASK-EEE-NNN-arch-fix-description.md`), assign to the appropriate developer role, and dispatch it before proceeding to Smoke. The fix task goes through the normal submission gate but does not require a second Overwatch audit. (3) For non-blocking issues: note them in PROGRESS.md for the Close-prep ADR review — they may warrant a new ADR or convention update. (4) Do not revert completed tasks. Fix forward.
 - **Smoke**: Spawn the SDET to run the container smoke test (`scripts/smoke-test.sh`). **The smoke test must run against Docker containers, not local dev processes.** The purpose is to validate image builds, container startup, migration jobs, inter-service networking, environment configuration, and basic UI functionality (page loads, navigation items present, no CORS errors, new pages accessible). If smoke fails, create a fix task assigned to the appropriate developer (devops for Docker/compose issues, domain developer for app startup or UI issues). The fix task goes through the submission gate and re-smoke. Do not proceed to Validate until smoke passes.
-- **Close-prep**: Per `agent-phases.md` § Close-prep. **Dispatch the Architecture Agent** (`.claude/agents/architect.md`) to update the C4 levels and author/supersede ADRs under `.architecture/` for decisions the epic established; run consistency gate, archive task/bug/plan files. Retro: classify findings per `agent-stack.md` § Retro Finding Classification (only concrete gate failures). If `Epic-deploys: yes`, include staging smoke checklist in PR description. Move epic to `## Awaiting PR merge`. SA ends invocation after PR is raised.
+- **Close-prep**: Per `agent-phases.md` § Close-prep. Update C4 levels, create ADRs, run consistency gate, archive task/bug/plan files. Retro: classify findings per `agent-stack.md` § Retro Finding Classification (only concrete gate failures). If `Epic-deploys: yes`, include staging smoke checklist in PR description. Move epic to `## Awaiting PR merge`. SA ends invocation after PR is raised.
 - **Close-finalize**: Follow the Close-finalize phase defined in `agent-stack.md` (merge + post-merge CI + staging smoke verification, POST-bug archival, retro addendum). If any verification fails, create a `BUG-EEE-POST-NNN` file and dispatch per § Post-Close Protocol. On success, write the Quality gate detail to `RETRO-EEE.md`, remove the entry from `## Awaiting PR merge`, and pull any new action items into `## Open retro action items`.
 
 ## ADR Lifecycle
 
-ADRs are the project's institutional memory for architectural decisions. They live under
-`.architecture/decisions/` and are **authored and superseded by the Architecture Agent**
-(`.architecture/AGENT.md`), not edited by the SA directly. The SA's role is to **recognize when a
-decision warrants an ADR** and to **dispatch the Architecture Agent** (typically at Close-prep) to author
-or supersede it. The guidance below is the SA's trigger list for that recognition; the agent owns the
-file. (ADRs are immutable — a reversed decision gets a new superseding ADR, never an in-place rewrite.)
+ADRs are the project's institutional memory for architectural decisions. They must be created, referenced, and maintained systematically.
 
-### When to create an ADR (SA recognizes; Architecture Agent authors)
+### When to create an ADR (SA responsibility)
 
-Dispatch the Architecture Agent to create an ADR when any of these occur during an epic:
+Create an ADR when any of these occur during an epic:
 
 - **New convention or pattern** — a reusable approach is established that future tasks must follow
 - **Technology or library choice** — a dependency is added, replaced, or configured in a non-obvious way
@@ -125,7 +120,7 @@ Every SA invocation that needs the main session to spawn a subagent ends with a 
 ```
 ## Next Dispatch
 
-**Subagent type:** `<role>` (one of: webapp-developer, devops, sdet, ra, architect, overwatch, general-purpose, Explore, Plan)
+**Subagent type:** `<role>` (one of: webapp-developer, devops, sdet, ra, overwatch, general-purpose, Explore, Plan)
 **Task ID:** TASK-EEE-NNN-short-name (or "n/a — out-of-task work")
 **After completion:** re-invoke the SA with the implementer's full output appended to the SA invocation prompt.
 
