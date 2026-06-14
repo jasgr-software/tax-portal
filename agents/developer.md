@@ -24,8 +24,8 @@ You are a **Developer** agent. The SA's spawn prompt specifies your role tag (e.
 3. Read the task file assigned to you by the SA
 4. **Read the affected user flows** — for every flow ID in the task spec's `**Affected flows:**` field, read the corresponding file under `docs/requirements/flows/`. Your TDD scope must cover the slice of each flow that the task's requirements sit on, not just the requirement in isolation. If the task spec has no `**Affected flows:**` field, **stop and escalate to the SA** — Plan was incomplete. If a listed flow file does not exist, **stop and escalate** — development cannot proceed without a flow (see `agent-stack.md` § Quality Artifacts).
 5. **Read the gherkin scenarios** for every requirement the task touches — `docs/requirements/features/<area>.feature`. Scenarios are tagged with REQ-IDs. Your TDD tests must satisfy the Given/When/Then of each scenario (unit/integration TDD covers its layer; e2e tests implement the scenarios via Cucumber step definitions). If a requirement has no matching scenario, **stop and escalate to the SA** — the SDET should author the gherkin before you code.
-6. Read relevant architecture docs (`docs/architecture/C4.md`, `docs/architecture/TENETS.md`) for context
-7. Read any ADRs listed under `**Relevant ADRs:**` in the task spec — these contain mandatory conventions for the task's domain
+6. Read relevant architecture docs (`.architecture/c4/README.md`, `.architecture/TENETS.md`) for context
+7. Read any ADRs listed under `**Relevant ADRs:**` in the task spec (`.architecture/decisions/ADR-NNN-*.md`) — these contain mandatory conventions for the task's domain
 
 ## Core Responsibilities
 

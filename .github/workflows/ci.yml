@@ -1,5 +1,8 @@
 name: CI
 
+# Strategy of record: .architecture/strategy/CICD.md (pipeline) + .architecture/strategy/TESTING.md
+# (tier→job mapping). Branch-protection operator runbook: docs/operations/branch-protection.md.
+
 on:
   push:
   pull_request:
