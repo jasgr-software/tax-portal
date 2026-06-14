@@ -53,8 +53,9 @@ sources + seed  ──►  Planning Agent  ──►  ROADMAP · EPIC-NNN · COV
    themselves are read-only inputs.
 2. **Agent run.** The Planning Agent ingests the sources, clarifies genuine planning ambiguities (asking
    you directly when interactive, or logging a `PQ-NNN` with a proposed default otherwise), authors/
-   updates the epics, sequences them into roadmap phases, maintains the coverage ledger, and
-   self-reviews. See `AGENT.md`.
+   updates the epics, sequences them into roadmap phases, maintains the coverage ledger, **keeps the
+   behavior contract (personas + flows) in sync with the epics it touched**, and self-reviews. See
+   `AGENT.md`.
 3. **Plan.** Each `EPIC-*.md` is a **preparation document** (not build instructions): the vertical slice,
    the AC it delivers, the architecture it must adhere to, and the per-AC automated-test sign-off
    contract. `ROADMAP.md` orders the epics into MVP-first phases.
@@ -63,7 +64,10 @@ sources + seed  ──►  Planning Agent  ──►  ROADMAP · EPIC-NNN · COV
    `verified`, and rolls an epic to `delivered` when all its AC are signed off.
 
 **Incremental & additive.** Re-running the agent decomposes or updates only what changed; epics whose
-`source:` did not change are left untouched. Coverage rows are never silently dropped.
+`source:` did not change are left untouched. Coverage rows are never silently dropped. **Personas and
+flows are first-class artifacts maintained the same way** — each run diffs them new/changed/unchanged
+alongside the epics and updates the ones a touched epic affects, so the behavior contract never drifts
+stale; unchanged ones are left exactly as-is.
 
 ## How to run the agent
 
@@ -171,9 +175,12 @@ and never signs off without evidence.
 **Behavior contract — personas, targeted flows, epic-embedded scenarios.** Personas are authored as the
 roadmap reaches an actor that needs one; user flows are **targeted and lightweight**, built out
 **incrementally as epics are authored** rather than as an exhaustive upfront set; acceptance scenarios are
-**Given/When/Then text inside the epic** (no `.feature` tree). Surfacing scenarios into a brief's
-`acceptance_scenarios` is planning's job; **binding** them to executable gherkin is optional and
-brief-driven, done downstream in `.implementation/` only when a brief sets `acceptance_format: gherkin`.
+**Given/When/Then text inside the epic** (no `.feature` tree). The contract is **first-class and kept
+current every run** — when an epic is added or changed, the agent creates or updates the affected personas
+and flows in the same pass and keeps the epic ↔ persona ↔ flow cross-links live; it never leaves them
+stale against a changed epic or source. Surfacing scenarios into a brief's `acceptance_scenarios` is
+planning's job; **binding** them to executable gherkin is optional and brief-driven, done downstream in
+`.implementation/` only when a brief sets `acceptance_format: gherkin`.
 
 **What and in what order — never how.** This layer decides scope, slicing, and sequencing, and specifies
 the test *contract*. The mechanisms that satisfy a slice (framework, schema, endpoints, components, test
@@ -198,10 +205,13 @@ source, e.g. `.architecture/`), application code, tests, or executable gherkin s
 **reads and references** the sources and **specifies the behavior and test contract**; implementers write
 the code and the tests, and CI is the independent test gate the validate phase consumes.
 
-> **Legacy note.** Pre-restructuring personas and flows still sit under `docs/requirements/{personas,flows}/`
-> as untouched read-only legacy. They are **not yet migrated** into this layer — that is a separate pass,
-> tracked by OQ-011 in `.requirements/OPEN-QUESTIONS.md` (still open). New personas/flows are authored here
-> under `personas/` and `flows/`.
+> **Migrated legacy note.** The pre-restructuring personas (4) and flows (6) were **migrated verbatim**
+> from the retired `docs/requirements/{personas,flows}/` tree into `personas/` and `flows/` here (the
+> `docs/` tree is retired; `.requirements/` OQ-011 is resolved as "absorbed by `.planning/`"). These
+> migrated flows are **richer, product-wide legacy flows grandfathered in** — the **targeted, lightweight,
+> per-slice** convention above governs *new* flows. As epics are (re)authored, the agent reconciles and
+> updates these legacy artifacts so they stay current (see `AGENT.md` — personas/flows are first-class and
+> maintained every run).
 
 ## Reusability
 

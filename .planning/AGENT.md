@@ -75,7 +75,8 @@ against a supplied epic + evidence and skips 1–4 except as needed to load the 
 
 ### 1. Ingest
 - Read `seed/sources.md`, then the requirements source (REQ/AC), the architecture source (ADRs,
-  C4, strategy), and `seed/intake.md`. Read your prior output (`EPIC-*`, `ROADMAP`, `COVERAGE`).
+  C4, strategy), and `seed/intake.md`. Read your prior output (`EPIC-*`, `ROADMAP`, `COVERAGE`) **and the
+  existing behavior contract — `personas/` and `flows/`.**
 - Identify candidate slices and group them into **epics** — each a thin, end-to-end vertical capability
   that delivers user-visible value and cuts through the stack, not a horizontal layer.
 - For each candidate, diff against existing epics using their `source:` pointers and classify:
@@ -84,6 +85,11 @@ against a supplied epic + evidence and skips 1–4 except as needed to load the 
     update it.
   - **unchanged** — already faithfully captured → **leave it exactly as-is.** Never silently drop,
     renumber, or overwrite an unchanged epic.
+- **Diff the behavior contract too — personas and flows are first-class, not write-once.** Apply the same
+  **new / changed / unchanged** classification to each persona and flow: a persona or flow whose actor,
+  journey, or cited REQ/AC has materially changed (or whose epic was reclassified above) is marked for
+  update in Author; one no longer referenced by any epic is flagged as orphaned. Never leave a persona or
+  flow silently stale against a changed epic or source.
 - **Ad-hoc injection:** treat new items in `seed/intake.md` as requirements to place into the roadmap
   even when they do not (yet) exist in the requirements source. Note in the run summary any that imply a
   requirement the requirements source should own.
@@ -122,13 +128,18 @@ the roadmap and the coverage ledger:
   sign-off contract**, and what is **out of scope** (including specific AC of an in-scope requirement
   deferred to another epic). Never write how-to-build detail, code, or test code — only the behavior and
   test *contract*.
-- **Personas** — for each actor the slice exercises, ensure a persona exists under `personas/`. Author one
-  from `_templates/persona.md` if the actor has none; reuse and link the existing file otherwise. Author
-  personas as the roadmap reaches the actors that need them — do not front-load an exhaustive set.
-- **User flow(s)** — define the **targeted, lightweight** flow(s) the slice realizes under `flows/`, from
-  `_templates/flow.md`: the actor, the trigger, the happy-path steps through the stack, and the key
-  alternate/error branches — scoped to this slice, not a product-wide flow catalogue. Link the flow(s)
-  from the epic and grow them incrementally as later epics extend the same journey.
+- **Personas (maintained every run)** — for each actor the slice exercises, ensure a current persona exists
+  under `personas/`. Author one from `_templates/persona.md` if the actor has none; **update** the existing
+  file when this slice changes that actor's goals, context, or the flows they touch — do not just link a
+  stale one. Author personas as the roadmap reaches the actors that need them — do not front-load an
+  exhaustive set.
+- **User flow(s) (maintained every run)** — define or **update** the **targeted, lightweight** flow(s) the
+  slice realizes under `flows/`, from `_templates/flow.md`: the actor, the trigger, the happy-path steps
+  through the stack, and the key alternate/error branches — scoped to this slice, not a product-wide flow
+  catalogue. When an epic is added or changed, create or update its flow(s) **in the same pass** (not only
+  when a brand-new actor appears), grow them as later epics extend the same journey, and keep the
+  epic ↔ persona ↔ flow cross-links current. Migrated legacy flows are reconciled here as the epics that
+  realize them are (re)authored.
 - **Roadmap** — place each epic in a phase in `ROADMAP.md`. Phase 1 is the MVP; each later phase is a
   shippable vertical increment toward full acceptance. Respect `depends_on`: an epic never lands in a
   phase before the epics it depends on.
@@ -150,9 +161,12 @@ Before finishing, re-read your output against this rubric and fix what fails:
   layer (e.g. "the database" or "all the API routes").
 - **Adherence + contract present:** every epic declares its architecture-adherence set and its per-AC
   automated-test sign-off contract.
-- **Behavior contract present:** every actor the epic exercises has a persona under `personas/`; the epic
-  links at least one targeted flow under `flows/`; every in-scope AC has at least one Given/When/Then
-  acceptance scenario in the epic. No scenario drifts into how-to-build detail or test code.
+- **Behavior contract present and current:** every actor the epic exercises has a persona under
+  `personas/`; the epic links at least one targeted flow under `flows/`; every in-scope AC has at least one
+  Given/When/Then acceptance scenario in the epic. No scenario drifts into how-to-build detail or test code.
+  **No persona or flow contradicts a changed epic or a changed source REQ/AC** (they were reconciled in
+  Ingest/Author this run, not left stale); every epic's actors and journey are reflected; and any persona or
+  flow no longer referenced by an epic is flagged as orphaned in the run summary.
 - **Sequencing sound:** phases respect `depends_on`; no epic precedes a dependency; no dependency cycle.
 - **Valid front matter:** every `EPIC-*.md` has all required keys; ids and cross-links resolve; every
   epic with a non-empty `open_questions:` is `clarifying`.
@@ -205,9 +219,10 @@ interactively, present it to the user.
 ## Run summary
 
 Finish every run with a short summary: what you ingested (sources + seed), epics added / changed /
-left-unchanged, phases touched, the coverage delta (AC newly mapped / verified / orphaned / deferred),
-open questions raised (with blocking count), orphaned AC still unplaced, and any out-of-scope needs you
-noticed (e.g. "this implies a requirement the requirements source should own").
+left-unchanged, **personas and flows added / changed / left-unchanged (and any flagged orphaned)**, phases
+touched, the coverage delta (AC newly mapped / verified / orphaned / deferred), open questions raised (with
+blocking count), orphaned AC still unplaced, and any out-of-scope needs you noticed (e.g. "this implies a
+requirement the requirements source should own").
 
 ## Epic front matter (schema)
 

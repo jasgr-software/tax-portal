@@ -158,7 +158,7 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 - **Provenance:** authoring run (FILE)
 
 ## OQ-011 — Adopt or drop the legacy user flows & personas
-- **Status:** open
+- **Status:** resolved
 - **Affects:** (layer-level — no single REQ)
 - **Question:** The `.implementation/` refactor (2026-06-14) retired the legacy `docs/` agent structure but
   left `docs/requirements/flows/` (6 user-flow files) and `docs/requirements/personas/` (4 persona files)
@@ -171,8 +171,14 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
   personas, if still wanted, are better re-derived as a first-class `.requirements/` artifact type than
   migrated verbatim from the retired `docs/` tree. Until the Requirements Agent decides, the files remain in
   `docs/requirements/{flows,personas}/` untouched (read-only legacy).
-- **Provenance:** `.implementation/` refactor, 2026-06-14 (flagged from the implementation layer; ownership
-  is this layer's).
+- **Resolution (2026-06-14):** **Absorbed by `.planning/`, not `.requirements/`, and not dropped.** Once
+  `.planning/` took ownership of the behavior contract (personas, flows, acceptance scenarios), the 4
+  personas and 6 flows were **migrated verbatim** from `docs/requirements/{personas,flows}/` to
+  `.planning/personas/` and `.planning/flows/`, and the `docs/` tree was retired. They are grandfathered as
+  richer legacy flows; `.planning/` keeps them current each planning run. `.requirements/` confirms it does
+  **not** own them.
+- **Provenance:** `.implementation/` refactor, 2026-06-14 (flagged from the implementation layer); resolved
+  2026-06-14 by the `.planning/` behavior-contract migration.
 
 ---
 
