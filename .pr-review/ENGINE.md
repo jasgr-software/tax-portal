@@ -6,7 +6,14 @@ how the consolidated review is posted, scope discipline, and tool hygiene. Role-
 `AGENT.md` (orchestration) and `agents/*.md` (each lens + the fixer).
 
 This file is **self-contained and workflow-agnostic** — it references no orchestrator, sprint, task
-pipeline, or build phase. The only project-coupling point is `seed/sources.md`; read it first.
+pipeline, or build phase.
+
+**The reviewers are independent and project-agnostic.** The three lenses know nothing about the project and
+must not: they review **only the PR** — its diff, the changed files, and references those files directly
+point at — on general engineering merit. They do **not** read architecture/requirements/planning docs,
+project conventions, or any governance file, and they do **not** apply project-specific rules. The only
+project-coupling point, `seed/sources.md`, exists for the **fixer** (which must run the project's submission
+gate); reviewers don't need it beyond the generic `gh` commands for fetching the PR.
 
 ## The PR is the artifact
 
@@ -86,8 +93,10 @@ gh api repos/{owner}/{repo}/pulls/<N>/reviews \
 - **The fixer** changes **only what the review comments require** — no opportunistic refactors, renames, or
   scope creep (the same ethic the over-engineering lens enforces on developers). If a fix needs a change the
   comments didn't ask for, it notes that in its report rather than making it silently.
-- No `.pr-review/` agent edits `.requirements/`, `.architecture/`, or `.planning/`. They are read-only
-  context.
+- **Reviewers don't read project docs at all** — not `.requirements/`, `.architecture/`, `.planning/`,
+  `CLAUDE.md` conventions, or any governance file. Their judgment is general, on the PR's code. Only the
+  **fixer** reads project config (`seed/sources.md` → the submission-gate + CI commands in `CLAUDE.md`).
+- No `.pr-review/` agent edits another layer.
 
 ## Tool hygiene (consistent with CLAUDE.md)
 
@@ -98,7 +107,9 @@ gh api repos/{owner}/{repo}/pulls/<N>/reviews \
   timestamps) that another step consumes.
 - Prefer the dedicated file tools (Read/Edit/Write) over `cat`/`sed`/`echo`.
 
-## Degrade gracefully
+## The review needs nothing but the PR
 
-If an upstream layer a PR cites (`.architecture/`, `.planning/`, `.requirements/`) is absent, note it and
-proceed from the diff alone — never block a review on a missing reference.
+A panel run requires only a PR number and `gh` access. There is no project source to load, no upstream
+layer to find, nothing to "degrade gracefully" around — if the reviewers can read the diff and the changed
+files, they can review. (The fixer is the only role that needs project config, and it gets that from
+`seed/sources.md`.)

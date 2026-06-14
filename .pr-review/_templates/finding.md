@@ -23,12 +23,15 @@ body: |
 ```yaml
 lens:        correctness
 severity:    major
-path:        apps/admin/src/app/engagements/[id]/route.ts
+path:        src/search/handler.ts
 line:        42
-title:       ADR-003 bypass — direct Prisma call skips the SESSION_CONTEXT wrapper
+title:       parse-without-use — `limit` is read from the request but never applied
 confidence:  high
 body: |
-  The handler queries Prisma directly instead of routing through the packages/db wrapper that sets
-  SESSION_CONTEXT before the first real query (ADR-003). RLS (ADR-005) will not scope this query, so it can
-  read across tenants. Fix: route the query through the packages/db wrapper.
+  The handler parses `limit` from the query string but never passes it to the query builder, so the limit
+  is silently ignored and every request returns the full result set. Fix: thread `limit` into the query,
+  and add a test that fails when the limit isn't applied.
 ```
+
+> Findings are written on **general engineering merit** — they cite the code, not project governance. (A
+> reviewer is project-agnostic; it does not reference ADRs, requirements, or project conventions.)

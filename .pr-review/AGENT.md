@@ -16,8 +16,9 @@ sub-agent that spawns the panel. (Same pattern as `.implementation/AGENT.md` / t
 ## Input
 
 - A **PR number** (`<N>`). The repo is discovered from `gh repo view --json nameWithOwner`.
-- Read `ENGINE.md` (shared rules — finding schema, dedupe, verdict, comment mechanics) and `seed/sources.md`
-  (how PRs are reached; which upstream layers are available as read-only context) before dispatching.
+- Read `ENGINE.md` (shared rules — finding schema, dedupe, verdict, comment mechanics) before dispatching.
+  The panel needs nothing else: the reviewers are **project-agnostic** and review only the PR. (`seed/sources.md`
+  is for the fixer, not the panel.)
 
 ## The flow
 
@@ -33,12 +34,13 @@ here), each given the PR number and told to **review independently** and **retur
 
 Each spawn prompt should say:
 
-1. "Read `.pr-review/ENGINE.md` for shared rules and `.pr-review/seed/sources.md` for sources."
+1. "Read `.pr-review/ENGINE.md` for shared rules."
 2. "Read your agent file `.pr-review/agents/reviewer-<lens>.md` for your role."
 3. "Begin every response with `[reviewer-<lens>]`."
-4. "Review open PR `<N>` via `gh pr view <N>` / `gh pr diff <N>` / `gh pr checks <N>`. Return your findings
+4. "You are an independent, project-agnostic reviewer — review only the PR. Do not read project docs."
+5. "Review open PR `<N>` via `gh pr view <N>` / `gh pr diff <N>` / `gh pr checks <N>`. Return your findings
    as a structured list per the finding schema. Do NOT post to GitHub — the lead aggregates and posts."
-5. "PR number: `<N>`."
+6. "PR number: `<N>`."
 
 The two non-lead lenses (`security`, `over-engineering`) can run in either order or together — they are
 independent. Dispatch the **lead last** (or re-invoke it for aggregation) so it can receive the siblings'
@@ -77,6 +79,7 @@ End the run with a short summary for the user:
 - **One review per run.** All lenses fold into a single consolidated, deduped review — not three separate
   ones.
 - **Lenses don't post; the lead does.** Non-lead lenses return findings; only the lead posts.
-- **Read-only upstream.** Reading `.architecture/`/`.planning/`/`.requirements/` for context is allowed;
-  editing them is not. Reviewers never edit repo code — that is the fixer's job (`agents/fixer.md`).
+- **Project-agnostic reviewers.** The lenses don't read project docs (ADRs, requirements, planning, or
+  `CLAUDE.md` conventions) and don't apply project-specific rules — they review only the PR. Reviewers never
+  edit repo code — that is the fixer's job (`agents/fixer.md`).
 - **Stay in the diff.** Review the PR's changes plus the minimum system context needed to judge them.

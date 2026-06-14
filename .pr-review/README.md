@@ -9,9 +9,11 @@ files and perform the work.
 
 It does two things, owned by two roles:
 
-1. **A code-review panel** — three independent lenses (`reviewer-correctness` *[lead]*,
-   `reviewer-security`, `reviewer-over-engineering`) each review the PR diff and return structured
-   findings. The lead dedupes them and posts **one consolidated, advisory GitHub PR review**.
+1. **A code-review panel** — three **independent, project-agnostic** lenses (`reviewer-correctness`
+   *[lead]*, `reviewer-security`, `reviewer-over-engineering`) each review the PR diff + changed files on
+   general engineering merit and return structured findings. They know nothing about the project and read
+   no project/governance docs — a genuine outside pair of eyes on the code as written. The lead dedupes the
+   findings and posts **one consolidated, advisory GitHub PR review**.
 2. **A fixer** — a single agent that reads the panel's review comments, applies fixes scoped to them, runs
    the submission gate, pushes to the PR branch, and watches CI — iterating, in a bounded loop, until the
    PR is green (or stopping and reporting if it can't get there).
@@ -28,7 +30,7 @@ against *any* open PR by number and is not coupled to `.implementation/` or any 
 ├── ENGINE.md             # shared rules every panel/fixer agent reads on startup (finding schema, verdict,
 │                         #   comment mechanics, gh usage, tool hygiene, scope discipline)
 ├── agents/
-│   ├── reviewer-correctness.md      # LEAD lens — contract honor, orphans, test robustness, ADR/RLS/parity;
+│   ├── reviewer-correctness.md      # LEAD lens — logic bugs, contract honor, orphans, test robustness;
 │   │                                #   also aggregates sibling findings and posts the consolidated review
 │   ├── reviewer-security.md         # OWASP Top 10, secrets, auth-flow, injection, dependency CVEs, headers
 │   ├── reviewer-over-engineering.md # premature abstraction, dead code, defensive-for-impossible, scope creep
@@ -58,7 +60,8 @@ PR number  ──►  [panel]  reviewer-correctness (lead)         ──►  ON
                               └── loop to green (bounded attempt cap) or stop + report
 ```
 
-1. **Review (panel).** The three lenses review the PR diff **independently** and each return structured
+1. **Review (panel).** The three lenses review the PR diff + changed files **independently** and
+   **project-agnostically** (general engineering merit, no project docs) and each return structured
    findings (see `_templates/finding.md`). The lead (`reviewer-correctness`) dedupes overlapping findings,
    assigns an **advisory verdict** (request-changes if any blocker/major finding, else approve-advisory),
    and posts **one** GitHub review with inline line-anchored comments + a summary body. See `AGENT.md` for
@@ -85,9 +88,10 @@ comments exist (panel-posted or human).
 
 This layer owns **the review panel, the fixer, and their shared rules** — nothing else. It is **advisory**:
 the consolidated review is posted as a GitHub `COMMENT` event, so it never approves, requests changes as a
-merge gate, or touches branch protection. It **reads** `.architecture/`, `.planning/`, and `.requirements/`
-as read-only context when a PR cites them, and **never edits** them. Only the **fixer** writes code, and
-only to the PR branch under review.
+merge gate, or touches branch protection. The **reviewers are independent and project-agnostic** — they
+read only the PR (diff + changed files), never `.architecture/`/`.planning/`/`.requirements/`/`CLAUDE.md`
+conventions, and apply no project-specific rules. Only the **fixer** is project-aware (it must run the
+submission gate) and only it writes code, and only to the PR branch under review.
 
 It **complements, does not replace**: the `/code-review` and `/security-review` skills (lower-level, local
 diff), and the `.implementation/` SDET review gate (tied to the build pipeline). Use `.pr-review/` when you
@@ -95,9 +99,10 @@ want an independent, multi-lens review posted on a real PR, and an agent to take
 
 ## Reusability
 
-- **Generic / portable:** this folder structure, `AGENT.md`, `ENGINE.md`, the three lens definitions, the
-  fixer, the finding schema and consolidated-review shape, and the advisory-verdict + dedupe conventions.
-- **Project-specific:** `seed/sources.md` (how PRs are reached, which upstream layers exist, where the
-  submission-gate + CI commands live), and the repo-specific checks folded into the correctness lens
-  (ADR conformance, RLS/`SESSION_CONTEXT`, portal/admin parity). A new project keeps the structure and
-  repoints `seed/sources.md`.
+- **Generic / portable:** nearly the whole layer — this folder structure, `AGENT.md`, `ENGINE.md`, all
+  **three lens definitions** (they're project-agnostic by design), the finding schema, the
+  consolidated-review shape, and the advisory-verdict + dedupe conventions. Drop them into any repo
+  unchanged.
+- **Project-specific:** only the **fixer's** coupling — `seed/sources.md` (where the submission-gate + CI
+  commands live) and `CLAUDE.md`'s gate commands themselves. A new project repoints `seed/sources.md` and
+  the panel works as-is.
