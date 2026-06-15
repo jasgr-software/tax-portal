@@ -50,8 +50,14 @@
   tests). Commits on PR #38: `1a83215` (001+002), `7705bf9` (BUG-004-001 fix). TASK-004-005 (portal client auth — AC-AUTH-005-02, 006-01/-02/-03) **done** — SDET approved (no 2FA anywhere;
   invitation-only with the AC-006-02 negative invariant proven from 4 angles; role server-set per ADR-005;
   portal e2e 23/23 incl. prior specs; 9 tier-3 provenance tests). Commits on PR #38: `1a83215`, `7705bf9`,
-  `94908b4`. Remaining in-scope: AC-AUTH-009-01 (session expiry), AC-AUTH-010-* exhaustive cross-app suite
-  (008); non-AC: SESSION_CONTEXT wrapper+regression (007), rate-limit (ADR-022), audit (ADR-019), @demo.
+  `94908b4`. TASK-004-007 (SESSION_CONTEXT wiring + `$extends` regression + session expiry — AC-AUTH-001-03 + AC-AUTH-009-01)
+  **done** — SDET approved; closes the carried EPIC-001 `$extends`-untested retro item (live-container read-back
+  of both clerk_user_id + role; fail-closed; ADR-005 trust boundary; production wrappers untouched; 141 tests).
+  Non-blocking follow-up (SDET): admin `page.tsx` stub queries the admin pool inside `withRequestContext` so the
+  SET hook doesn't fire on that page path — switch to the request-pool `db` client when it gains real
+  engagement-data queries in a later epic. Commits on PR #38: `1a83215`, `7705bf9`, `94908b4`, `1c73ebe`.
+  Remaining: AC-AUTH-010-* exhaustive cross-app suite (008, Gate-Authoring node); rate-limit (ADR-022); audit
+  (ADR-019); @demo walkthrough.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_
