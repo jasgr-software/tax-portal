@@ -235,6 +235,17 @@ these probes via the e2e runner against the compose stack:
 pnpm --filter admin e2e:smoke   # Run @smoke specs against http://localhost:3001
 ```
 
+### Cross-app redirect gate (TASK-004-008 — ADR-010 §8 required gate)
+
+The `pnpm e2e:cross-app` script is the required gate for the ADR-010 §8 redirect matrix.
+It runs the exhaustive cross-app specs against both app containers and exits non-zero on any failure:
+
+```bash
+pnpm e2e:cross-app   # Runs cross-app-redirect.spec.ts in both apps/portal and apps/admin
+```
+
+Both containers (portal on 3000, admin on ADMIN_PORT) must be healthy before running this gate.
+
 ---
 
 ## Database Principal Management

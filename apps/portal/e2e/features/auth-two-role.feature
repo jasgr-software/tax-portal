@@ -99,3 +99,70 @@ Feature: Two-role auth model — client surface (BRIEF-004)
     When a visitor browses the page
     Then no "Register", "Create account", or "Sign up" link is visible
     And the page promotes the engagement request form (not account creation)
+
+  # ---------------------------------------------------------------------------
+  # AC-AUTH-010-02: Signed-in ACCOUNTANT → portal CLIENT-only route → redirect to admin
+  # ---------------------------------------------------------------------------
+
+  @AC-AUTH-010-02
+  Scenario: ACCOUNTANT visiting a portal CLIENT-only route is redirected to admin (not 403)
+    Given the portal surface is running at http://localhost:3000
+    And AUTH_PROVIDER is set to "mock"
+    And a signed-in ACCOUNTANT session cookie is present (set via /api/mock-session)
+    When the ACCOUNTANT navigates to /dashboard (a CLIENT-only route)
+    Then the middleware redirects with a 3xx status (307 or 308) BEFORE any dashboard content renders
+    And the final destination is the admin app URL (ADMIN_APP_URL)
+    And no CLIENT-only dashboard content is visible at any point
+    And the response is a redirect, not a 403 Forbidden
+
+  # ---------------------------------------------------------------------------
+  # AC-AUTH-010-03: Signed-in ACCOUNTANT → portal PUBLIC route → served (no redirect)
+  # ---------------------------------------------------------------------------
+
+  @AC-AUTH-010-03
+  Scenario: ACCOUNTANT visiting a portal public route is served (public allow-list honored)
+    Given the portal surface is running at http://localhost:3000
+    And AUTH_PROVIDER is set to "mock"
+    And a signed-in ACCOUNTANT session cookie is present (set via /api/mock-session)
+    When the ACCOUNTANT navigates to /services (a public portal route)
+    Then the page is served with HTTP 200
+    And the final URL is on the portal origin (localhost:3000)
+    And no redirect to the admin app fires
+
+  @AC-AUTH-010-03
+  Scenario: ACCOUNTANT visiting the portal root (/) is served (public allow-list honored)
+    Given the portal surface is running at http://localhost:3000
+    And AUTH_PROVIDER is set to "mock"
+    And a signed-in ACCOUNTANT session cookie is present
+    When the ACCOUNTANT navigates to / (the portal root)
+    Then the page is served with HTTP 200
+    And the final URL is on the portal origin
+    And no redirect to the admin app fires
+
+  # ---------------------------------------------------------------------------
+  # ADR-010 §3 / §8: Session continuity — portal session honored by admin
+  # ---------------------------------------------------------------------------
+
+  @AC-AUTH-010-03
+  Scenario: Session minted on portal is honored by admin (no fresh sign-in prompt)
+    Given the portal surface is running at http://localhost:3000
+    And the admin surface is running at http://localhost:3001
+    And AUTH_PROVIDER is set to "mock"
+    And an ACCOUNTANT session is minted via portal /api/mock-session (shared localhost cookie)
+    When the ACCOUNTANT navigates to the admin app
+    Then the admin app honors the session (serves the page, no redirect to /sign-in)
+    And the shared-cookie session model is confirmed (one Clerk app, two surfaces)
+
+  # ---------------------------------------------------------------------------
+  # ADR-010 §3 / §8: Global sign-out — clearing session causes portal to redirect
+  # ---------------------------------------------------------------------------
+
+  @AC-AUTH-010-01 @AC-AUTH-010-02
+  Scenario: Global sign-out — after clearing the shared session, portal private route redirects to sign-in
+    Given the portal surface is running at http://localhost:3000
+    And AUTH_PROVIDER is set to "mock"
+    And a CLIENT session is established via /api/mock-session
+    When the shared session cookie is cleared (global sign-out — clears MOCK_SESSION_COOKIE_NAME)
+    And the CLIENT navigates to /dashboard (a private portal route)
+    Then the middleware redirects to portal /sign-in (unauthenticated redirect)
+    And no /dashboard content is served

@@ -18,7 +18,7 @@
     "test": "vitest run scripts --reporter=verbose",
     "e2e:run": "pnpm --filter portal e2e:run",
     "e2e:demo": "pnpm --filter portal e2e:demo",
-    "e2e:cross-app": "echo 'No cross-app e2e specs yet — added in TASK-005 placeholder'",
+    "e2e:cross-app": "pnpm --filter portal exec playwright test e2e/specs/cross-app-redirect.spec.ts && pnpm --filter admin exec playwright test e2e/specs/cross-app-redirect.spec.ts",
     "ci:local": "pnpm lint && pnpm type-check && pnpm build && pnpm test",
     "prisma": "prisma",
     "db:migrate": "tsx scripts/db-migrate.ts",

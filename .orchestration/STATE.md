@@ -56,8 +56,12 @@
   Non-blocking follow-up (SDET): admin `page.tsx` stub queries the admin pool inside `withRequestContext` so the
   SET hook doesn't fire on that page path — switch to the request-pool `db` client when it gains real
   engagement-data queries in a later epic. Commits on PR #38: `1a83215`, `7705bf9`, `94908b4`, `1c73ebe`.
-  Remaining: AC-AUTH-010-* exhaustive cross-app suite (008, Gate-Authoring node); rate-limit (ADR-022); audit
-  (ADR-019); @demo walkthrough.
+  TASK-004-008 (exhaustive cross-app redirect suite AC-AUTH-010-01/-02/-03 + session continuity + global
+  sign-out; introduces `pnpm e2e:cross-app` required gate) **done** — SDET approved (all 3 Gate-Authoring
+  evidence items verified vs live source; 9 tests both surfaces; redirect-not-403; gate `&&`-chained).
+  **All 11 in-scope AC now have passing covering tasks.** Commits on PR #38: `1a83215`, `7705bf9`, `94908b4`,
+  `1c73ebe`, `9b92d03`. Remaining (non-AC obligations): sign-in rate-limit (TASK-004-009, ADR-022); auth-event
+  audit (ADR-019); @demo walkthrough. Then engine Review→Smoke→Validate→Close-prep.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_
