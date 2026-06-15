@@ -33,6 +33,14 @@ jobs:
             pnpm install --frozen-lockfile
           fi
 
+      - name: Build workspace packages
+        run: |
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "No pnpm-lock.yaml — workspace not yet scaffolded. Skipping build."
+          else
+            pnpm -r --filter './packages/**' build --if-present
+          fi
+
       - name: pnpm lint
         run: |
           if [ ! -f package.json ] || ! node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
