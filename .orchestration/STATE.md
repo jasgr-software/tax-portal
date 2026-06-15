@@ -43,8 +43,12 @@
   TASK-004-002 closed. All re-scope guardrails passed (no 2FA; mock default + no real Clerk keys; Clerk binding
   throws if called; role server-evaluated via HMAC-signed cookie; both apps consume shared helper; db
   type-compatible). AC-AUTH-001-03 + AC-AUTH-010-* foundation covered (21+42 tagged unit tests + per-app e2e
-  seam). Next node: TASK-004-003 (Clerk production-target binding) — pending main-session commit of the fix to
-  PR #38.
+  seam). TASK-004-003 (full Clerk binding) **trimmed/deferred** to the future 2FA-enablement slice (gate-invisible
+  code — needs a live Clerk instance; the minimal compiling production-target seam already shipped in -002).
+  TASK-004-004 (role-model invariants AC-AUTH-001-01/-02/-03) **done** — SDET approved (single-source-of-truth
+  `ROLES` enum; ADR-005 trust-boundary proven cryptographically via HMAC forgery rejection; 92 packages/auth
+  tests). Commits on PR #38: `1a83215` (001+002), `7705bf9` (BUG-004-001 fix). Next: TASK-004-005 (next
+  AC-bearing node — invitation-only account creation / client-without-2FA, IO's choice).
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_

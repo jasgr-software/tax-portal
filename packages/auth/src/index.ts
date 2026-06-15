@@ -14,6 +14,7 @@
  */
 
 // ─── Provider Port ────────────────────────────────────────────────────────────
+export { ROLES } from "./port.js";
 export type { Role, Identity, Invitation, AuthProvider, SessionValidity } from "./port.js";
 
 // ─── Redirect Helper ──────────────────────────────────────────────────────────

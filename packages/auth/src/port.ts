@@ -17,6 +17,22 @@
 // ─── Role Type ────────────────────────────────────────────────────────────────
 
 /**
+ * Single source of truth for the application's role enumeration.
+ *
+ * AC-AUTH-001-01: the system has exactly two assignable roles — ACCOUNTANT and CLIENT.
+ * Adding or removing a value here is a breaking change that will red the invariant test.
+ *
+ * ADR-001: roles are stored in Clerk publicMetadata.role (server-side only).
+ * ADR-005: never client-asserted; always read from the verified session.
+ *
+ * DECISION (TASK-004-004): export as `as const` tuple so the invariant test can assert
+ * against a runtime value (not a compile-time-only type). `Role` is derived from this
+ * tuple so the two can never drift. packages/db mirrors the string literals independently
+ * — TASK-004-007 wires them together; a `// DECISION:` note in that task handles drift.
+ */
+export const ROLES = ["ACCOUNTANT", "CLIENT"] as const;
+
+/**
  * Application roles.
  * Mirrors RequestContext.role in packages/db/src/context.ts so TASK-004-007
  * can wire withRequestContext(identity, role, …) without conversion.
@@ -24,7 +40,7 @@
  * ADR-001: stored in Clerk publicMetadata.role (server-side only).
  * ADR-005: never client-asserted; always read from the verified session.
  */
-export type Role = "ACCOUNTANT" | "CLIENT";
+export type Role = (typeof ROLES)[number];
 
 // ─── Identity ─────────────────────────────────────────────────────────────────
 
