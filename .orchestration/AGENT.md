@@ -92,6 +92,13 @@ conditions (green CI; ≥1 required check; workflow-file PRs need user LGTM; sli
 gates) and resume the engine for its post-merge finalize. If the PR is held for a workflow-file **LGTM**,
 surface it and STOP — do **not** post the LGTM yourself. Record the merge SHA in `STATE.md`.
 
+Apply **`MERGE-POLICY.md`** (the application-code lane for a slice PR): resolve the panel's conversation
+threads (fix-or-disposition-with-rationale) so the conversation-resolution gate clears, then merge on green
+**required** CI with a plain `gh pr merge <N> --squash --delete-branch` — **never** toggle `enforce_admins` or
+use `--admin`. A *genuine* governance gate that resolving threads + greening CI cannot satisfy (e.g. an
+unsatisfiable required review) is a **user decision** — surface it and STOP per the Stop/defer matrix; any
+user-authorized protection relaxation is minimal and **restored immediately** (recorded in `STATE.md`).
+
 ### Validate (coverage write-back — close the loop)
 With the merged-PR green-CI evidence (run id / SHA), invoke the validate capability
 (`seed/sources.md`; default `/planning validate <epic-id> with CI evidence <run-id/SHA>`). The planning agent
@@ -103,6 +110,11 @@ all its in-scope AC are signed off. **You request and supply evidence; the plann
 Write the per-slice run report (`_templates/run-report.md`) and set `STATE.md` `## Outcome` to `delivered`
 (or `stopped-at-<phase>` + reason). **Stop.** Do not advance to the next epic — surface the next ready epic
 (or the remaining blockers) as the suggested next `/orchestrate`.
+
+The post-delivery record write-back (the planning sign-off in `COVERAGE.md`/`ROADMAP.md`/`EPIC-*`, plus the
+engine + Conductor ledgers) is a **docs-only change** — ship it via the **docs lane** of `MERGE-POLICY.md`:
+a `chore/<slug>` PR, no panel, fast-lane-merged on green required CI. The Conductor may do this autonomously
+as the closing step.
 
 ## Hard rules (recap)
 
