@@ -47,8 +47,11 @@
   code — needs a live Clerk instance; the minimal compiling production-target seam already shipped in -002).
   TASK-004-004 (role-model invariants AC-AUTH-001-01/-02/-03) **done** — SDET approved (single-source-of-truth
   `ROLES` enum; ADR-005 trust-boundary proven cryptographically via HMAC forgery rejection; 92 packages/auth
-  tests). Commits on PR #38: `1a83215` (001+002), `7705bf9` (BUG-004-001 fix). Next: TASK-004-005 (next
-  AC-bearing node — invitation-only account creation / client-without-2FA, IO's choice).
+  tests). Commits on PR #38: `1a83215` (001+002), `7705bf9` (BUG-004-001 fix). TASK-004-005 (portal client auth — AC-AUTH-005-02, 006-01/-02/-03) **done** — SDET approved (no 2FA anywhere;
+  invitation-only with the AC-006-02 negative invariant proven from 4 angles; role server-set per ADR-005;
+  portal e2e 23/23 incl. prior specs; 9 tier-3 provenance tests). Commits on PR #38: `1a83215`, `7705bf9`,
+  `94908b4`. Remaining in-scope: AC-AUTH-009-01 (session expiry), AC-AUTH-010-* exhaustive cross-app suite
+  (008); non-AC: SESSION_CONTEXT wrapper+regression (007), rate-limit (ADR-022), audit (ADR-019), @demo.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_
