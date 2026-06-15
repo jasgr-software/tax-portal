@@ -14,7 +14,7 @@ condition**; `STATE.md` is updated at every transition.
 | **Implement** | Invoke the engine (`/io <brief>`); drive it to its completion signal. Defer on any inner stop. | Slice recorded in the engine's limbo ledger with a PR URL; PR number in `STATE.md`. |
 | **Review** | Invoke `/pr-review <N>`. | One consolidated advisory review posted; verdict + counts in `STATE.md`. |
 | **Fix** | If the panel posted actionable findings, invoke `/pr-fix <N>`; else skip. Defer if the fixer caps out. | Panel findings addressed and CI green — or "skipped (clean)" recorded. |
-| **Merge/Finalize** | Let the engine auto-merge under its conditions + resume its post-merge finalize. Surface (don't satisfy) a workflow-file LGTM hold. | PR merged + engine finalize complete; merge SHA in `STATE.md` — or STOP on an LGTM/gate hold. |
+| **Merge/Finalize** | Merge per `MERGE-POLICY.md` (application-code lane: panel→fix→**resolve threads**→merge on green required CI; **no `--admin`/`enforce_admins` toggle**) + resume post-merge finalize. Surface (don't satisfy) a workflow-file LGTM hold or a genuine governance gate (e.g. an unsatisfiable required review). | PR merged + engine finalize complete; merge SHA in `STATE.md` — or STOP on an LGTM/governance gate. |
 | **Validate** | Invoke the validate capability with merged-PR CI evidence; the planning agent writes back. | Validation verdict captured; COVERAGE rows flipped / epic rolled by the planning agent. |
 | **Report** | Write the run report; set `STATE.md` `## Outcome`. | `delivered` (or `stopped-at-<phase>` + reason) recorded; STOP. |
 

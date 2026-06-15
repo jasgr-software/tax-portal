@@ -2,7 +2,7 @@
 id: EPIC-001
 title: Public front door — browse services & submit an engagement request
 phase: 1
-status: planned
+status: delivered
 slice: An anonymous visitor browses the accountant's active services and submits an engagement request, with no account.
 requirements:
   - REQ-DOOR-001: [AC-DOOR-001-01, AC-DOOR-001-02, AC-DOOR-001-03]

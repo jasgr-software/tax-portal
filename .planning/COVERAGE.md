@@ -20,35 +20,49 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | — EPIC-004 (auth & two-role model) | 15 |
 | — EPIC-002 (services-catalog management) | 7 |
 | — EPIC-003 (accountant request inbox) | 20 |
-| AC `verified` (signed off) | 0 |
+| AC `verified` (signed off) | 13 — all of EPIC-001 (delivered 2026-06-15) |
 | AC `deferred` | IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
-> Nothing is `verified` yet: no application code exists, so no tagged tests have passed. Every placed AC
-> is `planned`. The roll-up reaches **full v1 acceptance** when no v1 source AC is orphaned and every
-> non-deferred AC is `verified`.
+> **EPIC-001 (13 AC) signed off 2026-06-15** — the public front-door slice shipped (PR #35, merge `f7f6c9d`).
+> The remaining placed AC (EPIC-002/003/004) are still `planned`. The roll-up reaches **full v1 acceptance**
+> when no v1 source AC is orphaned and every non-deferred AC is `verified`.
+>
+> **[A] Evidence basis for the EPIC-001 sign-off (precedent — set by the user 2026-06-15).** Each EPIC-001 AC
+> has an automated test **tagged with its AC id** (the AC→test-tag→tier table is in
+> `.implementation/tasks/RETRO-001.md`) that **passed** under the SDET's independent acceptance-validation
+> against the real docker-compose stack — tier-3 RLS hard gate 4/4 (`engagement-request.rls.test.ts`, real SQL
+> Server), e2e 12/12 (`apps/portal/e2e`, containers), and `pnpm -r test` 28/28 — corroborated by green
+> **required** CI (run `27560403275` head `211175b`; post-merge run `27560948602` on `main`@`f7f6c9d`:
+> `lint-and-typecheck` ✅ + `security-scan` ✅). **Caveat:** per-PR CI does **not** yet execute the tier-3 /
+> e2e / component test tiers as required checks — tier-3 + e2e are not run per-PR by design (CLAUDE.md; e2e is
+> a deploy-to-staging gate, deferred per ADR-007), and the `test-portal` component job is currently advisory
+> (`continue-on-error`, red on a missing CI DB-seed). The SDET acceptance-validation gate is the independent
+> verification for those tiers this slice. **Tracked follow-up:** wire the AC test tiers (component + tier-3
+> + e2e) into a required CI check so future sign-offs rest on per-PR CI directly (RETRO-001 § carried
+> follow-ups; ties to the `test-portal` graduation item).
 
 ## Coverage by acceptance criterion
 
 | REQ | AC | Epic | Phase | Test tag | Status | Evidence |
 |---|---|---|---|---|---|---|
-| REQ-DOOR-001 | AC-DOOR-001-01 | EPIC-001 | 1 | `AC-DOOR-001-01` | planned | — |
-| REQ-DOOR-001 | AC-DOOR-001-02 | EPIC-001 | 1 | `AC-DOOR-001-02` | planned | — |
-| REQ-DOOR-001 | AC-DOOR-001-03 | EPIC-001 | 1 | `AC-DOOR-001-03` | planned | — |
-| REQ-DOOR-002 | AC-DOOR-002-04 | EPIC-001 | 1 | `AC-DOOR-002-04` | planned | — |
+| REQ-DOOR-001 | AC-DOOR-001-01 | EPIC-001 | 1 | `AC-DOOR-001-01` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-001 | AC-DOOR-001-02 | EPIC-001 | 1 | `AC-DOOR-001-02` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-001 | AC-DOOR-001-03 | EPIC-001 | 1 | `AC-DOOR-001-03` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-002 | AC-DOOR-002-04 | EPIC-001 | 1 | `AC-DOOR-002-04` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
 | REQ-DOOR-002 | AC-DOOR-002-01 | EPIC-002 | 1 | `AC-DOOR-002-01` | planned | — |
 | REQ-DOOR-002 | AC-DOOR-002-02 | EPIC-002 | 1 | `AC-DOOR-002-02` | planned | — |
 | REQ-DOOR-002 | AC-DOOR-002-03 | EPIC-002 | 1 | `AC-DOOR-002-03` | planned | — |
 | REQ-DOOR-002 | AC-DOOR-002-05 | EPIC-002 | 1 | `AC-DOOR-002-05` | planned | — |
-| REQ-DOOR-003 | AC-DOOR-003-01 | EPIC-001 | 1 | `AC-DOOR-003-01` | planned | — |
-| REQ-DOOR-003 | AC-DOOR-003-02 | EPIC-001 | 1 | `AC-DOOR-003-02` | planned | — |
-| REQ-DOOR-003 | AC-DOOR-003-03 | EPIC-001 | 1 | `AC-DOOR-003-03` | planned | — |
-| REQ-DOOR-003 | AC-DOOR-003-04 | EPIC-001 | 1 | `AC-DOOR-003-04` | planned | — |
-| REQ-DOOR-004 | AC-DOOR-004-01 | EPIC-001 | 1 | `AC-DOOR-004-01` | planned | — |
-| REQ-DOOR-004 | AC-DOOR-004-02 | EPIC-001 | 1 | `AC-DOOR-004-02` | planned | — |
-| REQ-DOOR-004 | AC-DOOR-004-03 | EPIC-001 | 1 | `AC-DOOR-004-03` | planned | — |
-| REQ-DOOR-004 | AC-DOOR-004-04 | EPIC-001 | 1 | `AC-DOOR-004-04` | planned | — |
-| REQ-DOOR-004 | AC-DOOR-004-05 | EPIC-001 | 1 | `AC-DOOR-004-05` | planned | — |
+| REQ-DOOR-003 | AC-DOOR-003-01 | EPIC-001 | 1 | `AC-DOOR-003-01` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-003 | AC-DOOR-003-02 | EPIC-001 | 1 | `AC-DOOR-003-02` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-003 | AC-DOOR-003-03 | EPIC-001 | 1 | `AC-DOOR-003-03` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-003 | AC-DOOR-003-04 | EPIC-001 | 1 | `AC-DOOR-003-04` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-004 | AC-DOOR-004-01 | EPIC-001 | 1 | `AC-DOOR-004-01` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-004 | AC-DOOR-004-02 | EPIC-001 | 1 | `AC-DOOR-004-02` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-004 | AC-DOOR-004-03 | EPIC-001 | 1 | `AC-DOOR-004-03` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-004 | AC-DOOR-004-04 | EPIC-001 | 1 | `AC-DOOR-004-04` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
+| REQ-DOOR-004 | AC-DOOR-004-05 | EPIC-001 | 1 | `AC-DOOR-004-05` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
 | REQ-DOOR-005 | AC-DOOR-005-01 | EPIC-003 | 1 | `AC-DOOR-005-01` | planned | — |
 | REQ-DOOR-005 | AC-DOOR-005-02 | EPIC-003 | 1 | `AC-DOOR-005-02` | planned | — |
 | REQ-DOOR-005 | AC-DOOR-005-03 | EPIC-003 | 1 | `AC-DOOR-005-03` | planned | — |
