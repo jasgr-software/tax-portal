@@ -36,6 +36,7 @@ You implement a single slice of a build brief. The brief is the source of truth 
 
 - **Implement the slice** in your assigned domain, per the brief's mandated methodology
 - **Write the executable tests** that bind the brief's acceptance contract (its acceptance criteria, and its acceptance scenarios when provided)
+- **Author the `@demo` walkthrough spec** when the brief is `demo.applicable` (a UI slice) — a dedicated `apps/<app>/e2e/demo/<flow>.demo.spec.ts`, tagged `@demo`, that drives the persona/flow happy-path against the container stack and captures AC-tagged screenshots to `docs/demos/EPIC-NNN/` (reusing the slice's e2e fixtures/selectors). Add the `e2e:demo` script and exclude `@demo` from `e2e:run`/`e2e:smoke`. Non-gating; see `.orchestration/DEMO-POLICY.md`. The SDET runs it at Smoke/Validate.
 - **Run the submission gate** before marking any task as `review`
 - **Update task files** — Status, Updated-by, and Work Log on every status change
 
