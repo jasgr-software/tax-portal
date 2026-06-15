@@ -186,14 +186,22 @@ jobs:
             echo "No JS/TS source files found — skipping CodeQL (pre-scaffold state)."
           fi
 
+      # CodeQL/SAST requires GitHub Advanced Security (GHAS), which is not licensed on this private
+      # org repo (`code_security: disabled`; code-scanning API returns 403). These steps are kept
+      # wired and permissioned (`actions: read` is already granted at the workflow level) so they
+      # run for real and produce results if GHAS is ever enabled — remove `continue-on-error: true`
+      # on both steps to restore CodeQL as a hard gate once the license is active.
+      # The `pnpm audit --audit-level=high` step above remains the enforced dependency-CVE gate.
       - name: Initialize CodeQL
         if: steps.has_jsts.outputs.found == 'true'
+        continue-on-error: true
         uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
       - name: Perform CodeQL Analysis
         if: steps.has_jsts.outputs.found == 'true'
+        continue-on-error: true
         uses: github/codeql-action/analyze@v4
 
   report-failure:

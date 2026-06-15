@@ -281,6 +281,10 @@ Required secrets in CI (set in GitHub → Settings → Secrets):
 
 See `.github/workflows/` for the CI job definitions (added in the CI workflow task).
 
+**CodeQL advisory (no GHAS license):** The `security-scan` job's CodeQL steps carry `continue-on-error: true`
+because GHAS is not licensed on this private org repo. The `pnpm audit --audit-level=high` step is the
+enforced hard gate. Remove `continue-on-error` from both CodeQL steps once GHAS is enabled.
+
 ---
 
 ## Adding a New Service
