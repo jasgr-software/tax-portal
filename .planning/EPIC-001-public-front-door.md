@@ -89,6 +89,99 @@ notification, accept/decline, invite — is EPIC-003.)
   the security-policy behavior (accountant-only read) is a **tier-3 integration** obligation, not
   advisory (per `strategy/TESTING.md` — RLS through the real engine).
 
+## Acceptance scenarios
+
+### AC-DOOR-001-01 — Services page reachable anonymously
+```gherkin
+Given a visitor with no account and no sign-in
+When they navigate to the public services page
+Then the page is served without requiring authentication
+```
+
+### AC-DOOR-001-02 — Active services are displayed
+```gherkin
+Given the accountant has active services in the catalog
+When an anonymous visitor views the services page
+Then the currently active services are displayed
+```
+
+### AC-DOOR-001-03 — Viewing creates no account and asks for nothing personal
+```gherkin
+Given an anonymous visitor on the services page
+When they browse the services
+Then no account is created and no personal information is required to view it
+```
+
+### AC-DOOR-002-04 — Deactivated services do not appear publicly
+```gherkin
+Given a service that has been deactivated
+When an anonymous visitor views the services page and the request form
+Then the deactivated service does not appear as a selectable option
+```
+
+### AC-DOOR-003-01 — Form presents active services as a checklist
+```gherkin
+Given the request form
+When an anonymous visitor opens it
+Then the active services are presented as selectable checklist items
+```
+
+### AC-DOOR-003-02 — No freeform need field replaces the checklist
+```gherkin
+Given the request form
+When the visitor inspects how they express what they need
+Then selection is via the service checklist with no freeform "describe your need" field replacing it
+```
+
+### AC-DOOR-003-03 — No service-specific sub-questions
+```gherkin
+Given the request form with services selected
+When the visitor completes it
+Then no service-specific sub-questions vary the form by which services are selected
+```
+
+### AC-DOOR-003-04 — Deactivated services are not checklist options
+```gherkin
+Given a deactivated service
+When the visitor views the request form's checklist
+Then the deactivated service is not offered as a checklist option
+```
+
+### AC-DOOR-004-01 — Prospect selects one or more services
+```gherkin
+Given an anonymous visitor on the request form
+When they choose one or more active services
+Then their selection is captured for submission
+```
+
+### AC-DOOR-004-02 — Prospect provides basic contact information
+```gherkin
+Given an anonymous visitor completing the request form
+When they enter their basic contact information
+Then the contact information is captured with the request
+```
+
+### AC-DOOR-004-03 — Submitting creates a pending request
+```gherkin
+Given a completed request form with at least one service selected
+When the visitor submits it
+Then an engagement request is created in a pending (awaiting-review) state
+```
+
+### AC-DOOR-004-04 — No account is created at submission
+```gherkin
+Given a visitor submitting an engagement request
+When the request is created
+Then no account is created for the visitor at submission time
+```
+
+### AC-DOOR-004-05 — Cannot submit with zero services
+```gherkin
+Given an anonymous visitor on the request form with no services selected
+When they attempt to submit
+Then submission is blocked and no engagement request is created
+```
+
 ## Traceability & sign-off contract
 
 - Each in-scope AC above must be covered by **automated test(s) tagged with its AC id** — the test
@@ -121,5 +214,7 @@ notification, accept/decline, invite — is EPIC-003.)
 ## Links
 - Requirements: REQ-DOOR-001, REQ-DOOR-002 (partial), REQ-DOOR-003, REQ-DOOR-004
 - Architecture: REQ-DOOR-004, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-012, ADR-020
+- Personas: `personas/tom-prospective-client.md`
+- Flows: `flows/flow-engagement-request.md` (anonymous submission path)
 - Epics: related EPIC-002 (catalog CRUD), EPIC-003 (accountant inbox), EPIC-004 (auth)
 - Open questions: none

@@ -11,6 +11,17 @@
   front-door slice (EPIC-001 authored). Later phases and the backlog sketched as named epics to be
   authored on subsequent Planning Agent runs. Sources: `.requirements/` (DOOR/AUTH/… domains),
   `.architecture/` (ADR-001..022).
+- **2026-06-14 (MVP confirmed + Phase 1 fully authored)** — User confirmed the MVP boundary as the
+  **front-door spine** (front door + accountant auth + catalog management + request inbox; onboarding,
+  lifecycle, file exchange, messaging, and dashboard deferred to Phases 2–4). Authored **EPIC-002**
+  (services-catalog management), **EPIC-003** (accountant request inbox), and **EPIC-004** (auth &
+  two-role model); upgraded **EPIC-001** with its Given/When/Then acceptance scenarios + persona/flow
+  links. All four Phase-1 epics are now `planned`. The newly-added **v2 requirements** (REQ-ONBD-008,
+  REQ-FILE-016, REQ-LIFE-013, REQ-MSG-019, REQ-LIFE-014, REQ-AUTH-011/012) are explicitly **excluded from
+  the MVP** and are not yet phased. Several MVP-adjacent AC were **deferred** for lack of an MVP home
+  (AUTH-002/003/007/008, DOOR-009/010, MSG-013-02..06, MSG-014) — see `COVERAGE.md`. Behavior contract:
+  reconciled the stale "Epic 00x" labels on the migrated legacy flows (`flow-engagement-request`,
+  `flow-first-sign-in`, `flow-role-redirect`) against the current epic numbering.
 
 ## Phasing strategy
 
@@ -34,13 +45,21 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
 | **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `planned` | — |
-| EPIC-002 *(to author)* | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | backlog | EPIC-004 (accountant auth) |
-| EPIC-003 *(to author)* | Accountant request inbox — notification, review, accept/decline, invite/decline-message | backlog | EPIC-001, EPIC-004 |
-| EPIC-004 *(to author)* | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts | backlog | — |
+| **EPIC-004** | Authentication & the two-role model — accountant signs in (mandatory 2FA); ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect | `planned` | — |
+| **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `planned` | EPIC-004 |
+| **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `planned` | EPIC-001, EPIC-004 |
 
-> Only **EPIC-001** is authored so far; EPIC-002/003/004 are named placeholders that the next Planning
-> Agent run will author and slot. EPIC-001 is deliberately authored first because it is the only Phase 1
-> slice with no accountant-auth dependency — the anonymous front-door write path stands alone.
+> **All four Phase-1 epics are authored and `planned`.** Build order respects `depends_on`: **EPIC-001**
+> and **EPIC-004** have no dependencies and come first (the anonymous front-door write path and the auth
+> spine stand alone); **EPIC-002** and **EPIC-003** follow once the authenticated accountant surface
+> (EPIC-004) exists, with EPIC-003 also needing the requests EPIC-001 produces.
+>
+> **MVP boundary (confirmed 2026-06-14):** the front-door spine only. A prospect can reach the door and
+> submit; the accountant can sign in, get notified, and accept (→ invite) or decline (→ reason email); an
+> accepted prospect can create a client account. Onboarding, the engagement lifecycle, file exchange,
+> messaging, and the dashboard are **out of the MVP** (Phases 2–4). The **v2** capabilities (dynamic
+> organizer, prior-year detection, outstanding-question tracking, proactive follow-up engine, recurring
+> engagements, multi-accountant) are **not phased here** — they sit above v1 acceptance.
 
 ## Phase 2 — Onboarding gate *(to decompose)*
 
@@ -67,3 +86,21 @@ and admin UI; portal identity & settings. Requirement themes: MSG, DASH, IDNT.
   isolation on the first client-scoped read slice). Tracked in `COVERAGE.md`.
 - Catalog-management remainder of REQ-DOOR-002 (the accountant CRUD AC) is split out of EPIC-001 into
   EPIC-002 — see the split-requirements index in `COVERAGE.md`.
+- **MVP-adjacent AC deferred to later phases** (no MVP home; not v1-descoped — they get a home when their
+  enabling capability lands). Each is in `COVERAGE.md` Orphans with a target phase:
+  - **REQ-AUTH-002** (accountant full visibility over clients/engagements) and **REQ-AUTH-003** (client
+    data isolation / RLS) → **Phase 3** (first client-scoped engagement data; the per-policy
+    CLIENT-A-vs-CLIENT-B test needs client-owned rows).
+  - **REQ-AUTH-007** (multiple participants) and **REQ-AUTH-008** (indefinite access after completion) →
+    **Phase 3** (engagement lifecycle / completion).
+  - **REQ-DOOR-009** (returning-client request from inside the portal) and **REQ-DOOR-010** (accountant
+    initiates an engagement for an existing client) → **Phase 2–3** (need a client portal home and the
+    engagement entity).
+  - **REQ-MSG-013-02..06** (accountant notifications for messages, uploads, onboarding, overdue, due-date)
+    and **REQ-MSG-014** (all client notifications) → **Phase 4** (the notification feed). Only
+    AC-MSG-013-01 (new-request notification) lands in the MVP, via EPIC-003.
+- **v2 requirements — not yet phased.** REQ-ONBD-008 (dynamic organizer), REQ-FILE-016 (prior-year
+  detection), REQ-LIFE-013 (outstanding-question tracking), REQ-MSG-019 (proactive follow-up engine),
+  REQ-LIFE-014 (recurring engagements), REQ-AUTH-011/012 (multi-accountant). These build above full v1
+  acceptance; they will be sliced into a v2 phase set once v1 phases are underway. Tracked in
+  `COVERAGE.md` Deferred (v2).

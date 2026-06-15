@@ -15,20 +15,22 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 
 | Measure | Count |
 |---|---|
-| AC placed in an epic | 17 |
-| — in an authored epic (EPIC-001) | 13 |
-| — in a named-but-unauthored epic (EPIC-002) | 4 |
+| AC placed in an epic (all Phase 1) | 55 |
+| — EPIC-001 (public front door) | 13 |
+| — EPIC-004 (auth & two-role model) | 15 |
+| — EPIC-002 (services-catalog management) | 7 |
+| — EPIC-003 (accountant request inbox) | 20 |
 | AC `verified` (signed off) | 0 |
-| AC `deferred` | see Deferred (IDNT hard-delete descoped per OQ-004) |
-| AC orphaned (source AC not yet decomposed into any epic) | remainder of the corpus — see Orphans |
+| AC `deferred` | IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
+| AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
 > Nothing is `verified` yet: no application code exists, so no tagged tests have passed. Every placed AC
-> is `planned`. The roll-up reaches **full acceptance** when no source AC is orphaned and every non-
-> deferred AC is `verified`.
+> is `planned`. The roll-up reaches **full v1 acceptance** when no v1 source AC is orphaned and every
+> non-deferred AC is `verified`.
 
 ## Coverage by acceptance criterion
 
-| REQ | AC | Epic | Phase | Test tag(s) | Status | Evidence |
+| REQ | AC | Epic | Phase | Test tag | Status | Evidence |
 |---|---|---|---|---|---|---|
 | REQ-DOOR-001 | AC-DOOR-001-01 | EPIC-001 | 1 | `AC-DOOR-001-01` | planned | — |
 | REQ-DOOR-001 | AC-DOOR-001-02 | EPIC-001 | 1 | `AC-DOOR-001-02` | planned | — |
@@ -47,37 +49,112 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-DOOR-004 | AC-DOOR-004-03 | EPIC-001 | 1 | `AC-DOOR-004-03` | planned | — |
 | REQ-DOOR-004 | AC-DOOR-004-04 | EPIC-001 | 1 | `AC-DOOR-004-04` | planned | — |
 | REQ-DOOR-004 | AC-DOOR-004-05 | EPIC-001 | 1 | `AC-DOOR-004-05` | planned | — |
+| REQ-DOOR-005 | AC-DOOR-005-01 | EPIC-003 | 1 | `AC-DOOR-005-01` | planned | — |
+| REQ-DOOR-005 | AC-DOOR-005-02 | EPIC-003 | 1 | `AC-DOOR-005-02` | planned | — |
+| REQ-DOOR-005 | AC-DOOR-005-03 | EPIC-003 | 1 | `AC-DOOR-005-03` | planned | — |
+| REQ-DOOR-006 | AC-DOOR-006-01 | EPIC-003 | 1 | `AC-DOOR-006-01` | planned | — |
+| REQ-DOOR-006 | AC-DOOR-006-02 | EPIC-003 | 1 | `AC-DOOR-006-02` | planned | — |
+| REQ-DOOR-006 | AC-DOOR-006-03 | EPIC-003 | 1 | `AC-DOOR-006-03` | planned | — |
+| REQ-DOOR-006 | AC-DOOR-006-04 | EPIC-003 | 1 | `AC-DOOR-006-04` | planned | — |
+| REQ-DOOR-006 | AC-DOOR-006-05 | EPIC-003 | 1 | `AC-DOOR-006-05` | planned | — |
+| REQ-DOOR-007 | AC-DOOR-007-01 | EPIC-003 | 1 | `AC-DOOR-007-01` | planned | — |
+| REQ-DOOR-007 | AC-DOOR-007-02 | EPIC-003 | 1 | `AC-DOOR-007-02` | planned | — |
+| REQ-DOOR-007 | AC-DOOR-007-03 | EPIC-003 | 1 | `AC-DOOR-007-03` | planned | — |
+| REQ-DOOR-007 | AC-DOOR-007-04 | EPIC-003 | 1 | `AC-DOOR-007-04` | planned | — |
+| REQ-DOOR-008 | AC-DOOR-008-01 | EPIC-003 | 1 | `AC-DOOR-008-01` | planned | — |
+| REQ-DOOR-008 | AC-DOOR-008-02 | EPIC-003 | 1 | `AC-DOOR-008-02` | planned | — |
+| REQ-DOOR-008 | AC-DOOR-008-03 | EPIC-003 | 1 | `AC-DOOR-008-03` | planned | — |
+| REQ-DOOR-008 | AC-DOOR-008-04 | EPIC-003 | 1 | `AC-DOOR-008-04` | planned | — |
+| REQ-DASH-010 | AC-DASH-010-01 | EPIC-002 | 1 | `AC-DASH-010-01` | planned | — |
+| REQ-DASH-010 | AC-DASH-010-02 | EPIC-002 | 1 | `AC-DASH-010-02` | planned | — |
+| REQ-DASH-010 | AC-DASH-010-03 | EPIC-002 | 1 | `AC-DASH-010-03` | planned | — |
+| REQ-DASH-011 | AC-DASH-011-01 | EPIC-003 | 1 | `AC-DASH-011-01` | planned | — |
+| REQ-DASH-011 | AC-DASH-011-02 | EPIC-003 | 1 | `AC-DASH-011-02` | planned | — |
+| REQ-DASH-011 | AC-DASH-011-03 | EPIC-003 | 1 | `AC-DASH-011-03` | planned | — |
+| REQ-AUTH-001 | AC-AUTH-001-01 | EPIC-004 | 1 | `AC-AUTH-001-01` | planned | — |
+| REQ-AUTH-001 | AC-AUTH-001-02 | EPIC-004 | 1 | `AC-AUTH-001-02` | planned | — |
+| REQ-AUTH-001 | AC-AUTH-001-03 | EPIC-004 | 1 | `AC-AUTH-001-03` | planned | — |
+| REQ-AUTH-004 | AC-AUTH-004-01 | EPIC-004 | 1 | `AC-AUTH-004-01` | planned | — |
+| REQ-AUTH-004 | AC-AUTH-004-02 | EPIC-004 | 1 | `AC-AUTH-004-02` | planned | — |
+| REQ-AUTH-004 | AC-AUTH-004-03 | EPIC-004 | 1 | `AC-AUTH-004-03` | planned | — |
+| REQ-AUTH-005 | AC-AUTH-005-01 | EPIC-004 | 1 | `AC-AUTH-005-01` | planned | — |
+| REQ-AUTH-005 | AC-AUTH-005-02 | EPIC-004 | 1 | `AC-AUTH-005-02` | planned | — |
+| REQ-AUTH-006 | AC-AUTH-006-01 | EPIC-004 | 1 | `AC-AUTH-006-01` | planned | — |
+| REQ-AUTH-006 | AC-AUTH-006-02 | EPIC-004 | 1 | `AC-AUTH-006-02` | planned | — |
+| REQ-AUTH-006 | AC-AUTH-006-03 | EPIC-004 | 1 | `AC-AUTH-006-03` | planned | — |
+| REQ-AUTH-009 | AC-AUTH-009-01 | EPIC-004 | 1 | `AC-AUTH-009-01` | planned | — |
+| REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-004 | 1 | `AC-AUTH-010-01` | planned | — |
+| REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-004 | 1 | `AC-AUTH-010-02` | planned | — |
+| REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-004 | 1 | `AC-AUTH-010-03` | planned | — |
+| REQ-MSG-013 | AC-MSG-013-01 | EPIC-003 | 1 | `AC-MSG-013-01` | planned | — |
 
 ## Split requirements
 
-Requirements whose AC span more than one epic — the fan-out, visible at a glance.
+Requirements whose AC span more than one epic (or one epic + orphans/deferred) — the fan-out, at a glance.
 
 - **REQ-DOOR-002 (services catalog)** — split across two epics:
-  - **EPIC-001** owns **AC-DOOR-002-04** (a deactivated service does not appear on the public services
-    page or request form) — directly testable from the public front door.
-  - **EPIC-002** owns **AC-DOOR-002-01, -02, -03, -05** (the accountant add/edit/deactivate CRUD and the
-    "only the accountant may change the catalog" authorization) — these need the authenticated accountant
-    admin surface, so they belong to the catalog-management epic, not the public front-door slice.
+  - **EPIC-001** owns **AC-DOOR-002-04** (a deactivated service does not appear on the public services page
+    or request form) — testable from the public front door.
+  - **EPIC-002** owns **AC-DOOR-002-01, -02, -03, -05** (accountant add/edit/deactivate + "only the
+    accountant may change the catalog") — these need the authenticated accountant admin surface.
+- **REQ-MSG-013 (accountant notification types)** — split between MVP and Phase 4:
+  - **EPIC-003** owns **AC-MSG-013-01** (new service-request notification) — the only MSG-013 event that
+    exists in the MVP.
+  - **AC-MSG-013-02..06** (new message, document uploaded, onboarding completed, document-request overdue,
+    due-date approaching) → **Orphans**, targeted at **Phase 4** (the notification feed), since those source
+    events are not built until later phases.
 
 ## Orphans
 
-Source AC not yet decomposed into any epic. This is the work remaining — each becomes `planned` when a
-Planning Agent run places it in an epic.
+Source AC not yet decomposed into any epic. This is the v1 work remaining — each becomes `planned` when a
+Planning Agent run places it in an epic. (v2 AC are tracked separately under Deferred, not here.)
 
-- **DOOR domain remainder (next to decompose):** REQ-DOOR-005 (accountant notified), REQ-DOOR-006
-  (accept/decline), REQ-DOOR-007 (acceptance → invite), REQ-DOOR-008 (decline → reason message),
-  REQ-DOOR-009, REQ-DOOR-010 — all AC. Targeted at EPIC-003 (accountant request inbox) + EPIC-004 (auth),
-  to be authored.
-- **All other domains pending decomposition:** AUTH, ONBD, LIFE, FILE, MSG, DASH, IDNT, and the NFR
-  adherence criteria. Each `AC-*` in these domains is orphaned until a future Planning Agent run slices
-  it into a phase (see `ROADMAP.md` Phases 1–4). The ledger is intentionally seeded with only EPIC-001's
-  decomposition; subsequent runs extend it domain by domain.
+**MVP-adjacent (deferred for lack of an MVP home — reconciled this run, with target phase):**
+- **REQ-DOOR-009** (returning client requests from inside the portal) — AC-DOOR-009-01..04 → **Phase 2–3**
+  (needs a client portal home).
+- **REQ-DOOR-010** (accountant initiates an engagement for an existing client) — AC-DOOR-010-01..04 →
+  **Phase 3** (needs the engagement entity / lifecycle).
+- **REQ-AUTH-002** (accountant full visibility) — AC-AUTH-002-01..03 → **Phase 3** (needs engagements + a
+  client list to exercise).
+- **REQ-AUTH-003** (client sees only their own data — RLS isolation) — AC-AUTH-003-01..03 → **Phase 3** (the
+  per-policy CLIENT-A-vs-CLIENT-B test needs client-owned rows).
+- **REQ-AUTH-007** (multiple participants per engagement) — AC-AUTH-007-01..03 → **Phase 3**.
+- **REQ-AUTH-008** (indefinite access after completion) — AC-AUTH-008-01..02 → **Phase 3** (needs completed
+  engagements).
+- **REQ-MSG-013** remainder — AC-MSG-013-02..06 → **Phase 4**.
+- **REQ-MSG-014** (all client notification types) — AC-MSG-014-01..07 → **Phase 4** (the client notification
+  feed; in the MVP accept/decline reach the account-less prospect by email, not a feed).
+
+**Whole domains pending decomposition** (each `AC-*` orphaned until a future run slices it into a phase —
+see `ROADMAP.md` Phases 2–4):
+- **ONBD** (Phase 2) — REQ-ONBD-001..007 (v1). *(REQ-ONBD-008 is v2 → Deferred.)*
+- **LIFE** (Phase 3) — REQ-LIFE-001..012 (v1). *(REQ-LIFE-013/014 are v2 → Deferred.)*
+- **FILE** (Phase 3) — REQ-FILE-001..015 (v1). *(REQ-FILE-016 is v2 → Deferred.)*
+- **MSG** (Phase 4) — REQ-MSG-001..012, -015..018 (v1, plus the MSG-013/014 remainders above).
+  *(REQ-MSG-019 is v2 → Deferred.)*
+- **DASH** (Phase 4) — REQ-DASH-001..009, -012, -013 (DASH-010 in EPIC-002, DASH-011 in EPIC-003).
+- **IDNT** (Phase 4) — REQ-IDNT-001..004, -006, -007 (IDNT-005 → Deferred).
+- **NFR** (cross-cutting) — REQ-NFR-001..011 mapped onto the epic(s) whose slice must demonstrate each (e.g.
+  RLS isolation on the first client-scoped read slice; malware scanning on the first upload slice). To be
+  attached to epics as those slices are authored.
 
 ## Deferred
 
-AC explicitly out of current (v1) scope, with rationale. Distinct from orphaned — deferred AC are a
-deliberate decision, not pending work.
+AC explicitly out of current scope, with rationale. Distinct from orphaned — deferred AC are a deliberate
+decision, not pending v1 work.
 
-- **REQ-IDNT-005 (permanent client hard-delete)** — descoped from v1 per requirements `OQ-004` (hard
-  delete vs. 7-year retention precedence, resolved 2026-06-13 → defer). To be carried here as `deferred`
-  when the IDNT domain is decomposed; recorded now so the decision is not lost.
+- **REQ-IDNT-005 (permanent client hard-delete)** — descoped from v1 per requirements `OQ-004` (hard-delete
+  vs. 7-year retention precedence; the wholesale-erasure deferral was **not** reversed by the 2026-06-14
+  purge decision). To be carried as `deferred` when the IDNT domain is decomposed; recorded now so the
+  decision is not lost.
+- **v2 requirement set (above v1 acceptance — added 2026-06-14, not yet phased):**
+  - **REQ-ONBD-008** — dynamic, conditional intake organizer.
+  - **REQ-FILE-016** — prior-year-based expected-document detection.
+  - **REQ-LIFE-013** — outstanding-question tracking.
+  - **REQ-LIFE-014** — recurring engagements & year-over-year reminders.
+  - **REQ-MSG-019** — proactive lifecycle accountability / automated follow-up engine.
+  - **REQ-AUTH-011** — multiple accountant-side staff accounts within one firm.
+  - **REQ-AUTH-012** — staff permissions gate actions; full firm-wide visibility.
+  > These are `deferred` here only in the sense of "not part of the v1 roadmap phases." They will be sliced
+  > into a v2 phase set in a later planning run. (Payments was considered and **deferred entirely** per
+  > requirements OQ-012 — no requirement authored, nothing to track here.)
