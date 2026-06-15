@@ -108,7 +108,16 @@ services:
       # container prevents PrismaClientConstructorValidationError on any path that touches requestDb.
       # Must use the compose service name "sqlserver" (internal Docker DNS), not localhost.
       DATABASE_URL: "${PORTAL_DATABASE_URL:?PORTAL_DATABASE_URL env var is required — use sqlserver://sqlserver;port=1433;... (container-internal hostname)}"
-      # Placeholder for Clerk (EPIC-004) — not used in this slice
+      # Auth provider binding — "mock" for e2e/local dev (no real Clerk keys needed).
+      # Set to "clerk" in production once TASK-004-003 wires the real Clerk integration.
+      # ADR-001 / ADR-010 / TASK-004-002
+      AUTH_PROVIDER: "${AUTH_PROVIDER:-mock}"
+      # Cross-app redirect URLs (ADR-010)
+      PORTAL_APP_URL: "${PORTAL_APP_URL:-http://localhost:3000}"
+      ADMIN_APP_URL: "${ADMIN_APP_URL:-http://localhost:3001}"
+      # Mock session secret (AUTH_PROVIDER=mock only; must NOT be set in production)
+      MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:-dev-only-mock-secret-do-not-use-in-production}"
+      # Placeholder for Clerk (TASK-004-003) — not used in this slice
       # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
     ports:
       - "${PORTAL_PORT:-3000}:3000"
@@ -122,6 +131,59 @@ services:
           "node",
           "-e",
           "const http = require('http'); http.get('http://localhost:3000/healthz', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+  # ─── Tax Portal (apps/admin) ──────────────────────────────────────────────────
+  # Added in TASK-004-001 (BRIEF-004). ADR-006: Tax Portal runs on port 3001 (accountant-facing).
+  # ADR-007: Per-app container image; production platform deferred.
+  # ADR-010: apps/admin has NO public routes — every path requires ACCOUNTANT auth.
+  #          Auth middleware (Clerk) lands in TASK-004-002; healthz/readyz pass through.
+  # Probed by scripts/smoke-test.sh at /healthz and /readyz.
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: tax-portal-admin
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      HOSTNAME: "0.0.0.0"
+      # Admin pool — used by DB queries (ADR-003 §1/§6).
+      # IMPORTANT: Uses the compose service name "sqlserver" (internal Docker DNS, port 1433).
+      # ADMIN_DATABASE_URL_ADMIN in .env.local must use the container-side URL.
+      # See .env.example for the required format.
+      DATABASE_URL_ADMIN: "${ADMIN_DATABASE_URL_ADMIN:?ADMIN_DATABASE_URL_ADMIN env var is required — use sqlserver://sqlserver;port=1433;... (container-internal hostname)}"
+      # Request pool — wired into the lazy Prisma client (EPIC-004 will use it).
+      # Must use the compose service name "sqlserver" (internal Docker DNS), not localhost.
+      DATABASE_URL: "${ADMIN_DATABASE_URL:?ADMIN_DATABASE_URL env var is required — use sqlserver://sqlserver;port=1433;... (container-internal hostname)}"
+      # Cross-app URLs for redirect wiring (ADR-010)
+      PORTAL_APP_URL: "${PORTAL_APP_URL:-http://localhost:3000}"
+      ADMIN_APP_URL: "${ADMIN_APP_URL:-http://localhost:3001}"
+      # Auth provider binding — "mock" for e2e/local dev (no real Clerk keys needed).
+      # Set to "clerk" in production once TASK-004-003 wires the real Clerk integration.
+      # ADR-001 / ADR-010 / TASK-004-002
+      AUTH_PROVIDER: "${AUTH_PROVIDER:-mock}"
+      # Mock session secret (AUTH_PROVIDER=mock only; must NOT be set in production)
+      MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:-dev-only-mock-secret-do-not-use-in-production}"
+      # Placeholder for Clerk (TASK-004-003) — not used in this slice
+      # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+    ports:
+      - "${ADMIN_PORT:-3001}:3001"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http = require('http'); http.get('http://localhost:3001/healthz', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));",
         ]
       interval: 15s
       timeout: 5s

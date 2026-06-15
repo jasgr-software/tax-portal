@@ -3,11 +3,10 @@ id: EPIC-004
 title: Authentication & the two-role model
 phase: 1
 status: planned
-slice: The accountant signs in (with mandatory 2FA) and an invited prospect creates a client account; each lands on the correct app for their role and is kept out of the other.
+slice: The accountant signs in and an invited prospect creates a client account; each lands on the correct app for their role and is kept out of the other.
 requirements:
   - REQ-AUTH-001: [AC-AUTH-001-01, AC-AUTH-001-02, AC-AUTH-001-03]
-  - REQ-AUTH-004: [AC-AUTH-004-01, AC-AUTH-004-02, AC-AUTH-004-03]
-  - REQ-AUTH-005: [AC-AUTH-005-01, AC-AUTH-005-02]
+  - REQ-AUTH-005: [AC-AUTH-005-02]
   - REQ-AUTH-006: [AC-AUTH-006-01, AC-AUTH-006-02, AC-AUTH-006-03]
   - REQ-AUTH-009: [AC-AUTH-009-01]
   - REQ-AUTH-010: [AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03]
@@ -41,7 +40,7 @@ open_questions: []
 
 ## Vertical slice
 This slice stands up the **identity spine** the rest of the product builds on. The **accountant** signs
-in to the Tax Portal (`apps/admin`) with a mandatory second factor and reaches her work surface; an
+in to the Tax Portal (`apps/admin`) and reaches her work surface; an
 **invited prospect** (the invitation is issued by EPIC-003) lands on the Client Portal (`apps/portal`)
 sign-up, creates a **CLIENT** account, and reaches the client surface. Every authenticated account is
 exactly one of two roles — ACCOUNTANT or CLIENT — and the cross-app middleware keeps each role on its own
@@ -56,12 +55,7 @@ EPIC-002 (admin catalog) and EPIC-003 (request inbox) depend on.
   - **AC-AUTH-001-01** — exactly two authenticated roles exist: ACCOUNTANT and CLIENT; no others.
   - **AC-AUTH-001-02** — every authenticated account has exactly one role (never both, never none).
   - **AC-AUTH-001-03** — an account's role is determinable at every point after sign-in (downstream gates rely on it).
-- **REQ-AUTH-004 — Mandatory two-factor for the accountant**
-  - **AC-AUTH-004-01** — the accountant must present a second factor in addition to a password.
-  - **AC-AUTH-004-02** — the accountant cannot reach the admin work surface without having completed 2FA.
-  - **AC-AUTH-004-03** — 2FA cannot be disabled or bypassed for the accountant.
-- **REQ-AUTH-005 — Optional two-factor for clients**
-  - **AC-AUTH-005-01** — a client may enroll a second factor.
+- **REQ-AUTH-005 — Optional two-factor for clients** (no-2FA path only this slice)
   - **AC-AUTH-005-02** — a client can complete sign-up and sign-in without enrolling a second factor.
 - **REQ-AUTH-006 — Clients are invitation-only**
   - **AC-AUTH-006-01** — a client account can be created only via an accountant-issued invitation.
@@ -76,9 +70,11 @@ EPIC-002 (admin catalog) and EPIC-003 (request inbox) depend on.
 
 ## Architecture adherence
 
-- **ADR-001 — Authentication via Clerk.** Roles, mandatory/optional 2FA, the invitation mechanism, and
-  session lifetime are provided through the auth provider; the role is carried in the session so middleware
-  can read it. The invitation path (issued in EPIC-003) terminates here in account creation.
+- **ADR-001 — Authentication via Clerk.** Roles, the invitation mechanism, and session lifetime are
+  provided through the auth provider; the role is carried in the session so middleware can read it. The
+  invitation path (issued in EPIC-003) terminates here in account creation. **2FA is deferred this slice** —
+  optional-client / mandatory-accountant 2FA enforcement (AC-AUTH-004-* and AC-AUTH-005-01) lands with the
+  future Phase-1 "2FA enablement" slice (the auth spine ships without it; e2e mocks the auth provider here).
 - **ADR-006 — Monorepo, two apps.** Accountant auth surfaces live in `apps/admin`; client sign-up/sign-in
   in `apps/portal`. The two apps share one auth application and one user identity space.
 - **ADR-010 — Cross-app navigation & session boundaries.** The redirect matrix is the contract for
@@ -117,34 +113,6 @@ Then it has exactly one role — never both ACCOUNTANT and CLIENT, and never non
 Given a signed-in account
 When any access decision is evaluated for that account
 Then the account's role is available and authoritative for that decision
-```
-
-### AC-AUTH-004-01 — Accountant must present a second factor
-```gherkin
-Given the accountant signing in with a correct password
-When she has not yet provided her second factor
-Then she is not considered authenticated until the second factor is provided
-```
-
-### AC-AUTH-004-02 — No admin surface without completed 2FA
-```gherkin
-Given the accountant has supplied a password but not completed 2FA
-When she attempts to reach the admin work surface
-Then access is denied until 2FA is completed
-```
-
-### AC-AUTH-004-03 — Accountant 2FA cannot be disabled
-```gherkin
-Given the accountant account
-When an attempt is made to disable or bypass its second factor
-Then the second factor remains required and cannot be turned off
-```
-
-### AC-AUTH-005-01 — Client may enroll a second factor
-```gherkin
-Given a signed-in client
-When the client chooses to enroll a second authentication factor
-Then the enrollment succeeds and the factor applies on subsequent sign-ins
 ```
 
 ### AC-AUTH-005-02 — Client may proceed without a second factor
@@ -210,13 +178,16 @@ Then the route is served without a role-based redirect
 - An AC is **implemented** only when its tagged test(s) **pass in CI** — CI is the independent gate.
 - This epic is **delivered** only when **all** its in-scope AC are `verified` in `COVERAGE.md`.
 - Suggested tier mapping (per `.architecture/strategy/TESTING.md`):
-  - **e2e (tier 6, both apps)** — AC-AUTH-004-01/-02 (accountant 2FA gate), AC-AUTH-005-02 (client without
-    2FA), AC-AUTH-006-01/-02 (no self-registration), AC-AUTH-010-01/-02/-03 (the redirect matrix).
+  - **e2e (tier 6, both apps)** — AC-AUTH-005-02 (client without 2FA), AC-AUTH-006-01/-02 (no
+    self-registration), AC-AUTH-010-01/-02/-03 (the redirect matrix).
   - **service integration (tier 3)** — AC-AUTH-001-02/-03 (one-role invariant; role readable server-side),
     AC-AUTH-006-03 (invitation provenance), AC-AUTH-009-01 (session expiry).
-  - **unit/component (tier 2/5)** — AC-AUTH-001-01 (role enumeration), AC-AUTH-005-01 (client enroll path).
+  - **unit/component (tier 2/5)** — AC-AUTH-001-01 (role enumeration).
 
 ## Out of scope
+- **REQ-AUTH-004** (mandatory accountant 2FA) + **AC-AUTH-005-01** (client 2FA enrollment) → **deferred**
+  to a future Phase-1 "2FA enablement" slice (2FA not ready to deploy; the auth spine ships without it; the
+  slice mocks the auth provider for e2e). Tracked `deferred` in `COVERAGE.md`.
 - **REQ-AUTH-002** (accountant full visibility over clients/engagements) → **deferred** to the phase with
   engagements and a client list (no engagements exist yet to exercise it). Tracked in `COVERAGE.md` Orphans.
 - **REQ-AUTH-003** (client sees only their own data — RLS isolation) → **deferred** to the first phase that

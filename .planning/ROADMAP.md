@@ -52,7 +52,7 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
 | **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `delivered` (PR #35, `f7f6c9d`, 2026-06-15) | — |
-| **EPIC-004** | Authentication & the two-role model — accountant signs in (mandatory 2FA); ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect | `planned` | — |
+| **EPIC-004** | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect (11 in-scope AC). 2FA deferred to a future Phase-1 "2FA enablement" slice (not ready to deploy) | `planned` | — |
 | **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `planned` | EPIC-004 |
 | **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `planned` | EPIC-001, EPIC-004 |
 

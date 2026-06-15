@@ -15,13 +15,13 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 
 | Measure | Count |
 |---|---|
-| AC placed in an epic (all Phase 1) | 55 |
+| AC placed in an epic (all Phase 1) | 51 |
 | — EPIC-001 (public front door) | 13 |
-| — EPIC-004 (auth & two-role model) | 15 |
+| — EPIC-004 (auth & two-role model) | 11 |
 | — EPIC-002 (services-catalog management) | 7 |
 | — EPIC-003 (accountant request inbox) | 20 |
 | AC `verified` (signed off) | 13 — all of EPIC-001 (delivered 2026-06-15) |
-| AC `deferred` | IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
+| AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
 > **EPIC-001 (13 AC) signed off 2026-06-15** — the public front-door slice shipped (PR #35, merge `f7f6c9d`).
@@ -88,10 +88,10 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-AUTH-001 | AC-AUTH-001-01 | EPIC-004 | 1 | `AC-AUTH-001-01` | planned | — |
 | REQ-AUTH-001 | AC-AUTH-001-02 | EPIC-004 | 1 | `AC-AUTH-001-02` | planned | — |
 | REQ-AUTH-001 | AC-AUTH-001-03 | EPIC-004 | 1 | `AC-AUTH-001-03` | planned | — |
-| REQ-AUTH-004 | AC-AUTH-004-01 | EPIC-004 | 1 | `AC-AUTH-004-01` | planned | — |
-| REQ-AUTH-004 | AC-AUTH-004-02 | EPIC-004 | 1 | `AC-AUTH-004-02` | planned | — |
-| REQ-AUTH-004 | AC-AUTH-004-03 | EPIC-004 | 1 | `AC-AUTH-004-03` | planned | — |
-| REQ-AUTH-005 | AC-AUTH-005-01 | EPIC-004 | 1 | `AC-AUTH-005-01` | planned | — |
+| REQ-AUTH-004 | AC-AUTH-004-01 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-004-01` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
+| REQ-AUTH-004 | AC-AUTH-004-02 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-004-02` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
+| REQ-AUTH-004 | AC-AUTH-004-03 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-004-03` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
+| REQ-AUTH-005 | AC-AUTH-005-01 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-005-01` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
 | REQ-AUTH-005 | AC-AUTH-005-02 | EPIC-004 | 1 | `AC-AUTH-005-02` | planned | — |
 | REQ-AUTH-006 | AC-AUTH-006-01 | EPIC-004 | 1 | `AC-AUTH-006-01` | planned | — |
 | REQ-AUTH-006 | AC-AUTH-006-02 | EPIC-004 | 1 | `AC-AUTH-006-02` | planned | — |
@@ -157,6 +157,13 @@ see `ROADMAP.md` Phases 2–4):
 AC explicitly out of current scope, with rationale. Distinct from orphaned — deferred AC are a deliberate
 decision, not pending v1 work.
 
+- **2FA (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01)** — Deferred 2026-06-15 per user direction — 2FA is not
+  ready to deploy; the auth spine (EPIC-004) ships without it. Targeted at a future Phase-1 "2FA enablement"
+  slice that stands up real Clerk test-mode and re-validates these AC against the live provider (EPIC-004
+  mocks the auth provider for e2e). REQ-AUTH-004 (mandatory accountant 2FA) leaves EPIC-004 entirely;
+  REQ-AUTH-005 keeps only its no-2FA path (AC-AUTH-005-02) in EPIC-004, with the enrollment path
+  (AC-AUTH-005-01) deferred to the same slice. The requirements (`.requirements/REQ-AUTH-004/005.md`) are
+  unchanged — this is a planning-level deferral of the AC, not a requirement deletion.
 - **REQ-IDNT-005 (permanent client hard-delete)** — descoped from v1 per requirements `OQ-004` (hard-delete
   vs. 7-year retention precedence; the wholesale-erasure deferral was **not** reversed by the 2026-06-14
   purge decision). To be carried as `deferred` when the IDNT domain is decomposed; recorded now so the

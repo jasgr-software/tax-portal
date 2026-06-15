@@ -4,6 +4,28 @@
 
 ---
 
+### IO Plan — BRIEF-004 — 2026-06-15
+**Start:** Engine idle, slice-start gate clear (BRIEF-001 fully closed; `## Awaiting PR merge` empty). Dispatched to Plan BRIEF-004 (auth two-role model). Read ENGINE/PHASES/AGENT/seed/sources + CLAUDE + PROGRESS + the full brief + cited ADRs (001, 003, 005-noted, 006-noted, 010, 019, 022) + `prisma/schema.prisma` + `packages/db` (client/context/index) + `apps/portal` scaffold (package.json, layout, Dockerfile, playwright.config) + `docker-compose.yml`.
+**Phase-transition reflex:** swept the IO Close-finalize (BRIEF-001) session entry to `PROGRESS-ARCHIVE.md`; rewrote `## Current initiative` for BRIEF-004 Plan; refreshed `## Active bugs` (none) + `## Open retro action items` (EPIC-004 `$extends` item pulled into TASK-004-007 scope).
+**Actions:**
+- **Docker pre-flight: PASSED** (`docker info` ok; Compose v5.1.3).
+- **Branch created:** `brief-004-auth-two-role-model` from `main`@`f7f6c9d`.
+- **Ingest + Clarify:** all 15 (then-scope) AC testable and mapped to scenarios; methodology recorded.
+- **Design + decomposition COMPLETE** (recorded): `apps/admin` mirror scaffold; Clerk one-app/two-surfaces; `packages/auth` for `requireRole()`+redirect; `packages/db` SESSION_CONTEXT wiring + regression test; rate-limit + audit; session-default pinning. 11 tasks (then-scope), dependency-ordered, every AC mapped (coherence check PASSED).
+- **Noted drift:** brief prose says "Next.js 14" but `apps/portal` is on Next **15.5.19** — mirror the actual scaffold.
+**End — Plan BLOCKED at the Clerk test-mode hard environment gate** (then-scope): the `e2e: required` gates needed real Clerk test-mode users; the IO could not read `.env.local`, CI had no Clerk secret refs, and provisioning was cost-bearing/external-SaaS. Surfaced and stopped per the brief's hard-gate framing. `/compact` requested at Plan start. *(This gate was subsequently RESOLVED by user direction 2026-06-15 — see the IO Dispatch entry below: 2FA deferred + provider mocked.)*
+
+### IO Close-finalize (attempt 2 — COMPLETE) — 2026-06-15
+**Start:** Resumed at PR limbo. **PR #35 MERGED** (squash) to `main`@`f7f6c9d` (`f7f6c9db543f98db228a08cbf44468014294fadf`). Branch `brief-001-public-front-door` deleted; local on `main`@`f7f6c9d`. The attempt-1 inner stop (required-approving-review + required-conversation-resolution under `enforce_admins: true`) was cleared by the user/main session: protection temporarily relaxed, merged `--admin --squash`, `enforce_admins: true` restored, all 10 open threads resolved with documented dispositions. Read ENGINE/PHASES/AGENT/CLAUDE + PROGRESS.
+**Phase-transition reflex:** swept the IO Validate / IO Close-prep / IO Close-finalize-attempt-1 session entries to `PROGRESS-ARCHIVE.md`; updated `## Current initiative` (→ idle) and `## Awaiting PR merge` (→ `_None._`).
+**Gate 8 — post-merge CI on `main`@`f7f6c9d`: PASS.** Push-triggered run **`27560948602`** (workflow `CI`, event `push`, headSha `f7f6c9d`) → overall conclusion **success**. URL https://github.com/jasgr-software/tax-portal/actions/runs/27560948602. Required checks green: `lint-and-typecheck` ✅, `security-scan` ✅. `test-admin` ✅. `test-portal` → `failure` but advisory `continue-on-error` (NOT required; run conclusion stayed `success` → non-gating; CI applies no portal DB schema/seed — carried follow-up). CodeQL post-merge runs `27560956112`/`27560946313` reported success but remain **advisory** (GHAS unlicensed on this private org repo; wired to re-arm).
+**Gate 9 — N/A** (`Brief-deploys: no`, ADR-007 — no staging smoke).
+**POST bugs:** zero `BUG-001-POST-*` (verified). **Archive:** TASK-001..006 + BUG-001-001/-002/-003 confirmed in `tasks/done/` (moved at Close-prep — no re-archive). RETRO-001 + HANDOFF-001 retained in `tasks/`.
+**Ledger:** wrote `## Post-Merge Addendum` to `RETRO-001.md` (merge SHA, gate-8 evidence, CodeQL-advisory/GHAS note, carried follow-ups: lazy-init DONE; EPIC-004 `$extends` regression test; `adminDb` ESLint boundary; CI portal DB schema/seed → graduate `test-portal`; anon-write rate-limit/CAPTCHA + `serviceId` active-validation hardening; Next.js 15 upgrade landed). Removed BRIEF-001 from `## Awaiting PR merge`.
+**End:** **Close-finalize COMPLETE — BRIEF-001 fully closed.** `## Current initiative` idle; engine eligible to Plan the next slice. No git/PR ops run by the IO (main session commits this ledger update to `main`). **Conductor Validate hand-off — green-CI evidence string:** pre-merge run `27560403275` (head `211175b`, `lint-and-typecheck` + `security-scan` success) + post-merge `main` run `27560948602` (head `f7f6c9d`, success). AC→test-tag→tier table: `.implementation/tasks/RETRO-001.md`.
+
+---
+
 ### SDET Review — TASK-LOE-007 — 2026-04-29
 
 **Start:** Review TASK-LOE-007 (Status: review). Chore — bump GitHub Actions to node24-compatible versions. Single workflow file change; no affected flows, requirements, or gates.

@@ -11,7 +11,7 @@
     "gates:validate": "bash scripts/validate-gates.sh",
     "lint": "pnpm -r --filter './packages/**' lint --if-present && pnpm -r --filter './apps/**' lint --if-present",
     "type-check": "pnpm -r --filter './packages/**' type-check --if-present && pnpm -r --filter './apps/**' type-check --if-present",
-    "build": "pnpm -r --filter './packages/**' build --if-present && pnpm --filter portal build --if-present",
+    "build": "pnpm -r --filter './packages/**' build --if-present && pnpm --filter portal build --if-present && pnpm --filter admin build --if-present",
     "dev:portal": "pnpm --filter portal dev",
     "dev:admin": "pnpm --filter admin dev",
     "dev": "pnpm --parallel dev:portal dev:admin",

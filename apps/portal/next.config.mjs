@@ -77,6 +77,8 @@ const nextConfig = {
   // Next.js 15: serverComponentsExternalPackages moved out of experimental.
   // Renamed to serverExternalPackages — prevents bundling DB/Prisma modules.
   // These are Node.js-only; they must not be webpack-bundled.
+  // NOTE: @tax-portal/auth is intentionally NOT externalized — it must be bundled
+  // into the middleware (Edge Runtime) where tree-shaking removes Node.js-only paths.
   serverExternalPackages: ["@prisma/client", "prisma", "mssql", "@tax-portal/db"],
 
   /**

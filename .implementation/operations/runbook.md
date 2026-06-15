@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-006 (BRIEF-001)
+**Last updated:** TASK-004-001 (BRIEF-004)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -38,7 +38,20 @@ SA_PASSWORD=YOUR_SA_PASSWORD
 
 **Port note:** The host-side port is `14330` (set by `SQLSERVER_PORT`). Scripts (`db:migrate`, `db:seed`),
 the dev server, and the host-side Playwright fixture all connect via `localhost:14330`. Only services
-inside docker-compose (e.g. the portal container) use the internal service name `sqlserver` on port `1433`.
+inside docker-compose (e.g. the portal and admin containers) use the internal service name `sqlserver` on port `1433`.
+
+**Admin app container DB URLs (added TASK-004-001):** The admin container (`tax-portal-admin`, port 3001)
+requires its own container-side DB URL vars, distinct from the host-side `DATABASE_URL` / `DATABASE_URL_ADMIN`:
+
+```
+# Admin container DB URLs (container-internal — use sqlserver:1433, not localhost:14330)
+ADMIN_DATABASE_URL_ADMIN=sqlserver://sqlserver;port=1433;database=tax_portal;user=taxportal_admin;password=YOUR_ADMIN_PASSWORD;trustServerCertificate=true
+ADMIN_DATABASE_URL=sqlserver://sqlserver;port=1433;database=tax_portal;user=taxportal_app;password=YOUR_APP_PASSWORD;trustServerCertificate=true
+```
+
+**Cross-app URL wiring (ADR-010):** The admin container accepts `PORTAL_APP_URL` and `ADMIN_APP_URL`
+for cross-app redirect logic. These default to `http://localhost:3000` and `http://localhost:3001`
+in the compose file. Override in `.env.local` if ports differ.
 
 **Seed/migrate principal:** `pnpm db:migrate` and `pnpm db:seed` run under `DATABASE_URL_ADMIN`
 (`taxportal_admin` login, `app_admin_role` member). Do NOT use `sa` — the Service table has an RLS
@@ -73,9 +86,10 @@ docker compose up -d                # Start containers (volumes persist)
 docker compose ps                   # All services should show "healthy" or "running"
 ```
 
-Expected output (data-plane + portal app service, post-TASK-004):
+Expected output (data-plane + portal + admin app services, post-TASK-004-001):
 ```
 NAME                      IMAGE                                         STATUS          PORTS
+tax-portal-admin          apps/admin/Dockerfile                         Up (healthy)    0.0.0.0:3001->3001/tcp
 tax-portal-azurite        mcr.microsoft.com/azure-storage/azurite      Up (healthy)    0.0.0.0:10000->10000/tcp
 tax-portal-mailhog        mailhog/mailhog                               Up (healthy)    0.0.0.0:1025->1025/tcp, 0.0.0.0:8025->8025/tcp
 tax-portal-portal         apps/portal/Dockerfile                        Up (healthy)    0.0.0.0:3000->3000/tcp
@@ -203,6 +217,23 @@ bash scripts/smoke-test.sh --data-plane-only  # Data-plane only (no app probes)
 
 The smoke script is used by the SDET between Review and Validate phases. It runs in container mode
 against the actual Docker images — not the dev servers.
+
+### Admin app health probes (added TASK-004-001)
+
+After `docker compose up -d`, the admin app can be probed independently:
+
+```bash
+# Shallow health check (admin container, port 3001)
+curl http://localhost:3001/healthz    # Returns: {"status":"ok","app":"admin","ts":"..."}
+curl http://localhost:3001/readyz     # Returns: {"status":"ready","app":"admin","ts":"..."}
+```
+
+The Playwright smoke spec (`apps/admin/e2e/specs/scaffold.smoke.spec.ts`, `@smoke` tagged) runs
+these probes via the e2e runner against the compose stack:
+
+```bash
+pnpm --filter admin e2e:smoke   # Run @smoke specs against http://localhost:3001
+```
 
 ---
 

@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-004 (BRIEF-001)
+**Last updated:** TASK-004-001 (BRIEF-004)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -18,7 +18,7 @@ this file in the same commit (CLAUDE.md § DevOps domain-specific notes).
 | `azurite` | `mcr.microsoft.com/azure-storage/azurite:latest` | `tax-portal-azurite` | Active |
 | `mailhog` | `mailhog/mailhog:latest` | `tax-portal-mailhog` | Active |
 | `portal` | `apps/portal/Dockerfile` (multi-stage) | `tax-portal-portal` | Active |
-| `admin` | `apps/admin/Dockerfile` (multi-stage) | `tax-portal-admin` | Deferred to TASK-004 |
+| `admin` | `apps/admin/Dockerfile` (multi-stage) | `tax-portal-admin` | Active (added TASK-004-001 / BRIEF-004) |
 | `docuseal` | `docuseal/docuseal:latest` | `tax-portal-docuseal` | Deferred to Epic-003 |
 | `docuseal-postgres` | `postgres:15-alpine` | `tax-portal-docuseal-postgres` | Deferred to Epic-003 |
 
@@ -40,7 +40,7 @@ exist. The `portal` and `admin` app services are added in TASK-004 when `apps/po
 | Mailhog Web UI | **8025** | `MAILHOG_HTTP_PORT` | 8025 | HTTP | Mail catcher UI |
 | Mailhog SMTP | **1025** | `MAILHOG_SMTP_PORT` | 1025 | SMTP | Outbound email catch |
 | Client Portal (`portal`) | **3000** | `PORTAL_PORT` | 3000 | HTTP/HTTPS | Next.js app — active (added in TASK-004) |
-| Tax Portal (`admin`) | **3001** | — | 3001 | HTTP/HTTPS | Next.js app — added in TASK-004 |
+| Tax Portal (`admin`) | **3001** | `ADMIN_PORT` | 3001 | HTTP/HTTPS | Next.js app — active (added TASK-004-001) |
 | Docuseal | **3005** | — | 3000 | HTTP | E-sign service — Epic-003 |
 
 **Canonical ports** match CLAUDE.md § Port assignments. The env-var overrides (`SQLSERVER_PORT`, etc.) allow
@@ -78,7 +78,7 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `STORAGE_CONNECTION_STRING` | Required for `azurite` adapter | Azure Blob connection string pointing at the Azurite container | See `.env.example` |
 | `STORAGE_CONTAINER` | Optional | Blob container name | `tax-portal-documents` |
 
-### App services (portal active as of TASK-004)
+### App services (portal + admin active as of TASK-004-001)
 
 | Variable | App | Description |
 |----------|-----|-------------|
@@ -86,11 +86,15 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `DATABASE_URL` | portal | **Required** (added TASK-006) — request pool connection URL for the lazy `db` Prisma client. Wired but unused in this slice (EPIC-004 will use it). Belt-and-suspenders fix for BUG-001-003: avoids `PrismaClientConstructorValidationError` if any code path materializes the lazy client. In `docker-compose.yml`, set from `PORTAL_DATABASE_URL` (container-internal `sqlserver:1433` hostname). Host-side uses `DATABASE_URL` (localhost:14330). |
 | `PORTAL_DATABASE_URL_ADMIN` | host env → portal container | **Required** — Container-side admin pool URL. Uses the compose service name `sqlserver` on port `1433` (internal Docker DNS). Distinct from `DATABASE_URL_ADMIN` (host-side `localhost:14330`). Set in `.env.local` alongside `DATABASE_URL_ADMIN`. |
 | `PORTAL_DATABASE_URL` | host env → portal container | **Required** — Container-side request pool URL. Uses the compose service name `sqlserver` on port `1433`. Distinct from `DATABASE_URL` (host-side `localhost:14330`). Set in `.env.local` alongside `DATABASE_URL`. |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | portal + admin | Clerk publishable key |
-| `CLERK_SECRET_KEY` | portal + admin | Clerk secret key |
-| `CLERK_WEBHOOK_SECRET` | portal | Clerk webhook signing secret (ADR-001) |
-| `PORTAL_APP_URL` | Both | Public URL of portal — e.g. `http://localhost:3000` |
-| `ADMIN_APP_URL` | Both | Public URL of admin — e.g. `http://localhost:3001` |
+| `DATABASE_URL_ADMIN` | admin | **Required** — admin pool connection URL for the admin container. Set in `docker-compose.yml` admin service environment from `ADMIN_DATABASE_URL_ADMIN` (container-internal `sqlserver:1433` hostname). |
+| `DATABASE_URL` | admin | **Required** — request pool URL for the admin container lazy `db` Prisma client. Set from `ADMIN_DATABASE_URL` in `docker-compose.yml`. |
+| `ADMIN_DATABASE_URL_ADMIN` | host env → admin container | **Required** — Container-side admin pool URL for the admin service. Uses the compose service name `sqlserver` on port `1433`. Set in `.env.local` (added TASK-004-001). |
+| `ADMIN_DATABASE_URL` | host env → admin container | **Required** — Container-side request pool URL for the admin service. Uses the compose service name `sqlserver` on port `1433`. Set in `.env.local` (added TASK-004-001). |
+| `PORTAL_APP_URL` | Both | Public URL of portal — e.g. `http://localhost:3000`. Used by cross-app redirect logic (ADR-010). |
+| `ADMIN_APP_URL` | Both | Public URL of admin — e.g. `http://localhost:3001`. Used by cross-app redirect logic (ADR-010). |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | portal + admin | Clerk publishable key (TASK-004-002) |
+| `CLERK_SECRET_KEY` | portal + admin | Clerk secret key (TASK-004-002) |
+| `CLERK_WEBHOOK_SECRET` | portal | Clerk webhook signing secret (ADR-001, TASK-004-002) |
 
 ---
 
@@ -137,8 +141,8 @@ dev operations. See `.env.example` for the full URL form.
 | `sqlserver` | `sqlcmd SELECT 1` via mssql-tools18 | 10s | 12 | 30s start_period to allow SQL Server startup |
 | `azurite` | `nc -z localhost 10000` | 5s | 5 | Port check |
 | `mailhog` | `nc -z localhost 8025` | 5s | 5 | Port check |
-| `portal` | `GET /healthz` (HTTP 200) | 10s | 6 | Added in TASK-004 |
-| `admin` | `GET /healthz` (HTTP 200) | 10s | 6 | Added in TASK-004 |
+| `portal` | `GET /healthz` (HTTP 200) | 15s | 3 | Added in TASK-004 (BRIEF-001) |
+| `admin` | `GET /healthz` (HTTP 200) | 15s | 3 | Added in TASK-004-001 (BRIEF-004) |
 
 ---
 
