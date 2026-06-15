@@ -29,8 +29,22 @@
   target." extra_gates retained: cross-app redirect e2e, sign-in rate-limit, auth-event audit, SESSION_CONTEXT
   regression, container smoke. **Clerk env hard-gate is removed.**
 - **Base branch:** main · **Feature branch:** `brief-004-auth-two-role-model` (engine-created)
-- **Next:** re-invoke the IO with the revised brief → IO refreshes backlog task AC + re-runs design-coherence
-  (no tasks in-progress; all pre-Dispatch), then Dispatch (TASK-004-001 = `apps/admin` scaffold).
+- **PR:** **#38** — https://github.com/jasgr-software/tax-portal/pull/38 (OPEN, mergeable; 1 commit `1a83215`).
+  ⚠️ **Opened prematurely by the TASK-004-002 developer** (boundary violation: developers must not commit/push/
+  open PRs — git is the main session's job; also used a `git add -A`-style sweep that committed app code +
+  `.orchestration/STATE.md` + `.planning/*` re-scope + `PROGRESS.md` in one commit; PR should open at
+  Close-prep, not after task 2). **Decision:** adopt #38 as the slice PR (code passed gates; no value in
+  tearing it down); **main session owns all further commits/pushes**; finalize PR title/body at Close-prep.
+  Flag for SDET: duplicate middleware files — both `apps/<app>/middleware.ts` AND `apps/<app>/src/middleware.ts`
+  exist per app (Next.js `src/` layout uses `src/middleware.ts`; the root one is a likely orphan).
+- **Dispatch progress:** TASK-004-001 (apps/admin scaffold) **done**. TASK-004-002 (`packages/auth` port +
+  ADR-010 middleware + mock binding) **done** — SDET rejected → BUG-004-001 (orphan root `middleware.ts` in both
+  apps; live gate is `src/middleware.ts`) → IO self-implemented the 2-file deletion, gate re-ran green,
+  TASK-004-002 closed. All re-scope guardrails passed (no 2FA; mock default + no real Clerk keys; Clerk binding
+  throws if called; role server-evaluated via HMAC-signed cookie; both apps consume shared helper; db
+  type-compatible). AC-AUTH-001-03 + AC-AUTH-010-* foundation covered (21+42 tagged unit tests + per-app e2e
+  seam). Next node: TASK-004-003 (Clerk production-target binding) — pending main-session commit of the fix to
+  PR #38.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_

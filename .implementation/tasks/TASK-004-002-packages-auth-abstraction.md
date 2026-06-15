@@ -1,9 +1,9 @@
 # TASK-004-002: `packages/auth` abstraction — provider port (Clerk + mock bindings) + ADR-010 redirect helper + per-app middleware
 
 **Brief**: BRIEF-004
-**Status**: review
+**Status**: done
 **Assigned to**: webapp-developer
-**Updated-by**: webapp-developer (2026-06-15T21:23:00Z)
+**Updated-by**: IO (2026-06-15T22:30:00Z — IO-as-reviewer close after BUG-004-001 fix)
 **Depends on**: TASK-004-001 (done)
 **Impl**: webapp-developer
 **E2e-required**: yes <!-- cross-app redirect path; the redirect-matrix behavior originates here. Project default `E2e-required: yes` (auth flows + cross-module boundary). The *exhaustive* AC-AUTH-010-* cross-app suite is owned by TASK-004-008; THIS task proves the middleware seam works end-to-end against the mocked provider with at least a minimal redirect e2e per app. -->
@@ -24,7 +24,7 @@
 - [x] **Submission gate** — `pnpm lint` + `pnpm type-check` + `pnpm build` + `pnpm --filter portal test` + `pnpm --filter admin test` pass (commands in CLAUDE.md)
 - [x] **Targeted e2e** — actual execution output in Work Log: a minimal per-app redirect e2e runs green against the **docker-compose stack** under the **mock auth binding** (proves the middleware seam fires the ADR-010 redirect before content renders; the exhaustive matrix is TASK-004-008)
 - [x] **Security review** — role is read **server-side** from the session under both bindings (never a client-asserted header/cookie the browser controls); the mock binding's role claim is established by the test session, not by request input; no real Clerk keys required to build/run; redirect (not 403) on misnavigation; redirect happens before any wrong-app content renders (no flash of wrong-surface UI)
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved (SDET approved-pending-fix on BUG-004-001; fix applied + gate re-green; IO-as-reviewer close)
 
 ## SDET Review focus areas
 
@@ -154,11 +154,18 @@ Admin e2e — 7/7 passed (1.2s):
 
 **Status**: → review | Blockers: none
 
+2026-06-15 [io] BUG-004-001 fix-forward (IO self-implement, `Impl: io`) — deleted the two orphan root middleware files (`apps/portal/middleware.ts`, `apps/admin/middleware.ts`) the developer's `git add -A` sweep introduced alongside the live `src/middleware.ts` files. Verified the orphans were dead (Next compiled `src/middleware. js` per `.next/server/src/middleware.js`; no production source imports the root files; root and `src/` files functionally identical). Re-ran the submission gate: `pnpm lint` + `pnpm type-check` + `pnpm build` all green (`/tmp/bug-004-001-gate.log`, exit 0); both app builds report `ƒ Middleware` (portal 35.7 kB / admin 35.6 kB) confirming the surviving `src/middleware.ts` is the live compiled gate. No e2e re-run — the live path is unchanged (TASK-004-002 e2e 15/15 portal + 7/7 admin already exercised it). BUG-004-001 resolved; regression test waived (structural fix, no testable behavior, IO-approved `## Testability`). | What's next: IO-as-reviewer atomic close → done | Blockers: none
+
 ## Attempt Log
 
 **Attempt count**: 0
 
 ## SDET Review
 
-**Decision**: _pending_
-**Notes**: _pending_
+**Decision**: APPROVED (SDET approved-pending-fix; IO-as-reviewer close after BUG-004-001 fix)
+**Reviewer**: SDET (review 2026-06-15) + IO (close after fix-forward 2026-06-15)
+**Notes**: The SDET's full review (recorded in PROGRESS.md, SDET Review — TASK-004-002 — 2026-06-15) PASSED every check EXCEPT the orphan root `middleware.ts` finding, which it raised as BUG-004-001 and rejected on. Verdicts that PASSED: re-scope guardrails (no 2FA built; `AUTH_PROVIDER` defaults `mock`; `ClerkAuthProvider` throws at call-time, not contacted by the gate; mock role set server-side via HMAC-signed cookie from `/api/mock-session`, never client-asserted — ADR-005; both apps consume the shared `applyPortalAuth`/`applyAdminAuth` helper, no hand-rolled check; `Identity`/`Role` types match `packages/db` `RequestContext`; `SESSION_CONTEXT` correctly NOT wired here). AC coverage: AC-AUTH-001-03 foundation (server-side role read) + AC-AUTH-010-01/-02/-03 foundation (redirect matrix) covered by 21 `mock.test.ts` + 42 `redirect.test.ts` tagged tests + the per-app e2e seam proof (portal 15/15, admin 7/7 against the mock-bound compose stack). ADR-001/-005/-010 compliance PASS. Security PASS. Submission-gate evidence consistent with the diff. No credentials in commit `1a83215` (only `.env.example` `PLACEHOLDER_*` tokens). Git-ops boundary violation recorded as a process finding (main session now owns git).
+
+**BUG-004-001 (orphan root `middleware.ts`):** the sole rejection reason. IO fix-forward applied (`Impl: io`): deleted both root orphans; submission gate re-green (exit 0); live `src/middleware.ts` path unchanged and unaffected. BUG resolved. With the sole blocking finding cleared and `Complexity-actual: 5` valid, the IO closes this task per the IO-as-reviewer atomicity rule (ENGINE.md / AGENT.md § Review). Status → done.
+
+**Completed-at**: 2026-06-15T22:30:00Z (set in this close edit).
