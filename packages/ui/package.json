@@ -1,0 +1,38 @@
+{
+  "name": "@tax-portal/ui",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared UI primitives — minimal shadcn/ui-style components for the tax-portal apps (ADR-015: UI foundation deferred; keep to slice-needed primitives only)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "sh -c 'tsc -p tsconfig.json'",
+    "type-check": "sh -c 'tsc -p tsconfig.json --noEmit'"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.5.0"
+  },
+  "devDependencies": {
+    "@tax-portal/eslint-config": "workspace:*",
+    "@tax-portal/tsconfig": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "react": "^18.0.0",
+    "typescript": "^5.8.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  }
+}

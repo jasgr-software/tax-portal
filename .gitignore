@@ -15,11 +15,16 @@ playwright-report/
 blob-report/
 .playwright/
 
-# Env files (secrets)
+# Env files (secrets) — .env.example is the only env file committed
 .env
 .env.local
 .env.*.local
 .env.production
+.env.development
+.env.test
+# Catch-all: exclude all .env* except .env.example
+.env*
+!.env.example
 
 # Prisma
 prisma/*.db
@@ -50,6 +55,12 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# TypeScript build info
+*.tsbuildinfo
+
+# E2e results
+e2e-results/
 
 # Misc
 .cache/

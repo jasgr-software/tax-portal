@@ -1,0 +1,120 @@
+// prisma/schema.prisma — Track A schema source of truth
+// ADR-002: SQL Server 2022, sqlserver provider; NEWSEQUENTIALID() PKs; DATETIMEOFFSET timestamps
+// ADR-004: Prisma as sole ORM (single-track client)
+// ADR-005: Tables covered by RLS security policies are noted per-model
+//
+// Connection URLs:
+//   DATABASE_URL         — request pool (app_user_role principal, sets SESSION_CONTEXT per ADR-003)
+//   DATABASE_URL_ADMIN   — admin pool (app_admin_role principal, used for migrations + cron + webhooks, no SESSION_CONTEXT)
+//
+// Migration discipline (ADR-002):
+//   Track A (this file) — Prisma generates + applies table schema, FKs, indexes.
+//   Track B (db/policies/) — Raw SQL for security policies, predicate functions, computed cols, etc.
+//   'prisma migrate deploy' uses DATABASE_URL_ADMIN (admin pool).
+//
+// Prisma version lock: 5.22.x (ADR-004 § Prisma version pinning)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  // Admin pool URL — used by 'prisma migrate deploy' (Track A)
+  // Request pool URL (DATABASE_URL) is used at runtime via packages/db
+  url      = env("DATABASE_URL_ADMIN")
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────────
+// The service catalog the public services page reads.
+// RLS (ADR-005 § Tables-in-scope): accountant-managed, client-readable.
+//   Active services are publicly readable (no identity required via admin pool).
+//   Only ACCOUNTANT / admin can INSERT/UPDATE/DELETE.
+// Service availability is toggled via `active` flag — never deleted (reversible, per REQ-DOOR-002).
+
+model Service {
+  id          String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  name        String   @db.NVarChar(200)
+  description String?  @db.NVarChar(Max)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt   DateTime @updatedAt @db.DateTimeOffset
+
+  // Reverse relation for the join table
+  engagementRequestServices EngagementRequestService[]
+
+  @@map("Service")
+}
+
+// ─── EngagementRequest ────────────────────────────────────────────────────────
+// A prospective client's request to engage the accountant.
+// RLS (ADR-005 § Tables-in-scope): engagement_request is accountant-readable only.
+//   Anonymous submission runs under the admin pool (one sanctioned identity-less write — ADR-003 §1/§6).
+//   No User row is created at submission (AC-DOOR-004-04).
+//
+// Status model: explicit enum-like constraint.
+//   pending           — submitted, not yet reviewed (initial state — AC-DOOR-004-03)
+//   awaiting_review   — accountant has opened but not decided
+//   accepted          — accountant accepted (EPIC-003 adds this transition)
+//   declined          — accountant declined (EPIC-003 adds this transition)
+//
+// PII posture (ADR-020): name/email/phone are PII stored under TDE at-rest posture.
+// Email is stored normalized (.trim().toLowerCase()) per ADR-002 § CITEXT equivalent.
+
+model EngagementRequest {
+  id          String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // Prospect PII — ADR-020 encryption-at-rest posture (TDE covers DB at rest)
+  firstName   String   @db.NVarChar(100)
+  lastName    String   @db.NVarChar(100)
+  // Email stored normalized (.trim().toLowerCase()) — ADR-002 § CITEXT equivalent for emails
+  email       String   @db.NVarChar(254)
+  phone       String?  @db.NVarChar(30)
+  message     String?  @db.NVarChar(Max)
+  // Explicit pending/awaiting-review status model — EPIC-003 extends to accepted/declined
+  // Valid values: 'pending' | 'awaiting_review' | 'accepted' | 'declined'
+  status      String   @default("pending") @db.NVarChar(20)
+  createdAt   DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt   DateTime @updatedAt @db.DateTimeOffset
+
+  // Join table for multi-service selection (SQL Server has no native array type — ADR-002)
+  services    EngagementRequestService[]
+
+  @@map("EngagementRequest")
+}
+
+// ─── EngagementRequestService ─────────────────────────────────────────────────
+// Join table: EngagementRequest ↔ Service (many-to-many).
+// SQL Server has no native array type — ADR-002 § Known rough edges.
+// Composite PK avoids a surrogate key; both FKs use @db.UniqueIdentifier per the PK convention.
+
+model EngagementRequestService {
+  engagementRequestId String @db.UniqueIdentifier
+  serviceId           String @db.UniqueIdentifier
+
+  engagementRequest   EngagementRequest @relation(fields: [engagementRequestId], references: [id], onDelete: Cascade)
+  service             Service           @relation(fields: [serviceId], references: [id])
+
+  @@id([engagementRequestId, serviceId])
+  @@map("EngagementRequestService")
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+// Minimal User table — included only because ADR-005 predicate skeletons join via User.clerkId.
+// Full auth/User modeling is deferred to EPIC-004.
+// RLS (ADR-005 § Tables-in-scope): CLIENT sees own row only; ACCOUNTANT sees all.
+//
+// clerkId: The Clerk external user ID (e.g. "user_abc123"). Used by SESSION_CONTEXT predicates.
+// email:   Normalized (.trim().toLowerCase()); unique index for lookup.
+// role:    'ACCOUNTANT' | 'CLIENT' — matches SESSION_CONTEXT 'role' key (ADR-003 §2).
+
+model User {
+  id        String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  clerkId   String   @unique @db.NVarChar(64)
+  email     String   @unique @db.NVarChar(254)
+  role      String   @db.NVarChar(16)
+  createdAt DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt DateTime @updatedAt @db.DateTimeOffset
+
+  @@map("User")
+}

@@ -1,7 +1,38 @@
 {
   "name": "tax-portal",
   "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
   "scripts": {
-    "gates:validate": "bash scripts/validate-gates.sh"
+    "gates:validate": "bash scripts/validate-gates.sh",
+    "lint": "pnpm -r --filter './packages/**' lint --if-present && pnpm -r --filter './apps/**' lint --if-present",
+    "type-check": "pnpm -r --filter './packages/**' type-check --if-present && pnpm -r --filter './apps/**' type-check --if-present",
+    "build": "pnpm -r --filter './packages/**' build --if-present && pnpm --filter portal build --if-present",
+    "dev:portal": "pnpm --filter portal dev",
+    "dev:admin": "pnpm --filter admin dev",
+    "dev": "pnpm --parallel dev:portal dev:admin",
+    "test": "vitest run scripts --reporter=verbose",
+    "e2e:run": "pnpm --filter portal e2e:run",
+    "e2e:cross-app": "echo 'No cross-app e2e specs yet — added in TASK-005 placeholder'",
+    "ci:local": "pnpm lint && pnpm type-check && pnpm build && pnpm test",
+    "prisma": "prisma",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:policies:apply": "tsx scripts/db-migrate.ts --track-b-only",
+    "db:seed": "tsx scripts/db-seed.ts",
+    "db:reset": "docker compose down -v && docker compose up -d && tsx scripts/db-migrate.ts"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.0.0",
+    "@types/mssql": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "mssql": "^11.0.0",
+    "prisma": "^5.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
   }
 }

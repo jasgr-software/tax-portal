@@ -1139,3 +1139,269 @@ Flow changes this session: none.
 **End:** Audit + Smoke + Validate (CI deferred) + Close-prep complete. Atomic approval close edit landed. Task archived to `docs/tasks/done/`. PROGRESS.md `## Current initiative` reset; `## Awaiting PR merge` populated; PROGRESS-ARCHIVE.md updated. **Hand-off to main session:** stage list, commit message draft, PR body draft, auto-merge eligibility recap returned in the assistant message. SA invocation ends.
 
 Flow changes this session: none.
+
+---
+
+### IO Plan — 2026-06-15 (HALTED at Docker pre-flight — archived on resume)
+**Start:** Ingest BRIEF-001 (first real build; greenfield repo — `apps/portal` does not yet exist) and drive the slice.
+**Actions:**
+- Read ENGINE.md, PHASES.md, seed/sources.md, PROGRESS.md, CLAUDE.md; slice-start gate clear (`## Awaiting PR merge` empty).
+- Read brief in full + load-bearing upstream refs (ADR-002/003/004/005/006/012/020, TESTING.md). Confirmed greenfield (no apps/ packages/ prisma/ db/).
+- Confirmed the brief's anonymous-write architecture flag is already covered by ADR-003 §1/§6 + ADR-005 §Tables-in-scope — no upstream raise required.
+- Verified all 13 AC map to testable gherkin scenarios; recorded methodology (e2e required, gherkin, tier-3 RLS hard gate, container smoke).
+- **Docker pre-flight FAILED** in the prior distro (no `docker`, no socket). Fired PushNotification; HALTED per ENGINE.md § Docker Pre-Flight / § Autonomy Ceiling item 4. No branch cut, no tasks decomposed.
+**End:** HALTED — Docker pre-flight hard-gate escalation. **Resume:** user restores Docker, re-invoke IO to complete Plan.
+
+> **2026-06-15 resume note:** Docker now available (`docker info` succeeds, `/var/run/docker.sock` present, native docker 29.4.1, compose v5.1.3). Pre-flight re-run PASSED. Plan completed in the resume session — see PROGRESS.md current session entry.
+
+---
+
+### IO Plan (resume) — 2026-06-15
+**Start:** Resume BRIEF-001 after the prior-session Docker hard-gate halt was cleared. Re-run Docker pre-flight, complete Plan.
+**Actions:**
+- Swept the prior halted-Plan session entry to PROGRESS-ARCHIVE.md (phase-transition reflex).
+- **Re-ran Docker pre-flight → PASSED:** `docker info` succeeds (server 29.4.1, 6 running containers), `/var/run/docker.sock` present, compose v5.1.3. Hard-gate cleared.
+- Re-read brief + load-bearing ADRs (002 SQL Server, 003 SESSION_CONTEXT + anonymous-write exception, 005 RLS, 006 monorepo) + TESTING.md + CICD.md + EPIC-001. Re-confirmed greenfield and the existing graceful-degrade `ci.yml`.
+- **Cut feature branch** `brief-001-public-front-door` from `main`.
+- **Decomposed into 5 dependency-ordered tasks** (TASK-001..005), each with `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`, `Impl: developer`, `E2e-required`, and SDET focus areas. Mirrored `Brief-type: feature` / `Brief-deploys: no`.
+- **Design-coherence check PASSED:** all 13 AC trace to AC-id-tagged tests at the prescribed tiers; tier-3 RLS test is a hard gate (TASK-003); tier-6 e2e binds all gherkin scenarios (TASK-005); anonymous write routed through admin pool insert-only (the one sanctioned identity-less write); scope confined to `apps/portal`.
+**End:** **Plan COMPLETE** — exit condition met. Transitioning to **Dispatch**. First dispatch: TASK-001.
+
+### IO Dispatch — 2026-06-15
+**Start:** TASK-001 (monorepo/tooling scaffold) returned from the devops developer in `Status: review`. Audit the return and continue the Dispatch loop.
+**Actions:**
+- **Verified TASK-001 return against working tree:** branch correct; created/modified files present and match the Work Log. Submission-gate evidence green. `Complexity-actual: 2`. Pre-implementation Work Log entry present. `.env.example` placeholders-only; `.env.local` ignored.
+- **TASK-001 deferred to the Review phase for SDET sign-off.** Left `Status: review`.
+- **Dispatched TASK-002** → devops. Dependency TASK-001 satisfied. Spec fields complete. Reminded the agent of the CLAUDE.md § DevOps inventory/runbook requirement + compose split.
+**End:** TASK-001 `review`. TASK-002 dispatched. Next: TASK-003.
+
+### IO Dispatch — 2026-06-15 (TASK-002 return + TASK-003 dispatch)
+**Start:** TASK-002 returned in `Status: review`. Audit; disposition the Prisma-5.22 sqlserver port bug against TASK-003's live-DB hard gate; continue Dispatch.
+**Actions:**
+- **Audited TASK-002:** all 13 files present and match the Work Log. Submission gate green (20/20 unit; 3 services healthy; Track B no-op against a live container on remapped port 14330). `Complexity-actual: 4`.
+- **TASK-002 left `Status: review`.**
+- **DISPOSITIONED the Prisma-5.22 port report:** bug is Track-A-only (`prisma migrate deploy`); the RLS policy lands on Track-B raw-SQL (`db/policies/`) applied via mssql which parses the port correctly. Tier-3 test connects via `mssql`/`packages/db`, not Prisma migrate — ADR-005 live-integration requirement NOT relaxed. No user escalation.
+- **Dispatched TASK-003** → webapp-developer. `Introduces-gate: yes` (RLS hard gate). `E2e-required: yes`.
+**End:** TASK-002 `review`. TASK-003 dispatched. Next: TASK-004.
+
+### IO Dispatch — 2026-06-15 (TASK-003 return + TASK-004 dispatch)
+**Start:** TASK-003 returned in `Status: review`. Audit against three flagged points; continue Dispatch.
+**Actions:**
+- **Audited TASK-003:** all delivered files present and match the Work Log. `Complexity-actual: 5`; pre-implementation entry present.
+- **Point 1 — verbatim CLI failure + workaround:** present (Prisma 5.22 P1013 quoted; resolved via `migrate diff --script` → sqlcmd apply → manual `_prisma_migrations` registration). Accepted per disposition.
+- **Point 2 — Gate Authoring Rules (RLS hard gate):** SATISFIED — run marker (12/12 green incl. 4 RLS tests against real container), named code path (FILTER PREDICATE `sec.fn_engagement_request_access`), counterfactual (removing the ACCOUNTANT branch reds the positive test). Real engine via two distinct DB principals.
+- **Point 3 — `requestDb` import-boundary ESLint rule:** WIRED; barrel does not export `requestDb`.
+- **Anonymous-write `// DECISION:`** present citing ADR-003 §1/§6 + ADR-005. Insert-only, parameterized, returns only `{id,status}`.
+- **Note carried to SDET Review:** RLS test connects via raw `mssql`, so it does not exercise the `$extends` SESSION_CONTEXT propagation in `client.ts` — policy IS genuinely exercised (gate valid), but client.ts wrapper path is a legitimate SDET review focus.
+- **Dispatched TASK-004** → webapp-developer. `Introduces-gate: no`; `E2e-required: yes`. Scoped to `apps/portal` only (ADR-006).
+**End:** TASK-003 `review`. TASK-004 dispatched. Next: TASK-005.
+
+### IO Dispatch — 2026-06-15 (TASK-004 return + TASK-005 dispatch)
+**Start:** TASK-004 returned in `Status: review`. Audit against four flagged points; continue Dispatch.
+**Actions:**
+- **Audited TASK-004:** all delivered files present (`apps/portal/**`, `packages/ui/**`, `db/seed/services.ts`, `scripts/db-seed.ts`, compose `portal` service). `Complexity-actual: 4`; submission gate green (16/16 component/unit).
+- **Flag 1 — two workarounds WARRANTED:** (a) build-time Prisma stub in `next.config.mjs` is a conditional fallback (real runtime URL wins), all routes `force-dynamic`, production-build safe; long-term fix = lazy Prisma init (noted to SDET). (b) `sh -c` script wrappers neutralize pnpm v9 `--if-present`; container-safe.
+- **Flag 2 — anonymous no-auth invariant HOLDS:** no `middleware.*` in `apps/portal`; `(public)/layout.tsx` adds no auth wiring.
+- **Flag 3 — single-surface scope CONFIRMED:** `apps/admin` absent; only `apps/portal` scaffolded.
+- **Flag 4 — single write path CONFIRMED:** Server Action calls only `createEngagementRequest` (admin-pool insert-only); no `requestDb`/`PrismaClient`/direct `@prisma/client` in app source; returns only `{id}`; Zod validates serviceIds + contact fields.
+- **`// DECISION:` review:** contact-field set + build-time stub — slice-local, documented; neither architectural. Carried to Close-prep report.
+- **Dispatched TASK-005** → webapp-developer (final backlog task). `Introduces-gate: yes` (e2e gate); `E2e-required: yes` — run green against the docker-compose stack; happy-path `@smoke`-tagged; all 13 scenarios AC-id-tagged + mirrored `.feature`.
+**End:** TASK-004 `review`. TASK-005 dispatched — the final backlog task. After it reaches `review`, Dispatch exit condition met → Audit → Review.
+
+### --- Swept from PROGRESS.md at Validate→Close-prep transition (BRIEF-001) — 2026-06-15 ---
+
+
+### SDET Combined Review + Smoke Gate (TASK-006 + Container Smoke) — 2026-06-15
+**Start:** Combined pass: (1) per-task SDET review of TASK-006 (fix-forward for BUG-001-003) + (2) independent clean-slate container smoke gate for BRIEF-001. Docker pre-flight: PASS (server 29.4.1, compose v5.1.3). Read ENGINE.md, sdet.md, PROGRESS.md, TASK-006 file, BUG-001-003, all cited implementation files.
+**Actions:**
+- Rejection checklist: all clear (Dispatch-Checkpoint breadcrumb present, Complexity-actual: 3, Work Log with full gate evidence, no tool-hygiene violations, all required task-spec fields present, Introduces-gate: no confirmed).
+- Hard invariants verified in working tree: admin-pool-only anonymous write (getActiveServices + createEngagementRequest → getAdminPool()), RLS policies untouched, requestDb un-exported from barrel, no auth gate on anonymous pages, $extends SESSION_CONTEXT + fail-closed null-context throw + @read_only=1 preserved, ADR-004 single-ORM (Proxy is construction-timing wrapper not second client).
+- Independent clean-slate container smoke executed:
+  - `docker compose down -v` → all 4 containers + volumes removed.
+  - `docker compose up -d --build` → all 4 containers healthy (azurite, mailhog, portal, sqlserver).
+  - `docker exec tax-portal-portal node -e "console.log(process.env.DATABASE_URL)"` → container-internal sqlserver:1433 URL (was UNDEFINED — BUG-001-003 defect 1 confirmed fixed).
+  - Track A (Prisma) applied via sqlcmd workaround (Prisma 5.22 port limitation, same as prior runs).
+  - Track B applied via sqlcmd (SA) — chicken-and-egg bootstrap for clean DB (pre-existing limitation).
+  - `pnpm db:seed` → 6 services seeded (5 active, 1 inactive).
+  - `/services` HTTP 200 (prior HTTP 500 gone); `/healthz` HTTP 200; `/readyz` HTTP 200.
+  - `bash scripts/smoke-test.sh` → `=== smoke PASS ===` (1/1 @smoke e2e passed in 502ms).
+- `pnpm -r test` → 28/28 passed (12 tier-3 packages/db including engagement-request.rls.test.ts 4/4 green vs live SQL Server + 16 portal unit).
+- Ops docs: inventory.md + runbook.md consistent with new compose env vars. CLAUDE.md § DevOps/SDET gate PASS.
+- TASK-006 atomic close: SDET Review box ticked, decision: approved, Completed-at: 2026-06-15T09:26:00Z, Status: review → done.
+- BUG-001-003: resolved → closed.
+**End:** TASK-006 APPROVED. BUG-001-003 CLOSED. Container Smoke Gate: PASS. All 6 tasks done. Phase → Validate. Next: IO runs Validate (acceptance vs 13 ACs + tier-3 RLS hard gate + CI gate + quality audit) → Close-prep.
+
+---
+
+### IO Smoke (TASK-006 fix-forward returned — scope audit + combined SDET dispatch) — 2026-06-15
+**Start:** TASK-006 (fixes BUG-001-003) returned at `Status: review`; developer reports clean-slate container smoke `=== smoke PASS ===` ×3, full portal e2e 12/12. Re-established phase (ENGINE/PHASES/AGENT/PROGRESS). Read TASK-006 file, `packages/db/src/client.ts`, `docker-compose.yml`, `scripts/smoke-test.sh` directly. (`.env.example` is permission-denied to the IO — folded into the SDET dispatch.)
+**Scope audit (warranted vs creep) — verdict: all four expansion items WARRANTED, no creep:**
+- **Compose `PORTAL_DATABASE_URL*` (container-internal `sqlserver:1433`) vs host-side `DATABASE_URL*` (localhost:14330) split — CORRECT.** The portal container resolves the compose service name `sqlserver` over the compose network on the container-internal port `1433`; host-side tooling (Playwright `e2e/fixtures/db.ts`, `pnpm db:migrate`/`db:seed`) talks to the published `localhost:${SQLSERVER_PORT}` = `14330`. Passing the host-side `localhost:14330` URL into the container (the prior shape) cannot resolve from inside the container — this is the exact BUG-001-003 defect-1 manifestation. Separating the two URL families is the right fix, not creep. Compose verified: `DATABASE_URL_ADMIN: ${PORTAL_DATABASE_URL_ADMIN:?...}` + `DATABASE_URL: ${PORTAL_DATABASE_URL:?...}` both fail-closed (`:?`), both documented with the container-internal-hostname rationale inline.
+- **`scripts/smoke-test.sh` port env vars (`${AZURITE_PORT:-10000}`, `${MAILHOG_HTTP_PORT:-8025}`) — WARRANTED.** `docker-compose.yml` publishes those services on `${AZURITE_PORT:-10000}` and `${MAILHOG_HTTP_PORT:-8025}`; the smoke harness previously hardcoded `10000`/`8025`. On any non-default local port mapping the harness `nc` wait would probe the wrong port and the smoke gate this task exists to clear would flake. Aligning the harness to the same override env vars the compose file already honors is in-scope hardening of the smoke path, not creep. (Defaults unchanged → no behavior change for default ports.)
+- **vitest `globalSetup` (`packages/db/vitest.setup.ts`, `process.loadEnvFile('.env.local')`) — WARRANTED.** The tier-3 `packages/db` integration tests need host-side `DATABASE_URL_ADMIN` to reach `localhost:14330`; previously this required a manual shell export (the same hand-config that masked BUG-001-003 at earlier gates). Auto-loading `.env.local` makes `pnpm -r test` reproducible on a clean checkout — directly removes a hand-config dependency in the suite that is part of this task's submission gate. In-scope. SDET to confirm it does not silently no-op when `.env.local` is absent in CI (the tier-3 suite is container-gated locally; CI `test-portal`/`test-admin` are advisory pre-scaffold per CLAUDE.md).
+- **`package.json` `db:reset` dangling-script fix — WARRANTED (pre-declared).** Folded in at task creation (IO decision, recorded last session); off the gate path, retired opportunistically since the task already touches root tooling.
+- **`docker-compose.yml` `DATABASE_URL` (request pool) into the container — WARRANTED (defense-in-depth, pre-declared).** Belt-and-suspenders on top of the lazy-init root fix; EPIC-004 needs it.
+**Lazy-init invariant read (IO, pre-SDET):** `client.ts` now constructs `requestDb`/`adminDb`/`db` via memoized factories behind `Proxy` exports; importing the barrel constructs no `PrismaClient`. `requestDb` remains un-exported (only `adminDb` + `db` are exported). `$extends` SESSION_CONTEXT path, fail-closed null-context throw, and `@read_only=1` preserved. Proxy/lazy is a construction-timing wrapper, NOT a second client → ADR-004 (Prisma sole ORM) holds. These are IO surface reads; SDET does the authoritative verification + independent re-smoke + `pnpm -r test`.
+**Actions:** Updated `## Current initiative` (phase note, TASK-006 → `review`, `Complexity-actual: 3`). Composing ONE combined SDET dispatch (TASK-006 per-task review + Smoke gate verdict): rejection checklist, hard invariants, independent clean-slate container re-smoke to `=== smoke PASS ===`, `pnpm -r test` green, then atomic close (TASK-006 `done`, BUG-001-003 `closed`, Smoke gate PASS) on approval.
+**End:** Returning the SDET dispatch to the main session. No inner stop (Docker confirmed available this session; PR limbo empty). On SDET PASS → Validate (acceptance vs 13 ACs + tier-3 RLS hard gate + CI gate + quality audit) → Close-prep.
+
+---
+
+### IO Smoke (gate FAILED — fix-forward scoped) — 2026-06-15
+**Start:** SDET container-smoke gate returned **FAIL** on a clean-slate bring-up. Infra probes all green (4 containers healthy; `/healthz`+`/readyz` 200) but `@smoke` e2e failed. Two real defects the developers' hand-configured runs had masked. Re-established phase (ENGINE/AGENT/PROGRESS); read `packages/db/src/client.ts`, `docker-compose.yml`, `scripts/smoke-test.sh`, `apps/portal/e2e/fixtures/db.ts`, `packages/db/src/repositories/service.ts`, `packages/db/src/index.ts`, root `package.json`.
+**Root-cause confirmation:**
+- **Defect 1 (gated):** `client.ts` eagerly constructs `requestDb` (L40) + `adminDb` (L65) at module load; `docker-compose.yml` portal service declares only `DATABASE_URL_ADMIN` (omits `DATABASE_URL`); `next.config.mjs` build-time stub does not run in the standalone runner → barrel import throws `PrismaClientConstructorValidationError` → `/services`,`/request` 500. **Verified the render path does NOT use the Prisma clients:** `getActiveServices` + `createEngagementRequest` go through raw `mssql` `getAdminPool()` (admin pool), not `requestDb`/`adminDb`. So the 500 is purely eager module-scope construction → lazy init removes it at the root and the pages render from the admin pool as designed.
+- **Defect 2 (config):** `.env.local`/`.env.example` `DATABASE_URL_ADMIN` incomplete (no port 14330 / creds / `trustServerCertificate`) → host-side Playwright fixture (`e2e/fixtures/db.ts`) fails (`self-signed certificate`).
+**Decision (own the call; weighed Option A vs B vs both against fix-forward minimalism):** **BOTH** — (B) lazy `requestDb`/`adminDb` in `client.ts` (root fix; retires the standing lazy-init retro item) + (A) compose `DATABASE_URL` (defense-in-depth; EPIC-004 needs it) + `.env.example`/ops-docs. Option A alone leaves the eager-construction landmine the SDET already elevated to a hard blocker; B alone leaves the container request-pool URL absent. Folded the SDET pre-conditions (seed/migrate as `taxportal_admin`) into runbook/`.env.example`, and folded the dangling `scripts/db-await-healthy.ts` `db:reset` fix into the task (IO decision: fix here, not carry to retro).
+**Call-out:** TASK-006 modifies `packages/db/src/client.ts`, a TASK-003 `done` file — acceptable Smoke-gate fix-forward per ENGINE.md § Review (fix forward, do not revert). Explicitly NOT removing the `next.config.mjs` stub (scope kept narrow).
+**Actions:** Filed `BUG-001-003`; created `TASK-006` (`backlog`, `webapp-developer`, E2e-required: yes, Fixes BUG-001-003) with hard invariants (admin-pool-only anonymous write; RLS not relaxed; anonymous-no-auth; `requestDb` un-exported) and a clean-slate Smoke proof in the DoD (`down -v` → up → migrate → seed → `bash scripts/smoke-test.sh` to `=== smoke PASS ===`, evidence in Work Log). Updated `## Current initiative` (phase Smoke FAIL), task list (+TASK-006), `## Active bugs` (+BUG-001-003), retro items (lazy-init + dangling-script now → TASK-006).
+**End:** Emitting ONE `webapp-developer` dispatch for TASK-006. On green return → re-dispatch SDET container-smoke gate → Validate → Close-prep. Git/PR ops return to main session at Close.
+
+---
+
+### SDET Container Smoke Gate — 2026-06-15
+**Start:** Container smoke gate for BRIEF-001. Docker pre-flight verified (server 29.4.1, compose v5.1.3). Read `scripts/smoke-test.sh`, `docker-compose.yml`, `apps/portal/Dockerfile`, `playwright.config.ts`, TASK-005 Work Log, `packages/db/src/client.ts`, `packages/db/src/admin-connection.ts`, `apps/portal/next.config.mjs`, `db/migrations/0001-create-principals-and-sec-schema.sql`.
+
+**Smoke gate sequence executed:**
+1. Docker pre-flight: PASSED (`docker info` → server 29.4.1)
+2. Clean slate: `docker compose down -v` — removed all containers and volumes. Stale portal container (41-min-old from prior session) required explicit `docker rm -f tax-portal-portal` before compose could bring up clean.
+3. Compose up + image build: `docker compose up -d --build` — portal image built cleanly. Next.js 14.2.29 build succeeded, all routes present (`/healthz`, `/readyz`, `/services`, `/request`). All 4 containers came up healthy (azurite, mailhog, sqlserver, portal).
+4. Track A (Prisma migrate deploy): FAILED — `DATABASE_URL_ADMIN` in `.env.local` is a stub (`sqlserver://localhost`, 21 chars — no port, no credentials, no `trustServerCertificate`). Worked around by applying Track A migration SQL directly via `sqlcmd` to the container (`docker compose exec -T sqlserver sqlcmd ...`). The migration SQL in `prisma/migrations/20260615000000_init_service_engagement_request_user/migration.sql` was applied successfully — all 4 tables created.
+5. Track B: PASSED — `pnpm tsx scripts/db-migrate.ts --track-b-only` with `DATABASE_URL_ADMIN=sqlserver://localhost:14330;database=tax_portal;user=taxportal_admin;password=TaxPortalAdmin2024;trustServerCertificate=true`. Applied: `0001-create-principals-and-sec-schema.sql`, `0001-engagement-request-policy.sql`, `0002-service-readable.sql`.
+6. Seed: PASSED — `pnpm db:seed` with `taxportal_admin` credentials. Seeded 6 services (1 inactive, 5 active).
+7. **Smoke harness run:** `bash scripts/smoke-test.sh` (sourcing `.env.local` for SA_PASSWORD). **Result: `[smoke][FAIL]`**
+
+**`docker compose ps` at smoke-harness invocation:**
+```
+NAME                   STATUS            PORTS
+tax-portal-azurite     Up (healthy)      0.0.0.0:10000->10000/tcp
+tax-portal-mailhog     Up (healthy)      0.0.0.0:18025->8025/tcp
+tax-portal-portal      Up (healthy)      0.0.0.0:3000->3000/tcp
+tax-portal-sqlserver   Up (healthy)      0.0.0.0:14330->1433/tcp
+```
+
+**Infrastructure probe results:**
+- `/healthz` → HTTP 200 PASS
+- `/readyz` → HTTP 200 PASS
+- `sqlserver` (data-plane) → healthy PASS
+- `azurite` (data-plane) → healthy PASS
+- `mailhog` (data-plane) → healthy PASS
+
+**`@smoke` e2e result: FAIL (1/1 failed)**
+
+Exact failure from `/tmp/brief001-smoke.log`:
+```
+[smoke] Running smoke-tagged e2e (portal @smoke subset)...
+Running 1 test using 1 worker
+  ✘  1 [chromium] › e2e/specs/submit.spec.ts:60:5 › [AC-DOOR-004-03] @smoke happy-path
+ConnectionError: Failed to connect to localhost:1433 - self-signed certificate
+[smoke][FAIL] One or more smoke probes failed — see output above.
+```
+
+**Root cause analysis — two distinct defects confirmed:**
+
+**Defect 1 (gated-path — `docker-compose.yml`):** `DATABASE_URL` (request pool URL) is absent from the `portal` service `environment:` block in `docker-compose.yml`. At runtime in the container, `packages/db/src/client.ts` eagerly constructs both `requestDb` and `adminDb` at module load time (lines 40 and 65). With `DATABASE_URL` undefined, `PrismaClient` throws `PrismaClientConstructorValidationError: Invalid value undefined for datasource "db"` on any request that triggers module load — including `/services` and `/request`. Both pages return HTTP 500. Confirmed via `docker logs tax-portal-portal` and `docker exec tax-portal-portal node -e "console.log(process.env.DATABASE_URL)"` → UNDEFINED. The `next.config.mjs` build-time stub (which sets a placeholder) does NOT run in the standalone container runtime (`node apps/portal/server.js` does not load `next.config.mjs`).
+
+**Defect 2 (ungated — `.env.local`):** `DATABASE_URL_ADMIN` in `.env.local` is a stub (`sqlserver://localhost` — incomplete). The `e2e/fixtures/db.ts` Playwright fixture reads `DATABASE_URL_ADMIN` from the host environment to connect to SQL Server from the Playwright process (outside the container). With the stub URL, it resolves to `localhost:1433` with no credentials and no `trustServerCertificate` — connection fails with `self-signed certificate` error. (SQL Server is on port 14330 via `SQLSERVER_PORT` override; `.env.local` does not reflect this.)
+
+**Evidence that the prior e2e runs (TASK-005, 12/12 green) required manual workaround:** TASK-005 Work Log line: *"Started portal container with `DATABASE_URL_ADMIN=sqlserver://tax-portal-sqlserver;port=1433;user=app_admin;...` (container-to-container using service hostname)"* — the developer manually started the portal container with env overrides not captured in `docker-compose.yml`. The smoke harness does `docker compose up -d` which resets the portal container to compose-declared env, undoing these manual overrides.
+
+**Fix scope:**
+- Defect 1 (gated-path — requires IO task): `docker-compose.yml` portal service `environment:` must add `DATABASE_URL` pointing to the `app_user` principal (e.g. `DATABASE_URL: "${DATABASE_URL:?DATABASE_URL env var is required}"`). `.env.example` must document `DATABASE_URL`. Alternatively, defer to the lazy-Prisma-init retro item (move `requestDb` construction to lazy factory in `packages/db/src/client.ts`) — but that is a `packages/` change requiring a full task. **Minimum fix:** add `DATABASE_URL` to compose and `.env.example`.
+- Defect 2 (`.env.local` is gitignored — ungated, user configuration): `.env.local` requires the full connection strings. Documented as a configuration pre-condition — the IO may note this in a runbook update or in the Close-prep retro. The `.env.example` fix under Defect 1 would address this at the template level.
+
+**Smoke gate: FAIL**
+**End:** Reporting to IO with full failure evidence. Two fix-forward items required before Smoke gate can pass. Smoke gate (gate 5 of 9) remains OPEN.
+
+---
+
+### IO Review — design scan (Review exit) — 2026-06-15
+**Start:** All 5 tasks `done`, both bugs `closed`. Ran the integrated design scan over the slice (working tree on `brief-001-public-front-door` vs `main`) against BRIEF-001 scope + cited ADRs (002/003/004/005/006/012/020). Read-only; no commit.
+**Findings (all PASS):**
+- **Workflow-file boundary:** CLEAN — no changes under `.implementation/ENGINE.md|PHASES.md|AGENT.md|agents/**`. The `.implementation/` diff is brief/task/bug/ops/PROGRESS docs only (main-session-owned). **→ no workflow-file LGTM gate applies to the eventual PR.**
+- **Surface scope (ADR-006):** CLEAN — `apps/portal` only; `apps/admin` does not exist. No `infra/` or `.github/workflows/` changes. Diff confined to `apps/portal`, `packages/{db,ui,eslint-config,tsconfig}`, `db/`, `prisma/`, `scripts/`, `docker-compose.yml`, `.env.example`, root tooling (`package.json`, `.gitignore`, `tsconfig*`, `pnpm-*`, `vitest.config.ts`, `.nvmrc`, `.prettierrc`).
+- **Anonymous insert-only admin-pool write (ADR-003/005):** VERIFIED — `actions.ts` → `createEngagementRequest` (admin pool, insert-only, returns `{id,status}` only, no read-back; transactional ER + join inserts). `requestDb` not exported from `@tax-portal/db` barrel; no `requestDb`/`new PrismaClient`/`@prisma/client` usage in `apps/portal/src` (only docstring mentions).
+- **Accountant-only-read RLS (ADR-005):** VERIFIED — `sec.pol_EngagementRequest` FILTER+BLOCK predicates; predicate passes only admin-pool or `SESSION_CONTEXT role=ACCOUNTANT`; null context → zero rows (fail-closed). Service policy is client-readable with app-layer `active=1` filter.
+- **Anonymous-no-auth invariant (REQ-DOOR-004):** VERIFIED — `(public)/layout.tsx` adds no auth wiring; no Clerk/`auth()`/`middleware` in `apps/portal/src` (only deferral comments to EPIC-004).
+- **Form constraints (AC-DOOR-003-02/-03):** VERIFIED — no freeform "describe your need" textarea, no per-service sub-questions (checklist-only; confirmed in `RequestForm.tsx`).
+- **Active-only surfacing (AC-DOOR-001-02/-002-04/-003-04):** VERIFIED — `getActiveServices` enforces `WHERE active = 1` at query level.
+- **Credential hygiene:** CLEAN — only `.env.example` (template) committed; `.gitignore` tightened to `.env*` catch-all + `!.env.example` allowlist. No secret/credential-pattern files in the slice.
+- **Root `package.json`/`.gitignore` deltas:** on-brief — scaffold/workspace/db scripts + devDeps; env tightening.
+**Non-blocking observation (logged to retro items, NOT a fix-forward blocker):** dangling `scripts/db-await-healthy.ts` reference in `db:reset` (off the gate path; smoke uses `docker compose` directly, confirmed not referenced in `smoke-test.sh`).
+**Outcome:** Design scan PASSED — no blocking violation; no fix-forward task needed. Transitioning Review → Smoke.
+**End:** Composing the SDET container-smoke dispatch (Docker available this session) and returning it to the main session. After Smoke returns → Validate → Close-prep.
+
+---
+
+### SDET Review (re-review) — 2026-06-15
+**Start:** Targeted re-review of TASK-004 and TASK-005 only (TASK-001/002/003 already `done`, out of scope). Read task files, BUG files, `docker-compose.yml`, `inventory.md`, `runbook.md`, and `apps/portal/e2e/features/public-front-door.feature` directly.
+
+**TASK-004 — APPROVED (BUG-001-001 closed):**
+Verified each named stale field directly against `docker-compose.yml` (not the Work Log): `inventory.md` `Last updated` → `TASK-004` ✓; services table `portal` row → `Active` ✓; `admin` row correctly remains `Deferred to TASK-004` (admin not scaffolded) ✓; ports table `portal` row `PORTAL_PORT` override present (confirmed against compose `"${PORTAL_PORT:-3000}:3000"`) ✓; App services env table `DATABASE_URL_ADMIN | portal` row added (confirmed against compose `DATABASE_URL_ADMIN: "${DATABASE_URL_ADMIN:?...}"`) ✓. `runbook.md`: `docker compose ps` example includes `tax-portal-portal` (confirmed against `container_name: tax-portal-portal`) ✓; anonymous-write note references `TASK-004` ✓. No new disagreement between ops docs and compose file. Fix is docs-only — no code touched. `Complexity-actual: 1` ✓. BUG-001-001 → `closed`.
+
+**TASK-005 — APPROVED (BUG-001-002 closed):**
+Read `public-front-door.feature` directly: `# AC ids:` header now `AC-DOOR-004-01..05` covering 004-04 ✓; `@AC-DOOR-004-04` scenario inserted at correct position (after `@AC-DOOR-004-03 @smoke`, before `@AC-DOOR-004-05`) ✓; scenario Given/When/Then text matches brief mandate ✓; tier-3 comment present pointing at `packages/db/src/engagement-request.persistence.test.ts` ✓; total scenario count is 13 ✓. No new Playwright spec — 12-spec e2e suite is correct and not a regression (AC-DOOR-004-04 is tier-3-covered in TASK-003). Rework regression run 12/12 green against docker-compose stack (log `/tmp/task005-rework-e2e2.log`, all 4 containers healthy) ✓. `Complexity-actual: 1` ✓. BUG-001-002 → `closed`.
+
+**Outcome:** TASK-004 `done`, TASK-005 `done`. All 5 tasks now `done`. Both bugs closed. Slice is ready for the IO design scan → Smoke → Validate → Close-prep.
+**End:** Re-review complete. Returning to IO.
+
+---
+
+### IO Review (rework returned — re-review dispatch) — 2026-06-15
+**Start:** Batched rework returned. Both BUG files set `Status: resolved`; TASK-004 + TASK-005 back at `Status: review` with rework Work Log entries and `Complexity-actual: 1` each. TASK-001/002/003 stay `done` (signed off, out of scope). Re-established phase from ENGINE/AGENT/PHASES/PROGRESS; verified both task files and both bug files in the working tree.
+**Actions:**
+- Confirmed TASK-004: status `review`, rework Work Log present (inventory.md: Last-updated→TASK-004, portal row `Deferred to TASK-004`→`Active`, `PORTAL_PORT` ports override, `DATABASE_URL_ADMIN` app-services env row; runbook.md: `tax-portal-portal` added to `docker compose ps` example, anonymous-write note TASK-005→TASK-004), `Complexity-actual: 1`, SDET Review reset to pending.
+- Confirmed TASK-005: status `review`, rework Work Log present (feature header `# AC ids:`→`AC-DOOR-004-04..05` range; `@AC-DOOR-004-04` scenario inserted with tier-3 comment; e2e re-run 12/12 passed (3.0s) against all-4-container stack, log `/tmp/task005-rework-e2e2.log`), `Complexity-actual: 1`, SDET Review reset to pending.
+- Updated `## Current initiative` task list + `## Active bugs` (both BUG → resolved, awaiting re-review confirmation).
+- Composing a **targeted SDET re-review scoped to TASK-004 + TASK-005 ONLY** (not a full slice re-pass). On approval the SDET does the atomic close (tick SDET Review box, `Completed-at`, `review → done`) per task and records a re-review verdict in PROGRESS.md.
+**End:** Single targeted SDET re-review dispatch returned to the main session. On approval → Review design scan → Smoke → Validate → Close-prep. Note for Close-prep: slice diff is app/infra only (no `.implementation/` workflow files) → no workflow-file LGTM gate; git/PR ops return to the main session.
+
+---
+
+### IO Review (rework dispatch) — 2026-06-15
+**Start:** SDET batched Review returned. TASK-001/002/003 APPROVED → `done`; TASK-004 + TASK-005 REJECTED (BUG-001-001, BUG-001-002). Both fixes narrow and non-code. Scoping rework and emitting the rework dispatch.
+**Actions:**
+- Read both BUG files + the two affected files (`inventory.md`, `public-front-door.feature`) to confirm exact fix targets.
+  - **BUG-001-001 (TASK-004, docs only):** `inventory.md` — `portal` services-table row `Deferred to TASK-004` → `Active`; ports table — document `PORTAL_PORT` override; env-var section — note `DATABASE_URL_ADMIN` as portal runtime var. `runbook.md` — `docker compose ps` example must include `tax-portal-portal`; anonymous-write note `TASK-005` → `TASK-004`.
+  - **BUG-001-002 (TASK-005, .feature mirror only):** insert `@AC-DOOR-004-04 Scenario: No account is created at submission` after the AC-DOOR-004-03 @smoke scenario, before AC-DOOR-004-05. No new Playwright spec — tier-3 coverage already green in TASK-003. Re-run portal e2e to confirm no regression (additive change).
+- Batched both into one `webapp-developer` rework dispatch (both are non-code edits; user authorized batching). Marked TASK-004/005 `in-progress` (rework).
+- Captured SDET follow-up notes as tracked items in `## Open retro action items` (lazy Prisma init; `$extends` SESSION_CONTEXT regression test in EPIC-004; ESLint `adminDb` boundary) — NOT part of this rework.
+**End:** Single rework dispatch returned to main session. No inner stop. On completion both tasks return to `review`; targeted SDET re-review of TASK-004 + TASK-005 only (001/002/003 stay `done`), then Design Scan → Smoke → Validate → Close-prep.
+
+---
+
+### SDET Review — 2026-06-15
+**Start:** Batched SDET review of TASK-001..005 for BRIEF-001. Read ENGINE.md, sdet.md, BRIEF-001, all five task files, and cited code paths: `packages/db/src/client.ts`, `packages/db/src/index.ts`, `packages/db/src/engagement-request.rls.test.ts`, `packages/db/src/repositories/engagement-request.ts`, `apps/portal/src/app/(public)/request/actions.ts`, `apps/portal/src/app/(public)/layout.tsx`, `apps/portal/next.config.mjs`, `apps/portal/e2e/features/public-front-door.feature`, `apps/portal/e2e/specs/*.spec.ts`, `apps/portal/src/components/*.test.tsx`, `docker-compose.yml`, `packages/eslint-config/index.js`, `db/policies/0001-engagement-request-policy.sql`, `inventory.md`, `runbook.md`.
+
+**Actions:**
+- TASK-001: **APPROVED** — scaffold-only, all checks pass. `Completed-at` set; `Status: done`.
+- TASK-002: **APPROVED** — infra-only; 20/20 unit tests, compose healthy, ops docs consistent with TASK-002 scope. `Completed-at` set; `Status: done`.
+- TASK-003: **APPROVED** — RLS hard gate verified (4/4 green vs real SQL Server container); policy genuinely exercised; anonymous write insert-only via admin pool; `requestDb` not exported; AC-DOOR-004-03/04 tier-3 tests green. `Completed-at` corrected (developer pre-set it — contract violation, corrected to SDET timestamp); `Status: done`. Two follow-up notes: (a) `client.ts` `$extends` SESSION_CONTEXT wrapper not exercised by RLS test (Prisma 5.22 workaround) — track for EPIC-004; (b) `adminDb` import boundary ESLint rule missing — only `requestDb` is restricted.
+- TASK-004: **REJECTED** — `docker-compose.yml` topology changed (portal service added) but `inventory.md` and `runbook.md` not updated. CLAUDE.md § DevOps is a hard requirement. BUG-001-001 filed.
+- TASK-005: **REJECTED** — `public-front-door.feature` has 12 scenarios; AC-DOOR-004-04 ("No account is created at submission") is absent. Brief mandates all 13 scenarios mirrored. AC-DOOR-004-04 has tier-3 test coverage (TASK-003) but the feature-file mirror is the brief's `acceptance_format: gherkin` contract. BUG-001-002 filed.
+
+**Focus area findings:**
+1. **AC-tier coverage:** 12 of 13 ACs have tagged tests at prescribed tiers. AC-DOOR-004-04 has tier-3 coverage (TASK-003 green) but is absent from the feature file mirror (TASK-005 gap).
+2. **Tier-3 RLS gate (ADR-005 hard gate):** VERIFIED GREEN. `sec.pol_EngagementRequest` exercised via two distinct principals; gate-authoring 3-item evidence present; counterfactual valid.
+3. **E2e against containers (ADR-012):** 12/12 specs green vs docker-compose stack (`tax-portal-portal` container at :3000; `@smoke` 3/3 zero flakes); gate-authoring 3-item evidence present. Note: TASK-005 is rejected for the feature-file gap, not the e2e execution itself.
+4. **Operations docs consistency:** STALE — `inventory.md`/`runbook.md` not updated after TASK-004 added portal compose service. Rejection basis for TASK-004. BUG-001-001 filed.
+5. **Anonymous-no-auth invariant (REQ-DOOR-004):** VERIFIED — no middleware wrapping `apps/portal/(public)/**`; `(public)/layout.tsx` has no auth gate; `services/page.tsx` and `request/page.tsx` import no Clerk auth. `next.config.mjs` comment explicitly notes no auth middleware.
+6. **Single admin-pool write path (ADR-003/ADR-005):** VERIFIED — `actions.ts` calls `createEngagementRequest` from `@tax-portal/db` only; barrel does not export `requestDb`; no direct `adminDb` or `PrismaClient` in `apps/portal` source. Insert returns `{id, status}` only.
+7. **TASK-004 workarounds:** Build-time Prisma stub (next.config.mjs) and `sh -c` package.json wrappers — both warranted and documented with `// DECISION:` comments. Lazy Prisma init in `packages/db` is the long-term fix — should be tracked as a follow-up item.
+
+**Bugs filed:**
+- `BUG-001-001-ops-docs-stale-after-portal-compose.md` — blocking TASK-004
+- `BUG-001-002-feature-file-missing-ac-door-004-04.md` — blocking TASK-005
+
+**End:** TASK-001/002/003 approved and set to `done`. TASK-004 and TASK-005 rejected; returning to IO for rework dispatch. The two rejections are narrow fixes (docs update + one gherkin scenario addition). After rework, SDET re-review of TASK-004 and TASK-005 only is sufficient before proceeding to Design Scan and Smoke.
+
+---
+
+### IO Audit + Review (start) — 2026-06-15
+**Start:** TASK-005 returned in `Status: review`. Backlog now clear — TASK-001..005 all `review`. Dispatch exit condition met (zero backlog/in-progress, every Work Log carries submission-gate evidence, no `Escalated: yes`). Transitioning Dispatch → Audit → Review.
+**Actions (phase-transition reflex):**
+- Swept the 5 Dispatch-phase session entries (Plan-resume + TASK-001..004 returns) to PROGRESS-ARCHIVE.md.
+- Updated `## Current initiative`: phase → Review; TASK-005 → `review` with e2e-green note.
+- **Audit phase — satisfied by cross-referenced mid-Dispatch per-task IO audits (PHASES.md § Audit exit condition explicitly permits a cross-referenced mid-Dispatch audit).** Each of TASK-001..005 was audited against the working tree at return: file-presence vs. Work Log, submission-gate evidence, Dispatch-Checkpoint pre-impl entry, `Complexity-actual` populated, plus targeted per-task flag checks — TASK-002 Prisma-5.22 port disposition (Track-A-only, RLS unaffected), TASK-003 Gate-Authoring 3-item RLS evidence + `requestDb` import-boundary, TASK-004 four invariants (build-time-stub/`sh -c` workarounds warranted, anonymous-no-auth holds, single-surface scope, single write path), TASK-005 gate-authoring + @smoke + real-stack execution. No blocking Overwatch-class finding surfaced in any per-task audit → no separate Audit-phase Overwatch spawn required; Audit exit condition vacuously/cross-referentially met.
+- **TASK-005 return audited:** 12/12 e2e green against the docker-compose stack (containers, not dev server — log `/tmp/e2e-run3.log`, SUT `tax-portal-portal` at :3000); @smoke happy-path 3/3 runs zero flakes; all 13 gherkin scenarios bound to AC-id-tagged specs + mirrored `public-front-door.feature`; gate-authoring 3-item evidence present (run marker, named code path per spec, counterfactuals); fixtures use admin-pool (`app_admin`, RLS-exempt) — no policy relaxation, no real creds committed (`.env.local` gitignored). `Complexity-actual: 4` populated; pre-impl Work Log entry present.
+**End:** Entering **Review**. Composing a single batched SDET validation pass over the whole slice (TASK-001..005): per-task SDET rejection checklist, AC-tier coverage, tier-3 RLS-against-real-engine verification, gate-authoring evidence for the two introduced gates (RLS + e2e), operations-doc consistency, the anonymous-no-auth + single-admin-pool-write invariants, and the two TASK-004 workarounds with the lazy-init follow-up. SDET is the approval authority for these `Impl: developer` tasks. Dispatch prompt returned to the main session for execution.

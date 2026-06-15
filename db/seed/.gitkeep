@@ -1,0 +1,2 @@
+# Dev-only seed scripts — ADR-006
+# Seed data is applied via pnpm db:seed (scripts/db-seed.ts, added in a later task).
