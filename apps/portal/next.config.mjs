@@ -1,5 +1,5 @@
-// apps/portal/next.config.mjs — Next.js 14 App Router config
-// ADR-014: Next.js 14, App Router, TypeScript
+// apps/portal/next.config.mjs — Next.js 15 App Router config
+// ADR-014: Next.js 15, App Router, TypeScript
 // ADR-006: Client Portal lives in apps/portal (port 3000)
 
 // DECISION: Provide a stub DATABASE_URL_ADMIN for Next.js build-time env resolution.
@@ -74,11 +74,10 @@ const nextConfig = {
   // ADR-007: Per-app container image
   output: "standalone",
 
-  experimental: {
-    // Next.js 14 server component external packages — prevents bundling DB/Prisma modules.
-    // These are Node.js-only; they must not be webpack-bundled.
-    serverComponentsExternalPackages: ["@prisma/client", "prisma", "mssql", "@tax-portal/db"],
-  },
+  // Next.js 15: serverComponentsExternalPackages moved out of experimental.
+  // Renamed to serverExternalPackages — prevents bundling DB/Prisma modules.
+  // These are Node.js-only; they must not be webpack-bundled.
+  serverExternalPackages: ["@prisma/client", "prisma", "mssql", "@tax-portal/db"],
 
   /**
    * webpack config: externalize Node.js-only packages that cannot be bundled by webpack.

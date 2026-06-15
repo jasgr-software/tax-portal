@@ -43,7 +43,7 @@
 
 ## Awaiting PR merge
 
-- **BRIEF-001 — Public front door** · branch `brief-001-public-front-door` · **PR:** _<pending — main session fills the number after `gh pr create`>_
+- **BRIEF-001 — Public front door** · branch `brief-001-public-front-door` · **PR:** [#35](https://github.com/jasgr-software/tax-portal/pull/35)
   - **Pre-merge gates recorded (Autonomy-Ceiling item 3(d)):** Container Smoke PASS · SDET Acceptance-validation PASS · SDET CI gate → runs on the PR (gate 8 at Close-finalize) · SDET quality audit PASS (no blocking gaps) · `scripts/validate-gates.sh` ALL CHECKS PASSED.
   - **Deploys:** no (ADR-007) → gate 9 N/A. **Workflow-file LGTM gate:** does NOT apply (diff touches no `.implementation/ENGINE.md|PHASES.md|AGENT.md|agents/**`).
   - **Close-finalize blockers to clear:** PR merged + post-merge CI green (gate 8) + zero active `BUG-001-POST-*`.

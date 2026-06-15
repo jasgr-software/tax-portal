@@ -10,7 +10,7 @@
  * ADR-003: Uses admin pool via getActiveServices() from @tax-portal/db
  *          (anonymous path, no Clerk identity required).
  *
- * This is a React Server Component (Next.js 14 App Router default).
+ * This is a React Server Component (Next.js 15 App Router default).
  * Data fetching is inline — no client-side JS for the services list.
  */
 
