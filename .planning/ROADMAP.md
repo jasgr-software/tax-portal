@@ -7,6 +7,13 @@
 
 ## Status / amendment history
 
+- **2026-06-15 (EPIC-001 delivered)** — Phase 1's first slice shipped: the public front door (PR #35, squash
+  merge `f7f6c9d`). All 13 EPIC-001 AC signed off `verified` in `COVERAGE.md`; EPIC-001 → `delivered`. Sign-off
+  evidence basis (precedent set this run): SDET independent acceptance-validation against the real
+  docker-compose stack (tier-3 RLS 4/4, e2e 12/12, 28/28 unit/integration) + green required CI; per-PR CI does
+  not yet run the AC test tiers — tracked follow-up (see COVERAGE note [A]). Next ready: EPIC-004 (the other
+  dependency-free Phase-1 slice); EPIC-002/003 unblock once EPIC-004 delivers.
+
 - **2026-06-14** — Roadmap seeded. Phasing strategy established; Phase 1 (MVP) opened with the public
   front-door slice (EPIC-001 authored). Later phases and the backlog sketched as named epics to be
   authored on subsequent Planning Agent runs. Sources: `.requirements/` (DOOR/AUTH/… domains),
@@ -44,7 +51,7 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
-| **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `planned` | — |
+| **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `delivered` (PR #35, `f7f6c9d`, 2026-06-15) | — |
 | **EPIC-004** | Authentication & the two-role model — accountant signs in (mandatory 2FA); ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect | `planned` | — |
 | **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `planned` | EPIC-004 |
 | **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `planned` | EPIC-001, EPIC-004 |

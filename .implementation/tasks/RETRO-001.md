@@ -70,3 +70,30 @@ Promotion bar = concrete quality-gate failure only.
 ## Cross-surface parity (CLAUDE.md § Platform-frontend scope)
 
 - `apps/admin` does not yet exist this slice; BRIEF-001 is `apps/portal`-only by design (ADR-006, brief Constraints). No cross-surface-parity finding. (Sunset counter: this is slice 1 — not yet 3 consecutive zero-finding Close-preps.)
+
+## Post-Merge Addendum (Close-finalize — 2026-06-15)
+
+**PR #35 merged.** Squash-merge to `main`. **Merge commit SHA `f7f6c9d`** (`f7f6c9db543f98db228a08cbf44468014294fadf`) — "feat(portal): public front door — anonymous browse & submit engagement request (BRIEF-001) (#35)". Feature branch `brief-001-public-front-door` deleted (remote + local); local on `main`@`f7f6c9d`.
+
+**Merge governance (resolved by the user / main session):** `main` branch protection was temporarily relaxed (lifted `enforce_admins`), the PR was merged `--admin --squash`, then `enforce_admins: true` was **restored** — governance is back to its original state. All 10 open review threads (of 16) were resolved with their documented dispositions; the advisory 3-lens panel reviews were `COMMENTED` (zero blocking). This cleared the attempt-1 inner stop (required-approving-review + required-conversation-resolution), which the team cannot self-satisfy (Autonomy-Ceiling item 3). The IO did not edit branch protection or run any git/PR op.
+
+**Gate 8 — post-merge CI on `main`@`f7f6c9d`: PASS.** Push-triggered run **`27560948602`** (workflow `CI`, event `push`, headSha `f7f6c9d`) — overall conclusion **success**. URL: https://github.com/jasgr-software/tax-portal/actions/runs/27560948602
+- `lint-and-typecheck` → **success** (required ✅)
+- `security-scan` → **success** (required ✅ — `pnpm audit --audit-level=high` hard gate)
+- `test-admin` → success (advisory)
+- `test-portal` → **failure** but advisory `continue-on-error` (NOT a required check; run conclusion remained `success`, confirming it is non-gating). Red because CI applies no portal DB schema/seed — see carried follow-up below.
+- `report-failure` → skipped.
+
+**Pre-merge green evidence (head `211175b`):** required CI run **`27560403275`** = success (`lint-and-typecheck` ✅, `security-scan` ✅). CodeQL is **advisory** (`continue-on-error`) because GHAS is **unlicensed on this private org repo** — wired to re-arm when GHAS is licensed (post-merge CodeQL runs `27560956112`/`27560946313` also reported success on `f7f6c9d`, but remain advisory).
+
+**Gate 9 — N/A.** `Brief-deploys: no` (production platform deferred, ADR-007). No staging smoke.
+
+**Post-merge bugs:** zero `BUG-001-POST-*` files. **Archive:** all 6 tasks (TASK-001..006) + 3 bugs (BUG-001-001/-002/-003) confirmed in `tasks/done/`; RETRO-001 + HANDOFF-001 retained in `tasks/`.
+
+**Carried follow-ups (for downstream epics / future hardening):**
+- **[RESOLVED] Lazy Prisma client init** in `packages/db` — done in TASK-006 (memoized factories behind `Proxy`).
+- **[EPIC-004]** `client.ts` `$extends` SESSION_CONTEXT propagation regression test — add in the first request-scoped-auth slice (the RLS hard gate exercises raw `mssql`, not the `$extends` wrapper).
+- **[gated-path candidate]** Extend `packages/eslint-config` import boundary to also restrict `adminDb` (currently only `requestDb`).
+- **[CI infra]** Wire CI DB schema/seed for `apps/portal` so `test-portal` graduates from advisory `continue-on-error` to a required, green check.
+- **[security hardening]** Anonymous-write rate-limit / CAPTCHA on the public engagement-request endpoint + `serviceId` active-validation hardening on submit.
+- **[platform]** Next.js 15 upgrade — **landed** this slice (recorded for the ledger).
