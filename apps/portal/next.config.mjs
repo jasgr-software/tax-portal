@@ -4,16 +4,11 @@
 
 // DECISION: Provide a stub DATABASE_URL_ADMIN for Next.js build-time env resolution.
 //
-// packages/db/src/client.ts creates PrismaClient instances at module load time
-// (not lazily). When webpack or the Node.js data-collection worker loads @tax-portal/db,
-// the Prisma constructor throws "Invalid value undefined for datasource" if
-// DATABASE_URL_ADMIN is unset.
-//
-// Setting a valid-format stub here ensures the Prisma client can be constructed
-// without a real DB connection. Real connections only happen at request time, where
-// the runtime environment provides the actual DATABASE_URL_ADMIN (from docker-compose
-// or .env.local). This pattern is consistent with the standard Prisma + Next.js
-// monorepo guidance.
+// TASK-006 changed packages/db/src/client.ts to lazy/Proxy construction — PrismaClient
+// instances are no longer created at module load time. However, Next.js static analysis
+// (the data-collection worker that runs during `next build`) can still trigger module
+// evaluation when traversing server component imports. The stub prevents any unexpected
+// env-read at build time from surfacing as a config error.
 //
 // Security: the stub is not a real credential. It points to a non-existent endpoint
 // and will fail immediately if any actual query is attempted during build.
@@ -30,6 +25,47 @@ if (!process.env["DATABASE_URL"]) {
 const nextConfig = {
   // ADR-003 / REQ-DOOR-004: The public services + request pages are anonymous.
   // No auth middleware wraps them — Clerk integration is deferred to EPIC-004.
+
+  // Baseline HTTP security headers for the public-facing portal (PII intake page).
+  // CSP is intentionally permissive on script-src/style-src for Next.js + Tailwind
+  // inline styles; tighten nonce-based CSP in a subsequent hardening pass.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data:",
+              "font-src 'self'",
+              "connect-src 'self'",
+              "frame-ancestors 'none'",
+            ].join("; "),
+          },
+        ],
+      },
+    ];
+  },
 
   // Transpile workspace packages that use ESM
   transpilePackages: ["@tax-portal/ui"],

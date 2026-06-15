@@ -94,10 +94,15 @@ function parseSqlServerUrl(connectionUrl: string): import("mssql").config {
 // ─── Lazy connection pool ────────────────────────────────────────────────────
 
 let _adminPool: InstanceType<typeof ConnectionPool> | null = null;
+// In-flight promise memoization: prevents two concurrent callers from both
+// entering the connect() path and leaking one of the resulting connections.
+let _adminPoolPromise: Promise<InstanceType<typeof ConnectionPool>> | null = null;
 
 /**
  * Returns the admin-pool mssql connection, creating it on first call.
  * Reads DATABASE_URL_ADMIN from environment.
+ *
+ * Concurrent callers await the same connection promise — no pool leak.
  *
  * ADR-003 §7: admin pool is used by migrations, webhooks, cron, seeds, and
  * the one sanctioned identity-less write (anonymous engagement request submit).
@@ -105,6 +110,10 @@ let _adminPool: InstanceType<typeof ConnectionPool> | null = null;
 export async function getAdminPool(): Promise<InstanceType<typeof ConnectionPool>> {
   if (_adminPool && _adminPool.connected) {
     return _adminPool;
+  }
+
+  if (_adminPoolPromise) {
+    return _adminPoolPromise;
   }
 
   const url = process.env["DATABASE_URL_ADMIN"];
@@ -116,9 +125,13 @@ export async function getAdminPool(): Promise<InstanceType<typeof ConnectionPool
   }
 
   const config = parseSqlServerUrl(url);
-  _adminPool = new ConnectionPool(config);
-  await _adminPool.connect();
-  return _adminPool;
+  const pool = new ConnectionPool(config);
+  _adminPoolPromise = pool.connect().then((connected) => {
+    _adminPool = connected;
+    _adminPoolPromise = null;
+    return connected;
+  });
+  return _adminPoolPromise;
 }
 
 /**

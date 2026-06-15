@@ -134,8 +134,11 @@ export async function submitEngagementRequest(
       requestId: result.id,
     };
   } catch (err) {
-    // Do not expose internal error details to the client (ADR-020 / security posture)
-    console.error("[submitEngagementRequest] createEngagementRequest failed:", err);
+    // Do not expose internal error details to the client (ADR-020 / security posture).
+    // Log only the error code/name — mssql error objects embed parameter values (PII).
+    const errCode = (err instanceof Error) ? err.name : "UnknownError";
+    const errMessage = (err instanceof Error) ? err.message.split("\n")[0] : String(err);
+    console.error("[submitEngagementRequest] createEngagementRequest failed:", errCode, errMessage);
     return {
       success: false,
       error:

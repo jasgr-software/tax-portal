@@ -140,7 +140,10 @@ describe("RequestForm [AC-DOOR-003-02][AC-DOOR-003-03][AC-DOOR-004-05]", () => {
       expect(submitEngagementRequest).not.toHaveBeenCalled();
     });
 
-    it("clears the zero-selection error when a service is subsequently selected", async () => {
+    it("allows submission after selecting a service following a zero-selection error", async () => {
+      const { submitEngagementRequest } = await import(
+        "@/app/(public)/request/actions"
+      );
       render(<RequestForm services={SERVICES} />);
 
       // Submit with no services — triggers error
@@ -151,14 +154,19 @@ describe("RequestForm [AC-DOOR-003-02][AC-DOOR-003-03][AC-DOOR-004-05]", () => {
         expect(screen.getByRole("alert")).toBeInTheDocument();
       });
 
-      // Now select a service — error should clear
-      fireEvent.click(screen.getByLabelText("Individual Tax Return"));
+      // Fill contact fields
+      fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: "Jane" } });
+      fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: "Smith" } });
+      fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: "jane@example.com" } });
 
-      // Re-check: the error alert is gone or the checklist error is cleared
-      // (It clears on the next submit attempt; the key AC is that blocked submit shows error)
-      // The error is stored in state — selecting a service doesn't clear it immediately
-      // but the submit will proceed. Verify the checkbox IS checked.
+      // Now select a service and re-submit — action should be called
+      fireEvent.click(screen.getByLabelText("Individual Tax Return"));
       expect(screen.getByLabelText("Individual Tax Return")).toBeChecked();
+      fireEvent.submit(form!);
+
+      await waitFor(() => {
+        expect(submitEngagementRequest).toHaveBeenCalled();
+      });
     });
 
     it("allows submission when at least one service is selected", async () => {
