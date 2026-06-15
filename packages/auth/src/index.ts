@@ -60,3 +60,18 @@ export {
 export { ClerkAuthProvider, ClerkBindingNotAvailableError } from "./bindings/clerk.js";
 export type { MockSessionPayload } from "./bindings/mock.js";
 export type { ClerkSessionClaims } from "./bindings/clerk.js";
+
+// ─── Rate Limiter (ADR-022) ───────────────────────────────────────────────────
+// Port (interface + config + key builder) + in-memory v1 impl + singleton selector.
+// Wire the sign-in surface through getRateLimiter(); swap to the shared-store
+// adapter when scaling beyond one replica — no call-site change required.
+export type { RateLimiter, RateLimitResult, RateLimiterConfig } from "./rate-limiter/port.js";
+export {
+  buildRateLimitKey,
+  getRateLimiterConfig,
+} from "./rate-limiter/port.js";
+export {
+  InMemoryRateLimiter,
+  getRateLimiter,
+  resetRateLimiterForTesting,
+} from "./rate-limiter/in-memory.js";

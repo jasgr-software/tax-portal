@@ -11,6 +11,12 @@
  *          and validates credentials. Under AUTH_PROVIDER=mock, we accept any
  *          non-empty credentials and establish a CLIENT session server-side.
  *
+ * ADR-022: The sign-in surface is rate-limited per source IP and endpoint to
+ *          guard against credential stuffing / brute force. Returns a
+ *          rate-limited result (no session established) when the budget is
+ *          exhausted. Independent of 2FA — guards the password sign-in that
+ *          ships now.
+ *
  * DECISION (TASK-004-005): Under AUTH_PROVIDER=mock, sign-in is "credential-free"
  * from a real-provider perspective — any email/password that is non-empty will
  * succeed, because the fixture invitations don't persist real credentials. The
@@ -26,10 +32,12 @@
 
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   MOCK_SESSION_COOKIE_NAME,
   createMockSessionCookie,
+  getRateLimiter,
+  buildRateLimitKey,
 } from "@tax-portal/auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,7 +46,64 @@ export interface SignInResult {
   success: boolean;
   error?: string;
   redirectTo?: string;
+  /**
+   * retryAfterMs: present when success=false and the failure is due to rate
+   * limiting (ADR-022). Callers surface this as the Retry-After hint.
+   * Absence means a credential/validation error, not a rate-limit error.
+   */
+  retryAfterMs?: number;
 }
+
+// ─── IP Resolution ────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the source IP server-side from the incoming request headers.
+ *
+ * DECISION (TASK-004-009, ADR-005 trusted-proxy assumption):
+ *   Next.js server actions do not expose a raw socket remoteAddress. We read
+ *   the source IP from the X-Forwarded-For header, which is the de-facto
+ *   standard populated by reverse proxies (Nginx, Caddy, Azure Front Door,
+ *   Cloudflare, etc.).
+ *
+ *   TRUSTED-PROXY ASSUMPTION: X-Forwarded-For is trusted ONLY when the
+ *   request arrives through a known reverse proxy that controls this header.
+ *   In bare Docker / direct-Node deployments (local dev, single-host), the
+ *   leftmost value is whatever the client sends — potentially spoofable.
+ *   For local dev / testing, we fall back to a sentinel ("127.0.0.1") when
+ *   the header is absent, and accept the spoof-risk as acceptable for a
+ *   development-only path. In production behind a WAF/proxy (the intended
+ *   deployment shape per ADR-007/ADR-013), the proxy strips/rewrites the
+ *   header, making spoofing infeasible.
+ *
+ *   If this becomes a concern before a proxy is in place, the migration path
+ *   is: replace this function with a platform-specific remoteAddress read
+ *   (e.g., from a custom Next.js request header injected by the host) behind
+ *   the same call site — no other sign-in code changes.
+ *
+ * ADR-005: The key is (IP, endpoint) — not a client-asserted identity field
+ *   like email. Flooding one email does not lock out others; only requests
+ *   from the same source IP toward the same endpoint share a budget.
+ */
+async function resolveSourceIp(): Promise<string> {
+  const headerStore = await headers();
+  // X-Forwarded-For may contain a comma-separated list; take the leftmost (original client)
+  const xForwardedFor = headerStore.get("x-forwarded-for");
+  if (xForwardedFor) {
+    const firstIp = xForwardedFor.split(",")[0]?.trim();
+    if (firstIp) return firstIp;
+  }
+  // Fall back to the X-Real-IP header (set by some proxies in place of XFF)
+  const xRealIp = headerStore.get("x-real-ip");
+  if (xRealIp) return xRealIp.trim();
+
+  // No proxy header present — local dev / bare Node deployment
+  return "127.0.0.1";
+}
+
+// ─── Rate-Limit Key ───────────────────────────────────────────────────────────
+
+/** Stable endpoint identifier for the portal sign-in surface (ADR-022 §1). */
+const SIGN_IN_ENDPOINT = "portal:sign-in" as const;
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 
@@ -47,6 +112,7 @@ export interface SignInResult {
  *
  * AC-AUTH-005-02: No second-factor prompt — sign-in completes single-factor.
  * ADR-005: CLIENT role is set SERVER-SIDE from the session cookie (not client input).
+ * ADR-022: Rate-limited per (sourceIp, "portal:sign-in") before any credential check.
  *
  * Under AUTH_PROVIDER=mock: accepts any non-empty email/password and establishes
  * a CLIENT session. The mock binding does not persist real credentials.
@@ -55,6 +121,35 @@ export interface SignInResult {
  * Clerk's sign-in API; the session token is a Clerk JWT, not a mock cookie.
  */
 export async function signInAsClient(formData: FormData): Promise<SignInResult> {
+  // ── ADR-022: Rate-limit check BEFORE credential validation ──────────────────
+  // The limiter guards the entry point regardless of email/password validity.
+  // A throttled request never reaches the credential check — no session is
+  // established and no information about account existence is leaked.
+  const sourceIp = await resolveSourceIp();
+  const rateLimitKey = buildRateLimitKey(sourceIp, SIGN_IN_ENDPOINT);
+  const limiter = getRateLimiter();
+  const rateLimitResult = limiter.consume(rateLimitKey);
+
+  if (!rateLimitResult.allowed) {
+    // Return 429-equivalent: no session, deterministic rate-limited shape.
+    // DECISION (TASK-004-009): Server actions cannot set HTTP 429 status codes
+    // directly (they return a value, not a Response). The rate-limited shape
+    // here is the deterministic equivalent: { success:false, error:<message>,
+    // retryAfterMs:<ms> }. The UI layer interprets retryAfterMs to show the
+    // Retry-After hint. This is consistent with ADR-022 §1's "429 with a retry
+    // hint" intent adapted to the server-action transport layer.
+    const result: SignInResult = {
+      success: false,
+      error: "Too many sign-in attempts. Please wait before trying again.",
+    };
+    if (rateLimitResult.retryAfterMs !== undefined) {
+      result.retryAfterMs = rateLimitResult.retryAfterMs;
+    }
+    return result;
+  }
+
+  // ── Credential validation ───────────────────────────────────────────────────
+
   const email = ((formData.get("email") as string | null) ?? "").trim();
   const password = (formData.get("password") as string | null) ?? "";
 

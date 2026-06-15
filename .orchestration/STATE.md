@@ -60,8 +60,14 @@
   sign-out; introduces `pnpm e2e:cross-app` required gate) **done** — SDET approved (all 3 Gate-Authoring
   evidence items verified vs live source; 9 tests both surfaces; redirect-not-403; gate `&&`-chained).
   **All 11 in-scope AC now have passing covering tasks.** Commits on PR #38: `1a83215`, `7705bf9`, `94908b4`,
-  `1c73ebe`, `9b92d03`. Remaining (non-AC obligations): sign-in rate-limit (TASK-004-009, ADR-022); auth-event
-  audit (ADR-019); @demo walkthrough. Then engine Review→Smoke→Validate→Close-prep.
+  `1c73ebe`, `9b92d03`. TASK-004-009 (sign-in rate-limit, ADR-022) **done** — SDET approved (RateLimiter port in packages/auth + env
+  defaults; integration test drives signInAsClient; source-IP keyed w/ trusted-proxy DECISION; single-process
+  caveat + scaling trigger in runbook; reset hook; 158 tests). Commits on PR #38: …`ca32a5a`.
+  **RESIDUAL (user action — `.env*` is permission-walled from agents AND the main session):** add to
+  `.env.example`: `RATE_LIMIT_MAX_ATTEMPTS=10` + `RATE_LIMIT_WINDOW_MS=60000` (optional tuning vars, safe
+  defaults, already documented in runbook). Apply with: `! printf '\nRATE_LIMIT_MAX_ATTEMPTS=10\nRATE_LIMIT_WINDOW_MS=60000\n' >> .env.example`
+  Remaining tasks: auth-event audit (TASK-004-010, ADR-019); @demo walkthrough (TASK-004-011). Then engine
+  Audit→Review→Smoke→Validate→Close-prep.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_

@@ -329,6 +329,47 @@ enforced hard gate. Remove `continue-on-error` from both CodeQL steps once GHAS 
 
 ---
 
+## Rate Limiter Scaling Trigger (ADR-022 §2 / ADR-007)
+
+**Added:** TASK-004-009 (BRIEF-004)
+
+The sign-in rate limiter (`packages/auth/src/rate-limiter/in-memory.ts`) stores counters
+in the Node.js process heap — **one counter store per running process**.
+
+### v1 single-process assumption (safe today)
+
+While each app (`apps/portal`, `apps/admin`) runs as **one replica**, the in-memory limiter
+is correct and sufficient: all requests hit the same process and share the same counter.
+
+### >1-replica trigger (action required)
+
+**If either app is scaled beyond ONE replica, this limiter MUST be replaced with a
+shared-store adapter before the scale-out goes live.**
+
+Why: with N replicas, each process holds its own counters. An attacker sending N×limit
+requests (distributing across replicas) would not trigger the throttle in any single replica.
+The effective limit multiplies by the replica count — a real credential-stuffing hole.
+
+**Migration path (no call-site changes):**
+1. Implement a `SharedStoreRateLimiter` class that satisfies the `RateLimiter` port
+   (`packages/auth/src/rate-limiter/port.ts`) using SQL Server (ADR-007's named fallback)
+   or an external store (Redis, Azure Cache for Redis, etc.).
+2. Register it as the singleton in `packages/auth/src/rate-limiter/in-memory.ts`'s
+   `getRateLimiter()` function (or add a new selector), gated by an env var.
+3. No changes to `apps/portal/src/app/(public)/sign-in/actions.ts` — it calls
+   `getRateLimiter()` and is agnostic to the impl.
+
+### Environment variables (configurable defaults)
+
+| Variable                  | Default | Description                                            |
+| ------------------------- | ------- | ------------------------------------------------------ |
+| `RATE_LIMIT_MAX_ATTEMPTS` | `10`    | Max sign-in attempts allowed per (IP, endpoint) window |
+| `RATE_LIMIT_WINDOW_MS`    | `60000` | Window length in milliseconds (default: 1 minute)      |
+
+Add these to `.env.local` to override defaults during local dev or testing.
+
+---
+
 ## Adding a New Service
 
 When adding a new compose service:
