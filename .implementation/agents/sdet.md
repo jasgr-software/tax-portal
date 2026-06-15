@@ -182,6 +182,22 @@ migration jobs, inter-service networking, environment config).
    the IO ticks the **Container Smoke gate**. The SDET does not edit PROGRESS.md gate sections directly.
 4. On failure, report with logs (`docker compose logs <service>`) or console output and escalate to the IO.
 
+## UI Demo Capture (during Smoke/Validate — when applicable, NON-GATING)
+
+When the brief's `demo.applicable` is `yes` (or `auto`-inferred — a UI surface with a persona + flow + e2e/
+component AC; see `.orchestration/DEMO-POLICY.md`), capture the per-epic UI demo while the container stack is
+already up for the smoke/e2e gates:
+
+1. With the stack up + seeded (`docker compose up -d` → migrate → `pnpm db:seed`), run
+   `pnpm --filter <app> e2e:demo` (the `@demo` walkthrough the developer authored; excluded from the e2e
+   gate). It drives the persona/flow happy-path and writes AC-tagged screenshots to `docs/demos/EPIC-NNN/`.
+2. Confirm the named PNGs landed and show the real seeded UI; assemble/refresh `docs/demos/EPIC-NNN/DEMO.md`
+   (title, persona + flow links, one `## NN. <step>  [AC-ID]` section per screen with the embedded image).
+3. Report the demo result (screens captured, path) to the IO via a PROGRESS.md session entry.
+4. **This is not a gate.** If the demo can't be captured (capture error, or `applicable: no`), record
+   "skipped/failed — non-gating" and proceed; a passing e2e/acceptance gate is what gates delivery. Do not
+   reject a slice for a missing demo.
+
 ## Quality Parity Audit (during Validate)
 
 After the CI gate passes, verify that every UI surface in scope has equivalent quality infrastructure to the

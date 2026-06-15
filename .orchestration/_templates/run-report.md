@@ -17,6 +17,11 @@
 | Merge/Finalize | <merged SHA + finalize done> | held (<LGTM / gate>) |
 | Validate | <signed-off / incomplete / failing> — AC verified: <list> |
 
+## UI Demo
+
+<`docs/demos/EPIC-NNN/` — <n> screens (AC-tagged) · captured at Smoke/Validate · shipped in the docs-lane PR>
+| <skipped (backend-only)> | <skipped (capture failed — non-gating; <reason>)>
+
 ## Outcome
 
 <One paragraph: what shipped (or where and why it stopped). If stopped, the exact human action needed to

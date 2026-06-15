@@ -13,10 +13,17 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "path";
 
-// E2e-specific env path: load .env.local at project root for DATABASE_URL_ADMIN
-// (fixture helper needs admin pool for the accountant-readable assertion).
-// dotenv is used only if the var isn't already set (e.g., in CI via docker-compose env).
+// Load .env.local at repo root host-side so the admin-pool fixture (DATABASE_URL_ADMIN)
+// and the @demo walkthrough work locally without a manual `export`. Guarded + best-effort:
+// if the var is already set (CI injects it via docker-compose env) or the file is absent,
+// this is a no-op. Native `process.loadEnvFile` (Node ≥20.12) — same pattern as
+// packages/db/vitest.setup.ts; no dotenv dependency.
 const dotenvPath = path.resolve(__dirname, "../../.env.local");
+try {
+  (process as NodeJS.Process & { loadEnvFile?: (p: string) => void }).loadEnvFile?.(dotenvPath);
+} catch {
+  // .env.local absent (e.g. CI) — env comes from the container/shell. Ignore.
+}
 
 export default defineConfig({
   testDir: "./e2e",

@@ -16,6 +16,11 @@ methodology:                     # OPTIONAL — quality/test requirements produc
 acceptance_scenarios: []         # OPTIONAL — executable acceptance scenarios (e.g. gherkin) produced upstream;
                                  #   the team binds + runs them. Absent → team derives tests from
                                  #   acceptance_criteria + methodology. May be inline or file paths.
+demo:                            # OPTIONAL — per-epic UI demo (see .orchestration/DEMO-POLICY.md). NON-GATING.
+  applicable: auto               #   yes | no | auto (auto = infer: UI surface + persona + flow + e2e/component AC)
+  apps: []                       #   [portal] | [admin] | [portal, admin] — which surface(s) the demo covers
+  personas: []                   #   persona slug(s) whose journey the demo walks (.planning/personas/)
+  flows: []                      #   flow slug(s) the demo realizes (.planning/flows/)
 source: []                       # OPTIONAL soft refs; read if present, ignored if absent. Graceful degradation.
                                  #   - planning:     .planning/EPIC-NNN-*.md
                                  #   - requirements: .requirements/REQ-<DOMAIN>-NNN.md
@@ -52,6 +57,11 @@ brief author before building.>
 Mirrors the `methodology:` front-matter. These are **honored, not invented**: the team executes whatever is
 specified here and falls back to sensible defaults when this section is silent. The engine never forces
 gherkin or TDD on its own.>
+
+- **UI demo (when `demo.applicable` is `yes`/`auto`-inferred):** a dedicated `@demo` Playwright walkthrough
+  spec captures an AC-tagged screenshot gallery of the persona/flow happy-path into `docs/demos/EPIC-NNN/`.
+  **Non-gating** (the e2e gate is the gate). See `.orchestration/DEMO-POLICY.md` for the artifact shape,
+  the `e2e:demo` isolation, and the produce/ship seam.
 
 ## Constraints
 

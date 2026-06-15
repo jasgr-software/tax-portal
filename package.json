@@ -17,6 +17,7 @@
     "dev": "pnpm --parallel dev:portal dev:admin",
     "test": "vitest run scripts --reporter=verbose",
     "e2e:run": "pnpm --filter portal e2e:run",
+    "e2e:demo": "pnpm --filter portal e2e:demo",
     "e2e:cross-app": "echo 'No cross-app e2e specs yet — added in TASK-005 placeholder'",
     "ci:local": "pnpm lint && pnpm type-check && pnpm build && pnpm test",
     "prisma": "prisma",

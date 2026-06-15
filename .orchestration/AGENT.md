@@ -60,6 +60,7 @@ Map the GO epic into a brief honoring the engine's `brief contract` (`seed/sourc
 | `architecture: [ADR-…, REQ-…]` + body **Architecture adherence** | `## Constraints` — cite each ADR as a non-negotiable; carry the concrete obligation |
 | testing strategy (`.architecture/strategy/TESTING.md`) + epic **Traceability & sign-off contract** | `methodology` block — `tdd`, `e2e`, `coverage_target`, `extra_gates` per the strategy + contract |
 | `source:` + the epic path | `source: [planning: EPIC-…, requirements: REQ-…, architecture: ADR-…]` |
+| UI surface (`architecture: ADR-006` + `apps/portal`/`apps/admin`) + linked persona(s) + flow(s) + e2e/component AC | `demo:` block — `applicable` (yes if all hold, else no), `apps`, `personas`, `flows` (see `DEMO-POLICY.md`) |
 
 **Brief invariants:**
 - The brief is **self-contained** — readable and buildable on its own; `source:` refs are soft context.
@@ -115,6 +116,11 @@ The post-delivery record write-back (the planning sign-off in `COVERAGE.md`/`ROA
 engine + Conductor ledgers) is a **docs-only change** — ship it via the **docs lane** of `MERGE-POLICY.md`:
 a `chore/<slug>` PR, no panel, fast-lane-merged on green required CI. The Conductor may do this autonomously
 as the closing step.
+
+When the brief is `demo.applicable` (`DEMO-POLICY.md`), the **UI demo gallery** the SDET captured at
+Smoke/Validate (`docs/demos/EPIC-NNN/DEMO.md` + AC-tagged PNGs) is docs — **include it in that same
+docs-lane PR** and reference it in the run report's **UI Demo** section (path + screen count). If the brief is
+not applicable, the report records `UI demo: skipped (backend-only)`.
 
 ## Hard rules (recap)
 
