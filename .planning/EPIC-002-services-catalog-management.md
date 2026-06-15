@@ -19,7 +19,7 @@ source:
   - .requirements/REQ-DOOR-002.md
   - .requirements/REQ-DASH-010.md
   - .architecture/decisions/ADR-005-rls-via-security-policies.md
-  - .architecture/decisions/ADR-006-monorepo.md
+  - .architecture/decisions/ADR-006-monorepo-layout.md
 open_questions: []
 ---
 

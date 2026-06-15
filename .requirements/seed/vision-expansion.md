@@ -17,6 +17,8 @@ Agent should author to these decisions, not re-litigate them.
   payments indefinitely (`SRS-snapshot.md` §Out of Scope). That deferral is reversed:
   payments ("payments due", invoicing) are a confirmed product capability, scheduled
   as a **further-down-the-line epic** — author requirements, tag as a later phase.
+  _(Superseded by OQ-012 in `.requirements/OPEN-QUESTIONS.md`: payments were subsequently
+  re-deferred with no requirement authored; OQ-012 is the authoritative resolution.)_
 - **Multi-accountant (staff within ONE firm) — IN SCOPE (v2).** Expand beyond the
   single-accountant model (REQ-NFR-005) to support multiple staff accounts and roles
   within a single firm (e.g. partner, associate, admin assistant; who can sign off /

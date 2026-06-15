@@ -29,7 +29,7 @@ source:
   - .requirements/REQ-AUTH-009.md
   - .requirements/REQ-AUTH-010.md
   - .architecture/decisions/ADR-001-authentication-clerk.md
-  - .architecture/decisions/ADR-010-cross-app-navigation.md
+  - .architecture/decisions/ADR-010-cross-app-navigation-session-boundaries.md
 open_questions: []
 ---
 
