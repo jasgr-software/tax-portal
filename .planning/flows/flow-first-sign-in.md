@@ -3,7 +3,10 @@
 **Flow ID:** `flow-first-sign-in`  
 **One-line summary:** A user (invited CLIENT or ACCOUNTANT) authenticates for the first time and lands on the correct app surface based on their role.
 
-**Status:** Foundational — covers Epic 001 scope (auth shell, middleware, role-gated routing).
+**Status:** Phase 1 (MVP) — realized by **EPIC-004** (authentication & the two-role model: auth shell,
+middleware, role-gated routing, invitation → client account creation). Reconciled 2026-06-14 (the old
+"Epic 001 scope" label predated the current numbering — EPIC-001 is the anonymous front door; auth is
+EPIC-004). The invitation that triggers the CLIENT path is issued by **EPIC-003** (accept → invite).
 
 ---
 

@@ -180,6 +180,22 @@ Status: `open` → `resolved`. Seeded from the unresolved `CLARIF-*` items in `s
 - **Provenance:** `.implementation/` refactor, 2026-06-14 (flagged from the implementation layer); resolved
   2026-06-14 by the `.planning/` behavior-contract migration.
 
+## OQ-012 — Payments / invoicing scope
+- **Status:** resolved
+- **Affects:** (no REQ authored — capability deferred)
+- **Question:** The `seed/vision-expansion.md` seed brings payments into scope (a "Payments due" dashboard
+  tile, invoicing). Should the portal track/display invoices and amounts due, actually collect payments
+  in-portal, or is the capability deferred?
+- **Proposed default:** (n/a — user decision taken interactively.)
+- **Resolution:** **2026-06-14 — deferred.** On reconsideration the user deferred payments entirely from the
+  current scope; no payment/invoicing requirements were authored in this run, and no `PAY` domain was
+  introduced. This **supersedes** the "payments = in scope (later epic)" line in `seed/vision-expansion.md`
+  until payments is explicitly revisited. When revisited, the open fork is **track/display-only** vs.
+  **in-portal collection** (the latter adds a financial-data/PCI surface and a payment-provider integration);
+  in-portal collection also touches the escalation carve-out for PII handling and would require a user
+  decision at that time.
+- **Provenance:** vision-expansion authoring run, 2026-06-14.
+
 ---
 
 _Resolved before this ledger was created: **CLARIF-004** (portal names) — settled 2026-04-16 as

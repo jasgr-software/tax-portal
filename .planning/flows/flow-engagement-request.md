@@ -3,7 +3,16 @@
 **Flow ID:** `flow-engagement-request`  
 **One-line summary:** A prospective or returning client submits a service engagement request via the public front door; the accountant reviews and accepts or declines; on acceptance an invitation email is sent to the client.
 
-**Status:** Phase 2 — covers Epic 002 (Front Door) scope. Not required for Epic 001 Plan, but authored here to satisfy the flow-gate before Epic 002 begins.
+**Status:** Phase 1 (MVP). Realized across the front-door spine epics — reconciled 2026-06-14 to the
+current epic numbering (the old "Epic 002 (Front Door)" label predated it):
+
+- **Anonymous submission path** (browse → select → submit) → **EPIC-001** (public front door).
+- **Catalog supply** behind the public services list → **EPIC-002** (services-catalog management).
+- **Review → accept/decline → invite / decline-reason** → **EPIC-003** (accountant request inbox).
+- **Invitation → account creation** handoff → **EPIC-004** (auth & two-role model); see `flow-first-sign-in`.
+- **Returning-client path** (DOOR-009) and the **accountant-initiated branch** (DOOR-010) below are
+  **deferred beyond the MVP** (need a client portal home / the engagement entity) — documented here for
+  continuity but not realized by a Phase-1 epic.
 
 ---
 

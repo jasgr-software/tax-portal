@@ -64,8 +64,9 @@ The key tension: the portal's "front door" design means Tom can express interest
    - Requirements: REQ-DOOR-007, REQ-AUTH-006.
    - Flow: `flow-first-sign-in` (invitation path), `flow-engagement-request`.
 
-4. **Receiving a decline:** Jane declines the request and writes a brief explanation. Tom receives the message via email only (per REQ-DOOR-008 as currently stated, subject to CLARIF-001 resolution). He has no portal account and cannot log in to see anything.
-   - Requirements: REQ-DOOR-008.
+4. **Receiving a decline:** Jane declines the request and writes a brief explanation. Tom receives the message by email; he has no portal account and cannot log in to see anything. (The reason is also retained in the portal attached to the declined request — for Jane's reference, not Tom's — per OQ-001/AC-DOOR-008-04, resolved 2026-06-13.)
+   - Requirements: REQ-DOOR-008 (AC-DOOR-008-01..04).
+   - Realized by: EPIC-003 (accountant request inbox — decline branch).
    - Flow: `flow-engagement-request` (decline branch).
 
 ---

@@ -19,9 +19,16 @@ would be effort spent on a need that does not exist in v1. The first version sho
 accountant.
 
 ## Normative criterion
-- **AC-NFR-005-01** — The system supports a single ACCOUNTANT account; multi-staff or employee accounts
-  are out of scope for v1.
+- **AC-NFR-005-01** — In v1, the system supports a single ACCOUNTANT account; multi-staff or employee
+  accounts are out of scope for v1.
+
+## Notes
+- **v2 reconciliation:** This constraint is a v1 scoping statement, not a permanent prohibition.
+  Multi-accountant support (multiple staff accounts within one firm, with full firm-wide visibility and
+  permission-gated actions) is introduced in v2 by REQ-AUTH-011 and REQ-AUTH-012, per the user decision of
+  2026-06-14. Multi-firm / multi-tenant SaaS remains out of scope.
 
 ## Links
-- Related: REQ-AUTH-001 (two roles), REQ-AUTH-002 (accountant full visibility)
+- Related: REQ-AUTH-001 (two roles), REQ-AUTH-002 (accountant full visibility), REQ-AUTH-011 (multiple staff
+  accounts — v2), REQ-AUTH-012 (staff permissions + full visibility — v2)
 - Open questions: none

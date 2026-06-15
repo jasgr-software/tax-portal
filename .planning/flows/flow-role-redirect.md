@@ -3,7 +3,9 @@
 **Flow ID:** `flow-role-redirect`  
 **One-line summary:** A signed-in user navigates to the wrong app for their role — middleware detects the mismatch and redirects them to their correct surface without showing any content from the wrong app.
 
-**Status:** Foundational — covers Epic 001 scope (middleware role gates, cross-app redirect matrix from ADR-010).
+**Status:** Phase 1 (MVP) — realized by **EPIC-004** (middleware role gates, cross-app redirect matrix from
+ADR-010; AC-AUTH-010-01/-02/-03). Reconciled 2026-06-14 (the old "Epic 001 scope" label predated the
+current numbering — auth and the redirect matrix are EPIC-004, not EPIC-001).
 
 ---
 
