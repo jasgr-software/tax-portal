@@ -1,0 +1,165 @@
+# docker-compose.yml — Local development stack for tax-portal
+#
+# This file brings up the DATA-PLANE services for local development and testing.
+# App services (portal, admin) are intentionally deferred to TASK-004 when apps/portal
+# and apps/admin exist. See TASK-002 Work Log — compose split decision.
+#
+# References:
+#   ADR-002 — SQL Server 2022 Developer in Docker
+#   ADR-006 — compose at repo root
+#   ADR-007 — deploy-agnostic; SQL authentication via env secret, NO Managed Identity
+#   ADR-008 — Azurite blob emulator in the stack
+#   CLAUDE.md § Port assignments
+
+services:
+  # ─── SQL Server 2022 Developer Edition ────────────────────────────────────────
+  # ADR-002: image must be mcr.microsoft.com/mssql/server:2022-latest
+  # ADR-007: SQL authentication only (SA_PASSWORD from env, never hard-coded)
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: tax-portal-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD:?SA_PASSWORD env var is required}"
+      MSSQL_PID: Developer
+    ports:
+      - "${SQLSERVER_PORT:-1433}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -No -Q 'SELECT 1' 2>/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  # ─── Azurite — Azure Blob Storage Emulator ────────────────────────────────────
+  # ADR-008: Azurite blob emulator belongs in the stack; storage adapter is a later epic
+  # but the emulator is available from day one so tier-3 integration tests can use it.
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: tax-portal-azurite
+    command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --loose
+    ports:
+      - "${AZURITE_PORT:-10000}:10000"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      # Azurite returns 400 on an unauthenticated root request — that proves it's up.
+      # node is available in the Azurite image; nc/curl/wget are not.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http = require('http'); const req = http.get('http://localhost:10000/', (r) => { process.exit(r.statusCode === 400 ? 0 : 1); }); req.on('error', () => process.exit(1));",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # ─── Mailhog — Mail Catcher ───────────────────────────────────────────────────
+  # Catches outbound email in local dev. Web UI at http://localhost:8025
+  # SMTP port 1025 is also exposed for any service that sends email.
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: tax-portal-mailhog
+    ports:
+      - "${MAILHOG_HTTP_PORT:-8025}:8025" # Web UI
+      - "${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8025 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # ─── Client Portal (apps/portal) ──────────────────────────────────────────────
+  # Added in TASK-004 (per apps/portal/Dockerfile comment — ADR-007 per-app image).
+  # ADR-006: Client Portal runs on port 3000, the primary client-facing frontend.
+  # REQ-DOOR-004: The public front door — anonymous access to /services and /request.
+  # Probed by scripts/smoke-test.sh at /healthz and /readyz.
+  portal:
+    build:
+      context: .
+      dockerfile: apps/portal/Dockerfile
+    container_name: tax-portal-portal
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      # Admin pool — used by getActiveServices() and createEngagementRequest() (ADR-003 §1/§6).
+      # IMPORTANT: The portal container uses PORTAL_DATABASE_URL_ADMIN (not DATABASE_URL_ADMIN).
+      # DATABASE_URL_ADMIN in .env.local uses localhost:SQLSERVER_PORT (host-side for scripts).
+      # PORTAL_DATABASE_URL_ADMIN must use the compose service name "sqlserver" (internal Docker DNS)
+      # with port 1433. Set PORTAL_DATABASE_URL_ADMIN in .env.local to the container-side URL.
+      # See .env.example for the required format.
+      DATABASE_URL_ADMIN: "${PORTAL_DATABASE_URL_ADMIN:?PORTAL_DATABASE_URL_ADMIN env var is required — use sqlserver://sqlserver;port=1433;... (container-internal hostname)}"
+      # Request pool — wired into the lazy Prisma client (EPIC-004 will use it; TASK-006 fix-forward).
+      # Belt-and-suspenders alongside the lazy-init fix (BUG-001-003): having the URL present in the
+      # container prevents PrismaClientConstructorValidationError on any path that touches requestDb.
+      # Must use the compose service name "sqlserver" (internal Docker DNS), not localhost.
+      DATABASE_URL: "${PORTAL_DATABASE_URL:?PORTAL_DATABASE_URL env var is required — use sqlserver://sqlserver;port=1433;... (container-internal hostname)}"
+      # Placeholder for Clerk (EPIC-004) — not used in this slice
+      # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+    ports:
+      - "${PORTAL_PORT:-3000}:3000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http = require('http'); http.get('http://localhost:3000/healthz', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+  # ─── Docuseal (reserved for TASK-XXX / Epic-003) ─────────────────────────────
+  # Docuseal self-hosted e-sign service and its Postgres DB are deferred until the
+  # onboarding epic. Uncomment when that epic lands.
+  #
+  # docuseal-postgres:
+  #   image: postgres:15-alpine
+  #   container_name: tax-portal-docuseal-postgres
+  #   environment:
+  #     POSTGRES_DB: docuseal
+  #     POSTGRES_USER: docuseal
+  #     POSTGRES_PASSWORD: "${DOCUSEAL_PG_PASSWORD:?DOCUSEAL_PG_PASSWORD env var is required}"
+  #   volumes:
+  #     - docuseal-postgres-data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+  #
+  # docuseal:
+  #   image: docuseal/docuseal:latest
+  #   container_name: tax-portal-docuseal
+  #   ports:
+  #     - "3005:3000"
+  #   environment:
+  #     DATABASE_URL: "postgres://docuseal:${DOCUSEAL_PG_PASSWORD}@docuseal-postgres:5432/docuseal"
+  #     SECRET_KEY_BASE: "${DOCUSEAL_SECRET_KEY_BASE:?DOCUSEAL_SECRET_KEY_BASE env var is required}"
+  #   depends_on:
+  #     docuseal-postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+# ─── Named Volumes ─────────────────────────────────────────────────────────────
+volumes:
+  sqlserver-data:
+    name: tax-portal-sqlserver-data
+  azurite-data:
+    name: tax-portal-azurite-data

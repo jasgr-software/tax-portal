@@ -1,0 +1,165 @@
+# Operations Inventory — tax-portal local dev stack
+
+**Owner:** devops
+**Last updated:** TASK-004 (BRIEF-001)
+**Source files:** `docker-compose.yml` at repo root
+
+This document is the authoritative inventory of the local development compose stack. Any change to
+`docker-compose.yml`, Dockerfiles, ports, env vars, volumes, or the DB principal split MUST update
+this file in the same commit (CLAUDE.md § DevOps domain-specific notes).
+
+---
+
+## Services
+
+| Service | Image | Container name | Status in TASK-002 |
+|---------|-------|----------------|---------------------|
+| `sqlserver` | `mcr.microsoft.com/mssql/server:2022-latest` | `tax-portal-sqlserver` | Active |
+| `azurite` | `mcr.microsoft.com/azure-storage/azurite:latest` | `tax-portal-azurite` | Active |
+| `mailhog` | `mailhog/mailhog:latest` | `tax-portal-mailhog` | Active |
+| `portal` | `apps/portal/Dockerfile` (multi-stage) | `tax-portal-portal` | Active |
+| `admin` | `apps/admin/Dockerfile` (multi-stage) | `tax-portal-admin` | Deferred to TASK-004 |
+| `docuseal` | `docuseal/docuseal:latest` | `tax-portal-docuseal` | Deferred to Epic-003 |
+| `docuseal-postgres` | `postgres:15-alpine` | `tax-portal-docuseal-postgres` | Deferred to Epic-003 |
+
+### Compose split decision (TASK-002 Work Log)
+
+TASK-002 stands up the **data-plane only** (SQL Server, Azurite, Mailhog). This allows TASK-003 to
+run its tier-3 RLS integration test against a live SQL Server without needing the app containers to
+exist. The `portal` and `admin` app services are added in TASK-004 when `apps/portal` and
+`apps/admin` exist.
+
+---
+
+## Port Assignments
+
+| Service | Default host port | Env override | Container port | Protocol | Notes |
+|---------|------------------|--------------|----------------|----------|-------|
+| SQL Server 2022 | **1433** | `SQLSERVER_PORT` | 1433 | TCP | SQL Server TDS protocol |
+| Azurite blob | **10000** | `AZURITE_PORT` | 10000 | HTTP | Azure Blob Storage emulator API |
+| Mailhog Web UI | **8025** | `MAILHOG_HTTP_PORT` | 8025 | HTTP | Mail catcher UI |
+| Mailhog SMTP | **1025** | `MAILHOG_SMTP_PORT` | 1025 | SMTP | Outbound email catch |
+| Client Portal (`portal`) | **3000** | `PORTAL_PORT` | 3000 | HTTP/HTTPS | Next.js app — active (added in TASK-004) |
+| Tax Portal (`admin`) | **3001** | — | 3001 | HTTP/HTTPS | Next.js app — added in TASK-004 |
+| Docuseal | **3005** | — | 3000 | HTTP | E-sign service — Epic-003 |
+
+**Canonical ports** match CLAUDE.md § Port assignments. The env-var overrides (`SQLSERVER_PORT`, etc.) allow
+running the stack when another project occupies the canonical port — set them in `.env.local` if needed.
+
+> **Note:** Env-var overrides are for local dev port-conflict resolution only. CI and the smoke gate always
+> use the canonical ports (no override env vars set).
+
+---
+
+## Environment Variables
+
+### SQL Server
+
+| Variable | Required | Description | Default (local dev) |
+|----------|----------|-------------|---------------------|
+| `SA_PASSWORD` | **Required** | SA (sysadmin) password — must meet SQL Server complexity requirements | `DevPass1!` (local only) |
+
+The compose file uses `${SA_PASSWORD:?...}` — the stack will refuse to start if `SA_PASSWORD` is not set.
+
+### Migration runner (`scripts/db-migrate.ts`)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL_ADMIN` | **Required** for Track A + B | Admin pool connection URL (`sqlserver://sa:PASSWORD@localhost:1433;database=taxportal;trustServerCertificate=true`) |
+| `DATABASE_URL` | Required for app runtime | Request pool connection URL (low-privilege application role principal, set after TASK-003 creates the role) |
+
+ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
+
+### Azurite (storage adapter)
+
+| Variable | Required | Description | Default (local dev) |
+|----------|----------|-------------|---------------------|
+| `STORAGE_ADAPTER` | Required by app | Adapter selector: `azurite \| memory \| cloud` | `azurite` |
+| `STORAGE_CONNECTION_STRING` | Required for `azurite` adapter | Azure Blob connection string pointing at the Azurite container | See `.env.example` |
+| `STORAGE_CONTAINER` | Optional | Blob container name | `tax-portal-documents` |
+
+### App services (portal active as of TASK-004)
+
+| Variable | App | Description |
+|----------|-----|-------------|
+| `DATABASE_URL_ADMIN` | portal | **Required** — admin pool connection URL used by `getActiveServices()` and `createEngagementRequest()` (ADR-003 §1/§6). The public front-door anonymous write path runs under the admin pool. Set in `docker-compose.yml` portal service environment. |
+| `DATABASE_URL` | portal | **Required** (added TASK-006) — request pool connection URL for the lazy `db` Prisma client. Wired but unused in this slice (EPIC-004 will use it). Belt-and-suspenders fix for BUG-001-003: avoids `PrismaClientConstructorValidationError` if any code path materializes the lazy client. In `docker-compose.yml`, set from `PORTAL_DATABASE_URL` (container-internal `sqlserver:1433` hostname). Host-side uses `DATABASE_URL` (localhost:14330). |
+| `PORTAL_DATABASE_URL_ADMIN` | host env → portal container | **Required** — Container-side admin pool URL. Uses the compose service name `sqlserver` on port `1433` (internal Docker DNS). Distinct from `DATABASE_URL_ADMIN` (host-side `localhost:14330`). Set in `.env.local` alongside `DATABASE_URL_ADMIN`. |
+| `PORTAL_DATABASE_URL` | host env → portal container | **Required** — Container-side request pool URL. Uses the compose service name `sqlserver` on port `1433`. Distinct from `DATABASE_URL` (host-side `localhost:14330`). Set in `.env.local` alongside `DATABASE_URL`. |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | portal + admin | Clerk publishable key |
+| `CLERK_SECRET_KEY` | portal + admin | Clerk secret key |
+| `CLERK_WEBHOOK_SECRET` | portal | Clerk webhook signing secret (ADR-001) |
+| `PORTAL_APP_URL` | Both | Public URL of portal — e.g. `http://localhost:3000` |
+| `ADMIN_APP_URL` | Both | Public URL of admin — e.g. `http://localhost:3001` |
+
+---
+
+## Named Volumes
+
+| Volume name | Service | Mount point | Purpose |
+|-------------|---------|-------------|---------|
+| `tax-portal-sqlserver-data` | sqlserver | `/var/opt/mssql` | SQL Server data + log files |
+| `tax-portal-azurite-data` | azurite | `/data` | Azurite blob storage data |
+
+> `docker compose down -v` destroys all named volumes — this wipes the local database. A pre-command
+> warning is documented in the runbook. The git hook (`scripts/hooks/install.sh`) fires a warning
+> before destructive compose commands.
+
+---
+
+## Database Principal Split (ADR-002 / ADR-003)
+
+Two separate database principals are used. This enforces the trust boundary between request-scoped
+queries (RLS-filtered) and administrative operations.
+
+| Principal | Pool name | Used by | Privilege level | SESSION_CONTEXT |
+|-----------|-----------|---------|-----------------|-----------------|
+| `taxportal_admin` (app_admin_role member) | Admin pool | `scripts/db-migrate.ts`, `pnpm db:seed`, cron, webhooks, anonymous write path | RLS-exempt — all rows visible; `sa` is NOT used for app operations (RLS BLOCK predicate blocks `sa` on Service inserts) | **NOT set** |
+| `taxportal_app` (app_user_role member) | Request pool | All request-scoped queries in `packages/db` via the lazy `db` client | Low privilege — subject to RLS policies | **SET on every connection** (ADR-003) |
+
+**IMPORTANT — seed/migrate principal:** `pnpm db:migrate` and `pnpm db:seed` MUST run as
+`taxportal_admin` (not `sa`). The Service RLS BLOCK predicate is ON for `sa`, so seeding as `sa`
+will be blocked. `DATABASE_URL_ADMIN` must point at `taxportal_admin` credentials for all local
+dev operations. See `.env.example` for the full URL form.
+
+**Connection URL conventions:**
+- Admin pool: `DATABASE_URL_ADMIN` — used by `pnpm prisma migrate deploy` and `scripts/db-migrate.ts`
+- Request pool: `DATABASE_URL` — used by `packages/db` lazy `db` client (not `adminDb`)
+- Both require `trustServerCertificate=true` for local dev (SQL Server uses a self-signed cert)
+- Host-side port: **14330** (`SQLSERVER_PORT` default). Container-side port: **1433** (internal)
+
+---
+
+## Health Checks
+
+| Service | Health probe | Interval | Retries | Notes |
+|---------|-------------|----------|---------|-------|
+| `sqlserver` | `sqlcmd SELECT 1` via mssql-tools18 | 10s | 12 | 30s start_period to allow SQL Server startup |
+| `azurite` | `nc -z localhost 10000` | 5s | 5 | Port check |
+| `mailhog` | `nc -z localhost 8025` | 5s | 5 | Port check |
+| `portal` | `GET /healthz` (HTTP 200) | 10s | 6 | Added in TASK-004 |
+| `admin` | `GET /healthz` (HTTP 200) | 10s | 6 | Added in TASK-004 |
+
+---
+
+## Raw SQL Migration Track (Track B)
+
+| Directory | Contents | Applied by |
+|-----------|----------|------------|
+| `db/migrations/` | Raw SQL extensions (grants, computed columns, temporal tables, filtered indexes) | `scripts/db-migrate.ts` Track B |
+| `db/policies/` | SQL Server security policies + predicate functions (ADR-005 §7) | `scripts/db-migrate.ts` Track B |
+| `db/seed/` | Dev-only seed scripts | `pnpm db:seed` (future task) |
+
+Bookkeeping table: `dbo.__db_migrations` — stores applied filenames with timestamps. Created on first
+run by the migration runner. Not managed by Prisma.
+
+---
+
+## Image References
+
+| Image | Registry | Version pinning policy |
+|-------|----------|----------------------|
+| `mcr.microsoft.com/mssql/server:2022-latest` | Microsoft MCR | `2022-latest` tracks latest 2022 CU — acceptable for dev. Production: pin to a specific CU tag. |
+| `mcr.microsoft.com/azure-storage/azurite:latest` | Microsoft MCR | `latest` acceptable for dev emulator. |
+| `mailhog/mailhog:latest` | Docker Hub | `latest` acceptable for mail catcher. |
+| `node:20-alpine` | Docker Hub | Pinned at LTS major. App Dockerfiles (TASK-004) will use a specific patch tag. |

@@ -1,0 +1,4 @@
+# SQL Server Security Policies — ADR-005 §7
+# Files named NNNN-short-description.sql, applied in numeric order by scripts/db-migrate.ts
+# Applied as part of Track B after Prisma migrations (Track A).
+# Contains CREATE SECURITY POLICY statements and associated predicate functions.

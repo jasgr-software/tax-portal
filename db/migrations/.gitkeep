@@ -1,0 +1,3 @@
+# Track B raw SQL migrations — ADR-002
+# Files named NNNN-short-description.sql, applied in numeric order by scripts/db-migrate.ts
+# Applied AFTER Prisma migrations (Track A) in each deploy step.
