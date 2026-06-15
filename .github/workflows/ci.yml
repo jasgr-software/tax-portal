@@ -11,6 +11,7 @@ permissions:
   contents: read
   issues: write
   security-events: write
+  actions: read
 
 jobs:
   lint-and-typecheck:
@@ -93,9 +94,9 @@ jobs:
       - name: Verify SQL Server is reachable
         if: hashFiles('pnpm-lock.yaml') != ''
         run: |
-          /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U SA -P "${SA_PASSWORD}" -Q "SELECT @@VERSION" -No
-        env:
-          SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
+          # Service health-check already gates readiness; this probe confirms TCP connectivity
+          # from the runner host without requiring mssql-tools (not installed on ubuntu-latest).
+          timeout 60 bash -c 'until (echo > /dev/tcp/localhost/1433) 2>/dev/null; do sleep 2; done'
 
       - name: pnpm --filter portal test
         if: hashFiles('pnpm-lock.yaml') != ''
@@ -136,9 +137,9 @@ jobs:
       - name: Verify SQL Server is reachable
         if: hashFiles('pnpm-lock.yaml') != ''
         run: |
-          /opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U SA -P "${SA_PASSWORD}" -Q "SELECT @@VERSION" -No
-        env:
-          SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'CIPlaceholderPwd1!' }}
+          # Service health-check already gates readiness; this probe confirms TCP connectivity
+          # from the runner host without requiring mssql-tools (not installed on ubuntu-latest).
+          timeout 60 bash -c 'until (echo > /dev/tcp/localhost/1433) 2>/dev/null; do sleep 2; done'
 
       - name: pnpm --filter admin test
         if: hashFiles('pnpm-lock.yaml') != ''
