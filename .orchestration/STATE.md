@@ -74,9 +74,27 @@
   byte-identical PNGs were the tell), re-captured shots 05/07/08 vs the real -007 authenticated surface, fixed a
   strict-mode locator, assembled `docs/demos/EPIC-004/DEMO.md` (8 AC-tagged screens); EPIC-001 demo flake
   confirmed transient. **ALL DISPATCH TASKS DONE.** Demo specs ride PR #38; the `docs/demos/EPIC-004/` gallery +
-  README ship in the closing docs-lane PR (DEMO-POLICY). Commits on PR #38: …`2a6a76f`. **Next: engine phase
-  cascade — Audit → Review → Smoke → Validate → Close-prep** (slice → `## Awaiting PR merge`), then Conductor
-  Review → Fix → Merge/Finalize → Validate(write-back) → Report.
+  README ship in the closing docs-lane PR (DEMO-POLICY). Commits on PR #38: …`9f85ced`.
+- **Cascade status:** **Audit** done (Overwatch 0 blocking / 6 advisory). **Review (IO design-scan)** PASSED (all
+  cited ADRs honored at the diff; re-scope guardrails confirmed; 0 violations). IO fixed 6 task-file metadata
+  items directly (5× `Updated-by`→sdet; TASK-011 `Completed-at` inversion) — uncommitted, ride PR #38.
+- **STOPPED-AT: Smoke — environment hard-gate (`.env.local` DB URLs incomplete).** Container layer is CLEAN
+  (both images build; all 5 services `(healthy)`; portal :3000 + admin :13001 answer `/healthz` + `/readyz`).
+  But on a clean `docker compose down -v` rebuild, `pnpm db:migrate` FAILS: the 6 DB connection URLs in
+  `.env.local` are truncated stubs (`sqlserver://localhost`, no port/db/creds/`trustServerCertificate`) →
+  TLS self-signed-cert error before reaching SQL Server. `.env.local` is **permission-walled from agents AND the
+  main session** — I cannot fix it. This is an env hard-gate like Docker/Clerk → surface + stop, no workaround.
+  **(Pre-existing local-env gap; not introduced by this slice — the slice never touches `.env.local`. Earlier
+  dev/SDET DB tests passed because the volume was already migrated from a prior session / the rls tests build
+  raw `mssql` config explicitly; the `down -v` clean rebuild is what exposes the truncated URLs.)**
+- **RESUME (user):** complete the 6 DB URLs in `.env.local` per `.implementation/operations/runbook.md` §
+  Database connection — host-side (scripts/dev/host Playwright): `port=14330`, `database=taxportal`, admin
+  `user=taxportal_admin;password=TaxPortalAdmin2024`, request `user=taxportal_user;password=TaxPortalUser2024`,
+  `trustServerCertificate=true`; container-side (`PORTAL_/ADMIN_*`): host `sqlserver`, `port=1433`. (Reconcile
+  the runbook's own `taxportal_user`-vs-`taxportal_app` + `taxportal`-vs-`tax_portal` inconsistencies against
+  your working BRIEF-001 `.env.local`.) Then re-invoke `/orchestrate 004` → resumes at **Smoke**.
+- **Next after Smoke:** Validate (acceptance + CI gate + quality audit) → Close-prep (→ `## Awaiting PR merge`)
+  → Conductor Review → Fix → Merge/Finalize → Validate(write-back) → Report.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_

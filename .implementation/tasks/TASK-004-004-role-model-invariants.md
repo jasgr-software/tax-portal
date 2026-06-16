@@ -3,7 +3,7 @@
 **Brief**: BRIEF-004
 **Status**: done
 **Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
+**Updated-by**: sdet
 **Depends on**: TASK-004-002 (done — `packages/auth` port + mock binding deliver the server-side role read)
 **Impl**: developer
 **E2e-required**: no <!-- tier 2/3 only — unit + integration; no browser e2e for this task -->

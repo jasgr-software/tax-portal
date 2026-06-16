@@ -3,7 +3,7 @@
 **Brief**: BRIEF-004
 **Status**: done
 **Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
+**Updated-by**: sdet
 **Depends on**: 004 (✓ done), 002 (✓ done) — the `packages/auth` port (`getIdentity`/`checkSession`/`sessionTimeoutMs`) + mock binding deliver the verified-identity seam this task consumes; `packages/db` `withRequestContext`/`$extends` wrapper already exist.
 **Impl**: webapp-developer
 **E2e-required**: no <!-- tier-3 integration only; the brief mandates no e2e for this task -->

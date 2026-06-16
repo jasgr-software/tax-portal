@@ -3,7 +3,7 @@
 **Brief**: BRIEF-004
 **Status**: done
 **Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
+**Updated-by**: sdet
 **Depends on**: TASK-004-004 (done) — `packages/auth` role model + mock binding + invitation seam
 **Impl**: developer
 **E2e-required**: yes

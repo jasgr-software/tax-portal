@@ -3,7 +3,7 @@
 **Brief**: BRIEF-004
 **Status**: done
 **Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
+**Updated-by**: sdet
 **Depends on**: 002 (✓ done) — consumes the `packages/auth` sign-in / invitation seams + mock binding; 005 (✓ done) — the client-account-creation-from-invitation path the audit seam attaches to; 007 (✓ done) — the `packages/db` `$extends`/`withRequestContext` request-scoped path the in-transaction write rides on. (Was 003; -003 deferred.)
 **Impl**: webapp-developer
 **E2e-required**: no <!-- ADR-019 mandates an *integration* test proving the audit write; the brief lists this as an integration obligation, not an e2e one. But this task touches `db/` (raw-SQL ledger DDL + an RLS policy) → **Docker pre-flight + a live SQL Server container integration test is REQUIRED** (real engine, not a mock/in-memory stand-in). Do NOT run/tick the Playwright e2e gate. -->

@@ -3,7 +3,7 @@
 **Brief**: BRIEF-004
 **Status**: done
 **Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
+**Updated-by**: sdet
 **Depends on**: 002 (✓ done — `packages/auth` provider port + mock binding + per-app `middleware.ts` + the ADR-010 redirect helper/allow-list; the seam-proof `auth-redirect.spec.ts` in both apps), 005 (✓ done — `apps/portal` client sign-up/sign-in + the portal auth e2e fixtures)
 **Impl**: webapp-developer
 **Reviewer**: sdet
