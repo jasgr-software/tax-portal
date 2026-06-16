@@ -7,6 +7,20 @@
 
 ## Status / amendment history
 
+- **2026-06-16 (EPIC-002 delivered)** — Phase 1's accountant services-catalog management slice shipped (PR #40,
+  squash merge `70ea10e`). All **7 in-scope AC** signed off `verified` in `COVERAGE.md`: AC-DOOR-002-01/-02/-03
+  (accountant add/edit/deactivate persist), AC-DOOR-002-05 (accountant-only write boundary — the new
+  `sec.fn_service_write_access` BLOCK predicate, which **closed EPIC-001's latent write-predicate gap**;
+  CLIENT + anonymous rejected at tier-3 RLS 10/10), and AC-DASH-010-01/-02/-03 (the same capability from the
+  admin UI, dual-tagged with the DOOR journeys). EPIC-002 → `delivered`. Sign-off evidence basis: green
+  required CI (`lint-and-typecheck` + `security-scan` + `test-admin` + `test-portal` + CodeQL) on the PR head
+  and the post-merge `main` run, plus the SDET's dev-time tier-3 RLS + e2e runs against the real SQL Server
+  container — the user-accepted CI-as-the-gate substitution for the env-blocked container smoke (same basis as
+  EPIC-001/004; see COVERAGE note [A]). REQ-DOOR-002 is now fully covered (all 5 AC `verified` — -04 in EPIC-001,
+  -01/-02/-03/-05 in EPIC-002). **EPIC-003 remains the only un-delivered Phase-1 epic** — already unblocked
+  (EPIC-001 + EPIC-004 delivered); EPIC-002 was not a dependency of EPIC-003, so its state is unchanged
+  (`planned`, ready to build).
+
 - **2026-06-16 (EPIC-004 delivered)** — Phase 1's auth & two-role-model identity spine shipped (PR #38, squash
   merge `0444551`). **11/15 in-scope AC** signed off `verified` in `COVERAGE.md` (REQ-AUTH-001/-005-02/-006/
   -009/-010); the **4 2FA AC** (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) remain `deferred` to a future
@@ -65,13 +79,15 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 |---|---|---|---|
 | **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `delivered` (PR #35, `f7f6c9d`, 2026-06-15) | — |
 | **EPIC-004** | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect (11 in-scope AC). 2FA deferred to a future Phase-1 "2FA enablement" slice (not ready to deploy) | `delivered` (PR #38, `0444551`, 2026-06-16) — 11/15 in-scope AC; 4 2FA AC deferred | — |
-| **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `planned` (unblocked — EPIC-004 delivered) | EPIC-004 ✅ |
+| **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `delivered` (PR #40, `70ea10e`, 2026-06-16) — 7/7 in-scope AC | EPIC-004 ✅ |
 | **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `planned` (unblocked — EPIC-001 + EPIC-004 delivered) | EPIC-001 ✅, EPIC-004 ✅ |
 
-> **Phase-1 build status (2026-06-16):** the two dependency-free slices — **EPIC-001** (anonymous front-door
-> write path) and **EPIC-004** (the auth spine) — are both **delivered**. **EPIC-002** and **EPIC-003** are now
-> **unblocked** and ready to build: the authenticated accountant surface (EPIC-004) exists, and the requests
-> EPIC-003 consumes (EPIC-001) exist. Both remain `planned` (in-scope AC not yet verified).
+> **Phase-1 build status (2026-06-16):** three of the four Phase-1 slices are **delivered** — **EPIC-001**
+> (anonymous front-door write path), **EPIC-004** (the auth spine), and **EPIC-002** (the accountant
+> services-catalog admin surface). **EPIC-003** (the request inbox) is the only remaining Phase-1 epic; it is
+> **unblocked** and ready to build — the authenticated accountant surface (EPIC-004) exists and the requests it
+> consumes (EPIC-001) exist — and remains `planned` (in-scope AC not yet verified). EPIC-002 was not a
+> dependency of EPIC-003.
 >
 > **MVP boundary (confirmed 2026-06-14):** the front-door spine only. A prospect can reach the door and
 > submit; the accountant can sign in, get notified, and accept (→ invite) or decline (→ reason email); an
