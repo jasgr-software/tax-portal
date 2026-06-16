@@ -86,17 +86,32 @@ export interface SignInResult {
  */
 async function resolveSourceIp(): Promise<string> {
   const headerStore = await headers();
-  // X-Forwarded-For may contain a comma-separated list; take the leftmost (original client)
-  const xForwardedFor = headerStore.get("x-forwarded-for");
-  if (xForwardedFor) {
-    const firstIp = xForwardedFor.split(",")[0]?.trim();
-    if (firstIp) return firstIp;
-  }
-  // Fall back to the X-Real-IP header (set by some proxies in place of XFF)
-  const xRealIp = headerStore.get("x-real-ip");
-  if (xRealIp) return xRealIp.trim();
 
-  // No proxy header present — local dev / bare Node deployment
+  // F3 fix: only trust X-Forwarded-For when TRUST_PROXY=true is explicitly set.
+  // Without a trusted proxy, the leftmost XFF value is client-controlled — an attacker
+  // can rotate it per request to bypass the per-IP rate limit budget.
+  // In production behind a WAF/CDN (the intended deployment shape per ADR-007/ADR-013),
+  // set TRUST_PROXY=true and the proxy strips/rewrites XFF, making spoofing infeasible.
+  // Without TRUST_PROXY, all requests share the sentinel key "127.0.0.1", which is
+  // conservative (no bypass) but means the per-IP budget is per-server rather than per-client.
+  // That is acceptable for local dev; in production the proxy is expected to be in place.
+  const trustProxy = process.env["TRUST_PROXY"] === "true";
+
+  if (trustProxy) {
+    // X-Forwarded-For may contain a comma-separated list; take the leftmost (original client)
+    // when the proxy controls the header (trusted-proxy mode).
+    const xForwardedFor = headerStore.get("x-forwarded-for");
+    if (xForwardedFor) {
+      const firstIp = xForwardedFor.split(",")[0]?.trim();
+      if (firstIp) return firstIp;
+    }
+    // Fall back to the X-Real-IP header (set by some proxies in place of XFF)
+    const xRealIp = headerStore.get("x-real-ip");
+    if (xRealIp) return xRealIp.trim();
+  }
+
+  // No trusted proxy in place — use a conservative sentinel so the rate-limit key
+  // cannot be spoofed. All unauthenticated requests share this key in local dev.
   return "127.0.0.1";
 }
 
@@ -187,6 +202,9 @@ export async function signInAsClient(formData: FormData): Promise<SignInResult> 
   const cookieStore = await cookies();
   cookieStore.set(sessionCookie.name, sessionCookie.value, {
     httpOnly: sessionCookie.httpOnly,
+    // Pass the Secure attribute from the cookie descriptor (true when NODE_ENV !== "development").
+    // (F4 — review finding: session cookie was missing the Secure attribute.)
+    secure: sessionCookie.secure,
     sameSite: sessionCookie.sameSite.toLowerCase() as "lax" | "strict" | "none",
     path: sessionCookie.path,
     expires: sessionCookie.expires,

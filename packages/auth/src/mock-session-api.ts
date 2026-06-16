@@ -43,6 +43,8 @@ export interface MockSessionCookie {
   value: string;
   /** Cookie attributes for Set-Cookie header */
   httpOnly: boolean;
+  /** Secure flag — true when NODE_ENV !== "development" (F4 — review finding) */
+  secure: boolean;
   sameSite: "Lax" | "Strict" | "None";
   path: string;
   /** Expiry as a Date object (for Set-Cookie max-age / expires) */
@@ -71,6 +73,10 @@ export async function createMockSessionCookie(
     name: MOCK_SESSION_COOKIE_NAME,
     value,
     httpOnly: true,
+    // Secure=true when not in local development — ensures the cookie is only sent over HTTPS.
+    // In local dev (NODE_ENV=development) the app runs over http://localhost so Secure is off.
+    // (F4 — review finding: session cookie was missing the Secure attribute.)
+    secure: process.env["NODE_ENV"] !== "development",
     sameSite: "Lax",
     path: "/",
     expires: new Date(exp),
@@ -90,13 +96,17 @@ export async function buildMockSessionSetCookieHeader(
 ): Promise<string> {
   const cookie = await createMockSessionCookie(options);
   const maxAgeSecs = Math.floor((cookie.expires.getTime() - Date.now()) / 1000);
-  return [
+  const parts = [
     `${cookie.name}=${cookie.value}`,
     `Path=${cookie.path}`,
     `Max-Age=${maxAgeSecs}`,
     `HttpOnly`,
     `SameSite=${cookie.sameSite}`,
-  ].join("; ");
+  ];
+  if (cookie.secure) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
 }
 
 /**

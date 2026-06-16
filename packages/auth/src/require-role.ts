@@ -55,7 +55,18 @@ export async function applyPortalAuth(request: NextRequest): Promise<NextRespons
     syntheticHeaders.set("cookie", `${MOCK_SESSION_COOKIE_NAME}=${mockSessionCookie}`);
   }
   const syntheticRequest = new Request(request.url, { headers: syntheticHeaders });
-  const identity = await provider.getIdentity(syntheticRequest);
+
+  // Fail-closed: if the provider throws (e.g. ClerkAuthProvider throws
+  // ClerkBindingNotAvailableError when CLERK_SECRET_KEY is absent), treat the
+  // request as unauthenticated rather than crashing with a 500. The redirect
+  // decision will then send the user to /sign-in. (C-middleware-throw — review finding.)
+  let identity: Awaited<ReturnType<typeof provider.getIdentity>>;
+  try {
+    identity = await provider.getIdentity(syntheticRequest);
+  } catch (err) {
+    console.error("[applyPortalAuth] getIdentity() threw — treating as unauthenticated:", err);
+    identity = null;
+  }
 
   const decision: MiddlewareDecision = portalRedirectDecision(
     request.nextUrl.pathname,
@@ -93,7 +104,18 @@ export async function applyAdminAuth(request: NextRequest): Promise<NextResponse
     syntheticHeaders.set("cookie", `${MOCK_SESSION_COOKIE_NAME}=${mockSessionCookie}`);
   }
   const syntheticRequest = new Request(request.url, { headers: syntheticHeaders });
-  const identity = await provider.getIdentity(syntheticRequest);
+
+  // Fail-closed: if the provider throws (e.g. ClerkAuthProvider throws
+  // ClerkBindingNotAvailableError when CLERK_SECRET_KEY is absent), treat the
+  // request as unauthenticated rather than crashing with a 500. The redirect
+  // decision will then send the user to /sign-in. (C-middleware-throw — review finding.)
+  let identity: Awaited<ReturnType<typeof provider.getIdentity>>;
+  try {
+    identity = await provider.getIdentity(syntheticRequest);
+  } catch (err) {
+    console.error("[applyAdminAuth] getIdentity() threw — treating as unauthenticated:", err);
+    identity = null;
+  }
 
   const decision: MiddlewareDecision = adminRedirectDecision(
     request.nextUrl.pathname,

@@ -35,11 +35,13 @@
 
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   FIXTURE_INVITATION,
   MOCK_SESSION_COOKIE_NAME,
   createMockSessionCookie,
+  getRateLimiter,
+  buildRateLimitKey,
 } from "@tax-portal/auth";
 import { recordAuthEvent, withAuditTransaction } from "@tax-portal/db";
 
@@ -53,6 +55,35 @@ import { recordAuthEvent, withAuditTransaction } from "@tax-portal/db";
 // if the audit INSERT fails, the transaction rolls back and the session cookie is NOT sent
 // (fail-closed). When the real Clerk binding lands, the User-row INSERT joins this same
 // transaction — no re-architecture needed.
+
+// ─── IP Resolution ────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the source IP server-side from the incoming request headers.
+ * Mirrors the same function in sign-in/actions.ts — shares the same trusted-proxy
+ * assumptions documented there (ADR-005, TASK-004-009).
+ */
+async function resolveSourceIp(): Promise<string> {
+  const headerStore = await headers();
+  // F3 fix: only trust X-Forwarded-For when TRUST_PROXY=true is explicitly set.
+  // See sign-in/actions.ts resolveSourceIp for the full rationale.
+  const trustProxy = process.env["TRUST_PROXY"] === "true";
+
+  if (trustProxy) {
+    const xForwardedFor = headerStore.get("x-forwarded-for");
+    if (xForwardedFor) {
+      const firstIp = xForwardedFor.split(",")[0]?.trim();
+      if (firstIp) return firstIp;
+    }
+    const xRealIp = headerStore.get("x-real-ip");
+    if (xRealIp) return xRealIp.trim();
+  }
+
+  return "127.0.0.1";
+}
+
+/** Stable endpoint identifier for the portal sign-up surface (ADR-022 §1). */
+const SIGN_UP_ENDPOINT = "portal:sign-up" as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,6 +154,23 @@ function validateInvitationTicket(ticket: string): {
  *             (fail-closed — if the audit write fails, the session cookie is NOT sent).
  */
 export async function signUpWithInvitation(formData: FormData): Promise<SignUpResult> {
+  // ── ADR-022: Rate-limit check BEFORE ticket validation ─────────────────────
+  // Ticket-guessing is cheap without a throttle (the mock accepts any "mock-ticket-client-*"
+  // prefix). Apply the same per-IP budget as sign-in before any ticket check.
+  // (F5 — review finding: signUpWithInvitation had no rate limiter.)
+  const sourceIp = await resolveSourceIp();
+  const rateLimitKey = buildRateLimitKey(sourceIp, SIGN_UP_ENDPOINT);
+  const limiter = getRateLimiter();
+  const rateLimitResult = limiter.consume(rateLimitKey);
+
+  if (!rateLimitResult.allowed) {
+    const result: SignUpResult = {
+      success: false,
+      error: "Too many sign-up attempts. Please wait before trying again.",
+    };
+    return result;
+  }
+
   const ticket = (formData.get("ticket") as string | null) ?? "";
   const email = (formData.get("email") as string | null) ?? "";
 
@@ -140,8 +188,11 @@ export async function signUpWithInvitation(formData: FormData): Promise<SignUpRe
     };
   }
 
-  // Sanitize email — prefer the invitation's email if provided
-  const resolvedEmail = email.trim() || validation.email || "client@example.com";
+  // Resolve email — prefer the form-supplied email, fall back to the invitation's email.
+  // The "client@example.com" fallback is unreachable: every valid validation branch sets
+  // a non-empty email, so the || chain always resolves before the dead default.
+  // (OE8 — review finding: drop the dead default to avoid accidentally seeding a fake email.)
+  const resolvedEmail = email.trim() || (validation.email ?? "");
 
   // Derive a deterministic userId from the email for this session
   // DECISION (TASK-004-005): Under the mock binding, the "user ID" is a deterministic
@@ -214,10 +265,12 @@ export async function signUpWithInvitation(formData: FormData): Promise<SignUpRe
   const cookieStore = await cookies();
   cookieStore.set(sessionCookie.name, sessionCookie.value, {
     httpOnly: sessionCookie.httpOnly,
+    // Pass the Secure attribute from the cookie descriptor (true when NODE_ENV !== "development").
+    // (F4 — review finding: session cookie was missing the Secure attribute.)
+    secure: sessionCookie.secure,
     sameSite: sessionCookie.sameSite.toLowerCase() as "lax" | "strict" | "none",
     path: sessionCookie.path,
     expires: sessionCookie.expires,
-    // secure: true — omitted for local dev (http://localhost); production Clerk binding handles this
   });
 
   return {

@@ -42,7 +42,10 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { resetRateLimiterForTesting } from "@tax-portal/auth";
+// Import from the test-only subpath — resetRateLimiterForTesting is NOT in the
+// public barrel (@tax-portal/auth). Use @tax-portal/auth/testing for test helpers.
+// (OE5 fix: test resets must not appear in the public @tax-portal/auth exports.)
+import { resetRateLimiterForTesting } from "@tax-portal/auth/testing";
 
 // ─── Shared mock state ────────────────────────────────────────────────────────
 // Declared before vi.mock factories. Vitest hoists vi.mock() calls to the top of
@@ -104,6 +107,9 @@ describe("[ADR-022] [rate-limit] sign-in surface throttle — integration", () =
     process.env["RATE_LIMIT_MAX_ATTEMPTS"] = "3";
     process.env["RATE_LIMIT_WINDOW_MS"] = "60000";
     process.env["AUTH_PROVIDER"] = "mock";
+    // Enable trusted-proxy mode so the mocked X-Forwarded-For header is used for
+    // rate-limit key resolution (F3 fix: TRUST_PROXY gates XFF trust in production too).
+    process.env["TRUST_PROXY"] = "true";
     resetRateLimiterForTesting();
     cookieSetSpy.mockClear();
     mockState.sourceIp = "1.2.3.4";
@@ -113,6 +119,7 @@ describe("[ADR-022] [rate-limit] sign-in surface throttle — integration", () =
     resetRateLimiterForTesting();
     delete process.env["RATE_LIMIT_MAX_ATTEMPTS"];
     delete process.env["RATE_LIMIT_WINDOW_MS"];
+    delete process.env["TRUST_PROXY"];
   });
 
   // ── Test 1: N+1 attempts → (N+1)th is throttled, no session established ─────

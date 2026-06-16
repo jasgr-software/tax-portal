@@ -115,8 +115,10 @@ services:
       # Cross-app redirect URLs (ADR-010)
       PORTAL_APP_URL: "${PORTAL_APP_URL:-http://localhost:3000}"
       ADMIN_APP_URL: "${ADMIN_APP_URL:-http://localhost:3001}"
-      # Mock session secret (AUTH_PROVIDER=mock only; must NOT be set in production)
-      MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:-dev-only-mock-secret-do-not-use-in-production}"
+      # Mock session secret (AUTH_PROVIDER=mock only; must NOT be set in production).
+      # Required — no default. Generate a random secret: openssl rand -hex 32
+      # See .env.example for the required format.
+      MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:?MOCK_SESSION_SECRET env var is required — generate with: openssl rand -hex 32}"
       # Placeholder for Clerk (TASK-004-003) — not used in this slice
       # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
     ports:
@@ -168,8 +170,10 @@ services:
       # Set to "clerk" in production once TASK-004-003 wires the real Clerk integration.
       # ADR-001 / ADR-010 / TASK-004-002
       AUTH_PROVIDER: "${AUTH_PROVIDER:-mock}"
-      # Mock session secret (AUTH_PROVIDER=mock only; must NOT be set in production)
-      MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:-dev-only-mock-secret-do-not-use-in-production}"
+      # Mock session secret (AUTH_PROVIDER=mock only; must NOT be set in production).
+      # Required — no default. Generate a random secret: openssl rand -hex 32
+      # See .env.example for the required format.
+      MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:?MOCK_SESSION_SECRET env var is required — generate with: openssl rand -hex 32}"
       # Placeholder for Clerk (TASK-004-003) — not used in this slice
       # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
     ports:

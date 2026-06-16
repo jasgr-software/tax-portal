@@ -386,7 +386,6 @@ describe("[AC-AUTH-001-03] server-side authoritative role read — verified sess
     const sigPart = originalCookie.slice(dotIdx + 1);
 
     // Forge a payload that claims ACCOUNTANT (reuse the original signature)
-    const nodeCrypto = require("node:crypto") as typeof import("node:crypto");
     const toBase64Url = (buf: Buffer) =>
       buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const forgedPayloadObj = {

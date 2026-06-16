@@ -31,11 +31,10 @@ export {
 export type { ServeDecision, RedirectDecision, MiddlewareDecision } from "./redirect.js";
 
 // ─── Binding Selector ─────────────────────────────────────────────────────────
-export {
-  getAuthProvider,
-  createAuthProvider,
-  resetAuthProviderForTesting,
-} from "./select.js";
+export { getAuthProvider } from "./select.js";
+// Test-only: createAuthProvider and resetAuthProviderForTesting are intentionally
+// NOT re-exported here. Import directly from "./select.js" in tests only.
+// (OE5 — review finding: test resets must not be in the public barrel.)
 
 // ─── Per-App Middleware Helpers ───────────────────────────────────────────────
 export { applyPortalAuth, applyAdminAuth } from "./require-role.js";
@@ -73,5 +72,7 @@ export {
 export {
   InMemoryRateLimiter,
   getRateLimiter,
-  resetRateLimiterForTesting,
+  // resetRateLimiterForTesting intentionally NOT exported here — test-only helper.
+  // Import directly from "./rate-limiter/in-memory.js" in tests.
+  // (OE5 — review finding: test resets must not be in the public barrel.)
 } from "./rate-limiter/in-memory.js";

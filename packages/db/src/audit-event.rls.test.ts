@@ -90,21 +90,6 @@ async function countAuditRowsAs(
 }
 
 /**
- * Read a specific AuditEvent row by id via the admin pool (bypasses RLS).
- * Returns null if not found.
- */
-async function readAuditRowById(id: string): Promise<Record<string, unknown> | null> {
-  const result = await adminPool.request().query(
-    `SELECT [id], [clerkUserId], [actorRole], [action], [targetType], [targetId],
-            [sourceSurface], [outcome], [occurredAt]
-     FROM [dbo].[AuditEvent]
-     WHERE [id] = '${id.replace(/'/g, "''")}'`
-  );
-  const row = result.recordset[0] as Record<string, unknown> | undefined;
-  return row ?? null;
-}
-
-/**
  * Get the last N AuditEvent rows by occurredAt descending (admin pool, bypasses RLS).
  */
 async function readLastAuditRows(n: number): Promise<Array<Record<string, unknown>>> {

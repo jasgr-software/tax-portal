@@ -47,7 +47,21 @@ export function getAuthProvider(): AuthProvider {
  * resetAuthProviderForTesting).
  */
 export function createAuthProvider(): AuthProvider {
-  const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+  const rawProvider = process.env["AUTH_PROVIDER"];
+  const provider = (rawProvider ?? "mock").toLowerCase();
+
+  // Fail-closed: the mock binding must NEVER be active in production.
+  // Throw early at startup so the process refuses to serve rather than running mock auth
+  // against real users or allowing an attacker to forge an ACCOUNTANT cookie with the
+  // repo-published dev secret. (F1/F6 — review finding.)
+  if (process.env["NODE_ENV"] === "production") {
+    if (!rawProvider || provider === "mock") {
+      throw new Error(
+        "[packages/auth] AUTH_PROVIDER must be set to a non-mock value in production. " +
+          "Set AUTH_PROVIDER=clerk. The mock binding is forbidden in NODE_ENV=production.",
+      );
+    }
+  }
 
   switch (provider) {
     case "mock":
@@ -55,13 +69,14 @@ export function createAuthProvider(): AuthProvider {
     case "clerk":
       return new ClerkAuthProvider();
     default:
-      // Unknown binding: fall back to mock with a warning (never throw — middleware
-      // must not crash the process on an unknown provider value).
-      console.warn(
-        `[packages/auth] Unknown AUTH_PROVIDER="${process.env["AUTH_PROVIDER"]}". ` +
-          `Defaulting to mock binding. Set AUTH_PROVIDER=clerk for production.`,
+      // Unknown binding: throw instead of silently falling back to mock.
+      // A typo'd AUTH_PROVIDER value should be caught at startup, not at runtime after
+      // the process has already started handling requests with the wrong binding.
+      throw new Error(
+        `[packages/auth] Unknown AUTH_PROVIDER="${rawProvider}". ` +
+          `Valid values: "mock" (local/e2e only), "clerk" (production). ` +
+          `Fix the AUTH_PROVIDER env var and restart the process.`,
       );
-      return new MockAuthProvider();
   }
 }
 

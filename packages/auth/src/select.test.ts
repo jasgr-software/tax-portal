@@ -8,7 +8,7 @@
  *   - Both bindings satisfy the AuthProvider port interface (runtime shape)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { createAuthProvider, resetAuthProviderForTesting, getAuthProvider } from "./select.js";
 import { MockAuthProvider } from "./bindings/mock.js";
 import { ClerkAuthProvider } from "./bindings/clerk.js";
@@ -38,10 +38,11 @@ describe("binding selector", () => {
     expect(provider).toBeInstanceOf(MockAuthProvider);
   });
 
-  it("falls back to MockAuthProvider for unknown AUTH_PROVIDER value", () => {
+  it("throws for unknown AUTH_PROVIDER value (fail-closed, not fall-back)", () => {
+    // F1 fix: unknown AUTH_PROVIDER now throws instead of silently falling back to mock.
+    // A typo'd value must surface at startup, not silently run the mock binding.
     process.env["AUTH_PROVIDER"] = "unknown-binding";
-    const provider = createAuthProvider();
-    expect(provider).toBeInstanceOf(MockAuthProvider);
+    expect(() => createAuthProvider()).toThrow(/Unknown AUTH_PROVIDER/);
   });
 
   it("returns the same singleton instance on repeated getAuthProvider() calls", () => {

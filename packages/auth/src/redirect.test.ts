@@ -112,15 +112,26 @@ describe("portalRedirectDecision — AC-AUTH-010-* foundation", () => {
     expect(result.action).toBe("serve");
   });
 
-  // ─ API routes always pass through (auth handled by route handler) ───────────
+  // ─ Mock-session API pass-through (AUTH_PROVIDER=mock only) ──────────────────
+  // F2 fix: only /api/mock-session is exempt from auth middleware, and only when
+  // AUTH_PROVIDER=mock. All other /api/* routes are NOT blanket-exempt.
 
-  it("always serves /api/* regardless of identity (API pass-through)", () => {
+  it("serves /api/mock-session when AUTH_PROVIDER=mock (unauthenticated)", () => {
+    // Default AUTH_PROVIDER is "mock" in tests (no env override).
     const result = portalRedirectDecision("/api/mock-session", null, baseUrl);
     expect(result.action).toBe("serve");
   });
 
-  it("always serves /api/* for authenticated users (API pass-through)", () => {
-    const result = portalRedirectDecision("/api/some-route", { role: "ACCOUNTANT" }, baseUrl);
+  it("redirects /api/some-route to sign-in when unauthenticated (F2 fix: no blanket /api/* exemption)", () => {
+    // After F2 fix: non-mock-session API routes are NOT exempt from auth middleware.
+    // An unauthenticated request to /api/some-route must redirect to /sign-in.
+    const result = portalRedirectDecision("/api/some-route", null, baseUrl);
+    expect(result.action).toBe("redirect");
+  });
+
+  it("serves /api/some-route for authenticated CLIENT (not a private route)", () => {
+    // Authenticated CLIENT on an API route → served (no role mismatch for portal).
+    const result = portalRedirectDecision("/api/some-route", { role: "CLIENT" }, baseUrl);
     expect(result.action).toBe("serve");
   });
 
@@ -160,7 +171,8 @@ describe("portalRedirectDecision — AC-AUTH-010-* foundation", () => {
     if (result.action === "redirect") {
       expect(result.destination.pathname).toBe("/sign-in");
       expect(result.destination.origin).toBe("http://localhost:3000");
-      expect(result.destination.searchParams.get("redirect_url")).toBe("http://localhost:3000/dashboard");
+      // F7 fix: redirect_url stores path+query only (not full URL) to prevent open-redirect.
+      expect(result.destination.searchParams.get("redirect_url")).toBe("/dashboard");
       expect(result.statusCode).toBe(307);
     }
   });
@@ -225,16 +237,25 @@ describe("adminRedirectDecision — AC-AUTH-010-* foundation", () => {
     expect(result.action).toBe("serve");
   });
 
-  // ─ API routes always pass through (auth handled by route handler) ───────────
+  // ─ Mock-session API pass-through (AUTH_PROVIDER=mock only) ──────────────────
+  // F2 fix: only /api/mock-session is exempt from auth middleware, and only when
+  // AUTH_PROVIDER=mock. All other /api/* routes are NOT blanket-exempt.
 
-  it("always serves /api/* regardless of identity (API pass-through)", () => {
+  it("serves /api/mock-session when AUTH_PROVIDER=mock (unauthenticated)", () => {
     const result = adminRedirectDecision("/api/mock-session", null, baseUrl);
     expect(result.action).toBe("serve");
   });
 
-  it("always serves /api/* for authenticated users (API pass-through)", () => {
+  it("redirects /api/some-route to sign-in when unauthenticated (F2 fix: no blanket /api/* exemption)", () => {
+    // After F2 fix: non-mock-session API routes are NOT exempt from auth middleware.
+    const result = adminRedirectDecision("/api/some-route", null, baseUrl);
+    expect(result.action).toBe("redirect");
+  });
+
+  it("redirects CLIENT on /api/some-route to portal (CLIENT on admin = misnavigation)", () => {
+    // CLIENT identity on admin → redirect (role mismatch, F2 fix does not affect this).
     const result = adminRedirectDecision("/api/some-route", { role: "CLIENT" }, baseUrl);
-    expect(result.action).toBe("serve");
+    expect(result.action).toBe("redirect");
   });
 
   // ─ Sign-in path always accessible ─────────────────────────────────────────────
@@ -265,7 +286,8 @@ describe("adminRedirectDecision — AC-AUTH-010-* foundation", () => {
     const result = adminRedirectDecision("/dashboard", null, "http://localhost:3001/dashboard");
     expect(result.action).toBe("redirect");
     if (result.action === "redirect") {
-      expect(result.destination.searchParams.get("redirect_url")).toBe("http://localhost:3001/dashboard");
+      // F7 fix: redirect_url stores path+query only (not full URL) to prevent open-redirect.
+      expect(result.destination.searchParams.get("redirect_url")).toBe("/dashboard");
     }
   });
 

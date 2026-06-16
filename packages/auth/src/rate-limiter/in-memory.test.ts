@@ -16,19 +16,6 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { InMemoryRateLimiter } from "./in-memory.js";
 import { buildRateLimitKey } from "./port.js";
 
-// Helper: run consume N times for a given limiter + key
-function consumeN(
-  limiter: InMemoryRateLimiter,
-  key: string,
-  n: number,
-): ReturnType<InMemoryRateLimiter["consume"]>[] {
-  const results = [];
-  for (let i = 0; i < n; i++) {
-    results.push(limiter.consume(key));
-  }
-  return results;
-}
-
 describe("[ADR-022] [rate-limit] InMemoryRateLimiter — unit", () => {
   afterEach(() => {
     vi.useRealTimers();

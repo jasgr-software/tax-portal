@@ -60,8 +60,8 @@ export interface ServeDecision {
 export interface RedirectDecision {
   action: "redirect";
   destination: URL;
-  /** "permanent" (308) for canonical moves; "temporary" (307) for auth redirects */
-  statusCode: 307 | 308;
+  /** Auth redirects are always temporary (307 — method-preserving). */
+  statusCode: 307;
 }
 
 export type MiddlewareDecision = ServeDecision | RedirectDecision;
@@ -136,9 +136,15 @@ export function portalRedirectDecision(
     return { action: "serve" };
   }
 
-  // 1b. API routes always pass through — auth is handled by the route handler itself.
-  //     This allows /api/mock-session (test-only) to operate without a pre-existing session.
-  if (pathname.startsWith("/api/")) {
+  // 1b. Only the mock-session setup endpoint passes through without auth — and only
+  //     when the mock auth binding is active. All other /api/* routes are NOT exempt
+  //     from the middleware; they must carry a valid session (or be on the public allow-list).
+  //     (F2 — review finding: the blanket /api/* exemption made every future API route
+  //     default-unauthenticated. Narrowed to the exact path that needs it.)
+  if (
+    pathname === "/api/mock-session" &&
+    (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase() === "mock"
+  ) {
     return { action: "serve" };
   }
 
@@ -151,10 +157,20 @@ export function portalRedirectDecision(
   // Past here: we're on a portal PRIVATE route.
 
   // 3. Unauthenticated → redirect to portal /sign-in with redirect_url param.
+  //    Store only the path+query (not the full URL) to prevent open-redirect.
+  //    Wherever redirect_url is later consumed, validate same-origin before using it.
+  //    (F7 — review finding: stashing the full request URL creates an open-redirect seed.)
   if (identity === null) {
     const portalBase = getPortalAppUrl();
     const redirectUrl = new URL("/sign-in", portalBase);
-    redirectUrl.searchParams.set("redirect_url", requestUrl);
+    // Extract path+query only — strip scheme/host to prevent open-redirect.
+    try {
+      const parsedRequest = new URL(requestUrl);
+      const pathAndQuery = parsedRequest.pathname + parsedRequest.search;
+      redirectUrl.searchParams.set("redirect_url", pathAndQuery);
+    } catch {
+      // If requestUrl is unparseable, omit the redirect_url param entirely.
+    }
     return { action: "redirect", destination: redirectUrl, statusCode: 307 };
   }
 
@@ -199,9 +215,13 @@ export function adminRedirectDecision(
     return { action: "serve" };
   }
 
-  // 1b. API routes always pass through — auth is handled by the route handler itself.
-  //     This allows /api/mock-session (test-only) to operate without a pre-existing session.
-  if (pathname.startsWith("/api/")) {
+  // 1b. Only the mock-session setup endpoint passes through without auth — and only
+  //     when the mock auth binding is active. All other /api/* routes require auth.
+  //     (F2 — review finding: narrowed from blanket /api/* to exact /api/mock-session.)
+  if (
+    pathname === "/api/mock-session" &&
+    (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase() === "mock"
+  ) {
     return { action: "serve" };
   }
 
@@ -213,10 +233,19 @@ export function adminRedirectDecision(
   }
 
   // 3. Unauthenticated → redirect to admin /sign-in with redirect_url.
+  //    Store only the path+query (not the full URL) to prevent open-redirect.
+  //    (F7 — review finding: stashing the full request URL creates an open-redirect seed.)
   if (identity === null) {
     const adminBase = getAdminAppUrl();
     const redirectUrl = new URL("/sign-in", adminBase);
-    redirectUrl.searchParams.set("redirect_url", requestUrl);
+    // Extract path+query only — strip scheme/host to prevent open-redirect.
+    try {
+      const parsedRequest = new URL(requestUrl);
+      const pathAndQuery = parsedRequest.pathname + parsedRequest.search;
+      redirectUrl.searchParams.set("redirect_url", pathAndQuery);
+    } catch {
+      // If requestUrl is unparseable, omit the redirect_url param entirely.
+    }
     return { action: "redirect", destination: redirectUrl, statusCode: 307 };
   }
 

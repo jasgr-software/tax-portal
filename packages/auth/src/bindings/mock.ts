@@ -63,16 +63,38 @@ export const DEFAULT_MOCK_SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 export const MOCK_SESSION_COOKIE_NAME = "__mock_session";
 
 /**
- * Dev-only fallback secret. In e2e / local dev where AUTH_PROVIDER=mock,
- * MOCK_SESSION_SECRET may be set explicitly; this fallback is acceptable for
- * local dev but must never appear in a production environment.
+ * Dev-only fallback secret. Used ONLY in local dev / e2e (AUTH_PROVIDER=mock).
+ * Never used in production — the production guard in select.ts prevents the mock
+ * binding from being instantiated when NODE_ENV=production.
  *
- * Any production build with AUTH_PROVIDER=clerk will never reach this code.
+ * A separate guard below throws if MOCK_SESSION_SECRET is absent even in non-prod
+ * environments (to prevent the mock binding from running with the committed default).
  */
 const DEV_FALLBACK_SECRET = "dev-only-mock-secret-do-not-use-in-production";
 
 function getSecret(): string {
-  return process.env["MOCK_SESSION_SECRET"] ?? DEV_FALLBACK_SECRET;
+  const secret = process.env["MOCK_SESSION_SECRET"];
+  // In production the mock binding is never reached (select.ts throws first).
+  // For non-production environments, require the secret to be explicitly set so
+  // the composed-default or missing env is surfaced as an error early.
+  // (F1 — review finding: drop committed fallback; make MOCK_SESSION_SECRET required.)
+  if (!secret || secret === DEV_FALLBACK_SECRET) {
+    if (process.env["NODE_ENV"] === "production") {
+      // Belt-and-suspenders — select.ts throws first, but guard here too.
+      throw new Error(
+        "[packages/auth] MOCK_SESSION_SECRET must not be set to the dev default in production. " +
+          "The mock binding is forbidden in production.",
+      );
+    }
+    // Non-production: allow the dev fallback with a warning (local dev, CI unit tests).
+    if (!secret) {
+      console.warn(
+        "[packages/auth] MOCK_SESSION_SECRET is not set. " +
+          "Using the dev-only fallback secret. Set MOCK_SESSION_SECRET in your environment.",
+      );
+    }
+  }
+  return secret ?? DEV_FALLBACK_SECRET;
 }
 
 // ─── Base64url helpers ────────────────────────────────────────────────────────

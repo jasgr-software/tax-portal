@@ -76,10 +76,13 @@ export default async function AdminHomePage() {
   const provider = getAuthProvider();
   const identity = await provider.getIdentity(syntheticRequest);
 
-  // Middleware guarantees identity is non-null here for the ACCOUNTANT path.
-  // The guard handles the edge case where the middleware was bypassed (dev tools, etc.)
-  // and returns a safe fallback rather than crashing with a null dereference.
-  if (!identity) {
+  // Middleware guarantees identity is non-null and role=ACCOUNTANT here.
+  // This guard handles the edge case where the middleware was bypassed (dev tools, etc.)
+  // and prevents a CLIENT identity from reaching the accountant dashboard.
+  // Checking role here in addition to null is required — !identity only catches the
+  // unauthenticated case; a CLIENT with a valid session must also be rejected.
+  // (C-admin-page — review finding: the guard checked !identity, not role === ACCOUNTANT.)
+  if (!identity || identity.role !== "ACCOUNTANT") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-red-200 p-8 text-center">
