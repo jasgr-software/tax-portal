@@ -118,6 +118,50 @@
   Validate adjudicates advisory-vs-regression.
 - **Next:** Validate (acceptance + CI gate + quality audit) → Close-prep (→ `## Awaiting PR merge`) → Conductor
   Review (/pr-review) → Fix → Merge/Finalize → Validate(write-back via /planning) → Report.
+- **Close-prep DONE** — slice in `## Awaiting PR merge`; HANDOFF-004 + RETRO-004; tasks archived. Commit
+  `b287e79` on PR #38.
+- **Conductor Review (panel) DONE — advisory REQUEST-CHANGES.** `/pr-review 38` posted one consolidated review
+  (https://github.com/jasgr-software/tax-portal/pull/38#pullrequestreview-4502742406): **1 blocker + 8 major +
+  4 minor** (18 raw → 13 deduped). Headline findings: **BLOCKER** fail-open auth (AUTH_PROVIDER defaults to
+  mock everywhere + committed fallback `MOCK_SESSION_SECRET` + no NODE_ENV=production guard + uncaught Clerk-
+  binding throw in `require-role.ts`); **MAJOR** admin `page.tsx` never re-checks `role===ACCOUNTANT` (CLIENT
+  with any identity reaches admin surface); **MAJOR** `getIdentity()` no try/catch → real-Clerk 500s every req;
+  **MAJOR** `/api/*` blanket gate-exempt both apps; **MAJOR** spoofable leftmost-XFF rate-limit key; **MAJOR**
+  session cookie missing `Secure`; over-eng majors (port width / dual-crypto / dead checkSession — these target
+  the **intentional deferred-Clerk seam**, disposition-with-rationale candidates). **Next: Conductor Fix
+  (`/pr-fix 38`)** — fix the genuine bugs + security findings; disposition the deferred-seam over-eng findings
+  with rationale (intentional next-slice seam per the brief).
+- **⏸ PAUSED (2026-06-16, user) — resume at Conductor Fix.** Fixer NOT yet spawned (clean stop). On resume,
+  run `/pr-fix 38` with this guidance:
+  - **FIX now (contained, sensible, no real-Clerk needed):** F1/F6 fail-closed guards (throw on mock|unset
+    `AUTH_PROVIDER` when `NODE_ENV=production`; require `MOCK_SESSION_SECRET` in prod; drop the compose
+    `:-dev-only-…` default → make it required); C-middleware-throw (wrap `getIdentity()` in try/catch →
+    fail-closed in `require-role.ts`); C-admin-page (re-check `role==='ACCOUNTANT'` in `apps/admin/src/app/
+    page.tsx`, not just `!identity`); F2 (narrow `/api/*` exemption to `=== '/api/mock-session'` gated on mock);
+    F3 (gate the leftmost-XFF rate-limit key behind a `TRUST_PROXY` config / trusted-position resolve); F4
+    (set `Secure` on the session cookie when `NODE_ENV!=='development'`, incl. `buildMockSessionSetCookieHeader`);
+    cheap minors OE4 (statusCode → 307), OE5 (drop test-only resets from the barrel), OE8 (drop dead email
+    default), F5 (rate-limit sign-up), F7 (note/strip `redirect_url`).
+  - **DISPOSITION-with-rationale (do NOT rip out — intentional deferred-Clerk seam per the brief):** OE1 port
+    width, OE2 `checkSession`/`SessionValidity`, OE3 dual sync/async crypto — these support the deferred real-
+    Clerk/2FA-enablement slice; reply on-thread that they're the documented seam, leave or resolve per fixer
+    judgment.
+  - **GATE is ENV-CONSTRAINED:** run **lint + type-check + build + `pnpm --filter @tax-portal/auth test` +
+    `--filter admin test` + `--filter portal test` (non-DB)** only. **Do NOT** run `docker compose` /
+    `pnpm db:migrate` / the db-integration (`*.rls.test.ts`, `session-context.propagation.test.ts`) / e2e
+    suites — the local DB is half-bootstrapped + P3019-blocked (user accepted **CI as the gate**). Push and
+    drive the **required** CI checks (`lint-and-typecheck` + `security-scan`) green; resolve addressed threads.
+  - **After Fix green:** Conductor **Merge/Finalize** (resolve panel threads → `gh pr merge 38 --squash
+    --delete-branch` on green required CI, **no `--admin`/protection toggle**; auto-merge cond. (d) Smoke =
+    user-accepted CI substitution) → re-invoke IO **Close-finalize** (gate 8 post-merge CI; gate 9 N/A) →
+    Conductor **Validate** (`/planning validate EPIC-004 with CI evidence <merge run/SHA>` → flip 11 COVERAGE
+    rows verified + roll EPIC-004 delivered; mark the 4 deferred 2FA AC) → **docs-lane PR** for
+    `docs/demos/EPIC-004/` + README → **Report**.
+- **Local env state for resume:** Node 20.20.2 installed (project `.nvmrc`); docker stack may be up; `tax_portal`
+  DB + `taxportal_admin` login manually bootstrapped but **schema NOT migrated** (P3019). `env.local.tmp` at
+  repo root (untracked — has dev DB passwords; **do not commit**; user merges into `.env.local`). Pending USER
+  items (both `.env*` permission-walled): merge `env.local.tmp` DB URLs into `.env.local`; add `.env.example`
+  `RATE_LIMIT_MAX_ATTEMPTS=10` + `RATE_LIMIT_WINDOW_MS=60000`.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_
