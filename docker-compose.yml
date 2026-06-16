@@ -112,6 +112,11 @@ services:
       # Set to "clerk" in production once TASK-004-003 wires the real Clerk integration.
       # ADR-001 / ADR-010 / TASK-004-002
       AUTH_PROVIDER: "${AUTH_PROVIDER:-mock}"
+      # Mock-auth opt-in — required for the prod-built container to serve the mock provider
+      # (BUG-002-001 fix: the fail-closed guard in packages/auth keys on this flag, not NODE_ENV).
+      # Default true for e2e/local containers. NEVER set to "true" in a real production deploy
+      # (a real deploy uses AUTH_PROVIDER=clerk and leaves ALLOW_MOCK_AUTH unset → fail closed).
+      ALLOW_MOCK_AUTH: "${ALLOW_MOCK_AUTH:-true}"
       # Cross-app redirect URLs (ADR-010)
       PORTAL_APP_URL: "${PORTAL_APP_URL:-http://localhost:3000}"
       ADMIN_APP_URL: "${ADMIN_APP_URL:-http://localhost:3001}"
@@ -170,6 +175,11 @@ services:
       # Set to "clerk" in production once TASK-004-003 wires the real Clerk integration.
       # ADR-001 / ADR-010 / TASK-004-002
       AUTH_PROVIDER: "${AUTH_PROVIDER:-mock}"
+      # Mock-auth opt-in — required for the prod-built container to serve the mock provider
+      # (BUG-002-001 fix: the fail-closed guard in packages/auth keys on this flag, not NODE_ENV).
+      # Default true for e2e/local containers. NEVER set to "true" in a real production deploy
+      # (a real deploy uses AUTH_PROVIDER=clerk and leaves ALLOW_MOCK_AUTH unset → fail closed).
+      ALLOW_MOCK_AUTH: "${ALLOW_MOCK_AUTH:-true}"
       # Mock session secret (AUTH_PROVIDER=mock only; must NOT be set in production).
       # Required — no default. Generate a random secret: openssl rand -hex 32
       # See .env.example for the required format.

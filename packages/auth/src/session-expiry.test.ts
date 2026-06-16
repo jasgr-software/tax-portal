@@ -50,6 +50,9 @@ describe("session-expiry — [AC-AUTH-009-01]", () => {
     // Use a deterministic test secret for all tests in this suite
     process.env["MOCK_SESSION_SECRET"] = "test-expiry-secret-67890";
     process.env["AUTH_PROVIDER"] = "mock";
+    // ALLOW_MOCK_AUTH=true is required since BUG-002-001 fix: the fail-closed guard
+    // in select.ts keys on this flag (not NODE_ENV) to permit the mock provider.
+    process.env["ALLOW_MOCK_AUTH"] = "true";
     // Reset singleton so getAuthProvider() picks up the env var cleanly
     resetAuthProviderForTesting();
   });
@@ -57,6 +60,7 @@ describe("session-expiry — [AC-AUTH-009-01]", () => {
   afterEach(() => {
     delete process.env["MOCK_SESSION_SECRET"];
     delete process.env["AUTH_PROVIDER"];
+    delete process.env["ALLOW_MOCK_AUTH"];
     // Reset singleton between tests
     resetAuthProviderForTesting();
   });

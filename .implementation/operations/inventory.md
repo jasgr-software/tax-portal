@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-004-001 (BRIEF-004)
+**Last updated:** BUG-002-001 (ALLOW_MOCK_AUTH container env contract)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -92,6 +92,9 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `ADMIN_DATABASE_URL` | host env → admin container | **Required** — Container-side request pool URL for the admin service. Uses the compose service name `sqlserver` on port `1433`. Set in `.env.local` (added TASK-004-001). |
 | `PORTAL_APP_URL` | Both | Public URL of portal — e.g. `http://localhost:3000`. Used by cross-app redirect logic (ADR-010). |
 | `ADMIN_APP_URL` | Both | Public URL of admin — e.g. `http://localhost:3001`. Used by cross-app redirect logic (ADR-010). |
+| `AUTH_PROVIDER` | Both | Auth provider selector: `mock` (local/e2e default) or `clerk` (production). Defaults to `mock` via `${AUTH_PROVIDER:-mock}` in compose. |
+| `ALLOW_MOCK_AUTH` | Both | **Mock-only opt-in** (BUG-002-001 fix). Must be `"true"` for the prod-built container to serve the mock provider. The fail-closed guard in `packages/auth/src/select.ts` keys on this flag (not `NODE_ENV`) — `NODE_ENV=production` is always true for any built image and cannot distinguish e2e/local from a real deploy. Defaults to `"true"` in compose (`${ALLOW_MOCK_AUTH:-true}`) for e2e/local containers. **NEVER set to `"true"` in a real production deploy** — a real deploy sets `AUTH_PROVIDER=clerk` and leaves `ALLOW_MOCK_AUTH` unset → fail closed (throws on mock/unset). Added BUG-002-001. |
+| `MOCK_SESSION_SECRET` | Both | Signing secret for the mock session cookie. Required when `AUTH_PROVIDER=mock`. Must be a strong random secret. **Never used in a real production deployment.** |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | portal + admin | Clerk publishable key (TASK-004-002) |
 | `CLERK_SECRET_KEY` | portal + admin | Clerk secret key (TASK-004-002) |
 | `CLERK_WEBHOOK_SECRET` | portal | Clerk webhook signing secret (ADR-001, TASK-004-002) |

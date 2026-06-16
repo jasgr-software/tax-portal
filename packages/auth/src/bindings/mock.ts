@@ -63,30 +63,44 @@ export const DEFAULT_MOCK_SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 export const MOCK_SESSION_COOKIE_NAME = "__mock_session";
 
 /**
- * Dev-only fallback secret. Used ONLY in local dev / e2e (AUTH_PROVIDER=mock).
- * Never used in production — the production guard in select.ts prevents the mock
- * binding from being instantiated when NODE_ENV=production.
+ * Dev-only fallback secret. Used ONLY in local dev / e2e (AUTH_PROVIDER=mock + ALLOW_MOCK_AUTH=true).
+ * Never used in a real production deployment — the fail-closed guard in select.ts prevents the mock
+ * binding from being instantiated when ALLOW_MOCK_AUTH is not explicitly set to "true".
  *
- * A separate guard below throws if MOCK_SESSION_SECRET is absent even in non-prod
- * environments (to prevent the mock binding from running with the committed default).
+ * A separate guard below throws if MOCK_SESSION_SECRET is absent when mock is NOT opted in,
+ * preventing the mock binding from running with the committed default in unauthorized contexts.
  */
 const DEV_FALLBACK_SECRET = "dev-only-mock-secret-do-not-use-in-production";
 
+/**
+ * Returns true when the mock provider has been explicitly opted in via ALLOW_MOCK_AUTH=true.
+ * Must agree with the same predicate in select.ts (both guards key on ALLOW_MOCK_AUTH, not NODE_ENV).
+ *
+ * DECISION (BUG-002-001): this predicate is kept in one place (here) and called from getSecret()
+ * so that select.ts and mock.ts always agree on what "mock is sanctioned" means. If either guard
+ * checked NODE_ENV instead, a prod-built container with ALLOW_MOCK_AUTH=true would throw here even
+ * after select.ts is fixed — defeating the fix.
+ */
+function isMockAllowed(): boolean {
+  return (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+}
+
 function getSecret(): string {
   const secret = process.env["MOCK_SESSION_SECRET"];
-  // In production the mock binding is never reached (select.ts throws first).
-  // For non-production environments, require the secret to be explicitly set so
-  // the composed-default or missing env is surfaced as an error early.
-  // (F1 — review finding: drop committed fallback; make MOCK_SESSION_SECRET required.)
+  // When mock is NOT explicitly opted in (no ALLOW_MOCK_AUTH=true), this binding should never
+  // be reached (select.ts throws first). Belt-and-suspenders: throw here too so the binding
+  // never runs with the dev fallback in an unauthorized context.
+  // (F1 — review finding: drop committed fallback; make MOCK_SESSION_SECRET required in real prod.)
   if (!secret || secret === DEV_FALLBACK_SECRET) {
-    if (process.env["NODE_ENV"] === "production") {
+    if (!isMockAllowed()) {
       // Belt-and-suspenders — select.ts throws first, but guard here too.
       throw new Error(
-        "[packages/auth] MOCK_SESSION_SECRET must not be set to the dev default in production. " +
-          "The mock binding is forbidden in production.",
+        "[packages/auth] MOCK_SESSION_SECRET must not be set to the dev default unless ALLOW_MOCK_AUTH=true. " +
+          "The mock binding is forbidden in a real production deployment.",
       );
     }
-    // Non-production: allow the dev fallback with a warning (local dev, CI unit tests).
+    // ALLOW_MOCK_AUTH=true (e2e/local prod-built container or local dev): allow the dev fallback
+    // with a warning so missing MOCK_SESSION_SECRET is surfaced early.
     if (!secret) {
       console.warn(
         "[packages/auth] MOCK_SESSION_SECRET is not set. " +

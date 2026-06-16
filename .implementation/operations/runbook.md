@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-004-001 (BRIEF-004)
+**Last updated:** BUG-002-001 (ALLOW_MOCK_AUTH container env contract)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -52,6 +52,17 @@ ADMIN_DATABASE_URL=sqlserver://sqlserver;port=1433;database=tax_portal;user=taxp
 **Cross-app URL wiring (ADR-010):** The admin container accepts `PORTAL_APP_URL` and `ADMIN_APP_URL`
 for cross-app redirect logic. These default to `http://localhost:3000` and `http://localhost:3001`
 in the compose file. Override in `.env.local` if ports differ.
+
+**Mock-auth opt-in (BUG-002-001 fix — `ALLOW_MOCK_AUTH`):** Both the `portal` and `admin` compose
+services require `ALLOW_MOCK_AUTH=true` when `AUTH_PROVIDER=mock` (the local/e2e default). The
+fail-closed guard in `packages/auth` keys on this flag (not `NODE_ENV`) because `NODE_ENV=production`
+is always true for any prod-built container image, including the sanctioned e2e/local container.
+The compose file defaults `ALLOW_MOCK_AUTH` to `true` via `${ALLOW_MOCK_AUTH:-true}` for both
+services — no `.env.local` entry is needed for local dev.
+
+**NEVER set `ALLOW_MOCK_AUTH=true` in a real production deployment.** A real deploy sets
+`AUTH_PROVIDER=clerk` and leaves `ALLOW_MOCK_AUTH` unset. Without the flag, any request that
+hits the mock/unset auth path throws at process startup → fail closed (F1/F6 intent preserved).
 
 **Seed/migrate principal:** `pnpm db:migrate` and `pnpm db:seed` run under `DATABASE_URL_ADMIN`
 (`taxportal_admin` login, `app_admin_role` member). Do NOT use `sa` — the Service table has an RLS
