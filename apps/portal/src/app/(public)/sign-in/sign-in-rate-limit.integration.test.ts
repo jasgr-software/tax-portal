@@ -107,6 +107,11 @@ describe("[ADR-022] [rate-limit] sign-in surface throttle — integration", () =
     process.env["RATE_LIMIT_MAX_ATTEMPTS"] = "3";
     process.env["RATE_LIMIT_WINDOW_MS"] = "60000";
     process.env["AUTH_PROVIDER"] = "mock";
+    // DECISION (BUG-002-004): ALLOW_MOCK_AUTH=true is required because BUG-002-001 changed
+    // the getSecret() guard from a NODE_ENV=production check to an ALLOW_MOCK_AUTH=true check.
+    // Without this, signMockSessionAsync → getSecret() throws in test context.
+    // Mirrors the same pattern applied to packages/auth/src/session-expiry.test.ts.
+    process.env["ALLOW_MOCK_AUTH"] = "true";
     // Enable trusted-proxy mode so the mocked X-Forwarded-For header is used for
     // rate-limit key resolution (F3 fix: TRUST_PROXY gates XFF trust in production too).
     process.env["TRUST_PROXY"] = "true";
@@ -120,6 +125,7 @@ describe("[ADR-022] [rate-limit] sign-in surface throttle — integration", () =
     delete process.env["RATE_LIMIT_MAX_ATTEMPTS"];
     delete process.env["RATE_LIMIT_WINDOW_MS"];
     delete process.env["TRUST_PROXY"];
+    delete process.env["ALLOW_MOCK_AUTH"]; // BUG-002-004 cleanup
   });
 
   // ── Test 1: N+1 attempts → (N+1)th is throttled, no session established ─────
