@@ -74,6 +74,27 @@ const nextConfig = {
   // ADR-007: Per-app container image
   output: "standalone",
 
+  // BUG-002-002: Ensure the Alpine/OpenSSL-3 Prisma query-engine binary is included in the
+  // standalone output tree.  Next.js file-tracing follows require() calls — in the builder
+  // stage (Debian/glibc), the native engine is loaded; the musl engine is never require()-d
+  // and therefore not auto-traced.  outputFileTracingIncludes forces Next to include it.
+  //
+  // DECISION: outputFileTracingIncludes chosen over an explicit COPY --from=builder in the
+  // Dockerfile because (a) this is the canonical Next.js/Prisma approach, (b) it keeps the
+  // engine-inclusion contract visible in the app config, and (c) the Dockerfile already
+  // COPYs the full standalone tree so once the engine is in the tree it ships correctly.
+  // Portal currently reads via the raw-mssql admin pool (no Prisma request path yet); this
+  // preempts the identical Alpine/OpenSSL-3 trap the moment portal takes the Prisma path —
+  // ADR-006 two-frontend parity requirement (BUG-002-002).
+  // Fallback: if in-container verify shows the engine is missing post-build, add an explicit
+  // COPY --from=builder of the .node file alongside the standalone COPY lines in the Dockerfile.
+  outputFileTracingIncludes: {
+    "**/*": [
+      "../../node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/libquery_engine-linux-musl*.node",
+      "../../node_modules/.pnpm/prisma*/node_modules/prisma/libquery_engine-linux-musl*.node",
+    ],
+  },
+
   // Next.js 15: serverComponentsExternalPackages moved out of experimental.
   // Renamed to serverExternalPackages — prevents bundling DB/Prisma modules.
   // These are Node.js-only; they must not be webpack-bundled.

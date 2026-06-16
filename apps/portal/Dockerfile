@@ -58,6 +58,19 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# BUG-002-002: Alpine runner (node:20-alpine) ships only libssl.so.3; the default musl Prisma
+# engine (linux-musl.so.node) requires libssl.so.1.1 which is absent on Alpine.
+# PRISMA_QUERY_ENGINE_LIBRARY forces the runtime to load the linux-musl-openssl-3.0.x engine
+# from a stable, version-independent path (/app/.prisma/client/).
+# Without this, Prisma's OpenSSL auto-detection on Alpine defaults to "openssl-1.1.x" and
+# tries to dlopen linux-musl.so.node → libssl.so.1.1 not found → PrismaClientInitializationError.
+# Portal currently reads via the raw-mssql admin pool (no Prisma request path yet); this
+# preempts the identical Alpine/OpenSSL-3 trap the moment portal takes the Prisma path —
+# ADR-006 two-frontend parity requirement (BUG-002-002).
+# DECISION (BUG-002-002): see apps/admin/Dockerfile for full rationale (three-layer fix).
+# The engine is COPY-d below from the pnpm store to a stable path.
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
+
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
     adduser  --system --uid  1001 nextjs
@@ -66,6 +79,14 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/portal/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/portal/.next/static ./apps/portal/.next/static
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/portal/public ./apps/portal/public
+
+# BUG-002-002: Copy the linux-musl-openssl-3.0.x Prisma engine to a stable path.
+# See apps/admin/Dockerfile for full rationale. Same pattern for ADR-006 parity.
+# If the Prisma version changes, update the source path to match the new @prisma+client version.
+RUN mkdir -p /app/.prisma/client && chown nextjs:nodejs /app/.prisma /app/.prisma/client
+COPY --from=builder --chown=nextjs:nodejs \
+  /repo/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node \
+  /app/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
 
 USER nextjs
 

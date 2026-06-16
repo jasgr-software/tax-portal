@@ -15,7 +15,12 @@
 // Prisma version lock: 5.22.x (ADR-004 § Prisma version pinning)
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // BUG-002-002: Alpine runner (node:20-alpine) ships only libssl.so.3; the default musl engine
+  // requires libssl.so.1.1 (absent on Alpine).  Generate the linux-musl-openssl-3.0.x engine so
+  // the Alpine/OpenSSL-3 container runner can load the Prisma query engine.
+  // "native" is retained so local dev/test (the host) continues to work unchanged.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

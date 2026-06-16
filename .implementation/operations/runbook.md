@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-004-001 (BRIEF-004)
+**Last updated:** BUG-002-002 (Alpine/OpenSSL-3 Prisma engine binary target requirement)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -52,6 +52,17 @@ ADMIN_DATABASE_URL=sqlserver://sqlserver;port=1433;database=tax_portal;user=taxp
 **Cross-app URL wiring (ADR-010):** The admin container accepts `PORTAL_APP_URL` and `ADMIN_APP_URL`
 for cross-app redirect logic. These default to `http://localhost:3000` and `http://localhost:3001`
 in the compose file. Override in `.env.local` if ports differ.
+
+**Mock-auth opt-in (BUG-002-001 fix — `ALLOW_MOCK_AUTH`):** Both the `portal` and `admin` compose
+services require `ALLOW_MOCK_AUTH=true` when `AUTH_PROVIDER=mock` (the local/e2e default). The
+fail-closed guard in `packages/auth` keys on this flag (not `NODE_ENV`) because `NODE_ENV=production`
+is always true for any prod-built container image, including the sanctioned e2e/local container.
+The compose file defaults `ALLOW_MOCK_AUTH` to `true` via `${ALLOW_MOCK_AUTH:-true}` for both
+services — no `.env.local` entry is needed for local dev.
+
+**NEVER set `ALLOW_MOCK_AUTH=true` in a real production deployment.** A real deploy sets
+`AUTH_PROVIDER=clerk` and leaves `ALLOW_MOCK_AUTH` unset. Without the flag, any request that
+hits the mock/unset auth path throws at process startup → fail closed (F1/F6 intent preserved).
 
 **Seed/migrate principal:** `pnpm db:migrate` and `pnpm db:seed` run under `DATABASE_URL_ADMIN`
 (`taxportal_admin` login, `app_admin_role` member). Do NOT use `sa` — the Service table has an RLS
@@ -318,6 +329,41 @@ This is documented here for ops awareness per the task spec's note.
 
 Azurite uses a well-known dev account. The default connection string in `.env.example` is correct
 for Azurite started with `docker compose up -d`. Do not change the `AccountName` or `AccountKey`.
+
+### Prisma engine fails to load in container (`libssl.so.1.1` error)
+
+**Symptom:** request-scoped Prisma pages (e.g. `/services` in admin) return "Application error"
+in-container; container logs show:
+```
+Error [PrismaClientInitializationError]:
+Unable to require(`libquery_engine-linux-musl.so.node`).
+Details: Error loading shared library libssl.so.1.1: No such file or directory
+```
+
+**Cause:** The Alpine runner (`node:20-alpine`) ships only `libssl.so.3`. A Prisma engine compiled
+against OpenSSL 1.1.x requires `libssl.so.1.1` (absent). The fix (BUG-002-002) generates the
+`linux-musl-openssl-3.0.x` engine and includes it in the standalone image via `outputFileTracingIncludes`.
+
+**Diagnosis:**
+```bash
+# Check which engines are in the container image
+docker compose exec admin find /app -name 'libquery_engine*'
+# Should include: libquery_engine-linux-musl-openssl-3.0.x.so.node
+# If absent: the outputFileTracingIncludes glob did not match — see inventory.md § Prisma Engine
+```
+
+**Recovery (three-layer fix — all three must be present):**
+1. Verify `prisma/schema.prisma` `generator client` includes `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]`
+2. Verify `apps/admin/next.config.mjs` and `apps/portal/next.config.mjs` include `outputFileTracingIncludes` with the musl engine glob
+3. Verify both Dockerfiles (runner stage) include `ENV PRISMA_QUERY_ENGINE_LIBRARY` pointing at `/app/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node` AND the `COPY --from=builder` that populates that path
+4. Rebuild: `docker compose --env-file .env.local build admin portal`
+5. Restart: `ADMIN_PORT=13001 docker compose --env-file .env.local up -d --no-deps admin portal`
+6. Re-verify engine present: `docker exec tax-portal-admin find /app -name 'libquery_engine-linux-musl*'`
+7. Re-verify env var: `docker exec tax-portal-admin sh -c 'echo $PRISMA_QUERY_ENGINE_LIBRARY'`
+
+See `inventory.md` § Prisma Engine Binary Target Requirement for full details.
+
+---
 
 ### Port already in use
 

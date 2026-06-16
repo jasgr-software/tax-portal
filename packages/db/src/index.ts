@@ -29,8 +29,19 @@ export type {
 // Re-export repositories
 export type { CreateEngagementRequestInput, CreateEngagementRequestResult } from "./repositories/engagement-request.js";
 export { createEngagementRequest } from "./repositories/engagement-request.js";
-export type { ServiceListItem } from "./repositories/service.js";
-export { getActiveServices } from "./repositories/service.js";
+export type {
+  ServiceListItem,
+  ServiceItem,
+  CreateServiceInput,
+  UpdateServiceInput,
+} from "./repositories/service.js";
+export {
+  getActiveServices,
+  listAllServices,
+  createService,
+  updateService,
+  deactivateService,
+} from "./repositories/service.js";
 
 // Audit-event write helper (ADR-019)
 // recordAuthEvent INSERTs a tamper-evident audit row into the AuditEvent ledger table.

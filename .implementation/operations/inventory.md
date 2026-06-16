@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-004-001 (BRIEF-004)
+**Last updated:** BUG-002-002 (Alpine/OpenSSL-3 Prisma engine binary target requirement)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -92,6 +92,9 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `ADMIN_DATABASE_URL` | host env → admin container | **Required** — Container-side request pool URL for the admin service. Uses the compose service name `sqlserver` on port `1433`. Set in `.env.local` (added TASK-004-001). |
 | `PORTAL_APP_URL` | Both | Public URL of portal — e.g. `http://localhost:3000`. Used by cross-app redirect logic (ADR-010). |
 | `ADMIN_APP_URL` | Both | Public URL of admin — e.g. `http://localhost:3001`. Used by cross-app redirect logic (ADR-010). |
+| `AUTH_PROVIDER` | Both | Auth provider selector: `mock` (local/e2e default) or `clerk` (production). Defaults to `mock` via `${AUTH_PROVIDER:-mock}` in compose. |
+| `ALLOW_MOCK_AUTH` | Both | **Mock-only opt-in** (BUG-002-001 fix). Must be `"true"` for the prod-built container to serve the mock provider. The fail-closed guard in `packages/auth/src/select.ts` keys on this flag (not `NODE_ENV`) — `NODE_ENV=production` is always true for any built image and cannot distinguish e2e/local from a real deploy. Defaults to `"true"` in compose (`${ALLOW_MOCK_AUTH:-true}`) for e2e/local containers. **NEVER set to `"true"` in a real production deploy** — a real deploy sets `AUTH_PROVIDER=clerk` and leaves `ALLOW_MOCK_AUTH` unset → fail closed (throws on mock/unset). Added BUG-002-001. |
+| `MOCK_SESSION_SECRET` | Both | Signing secret for the mock session cookie. Required when `AUTH_PROVIDER=mock`. Must be a strong random secret. **Never used in a real production deployment.** |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | portal + admin | Clerk publishable key (TASK-004-002) |
 | `CLERK_SECRET_KEY` | portal + admin | Clerk secret key (TASK-004-002) |
 | `CLERK_WEBHOOK_SECRET` | portal | Clerk webhook signing secret (ADR-001, TASK-004-002) |
@@ -242,3 +245,78 @@ pnpm db:policies:apply    # Re-apply policies only (idempotent; use after policy
 | `mcr.microsoft.com/azure-storage/azurite:latest` | Microsoft MCR | `latest` acceptable for dev emulator. |
 | `mailhog/mailhog:latest` | Docker Hub | `latest` acceptable for mail catcher. |
 | `node:20-alpine` | Docker Hub | Pinned at LTS major. App Dockerfiles (TASK-004) will use a specific patch tag. |
+
+---
+
+## Prisma Engine Binary Target Requirement (BUG-002-002)
+
+**Added:** BUG-002-002
+
+Both app container images (`portal`, `admin`) use the `node:20-alpine` runner. Alpine ships only
+`libssl.so.3` (OpenSSL 3.x). Prisma 5.22.x's default query engine (`libquery_engine-linux-musl.so.node`)
+requires `libssl.so.1.1` (OpenSSL 1.1.x), which is absent on Alpine — causing the request-scoped Prisma
+path to fail with:
+
+```
+Error [PrismaClientInitializationError]:
+Unable to require(`libquery_engine-linux-musl.so.node`).
+Details: Error loading shared library libssl.so.1.1: No such file or directory
+```
+
+### Fix (BUG-002-002) — three-layer fix
+
+1. **`prisma/schema.prisma` `generator client`** now declares:
+   ```prisma
+   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+   ```
+   This causes `prisma generate` (whether run on the host or in the Docker builder) to produce the
+   `libquery_engine-linux-musl-openssl-3.0.x.so.node` engine alongside the host-native engine.
+   `native` is retained so local dev/test (the host) continues to work unchanged.
+
+2. **`outputFileTracingIncludes` in both `apps/admin/next.config.mjs` and `apps/portal/next.config.mjs`**
+   forces Next.js standalone file-tracing to include the musl engine `.node` file in the standalone
+   output tree. Without this, the Alpine builder only traces the engine it loaded (which would be
+   the older `linux-musl.so.node`); the 3.0.x engine would not be included in the standalone bundle.
+
+3. **`PRISMA_QUERY_ENGINE_LIBRARY` env var + explicit `COPY --from=builder` in both Dockerfiles'
+   runner stages** explicitly override Prisma's Alpine OpenSSL detection (which defaults to
+   "openssl-1.1.x" when it cannot detect the OpenSSL version). Without this override, Prisma tries
+   to load `linux-musl.so.node` even though `linux-musl-openssl-3.0.x.so.node` is present.
+   The engine is COPY-d to a stable `/app/.prisma/client/` path (not a pnpm-hashed path) so the
+   `PRISMA_QUERY_ENGINE_LIBRARY` env var points to a version-stable location.
+
+   Both `apps/admin/Dockerfile` and `apps/portal/Dockerfile` (runner stages) include:
+   ```dockerfile
+   ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
+   RUN mkdir -p /app/.prisma/client && chown nextjs:nodejs /app/.prisma /app/.prisma/client
+   COPY --from=builder --chown=nextjs:nodejs \
+     /repo/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node \
+     /app/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
+   ```
+   **If the Prisma version changes (ADR-004 § Prisma version lock):** update the `COPY --from=builder`
+   source path in both Dockerfiles to match the new `@prisma+client` pnpm store path.
+
+### Regression symptom
+
+If any of the three fix layers regress, the Alpine runner cannot load the Prisma query engine:
+- Missing `binaryTargets` entry → engine not generated → engine not in standalone tree
+- Missing `outputFileTracingIncludes` → engine not in standalone tree (Alpine builder traces `linux-musl.so.node` not `linux-musl-openssl-3.0.x.so.node`)
+- Missing `PRISMA_QUERY_ENGINE_LIBRARY` → Prisma defaults to 1.1.x detection on Alpine → tries to load `linux-musl.so.node` → fails
+
+Every request-scoped Prisma page (i.e., any page using the `packages/db` lazy `db` client, e.g. `listAllServices()`) will 500 with:
+```
+PrismaClientInitializationError:
+Unable to require(`libquery_engine-linux-musl.so.node`).
+Details: Error loading shared library libssl.so.1.1: No such file or directory
+```
+The regression is only detectable in the container (not on the host, where `native` loads fine).
+
+### Verification
+
+After rebuilding images:
+```bash
+docker compose exec admin find /app -name 'libquery_engine-linux-musl*'
+# Expected: /app/node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node (or similar path)
+```
+If the engine is absent, the `outputFileTracingIncludes` glob did not match — check pnpm store paths
+and update the glob in both `next.config.mjs` files accordingly.
