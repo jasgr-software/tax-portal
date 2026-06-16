@@ -11,10 +11,10 @@
 **Introduces-gate:** no (justification: the `@demo` spec is **excluded** from `e2e:run`/`e2e:smoke` via `--grep-invert @demo` and runs only through the separate `e2e:demo` script — it is never a CI gate, never a required check, never a blocking DoD beyond its own. It asserts each screen is visible so a broken UI fails the demo loudly, but a failed/missing demo never blocks delivery.)
 **E2e-required:** yes (non-gating — DEMO-POLICY). Drives the persona/flow happy-path against the **live docker-compose container stack** with the **mock auth provider** (`AUTH_PROVIDER=mock`), the same SUT the e2e gate uses — never a dev server. Docker pre-flight required.
 
-**Started-at:** 2026-06-15T20:00:00Z
-**Complexity-estimate:** 2
-**Complexity-actual:** 2
-**Completed-at:** 2026-06-15T20:30:00Z
+**Started-at**: 2026-06-15T20:00:00Z
+**Complexity-estimate**: 2
+**Complexity-actual**: 2
+**Completed-at**: 2026-06-15T20:30:00Z
 
 ---
 
