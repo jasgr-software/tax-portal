@@ -91,6 +91,10 @@ jobs:
         if: hashFiles('pnpm-lock.yaml') != ''
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace packages
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm -r --filter './packages/**' build --if-present
+
       - name: Verify SQL Server is reachable
         if: hashFiles('pnpm-lock.yaml') != ''
         run: |
@@ -133,6 +137,10 @@ jobs:
       - name: Install dependencies
         if: hashFiles('pnpm-lock.yaml') != ''
         run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm -r --filter './packages/**' build --if-present
 
       - name: Verify SQL Server is reachable
         if: hashFiles('pnpm-lock.yaml') != ''
