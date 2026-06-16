@@ -16,6 +16,7 @@
     "e2e:demo": "playwright test --grep @demo"
   },
   "dependencies": {
+    "@tax-portal/auth": "workspace:*",
     "@tax-portal/db": "workspace:*",
     "@tax-portal/ui": "workspace:*",
     "next": "15.5.19",

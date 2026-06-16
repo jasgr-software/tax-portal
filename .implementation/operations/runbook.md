@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-006 (BRIEF-001)
+**Last updated:** TASK-004-001 (BRIEF-004)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -38,7 +38,20 @@ SA_PASSWORD=YOUR_SA_PASSWORD
 
 **Port note:** The host-side port is `14330` (set by `SQLSERVER_PORT`). Scripts (`db:migrate`, `db:seed`),
 the dev server, and the host-side Playwright fixture all connect via `localhost:14330`. Only services
-inside docker-compose (e.g. the portal container) use the internal service name `sqlserver` on port `1433`.
+inside docker-compose (e.g. the portal and admin containers) use the internal service name `sqlserver` on port `1433`.
+
+**Admin app container DB URLs (added TASK-004-001):** The admin container (`tax-portal-admin`, port 3001)
+requires its own container-side DB URL vars, distinct from the host-side `DATABASE_URL` / `DATABASE_URL_ADMIN`:
+
+```
+# Admin container DB URLs (container-internal — use sqlserver:1433, not localhost:14330)
+ADMIN_DATABASE_URL_ADMIN=sqlserver://sqlserver;port=1433;database=tax_portal;user=taxportal_admin;password=YOUR_ADMIN_PASSWORD;trustServerCertificate=true
+ADMIN_DATABASE_URL=sqlserver://sqlserver;port=1433;database=tax_portal;user=taxportal_app;password=YOUR_APP_PASSWORD;trustServerCertificate=true
+```
+
+**Cross-app URL wiring (ADR-010):** The admin container accepts `PORTAL_APP_URL` and `ADMIN_APP_URL`
+for cross-app redirect logic. These default to `http://localhost:3000` and `http://localhost:3001`
+in the compose file. Override in `.env.local` if ports differ.
 
 **Seed/migrate principal:** `pnpm db:migrate` and `pnpm db:seed` run under `DATABASE_URL_ADMIN`
 (`taxportal_admin` login, `app_admin_role` member). Do NOT use `sa` — the Service table has an RLS
@@ -73,9 +86,10 @@ docker compose up -d                # Start containers (volumes persist)
 docker compose ps                   # All services should show "healthy" or "running"
 ```
 
-Expected output (data-plane + portal app service, post-TASK-004):
+Expected output (data-plane + portal + admin app services, post-TASK-004-001):
 ```
 NAME                      IMAGE                                         STATUS          PORTS
+tax-portal-admin          apps/admin/Dockerfile                         Up (healthy)    0.0.0.0:3001->3001/tcp
 tax-portal-azurite        mcr.microsoft.com/azure-storage/azurite      Up (healthy)    0.0.0.0:10000->10000/tcp
 tax-portal-mailhog        mailhog/mailhog                               Up (healthy)    0.0.0.0:1025->1025/tcp, 0.0.0.0:8025->8025/tcp
 tax-portal-portal         apps/portal/Dockerfile                        Up (healthy)    0.0.0.0:3000->3000/tcp
@@ -132,6 +146,25 @@ pnpm db:policies:apply
 ```
 
 This runs Track B only. Useful when iterating on a security policy without a full migration cycle.
+
+### Audit ledger migration (TASK-004-010 — ADR-019)
+
+`db/migrations/0002-create-audit-ledger.sql` creates the `dbo.AuditEvent` append-only ledger table.
+`db/policies/0003-audit-event-policy.sql` creates the `sec.pol_AuditEvent` RLS policy (accountant/admin only).
+
+Both are applied automatically by `pnpm db:migrate`. No manual step required beyond running the standard migrate command.
+
+**Tamper-evidence note:** The `AuditEvent` table uses `LEDGER = ON (APPEND_ONLY = ON)` (SQL Server 2022).
+Rows are cryptographically verifiable via:
+```sql
+EXEC sys.sp_verify_database_ledger;
+```
+This procedure checks the Merkle-tree hash chain and reports any tampered rows.
+
+**Retention note (ADR-019 §5 — DEFERRED):** The `AuditEvent` table must be retained ≥7 years.
+When the purge job (ADR-018) is implemented, it must EXPLICITLY EXCLUDE `dbo.AuditEvent`.
+Do not create any cleanup or sweep logic that touches this table until the purge-exclusion
+gate is formally implemented. See inventory.md § Audit Ledger Table for details.
 
 ### Reset (full wipe + remigrate)
 
@@ -203,6 +236,34 @@ bash scripts/smoke-test.sh --data-plane-only  # Data-plane only (no app probes)
 
 The smoke script is used by the SDET between Review and Validate phases. It runs in container mode
 against the actual Docker images — not the dev servers.
+
+### Admin app health probes (added TASK-004-001)
+
+After `docker compose up -d`, the admin app can be probed independently:
+
+```bash
+# Shallow health check (admin container, port 3001)
+curl http://localhost:3001/healthz    # Returns: {"status":"ok","app":"admin","ts":"..."}
+curl http://localhost:3001/readyz     # Returns: {"status":"ready","app":"admin","ts":"..."}
+```
+
+The Playwright smoke spec (`apps/admin/e2e/specs/scaffold.smoke.spec.ts`, `@smoke` tagged) runs
+these probes via the e2e runner against the compose stack:
+
+```bash
+pnpm --filter admin e2e:smoke   # Run @smoke specs against http://localhost:3001
+```
+
+### Cross-app redirect gate (TASK-004-008 — ADR-010 §8 required gate)
+
+The `pnpm e2e:cross-app` script is the required gate for the ADR-010 §8 redirect matrix.
+It runs the exhaustive cross-app specs against both app containers and exits non-zero on any failure:
+
+```bash
+pnpm e2e:cross-app   # Runs cross-app-redirect.spec.ts in both apps/portal and apps/admin
+```
+
+Both containers (portal on 3000, admin on ADMIN_PORT) must be healthy before running this gate.
 
 ---
 
@@ -284,6 +345,47 @@ See `.github/workflows/` for the CI job definitions (added in the CI workflow ta
 **CodeQL advisory (no GHAS license):** The `security-scan` job's CodeQL steps carry `continue-on-error: true`
 because GHAS is not licensed on this private org repo. The `pnpm audit --audit-level=high` step is the
 enforced hard gate. Remove `continue-on-error` from both CodeQL steps once GHAS is enabled.
+
+---
+
+## Rate Limiter Scaling Trigger (ADR-022 §2 / ADR-007)
+
+**Added:** TASK-004-009 (BRIEF-004)
+
+The sign-in rate limiter (`packages/auth/src/rate-limiter/in-memory.ts`) stores counters
+in the Node.js process heap — **one counter store per running process**.
+
+### v1 single-process assumption (safe today)
+
+While each app (`apps/portal`, `apps/admin`) runs as **one replica**, the in-memory limiter
+is correct and sufficient: all requests hit the same process and share the same counter.
+
+### >1-replica trigger (action required)
+
+**If either app is scaled beyond ONE replica, this limiter MUST be replaced with a
+shared-store adapter before the scale-out goes live.**
+
+Why: with N replicas, each process holds its own counters. An attacker sending N×limit
+requests (distributing across replicas) would not trigger the throttle in any single replica.
+The effective limit multiplies by the replica count — a real credential-stuffing hole.
+
+**Migration path (no call-site changes):**
+1. Implement a `SharedStoreRateLimiter` class that satisfies the `RateLimiter` port
+   (`packages/auth/src/rate-limiter/port.ts`) using SQL Server (ADR-007's named fallback)
+   or an external store (Redis, Azure Cache for Redis, etc.).
+2. Register it as the singleton in `packages/auth/src/rate-limiter/in-memory.ts`'s
+   `getRateLimiter()` function (or add a new selector), gated by an env var.
+3. No changes to `apps/portal/src/app/(public)/sign-in/actions.ts` — it calls
+   `getRateLimiter()` and is agnostic to the impl.
+
+### Environment variables (configurable defaults)
+
+| Variable                  | Default | Description                                            |
+| ------------------------- | ------- | ------------------------------------------------------ |
+| `RATE_LIMIT_MAX_ATTEMPTS` | `10`    | Max sign-in attempts allowed per (IP, endpoint) window |
+| `RATE_LIMIT_WINDOW_MS`    | `60000` | Window length in milliseconds (default: 1 minute)      |
+
+Add these to `.env.local` to override defaults during local dev or testing.
 
 ---
 

@@ -25,6 +25,7 @@ FROM base AS deps
 # Copy manifests for all packages the portal depends on
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/db/package.json ./packages/db/package.json
+COPY packages/auth/package.json ./packages/auth/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY packages/tsconfig/package.json ./packages/tsconfig/package.json
 COPY packages/eslint-config/package.json ./packages/eslint-config/package.json
@@ -44,6 +45,8 @@ RUN pnpm prisma generate
 RUN pnpm --filter @tax-portal/ui build
 # Build packages/db
 RUN pnpm --filter @tax-portal/db build
+# Build packages/auth (provides middleware + redirect helper)
+RUN pnpm --filter @tax-portal/auth build
 # Build the portal app
 RUN pnpm --filter portal build
 

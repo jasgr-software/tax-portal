@@ -6,63 +6,85 @@
 >
 > **Note (2026-06-14):** the implementation team was refactored into the standalone `.implementation/` layer
 > (engine: `ENGINE.md` / `PHASES.md`; orchestrator: `AGENT.md` = the Implementation Orchestrator, `[io]`).
-> Prior-pipeline bookkeeping (the legacy SA/RA epic state and the long-merged chore PRs) is retired with that
-> refactor; see `PROGRESS-ARCHIVE.md` and git history. The team now consumes a self-contained build brief.
+> The team consumes a self-contained build brief.
 
 ## Current initiative
 
-**Name:** _None — engine idle._ The previous slice (**BRIEF-001 — Public front door**) is **fully closed** (PR #35 merged to `main`@`f7f6c9d`; Close-finalize gates 8 + 9 cleared 2026-06-15). No slice active.
-**Phase:** _Idle._ Eligible to **Plan** the next slice when a build brief is dispatched and the slice-start gate passes (`## Awaiting PR merge` empty ✓; `## Active bugs` dispositioned ✓; `## Open retro action items` dispositioned ✓).
-**Last slice closed:** BRIEF-001 — branch `brief-001-public-front-door` (deleted, squash-merged). 9-gate scorecard all PASS/N-A: gates 1–7 PASS pre-merge; gate 8 (post-merge CI) PASS on `main`@`f7f6c9d` (run `27560948602` success — `lint-and-typecheck` ✅, `security-scan` ✅; `test-portal` advisory `continue-on-error` red, non-gating); gate 9 N/A (`Brief-deploys: no`, ADR-007). 13/13 ACs satisfied. Detail + Post-Merge Addendum: `RETRO-001.md`; handoff: `HANDOFF-001.md`.
-
-**Docker pre-flight:** PASSED this session — `docker info` succeeds (server 29.4.1), `/var/run/docker.sock` present, compose v5.1.3. The prior-session hard-gate halt is cleared.
-
-**Plan resolution:**
-- **Architecture flag resolved (no upstream raise):** the sanctioned anonymous write IS documented — ADR-003
-  §1/§6 (anonymous paths use the admin pool, never the request pool) + ADR-005 §Tables-in-scope (EngagementRequest
-  public/anon submits run under admin principal). Insert-only, no `SESSION_CONTEXT` identity, no read-back;
-  `engagement_request` stays accountant-only-readable via `sec.pol_EngagementRequest`.
-- All 13 AC trace to testable gherkin scenarios; methodology recorded. Design-coherence check PASSED (every AC →
-  a task with an AC-id-tagged test at the prescribed tier; tier-3 RLS hard gate in TASK-003; tier-6 e2e in TASK-005).
-- Greenfield confirmed (no `apps/`, `packages/`, `prisma/`, `db/`, `docker-compose.yml`, `.env.example`). CI
-  workflow `.github/workflows/ci.yml` already degrades gracefully pre-scaffold and activates once `pnpm-lock.yaml`
-  + root `lint`/`type-check` scripts land (TASK-001).
-
-**Task list (decomposed; dependency-ordered):**
-- **TASK-001** — Monorepo + tooling scaffold (devops) · `done` · AC: none (scaffold) · depends: none
-- **TASK-002** — Local stack docker-compose + operations docs + db-migrate runner (devops) · `done` · AC: none (infra) · depends: 001
-- **TASK-003** — Prisma schema + packages/db (two pools + SESSION_CONTEXT) + accountant-only-read RLS policy + tier-3 integration test (webapp-developer) · `done` · AC: 004-03/-04, 002-04/001-02/003-04 (data), + RLS hard gate · depends: 001,002
-- **TASK-004** — apps/portal scaffold + services page + request form + anonymous submit (webapp-developer) · `done` · AC: 001-01/-02/-03, 002-04, 003-01..04, 004-01/-02/-05 · depends: 001,002,003
-- **TASK-005** — Playwright e2e infra + gherkin binding (webapp-developer) · `done` · AC: e2e tier (001-01/-03, 003-01..04, 004-01/-02/-03/-05 e2e) · depends: 001,002,003,004
-- **TASK-006** — Lazy Prisma init + complete `DATABASE_URL` contract + ops docs (Smoke-gate fix-forward) (webapp-developer) · `done` · Fixes BUG-001-003 · SDET approved 2026-06-15T09:26:00Z · AC: restores 001-01/-02/-03, 003-01, 004-01/-02/-03/-05 under the clean container env contract · touches `packages/db/src/client.ts` (a TASK-003 `done` file — fix-forward, not revert; IO-acknowledged) · depends: 003,004,005 · `Complexity-actual: 3`
+_None active._ BRIEF-004 moved to `## Awaiting PR merge` at Close-prep (2026-06-16). The IO does not Plan a new
+slice while a slice is in PR limbo (`PHASES.md` § Slice-start gate).
 
 ## Awaiting PR merge
 
-_None._ BRIEF-001 (PR #35) merged to `main`@`f7f6c9d` and Close-finalize completed 2026-06-15 (gate 8 PASS, gate 9 N/A, zero POST bugs). Slice-start gate is clear for the next slice.
+**BRIEF-004 — Authentication & the two-role model (identity spine).** Close-prep complete; awaiting the
+`/pr-review` panel + merge (main session / Conductor owns git ops).
+
+- **PR:** #38 — https://github.com/jasgr-software/tax-portal/pull/38 · head `967b88c` · branch
+  `brief-004-auth-two-role-model` · **application-code lane** (MERGE-POLICY — touches `apps/`/`packages/`/`db/`/
+  compose/workflows): panel → fix → resolve threads → merge on green required CI (no protection toggle).
+- **Brief-type:** feature · **Brief-deploys:** no (ADR-007 → gate 9 N/A).
+- **Handoff/retro:** `HANDOFF-004.md` (11 AC satisfied + AC→test-tag→tier→owning-task table = the Conductor's
+  COVERAGE write-back source + deferred AC + carried follow-ups) · `RETRO-004.md` (9-gate scorecard + classified
+  findings + rule-sunset sweep). Task/bug files archived to `tasks/done/`.
+
+**9-gate scorecard (detail in `RETRO-004.md`):**
+
+| # | Gate | Status |
+| - | ---- | ------ |
+| 1 | Per-task submission gates (9/9) | PASS |
+| 2 | SDET Review (9/9) | PASS |
+| 3 | Overwatch Audit | PASS (0 blocking) |
+| 4 | IO Design scan | PASS |
+| 5 | Container Smoke | **env-blocked (user-accepted CI substitution)** — auto-merge condition (d) "Container Smoke pass" **explicitly substituted by the user's CI-as-gate governance decision**; host-side infra block, NOT an EPIC-004 defect (carried HANDOFF follow-up #2) |
+| 6 | SDET Acceptance-validation | PASS (11/11 AC) |
+| 7 | SDET CI gate | PASS (required green on `967b88c`; `test-portal` advisory-red adjudicated non-regression / CI-job design gap) |
+| 8 | Post-merge CI | PENDING (Close-finalize) |
+| 9 | Post-merge staging smoke | N/A (`Brief-deploys: no`, ADR-007) |
+
+**Conductor Validate hand-off evidence string:** green required-CI = run `27586299720` head `967b88c`
+(`lint-and-typecheck` ✅ + `security-scan` ✅ + `test-admin` ✅ + CodeQL js-ts + python ✅; also run
+`27586299664`). AC→test-tag→tier table: `HANDOFF-004.md` § AC → test-tag → tier → owning-task → evidence (and
+`RETRO-004.md` § AC traceability).
+
+**Docs-lane companion (separate PR, not #38):** the EPIC-004 demo gallery `docs/demos/EPIC-004/` +
+`docs/demos/README.md` ships in a docs-only fast-lane PR per DEMO-POLICY / MERGE-POLICY.
 
 ## Active bugs
 
-- **BUG-001-003** — `closed` — Eager Prisma init + incomplete DB URLs break clean-slate container smoke. Two defects: (1) gated-path — `packages/db/src/client.ts` eagerly constructs `requestDb`/`adminDb` at module load + `docker-compose.yml` portal service omits `DATABASE_URL` → barrel import throws `PrismaClientConstructorValidationError` → `/services`,`/request` HTTP 500; (2) config — `.env.local`/`.env.example` DB URLs incomplete (no port 14330/creds/trust) → host-side Playwright fixture fails to connect. Fixed by **TASK-006**.
-- _BUG-001-001 and BUG-001-002 both `closed` at SDET re-review 2026-06-15._
+_None active._ BUG-001-001/-002/-003 all `closed`; **BUG-004-001 (orphan root `middleware.ts`) RESOLVED**
+(IO fix-forward; archived to `tasks/done/` at Close-prep). No active `BUG-004-POST-*`.
 
 ## Open retro action items
 
-> Close-prep dispositions (2026-06-15). The two TASK-006-folded items are RESOLVED. The remaining carried items
-> stay as observations for downstream epics (below the retro promotion bar). Full classification: `RETRO-001.md`.
+> The TASK-004-007 item below is now **resolved this slice** (the `$extends` regression test landed). The
+> remaining items carry forward as observations. Three new carried follow-ups recorded in `HANDOFF-004.md`.
 
-- **[RESOLVED in TASK-006] Lazy Prisma client init in `packages/db`** — fixed (memoized factories behind `Proxy`; barrel import constructs no client). The `next.config.mjs` build-time stub was intentionally NOT removed (scope narrow; stub-removal stays a future cleanup — non-load-bearing at runtime post-lazy-init).
-- **[RESOLVED in TASK-006] Dangling `scripts/db-await-healthy.ts` reference** — `db:reset` script fixed.
-- **[EPIC-004 — carried] `client.ts` `$extends` SESSION_CONTEXT propagation untested** — the RLS hard gate exercises raw `mssql`, not the Prisma `$extends` wrapper path (Prisma 5.22 workaround). Add a regression test in EPIC-004 (first request-scoped-auth slice).
-- **[gated-path candidate — carried] ESLint import boundary covers only `requestDb`, not `adminDb`** — consider extending `packages/eslint-config` to also restrict `adminDb` imports outside sanctioned admin paths.
-- **[infra — carried] Track-A Prisma 5.22 sqlcmd-bootstrap workaround** — Prisma `migrate deploy` can't honor the non-default SQL Server port locally; Track-A applied via `sqlcmd`. Revisit when Prisma resolves the port limitation.
+- **[RESOLVED — TASK-004-007, this slice] `client.ts` `$extends` SESSION_CONTEXT propagation untested** — the
+  regression test (`packages/db/src/session-context.propagation.test.ts`, 4 live-container tests) now proves
+  identity+role are set before the first real query on the authenticated accountant path. Closes the carried
+  EPIC-001 retro item.
+- **[CI — carried, now actionable] `test-portal` job lacks a `packages/**` build step** — graduate
+  `test-portal` to required only after adding `pnpm -r --filter './packages/**' build --if-present` (HANDOFF-004
+  follow-up #3; the `@tax-portal/ui` failures pre-date EPIC-004, run `27568768517`; EPIC-004 extends the pattern
+  to `@tax-portal/auth`). Tests pass locally (`pnpm -r test` 158/158).
+- **[infra — carried] Local DB-bootstrap + `migrate deploy` P3019** — clean-volume bootstrap, Prisma `;port=` /
+  `!`-password parsing, P3019 `mssql`-vs-`sqlserver`; why local Smoke is env-blocked (HANDOFF-004 follow-up #2).
+- **[gated-path candidate — carried] ESLint import boundary covers only `requestDb`, not `adminDb`** — consider
+  extending `packages/eslint-config` to also restrict `adminDb` imports outside sanctioned admin paths.
+  (Observation; moved with the deferred Clerk-binding scope to the 2FA-enablement slice.)
+- **[env — carried] `.env.example` RATE_LIMIT vars** (`RATE_LIMIT_MAX_ATTEMPTS=10`, `RATE_LIMIT_WINDOW_MS=60000`)
+  — permission-walled from agents AND main session; **user applies** (HANDOFF-004 follow-up #5).
+- **[demo — carried] EPIC-001 engagement-demo `localhost:1433` flake** — pre-existing, transient/timing
+  (HANDOFF-004 follow-up #6).
 
 ---
 
-### IO Close-finalize (attempt 2 — COMPLETE) — 2026-06-15
-**Start:** Resumed at PR limbo. **PR #35 MERGED** (squash) to `main`@`f7f6c9d` (`f7f6c9db543f98db228a08cbf44468014294fadf`). Branch `brief-001-public-front-door` deleted; local on `main`@`f7f6c9d`. The attempt-1 inner stop (required-approving-review + required-conversation-resolution under `enforce_admins: true`) was cleared by the user/main session: protection temporarily relaxed, merged `--admin --squash`, `enforce_admins: true` restored, all 10 open threads resolved with documented dispositions. Read ENGINE/PHASES/AGENT/CLAUDE + PROGRESS.
-**Phase-transition reflex:** swept the IO Validate / IO Close-prep / IO Close-finalize-attempt-1 session entries to `PROGRESS-ARCHIVE.md`; updated `## Current initiative` (→ idle) and `## Awaiting PR merge` (→ `_None._`).
-**Gate 8 — post-merge CI on `main`@`f7f6c9d`: PASS.** Push-triggered run **`27560948602`** (workflow `CI`, event `push`, headSha `f7f6c9d`) → overall conclusion **success**. URL https://github.com/jasgr-software/tax-portal/actions/runs/27560948602. Required checks green: `lint-and-typecheck` ✅, `security-scan` ✅. `test-admin` ✅. `test-portal` → `failure` but advisory `continue-on-error` (NOT required; run conclusion stayed `success` → non-gating; CI applies no portal DB schema/seed — carried follow-up). CodeQL post-merge runs `27560956112`/`27560946313` reported success but remain **advisory** (GHAS unlicensed on this private org repo; wired to re-arm).
-**Gate 9 — N/A** (`Brief-deploys: no`, ADR-007 — no staging smoke).
-**POST bugs:** zero `BUG-001-POST-*` (verified). **Archive:** TASK-001..006 + BUG-001-001/-002/-003 confirmed in `tasks/done/` (moved at Close-prep — no re-archive). RETRO-001 + HANDOFF-001 retained in `tasks/`.
-**Ledger:** wrote `## Post-Merge Addendum` to `RETRO-001.md` (merge SHA, gate-8 evidence, CodeQL-advisory/GHAS note, carried follow-ups: lazy-init DONE; EPIC-004 `$extends` regression test; `adminDb` ESLint boundary; CI portal DB schema/seed → graduate `test-portal`; anon-write rate-limit/CAPTCHA + `serviceId` active-validation hardening; Next.js 15 upgrade landed). Removed BRIEF-001 from `## Awaiting PR merge`.
-**End:** **Close-finalize COMPLETE — BRIEF-001 fully closed.** `## Current initiative` idle; engine eligible to Plan the next slice. No git/PR ops run by the IO (main session commits this ledger update to `main`). **Conductor Validate hand-off — green-CI evidence string:** pre-merge run `27560403275` (head `211175b`, `lint-and-typecheck` + `security-scan` success) + post-merge `main` run `27560948602` (head `f7f6c9d`, success). AC→test-tag→tier table: `.implementation/tasks/RETRO-001.md`.
+### IO Close-prep — BRIEF-004 — 2026-06-16
+**Start:** Re-invoked with the SDET Validate result inline — all three gates PASS (gate 6 acceptance 11/11; gate 7 CI required-green on `967b88c` with `test-portal` adjudicated as a non-regression CI-job design gap; quality audit 0 blocking). Smoke (gate 5) = `env-blocked (user-accepted CI substitution)`. Ran Close-prep.
+**Phase-transition reflex (Validate → Close-prep):** swept the IO Smoke-disposition + SDET Validate session entries to `PROGRESS-ARCHIVE.md` under a "Swept at Validate→Close-prep transition" marker; emptied `## Current initiative`; moved the slice to `## Awaiting PR merge` with the PR #38 URL + 9-gate scorecard; appended this entry.
+**Actions:**
+- **Consistency / Task-Metadata completeness gate — PASS.** Re-confirmed all 9 `done` tasks carry the four lifecycle fields (`Started-at`, `Complexity-estimate`, `Complexity-actual` 1–5, `Completed-at`); the 5× `Updated-by` + TASK-011 timestamp corrections from Audit-disposition are present. BUG-004-001 `Status: resolved`. No empty/out-of-range metadata.
+- **Archived** the 9 BRIEF-004 task files + BUG-004-001 to `tasks/done/` (via `git mv`). TASK-004-003 was trimmed → no-op re-plan node (folded into -002 + deferred; no task file existed to archive — disposition recorded in HANDOFF-004 + RETRO-004). HANDOFF-004 + RETRO-004 kept in `tasks/`.
+- **Wrote `HANDOFF-004.md`** — 11 AC satisfied; reproduced the AC→test-tag→tier→owning-task→evidence table (Conductor COVERAGE write-back source); listed deferred AC (AUTH-004-01/-02/-03, AUTH-005-01 → 2FA-enablement slice) + 6 carried follow-ups.
+- **Wrote `RETRO-004.md`** — 9-gate scorecard (gate 5 env-blocked / user-accepted CI substitution, condition (d) explicitly substituted; gate 7 required-green, `test-portal` advisory non-regression); classified findings (BUG-004-001 = real in-slice fix-forward, `acknowledged`; `test-portal` CI-job gap = `acknowledged`; git-ops `git add -A` boundary violation by the TASK-004-002 dev = process observation/discipline note); rule-sunset sweep (cross-surface-parity rule relied upon → keep, counter does not advance).
+- **Recorded the Conductor Validate hand-off evidence string** (green required-CI run `27586299720` / `967b88c`; AC table location).
+**End:** Close-prep exit condition met (RETRO + HANDOFF written; task/bug files archived; slice in `## Awaiting PR merge` with PR #38 URL + scorecard). **IO ends the invocation.** Next: the main session (Conductor) runs the `/pr-review` panel (application-code lane per MERGE-POLICY) → `/pr-fix` if needed → resolve threads → merge on green required CI (no protection toggle), then re-invokes the IO for Close-finalize (gate 8 post-merge CI; gate 9 N/A). The docs-lane demo-gallery PR merges separately on green required CI. **IO does not merge.**
