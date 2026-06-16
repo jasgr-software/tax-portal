@@ -69,8 +69,14 @@
   TASK-004-010 (auth-event audit, ADR-019) **done** — SDET approved; real APPEND_ONLY_LEDGER_TABLE + RLS policy
   denying CLIENT (HARD-gate isolation test: CLIENT reads ZERO + null-context ZERO); fail-closed transactional
   audit on account creation; accountant-sign-in seam at mock-session w/ deferred-transactional-bind DECISION;
-  9 live-container tests; 167 total. Remaining: @demo walkthrough (TASK-004-011, last Dispatch task). Then
-  engine Audit→Review→Smoke→Validate→Close-prep. Commits on PR #38: …`eeb4704`.
+  9 live-container tests; 167 total. TASK-004-011 (@demo walkthrough) **done** — SDET approved + ran the
+  DEMO-POLICY Smoke step: clean-rebuilt the admin image (dev's first run captured a stale pre-007 admin stub —
+  byte-identical PNGs were the tell), re-captured shots 05/07/08 vs the real -007 authenticated surface, fixed a
+  strict-mode locator, assembled `docs/demos/EPIC-004/DEMO.md` (8 AC-tagged screens); EPIC-001 demo flake
+  confirmed transient. **ALL DISPATCH TASKS DONE.** Demo specs ride PR #38; the `docs/demos/EPIC-004/` gallery +
+  README ship in the closing docs-lane PR (DEMO-POLICY). Commits on PR #38: …`2a6a76f`. **Next: engine phase
+  cascade — Audit → Review → Smoke → Validate → Close-prep** (slice → `## Awaiting PR merge`), then Conductor
+  Review → Fix → Merge/Finalize → Validate(write-back) → Report.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_
