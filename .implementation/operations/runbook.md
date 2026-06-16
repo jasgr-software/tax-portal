@@ -147,6 +147,25 @@ pnpm db:policies:apply
 
 This runs Track B only. Useful when iterating on a security policy without a full migration cycle.
 
+### Audit ledger migration (TASK-004-010 — ADR-019)
+
+`db/migrations/0002-create-audit-ledger.sql` creates the `dbo.AuditEvent` append-only ledger table.
+`db/policies/0003-audit-event-policy.sql` creates the `sec.pol_AuditEvent` RLS policy (accountant/admin only).
+
+Both are applied automatically by `pnpm db:migrate`. No manual step required beyond running the standard migrate command.
+
+**Tamper-evidence note:** The `AuditEvent` table uses `LEDGER = ON (APPEND_ONLY = ON)` (SQL Server 2022).
+Rows are cryptographically verifiable via:
+```sql
+EXEC sys.sp_verify_database_ledger;
+```
+This procedure checks the Merkle-tree hash chain and reports any tampered rows.
+
+**Retention note (ADR-019 §5 — DEFERRED):** The `AuditEvent` table must be retained ≥7 years.
+When the purge job (ADR-018) is implemented, it must EXPLICITLY EXCLUDE `dbo.AuditEvent`.
+Do not create any cleanup or sweep logic that touches this table until the purge-exclusion
+gate is formally implemented. See inventory.md § Audit Ledger Table for details.
+
 ### Reset (full wipe + remigrate)
 
 ```bash

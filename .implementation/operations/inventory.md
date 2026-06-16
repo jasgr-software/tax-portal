@@ -157,6 +157,81 @@ dev operations. See `.env.example` for the full URL form.
 Bookkeeping table: `dbo.__db_migrations` — stores applied filenames with timestamps. Created on first
 run by the migration runner. Not managed by Prisma.
 
+### Track B file inventory (post-TASK-004-010)
+
+| File | Contents | Added by |
+|------|----------|----------|
+| `db/migrations/0001-create-principals-and-sec-schema.sql` | DB roles, logins, sec schema, grants | TASK-003 |
+| `db/migrations/0002-create-audit-ledger.sql` | `dbo.AuditEvent` — **append-only ledger table** (LEDGER=ON APPEND_ONLY=ON), INSERT-only from app code; grants INSERT to app_user_role | TASK-004-010 |
+| `db/policies/0001-engagement-request-policy.sql` | `sec.pol_EngagementRequest` — accountant/admin read, no CLIENT (early Epic-001 state) | TASK-003 |
+| `db/policies/0002-service-readable.sql` | `sec.pol_Service` — accountant/admin/CLIENT read, admin/accountant mutate | TASK-003 |
+| `db/policies/0003-audit-event-policy.sql` | `sec.pol_AuditEvent` — **accountant/admin read ONLY, CLIENT denied entirely** (ADR-019 §4) | TASK-004-010 |
+
+---
+
+## Audit Ledger Table (TASK-004-010 — ADR-019)
+
+**Table:** `dbo.AuditEvent`
+**Track:** Raw-SQL Track B (`db/migrations/0002-create-audit-ledger.sql`)
+**Applied by:** `pnpm db:migrate` (Track B after Prisma migration)
+
+### Purpose
+
+Tamper-evident audit trail (ADR-019) recording security-significant auth events:
+- `auth.signin` — accountant (or test-harness client) session establishment
+- `auth.account_created` — client account creation from invitation
+
+### Tamper-evidence (ADR-019 §1)
+
+The table is created with `LEDGER = ON (APPEND_ONLY = ON)` on SQL Server 2022 Developer Edition.
+Rows are hashed into a Merkle tree; digests stored in `sys.database_ledger_transactions`.
+Cryptographically verifiable via `EXEC sys.sp_verify_database_ledger`.
+**If the engine edition does not support ledger**, the migration will fail — record the exact error
+in the Work Log and consult the DECISION comment in `0002-create-audit-ledger.sql` for the fallback.
+The append-only-by-app-convention fallback must be EXPLICITLY documented — not silent.
+
+### Access control (ADR-019 §4)
+
+- **app_user_role:** INSERT only (writes ride the request path). No SELECT, UPDATE, DELETE.
+- **app_admin_role:** Full access via db_owner (RLS-exempt for admin operations).
+- **RLS policy (`sec.pol_AuditEvent`):** ACCOUNTANT/admin read all rows; **CLIENT reads ZERO** (no client branch — denied entirely).
+- Null SESSION_CONTEXT: zero rows (fail-closed, ADR-003 §5).
+
+### Retention and purge exclusion (ADR-019 §5 — DEFERRED)
+
+Audit records must be retained ≥7 years and EXCLUDED from the ADR-018 purge job.
+**The purge job does not exist yet.** This table must be explicitly excluded when the purge
+job is implemented. Do NOT create any sweep or cleanup logic that would touch `dbo.AuditEvent`.
+Follow-up tracked: ADR-019 §5 retention/purge-exclusion (deferred — no purge job in this slice).
+
+### Schema
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UNIQUEIDENTIFIER | PK, NEWSEQUENTIALID() |
+| `clerkUserId` | NVARCHAR(128) NOT NULL | Raw actor Clerk id (ADR-019 §2 — inverse of telemetry) |
+| `actorRole` | NVARCHAR(16) NOT NULL | 'ACCOUNTANT' \| 'CLIENT' |
+| `action` | NVARCHAR(128) NOT NULL | e.g. 'auth.signin', 'auth.account_created' |
+| `targetType` | NVARCHAR(64) NULL | Target entity type (null for sign-in) |
+| `targetId` | NVARCHAR(256) NULL | Target entity id (null for sign-in) |
+| `sourceSurface` | NVARCHAR(32) NOT NULL | 'portal' \| 'admin' |
+| `outcome` | NVARCHAR(16) NOT NULL | 'success' \| 'denied' (default 'success') |
+| `occurredAt` | DATETIMEOFFSET NOT NULL | Server timestamp, default SYSDATETIMEOFFSET() |
+
+### How to apply
+
+```bash
+pnpm db:migrate           # Apply all pending Track A + Track B (migration + policy)
+pnpm db:policies:apply    # Re-apply policies only (idempotent; use after policy edits)
+```
+
+### Wired seams
+
+| Event | Seam | Binding |
+|-------|------|---------|
+| `auth.account_created` | `apps/portal/src/app/(public)/sign-up/actions.ts` (`signUpWithInvitation`) | Same mssql Transaction as account-creation mutation — fail-closed (ADR-019 §3) |
+| `auth.signin` | `apps/admin/src/app/api/mock-session/route.ts` (POST handler) | Standalone insert — no admin-credential-login mutation yet; transactional bind deferred to real-Clerk/admin-login slice (DECISION in route.ts) |
+
 ---
 
 ## Image References

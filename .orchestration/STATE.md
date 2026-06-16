@@ -66,8 +66,11 @@
   **RESIDUAL (user action — `.env*` is permission-walled from agents AND the main session):** add to
   `.env.example`: `RATE_LIMIT_MAX_ATTEMPTS=10` + `RATE_LIMIT_WINDOW_MS=60000` (optional tuning vars, safe
   defaults, already documented in runbook). Apply with: `! printf '\nRATE_LIMIT_MAX_ATTEMPTS=10\nRATE_LIMIT_WINDOW_MS=60000\n' >> .env.example`
-  Remaining tasks: auth-event audit (TASK-004-010, ADR-019); @demo walkthrough (TASK-004-011). Then engine
-  Audit→Review→Smoke→Validate→Close-prep.
+  TASK-004-010 (auth-event audit, ADR-019) **done** — SDET approved; real APPEND_ONLY_LEDGER_TABLE + RLS policy
+  denying CLIENT (HARD-gate isolation test: CLIENT reads ZERO + null-context ZERO); fail-closed transactional
+  audit on account creation; accountant-sign-in seam at mock-session w/ deferred-transactional-bind DECISION;
+  9 live-container tests; 167 total. Remaining: @demo walkthrough (TASK-004-011, last Dispatch task). Then
+  engine Audit→Review→Smoke→Validate→Close-prep. Commits on PR #38: …`eeb4704`.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_

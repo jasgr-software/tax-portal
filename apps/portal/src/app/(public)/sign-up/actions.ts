@@ -41,6 +41,18 @@ import {
   MOCK_SESSION_COOKIE_NAME,
   createMockSessionCookie,
 } from "@tax-portal/auth";
+import { recordAuthEvent, withAuditTransaction } from "@tax-portal/db";
+
+// DECISION (TASK-004-010): We import withAuditTransaction from @tax-portal/db so that
+// the audit INSERT and the account-creation DB mutation can share a single mssql Transaction
+// (ADR-019 §3 fail-closed requirement) without this file importing mssql directly.
+// withAuditTransaction opens a Transaction on the admin pool, runs the callback, and
+// commits on success or rolls back on failure.
+// Under the current mock binding, the account-creation is cookie-based (no DB write yet).
+// We still open a transaction that wraps the audit INSERT to prove the seam structure:
+// if the audit INSERT fails, the transaction rolls back and the session cookie is NOT sent
+// (fail-closed). When the real Clerk binding lands, the User-row INSERT joins this same
+// transaction — no re-architecture needed.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,6 +119,8 @@ function validateInvitationTicket(ticket: string): {
  * AC-AUTH-006-01/06-02: no valid invitation ticket → no account created.
  * AC-AUTH-005-02: no 2FA gate — sign-up proceeds single-factor only.
  * ADR-005: CLIENT role is server-set (from the invitation), not client-supplied.
+ * ADR-019 §3: audit INSERT is in the same DB transaction as the account-creation mutation
+ *             (fail-closed — if the audit write fails, the session cookie is NOT sent).
  */
 export async function signUpWithInvitation(formData: FormData): Promise<SignUpResult> {
   const ticket = (formData.get("ticket") as string | null) ?? "";
@@ -138,6 +152,53 @@ export async function signUpWithInvitation(formData: FormData): Promise<SignUpRe
     .toString("base64url")
     .slice(0, 16)}`;
 
+  // ─── Audit INSERT in the same transaction as the account-creation mutation ───
+  // ADR-019 §3: "The audit record is written in the same database transaction as the
+  // mutation it records. If the audit write cannot happen, the transaction does not
+  // commit — the triggering action is rolled back."
+  //
+  // DECISION (TASK-004-010): withAuditTransaction opens a Transaction on the admin pool,
+  // runs the callback, and commits on success or rolls back on any throw (fail-closed).
+  // Under the mock binding, the account-creation is cookie-based (no DB write yet).
+  // We still open a transaction to wrap the audit INSERT as the correctness seam:
+  // if the audit INSERT fails, the transaction rolls back and the session cookie is NOT sent.
+  // When the real Clerk binding lands (real User row INSERT), that INSERT joins this same
+  // transaction — no re-architecture required.
+  //
+  // Actor identity: clerkUserId and role are server-derived (from the validated invitation
+  // and server-set role). NOT from any client-supplied body/header/query field (ADR-003, ADR-019 §2).
+
+  try {
+    await withAuditTransaction(async (txn) => {
+      // DECISION (TASK-004-010): recordAuthEvent is bound to txn — if it throws,
+      // withAuditTransaction rolls back and rethrows (fail-closed: no session cookie without audit record).
+      await recordAuthEvent({
+        actor: {
+          clerkUserId, // server-derived from validated invitation (ADR-003, ADR-019 §2)
+          role: "CLIENT", // server-set, from invitation — never client-asserted (ADR-005)
+        },
+        action: "auth.account_created",
+        targetType: "user",
+        targetId: clerkUserId,
+        sourceSurface: "portal",
+        outcome: "success",
+        transaction: txn,
+      });
+
+      // Future: real Clerk binding inserts User row here in the same txn.
+      // Example: await insertUserRow({ clerkUserId, email: resolvedEmail }, txn);
+    });
+  } catch (auditErr) {
+    // Fail-closed (ADR-019 §3): audit write failure (transaction rolled back) — session cookie NOT sent.
+    // The account is not "created" (cookie not sent) if the audit record cannot be written.
+    console.error("[sign-up/actions] Audit INSERT failed — account creation aborted (ADR-019 §3 fail-closed)", auditErr);
+    return {
+      success: false,
+      error: "Account creation failed due to an internal error. Please try again.",
+    };
+  }
+
+  // ─── Session establishment (after audit commits) ──────────────────────────
   // Establish the CLIENT session SERVER-SIDE via the signed mock session cookie.
   // ADR-005: role="CLIENT" is SET HERE (from the invitation), not read from the request.
   // The browser receives a signed cookie it cannot forge; the middleware reads and verifies it.

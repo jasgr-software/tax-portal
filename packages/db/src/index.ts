@@ -31,3 +31,15 @@ export type { CreateEngagementRequestInput, CreateEngagementRequestResult } from
 export { createEngagementRequest } from "./repositories/engagement-request.js";
 export type { ServiceListItem } from "./repositories/service.js";
 export { getActiveServices } from "./repositories/service.js";
+
+// Audit-event write helper (ADR-019)
+// recordAuthEvent INSERTs a tamper-evident audit row into the AuditEvent ledger table.
+// Actor identity comes from the server-verified session (ADR-003, ADR-019 §2) — NEVER from client input.
+export type { AuditActor, RecordAuthEventInput } from "./audit.js";
+export { recordAuthEvent, withAuditTransaction } from "./audit.js";
+
+// Admin pool accessor — exported for callers that need to open a raw mssql Transaction
+// for same-pool atomic writes (ADR-019 §3 fail-closed — audit INSERT in the same transaction
+// as the account-creation mutation). Primarily used by apps/portal sign-up/actions.ts.
+// ADR-003 §7: admin pool is allowed for mutations that run outside a request-context scope.
+export { getAdminPool, closeAdminPool } from "./admin-connection.js";
