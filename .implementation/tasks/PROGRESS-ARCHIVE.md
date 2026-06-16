@@ -1798,3 +1798,33 @@ Read `public-front-door.feature` directly: `# AC ids:` header now `AC-DOOR-004-0
 - Verified Dispatch exit; confirmed working tree holds only the uncommitted demo gallery (DEMO-POLICY docs-lane change, not for PR #38).
 - Composed the Overwatch Audit dispatch (read-only per-task rule/scope-creep/efficiency sweep across BOTH surfaces).
 **End:** Overwatch returned **0 blocking, 6 advisory**. Slice clean for Review. Dispositioning + design scan handled in the Audit-complete entry below.
+
+---
+
+> **Swept at Smoke→Validate transition (2026-06-16).** The two entries below (IO Audit-complete→Review→Smoke; SDET Smoke gate BLOCKED) rolled from PROGRESS.md. The Smoke gate's local-container BLOCK was adjudicated by the user (governance authority) as `env-blocked (user-accepted CI substitution)` — CI is accepted as the gate in place of the local container smoke (same verification basis EPIC-001 shipped on). See the live PROGRESS.md Smoke-gate-disposition + Validate entry.
+
+### IO Audit-complete → Review (design scan) → Smoke (entering) — BRIEF-004 — 2026-06-15
+**Start:** Re-invoked with the Overwatch Audit result inline: **0 blocking, 6 advisory.** Slice clean for Review. Processed all 6 advisory dispositions, performed the IO-internal Review design scan, and composed the Smoke dispatch.
+**Phase-transition reflex (Audit → Review/Smoke):** swept the `### IO Audit (entering)` entry to `PROGRESS-ARCHIVE.md`; updated the `## Current initiative` Phase line to **Smoke (entering)**; appended this entry.
+
+**Audit (gate 3) — Overwatch verdict: 0 blocking / 6 advisory.** Dispositions: (1) 5× stale `Updated-by` → fixed; (2) TASK-011 timestamp inversion → fixed; (3) `.env.example` RATE_LIMIT vars permission-walled → carried handoff follow-up; (4) EPIC-001 demo `localhost:1433` flake → carried observation; (5) admin page `adminDb` in `withRequestContext` → carried follow-up; (6) backlog-triage encoding marginal → advisory note.
+
+**Review (gate 4) — IO design scan of `git diff main..HEAD` (PR #38): PASSED.** All cited ADRs honored at the diff level (ADR-001/003/005/006/010/012/019/022); re-scope guardrails confirmed (no 2FA code, mock default, Clerk binding never gate-contacted); middleware integrity confirmed (BUG-004-001 fix holds). Zero violations; no fix-forward task.
+**End:** Composed the Smoke dispatch. (Full detail of this entry retained verbatim in this archive; the live file carries the disposition.)
+
+### SDET Smoke gate (gate 5) — BRIEF-004 — 2026-06-16
+**Verdict:** Steps 1–3 PASS (clean rebuild; all 5 services `(healthy)`; both apps answer `/healthz`+`/readyz` on 3000/13001). Step 4 (`pnpm db:migrate`) + Step 5 (e2e) BLOCKED on a host-side local DB-bootstrap / Prisma-tooling infra gap (truncated `.env.local` DB URLs; clean-volume has no DB/logins; Prisma `;port=` + `!`-password parsing; P3019 `mssql`-vs-`sqlserver`). Container layer itself healthy — blocker is host env config + Prisma tooling, not a code or container defect. Escalated to IO.
+**IO adjudication (recorded in the live PROGRESS.md):** user (governance authority) accepted CI as the gate substitution → Smoke verdict = `env-blocked (user-accepted CI substitution)`; infra fix carried as a handoff follow-up; do not re-run; do not block Close-prep.
+
+<!-- Swept at Validate→Close-prep transition (BRIEF-004) — 2026-06-16 -->
+
+### IO Smoke-disposition → Validate (entering) — BRIEF-004 — 2026-06-16
+**Start:** Re-invoked with the SDET Smoke-gate result inline (Steps 1–3 PASS; Step 4 migrate + Step 5 e2e BLOCKED on a host-side DB-bootstrap / Prisma-tooling infra gap) plus the user's governance decision that CI substitutes for the local container Smoke on this slice. Recorded the Smoke verdict, transitioned Smoke → Validate, and composed the SDET Validate dispatch.
+**Smoke gate (gate 5) verdict:** `env-blocked (user-accepted CI substitution)`. Container layer healthy (both images build; all 5 services `(healthy)`; portal/admin answer `/healthz`+`/readyz` on 3000/13001). Block is host-side infra (clean-volume no DB/logins; Prisma ignores `;port=`; Prisma 5.22 mis-parses `!` passwords; `migrate deploy` P3019 `mssql`-vs-`sqlserver`; Node 20/24), NOT an EPIC-004 defect. User accepted CI as the gate. Auto-merge condition (d) "Container Smoke pass" explicitly substituted by the CI-as-gate decision. Carried infra follow-up.
+**End:** Awaiting SDET Validate result; on pass → Close-prep.
+
+### SDET Validate — BRIEF-004 — 2026-06-16
+**Gate 6 — Acceptance Validation: PASS (11/11 AC covered with AC-id-tagged test evidence).** All 11 in-scope AC have AC-id-tagged tests at the correct tier that passed in dev-time reviews against the live container stack. AC→test-tag→tier table reproduced in HANDOFF-004 / RETRO-004. No orphaned AC; no AC-id mismatch.
+**Gate 7 — CI gate: PASS (required green on `967b88c`; `test-portal` adjudicated as known advisory).** `lint-and-typecheck` ✅, `security-scan` ✅, `test-admin` ✅, CodeQL js-ts + python ✅ (runs 27586299720 / 27586299664). `test-portal` ❌ advisory (`continue-on-error: true`) — root cause: the job lacks a `packages/**` build step → `@tax-portal/ui` (pre-existing on main run 27568768517) + the new `@tax-portal/auth` rate-limit integration test fail to resolve dist. Tests pass locally (`pnpm -r test` 158/158). CI job design gap, NOT an EPIC-004 behavioral regression. Carried follow-up: add the build step before graduating test-portal to required.
+**Quality Audit: PASS (0 blocking).** Non-blocking: OBS-1 `.env.example` RATE_LIMIT vars (user/permission-walled); OBS-2 admin page.tsx adminDb-in-withRequestContext (DECISION-documented, AC proven by tier-3 test); OBS-3 test-portal CI gap; OBS-4 cosmetic session-continuity tag. Both-surface parity met; security spot-checks clean (role never client-asserted; audit RLS denies CLIENT; rate-limit IP-keyed; Clerk binding gate-safe).
+**End:** Gates 6+7 PASS + quality audit PASS (0 blocking). Validate phase complete. Signalled IO to proceed to Close-prep.

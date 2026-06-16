@@ -93,8 +93,31 @@
   `trustServerCertificate=true`; container-side (`PORTAL_/ADMIN_*`): host `sqlserver`, `port=1433`. (Reconcile
   the runbook's own `taxportal_user`-vs-`taxportal_app` + `taxportal`-vs-`tax_portal` inconsistencies against
   your working BRIEF-001 `.env.local`.) Then re-invoke `/orchestrate 004` → resumes at **Smoke**.
-- **Next after Smoke:** Validate (acceptance + CI gate + quality audit) → Close-prep (→ `## Awaiting PR merge`)
-  → Conductor Review → Fix → Merge/Finalize → Validate(write-back) → Report.
+- **Smoke deep-debug (2026-06-16) — local DB bootstrap chain (all PRE-EXISTING infra, NOT EPIC-004):**
+  Container layer clean (5 services healthy; both apps serve health probes). DB-bootstrap blockers found + fixed
+  in sequence: (1) clean `down -v` volume has NO db + NO app logins (only `sa`) → manually bootstrapped
+  `tax_portal` DB + `taxportal_admin` login (db_owner) via `sqlcmd` as sa; (2) **Prisma ignores `;port=` param
+  and defaults to 1433**, which collides with **`journey-for-jasmine-db-1`** (another project on host 1433) →
+  fixed by putting port in the authority (`sqlserver://localhost:14330;…`); (3) Prisma 5.22 mis-parses `!` in
+  passwords → use the `!`-free `taxportal_admin`/`taxportal_user` logins; (4) project `.nvmrc`=20 but shell on
+  Node 24 → installed Node 20.20.2 + corepack pnpm. Corrected URLs written to `env.local.tmp` (repo root) for
+  the user to merge into `.env.local`.
+  **REMAINING HARD BLOCKER:** `prisma migrate deploy` (Track A) fails **P3019 — "schema provider `mssql` ≠
+  migration_lock `sqlserver`"**, which contradicts the files (both say `sqlserver`; single schema; no `mssql`
+  anywhere) and reproduces under BOTH Node 20 and 24. Prisma's only suggested fix is regenerating the migration
+  history (`prisma migrate dev`) — a DESTRUCTIVE change to the committed BRIEF-001 migration; NOT done without
+  explicit user authorization.
+- **USER DECISION (2026-06-16): "Accept CI as the gate."** Local container-Smoke recorded `env-blocked
+  (user-accepted CI substitution)` — surfaced, NOT silently skipped. Verification basis = CI (clean GitHub env) +
+  the SDET's dev-time e2e/RLS runs (same basis EPIC-001 shipped on, COVERAGE [A]). **Infra follow-up filed:** fix
+  clean-volume bootstrap (DB+login creation; Prisma port-in-authority; `!`-free Prisma logins) + the migrate-deploy
+  P3019. Proceed: Validate → Close-prep → merge on green REQUIRED CI.
+- **CI on PR #38 head `967b88c`:** REQUIRED green — `lint-and-typecheck` ✅ + `security-scan` ✅; `test-admin` ✅;
+  CodeQL ✅. `test-portal` ❌ but **advisory** (`continue-on-error`, not required) — consistent with the documented
+  EPIC-001 carried issue (CI provisions no portal DB schema/seed); local EPIC-004 portal tests passed; SDET
+  Validate adjudicates advisory-vs-regression.
+- **Next:** Validate (acceptance + CI gate + quality audit) → Close-prep (→ `## Awaiting PR merge`) → Conductor
+  Review (/pr-review) → Fix → Merge/Finalize → Validate(write-back via /planning) → Report.
 - **Base branch:** main
 - **Feature branch:** `brief-004-auth-two-role-model` (engine-created; Plan recorded, Docker pre-flight passed)
 - **PR:** _(none — engine blocked before Dispatch)_
