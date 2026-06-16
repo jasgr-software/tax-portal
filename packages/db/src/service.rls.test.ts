@@ -97,25 +97,6 @@ async function clearSessionContext(
 }
 
 /**
- * Insert a Service row as ACCOUNTANT via the request pool.
- * Returns the inserted row id.
- * Assumes SESSION_CONTEXT is already set for ACCOUNTANT by the caller.
- */
-async function insertServiceAsAccountant(
-  pool: InstanceType<typeof ConnectionPool>,
-  name: string,
-): Promise<string> {
-  const result = await pool.request().query<{ id: string }>(
-    `INSERT INTO [dbo].[Service] ([name], [active], [sortOrder], [updatedAt])
-     OUTPUT INSERTED.[id]
-     VALUES (N'${name.replace(/'/g, "''")}', 1, 99, SYSDATETIMEOFFSET())`
-  );
-  const id = result.recordset[0]?.id ?? "";
-  if (!id) throw new Error(`insertServiceAsAccountant: no id returned for name='${name}'`);
-  return id;
-}
-
-/**
  * Count Service rows visible to the given pool (after optionally setting SESSION_CONTEXT).
  */
 async function countVisibleServiceRows(
