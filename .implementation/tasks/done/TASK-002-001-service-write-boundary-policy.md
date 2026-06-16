@@ -9,7 +9,7 @@
 **Depends on**: none
 **Impl**: developer
 **E2e-required**: no <!-- tier-3 integration test, not e2e; this task is the security-policy boundary -->
-**Started-at**: 2026-06-16T12:01:42Z
+**Started-at**: 2026-06-16T07:01:42Z <!-- IO Audit-disposition (BRIEF-002, Advisory 1): original write was 12:01:42Z, a wrong-timezone error — chronologically AFTER the in-log test run (07:39:10) + SDET review (07:51:00Z), yielding negative duration. Corrected to the same-hour-window value (UTC offset back 5h) consistent with all logged work; duration now non-negative (~50min: 07:01:42 → 07:51:00). -->
 **Completed-at**: 2026-06-16T07:51:00Z
 **Complexity-estimate**: 3
 **Complexity-actual**: 3
