@@ -125,7 +125,15 @@ The implementation files are complete and correct. The submission gate can proce
 
 **Fix applied (packages/db/src/service.rls.test.ts):** All four negative-test detection helpers (CLIENT INSERT, CLIENT UPDATE, CLIENT DELETE, null-context INSERT) updated to use `errMsgLower.includes("block predicate")` (case-insensitive via `.toLowerCase()`) alongside the existing alternatives (`"33504"`, `"blocked by"`, `"pol_Service"`, `"security policy"` — now also lowercased where appropriate). No logic weakening — the test still asserts the write was rejected; only the detection of the rejection message was corrected.
 
-**Gate Authoring Evidence — Run Marker (TASK-002-001, Introduces-gate: yes):**
+**Gate Authoring Evidence — Item 1, in-flight regression form (TASK-002-001, Introduces-gate: yes):**
+
+This tier-3 write-boundary gate runs **locally against the SQL Server container** — CI does not provision the DB, so the gate has no GitHub Actions run URL by design; its Item-1 evidence is the local red-then-green sequence (ENGINE.md § Gate Authoring Rules § In-flight regression exception).
+
+RED: First run of `pnpm --filter @tax-portal/db test -- src/service.rls.test.ts` — the four negative tests (CLIENT INSERT/UPDATE/DELETE, null-context INSERT) FAILED. The new gate's `isBlockPredicateError` detection helper used a case-sensitive `errMsg.includes("BLOCK")`, but SQL Server emits the rejection as lowercase "...has a block predicate that conflicts with this operation." — no uppercase "BLOCK", no "33504" in the string — so the rejection went undetected and the gate was RED on 4/10.
+
+GREEN: After fixing all four detection helpers to match `errMsgLower.includes("block predicate")` (case-insensitive, assertion strength unchanged — `caughtError.not.toBeNull()` still asserts the write was actually rejected), the same targeted run went GREEN at 10/10 (output below), and the full `@tax-portal/db` suite passed 35/35 with no regressions.
+
+**Run Marker (green run):**
 
 ```
 > @tax-portal/db@0.0.1 test /home/ccox/repos/tax-portal/packages/db
