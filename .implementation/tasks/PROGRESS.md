@@ -10,43 +10,14 @@
 
 ## Current initiative
 
-_None active._ BRIEF-004 moved to `## Awaiting PR merge` at Close-prep (2026-06-16). The IO does not Plan a new
-slice while a slice is in PR limbo (`PHASES.md` § Slice-start gate).
+_None active._ BRIEF-004 (EPIC-004) **DELIVERED** 2026-06-16 — PR #38 squash-merged to `main` @ `0444551`;
+Close-finalize complete (gate 8 post-merge CI green). Slice ledger swept to `PROGRESS-ARCHIVE.md`. The next
+ready Phase-1 slices are EPIC-002 and EPIC-003 (both unblocked now that EPIC-004 is delivered) — re-invoke
+`/orchestrate` to select.
 
 ## Awaiting PR merge
 
-**BRIEF-004 — Authentication & the two-role model (identity spine).** Close-prep complete; awaiting the
-`/pr-review` panel + merge (main session / Conductor owns git ops).
-
-- **PR:** #38 — https://github.com/jasgr-software/tax-portal/pull/38 · head `967b88c` · branch
-  `brief-004-auth-two-role-model` · **application-code lane** (MERGE-POLICY — touches `apps/`/`packages/`/`db/`/
-  compose/workflows): panel → fix → resolve threads → merge on green required CI (no protection toggle).
-- **Brief-type:** feature · **Brief-deploys:** no (ADR-007 → gate 9 N/A).
-- **Handoff/retro:** `HANDOFF-004.md` (11 AC satisfied + AC→test-tag→tier→owning-task table = the Conductor's
-  COVERAGE write-back source + deferred AC + carried follow-ups) · `RETRO-004.md` (9-gate scorecard + classified
-  findings + rule-sunset sweep). Task/bug files archived to `tasks/done/`.
-
-**9-gate scorecard (detail in `RETRO-004.md`):**
-
-| # | Gate | Status |
-| - | ---- | ------ |
-| 1 | Per-task submission gates (9/9) | PASS |
-| 2 | SDET Review (9/9) | PASS |
-| 3 | Overwatch Audit | PASS (0 blocking) |
-| 4 | IO Design scan | PASS |
-| 5 | Container Smoke | **env-blocked (user-accepted CI substitution)** — auto-merge condition (d) "Container Smoke pass" **explicitly substituted by the user's CI-as-gate governance decision**; host-side infra block, NOT an EPIC-004 defect (carried HANDOFF follow-up #2) |
-| 6 | SDET Acceptance-validation | PASS (11/11 AC) |
-| 7 | SDET CI gate | PASS (required green on `967b88c`; `test-portal` advisory-red adjudicated non-regression / CI-job design gap) |
-| 8 | Post-merge CI | PENDING (Close-finalize) |
-| 9 | Post-merge staging smoke | N/A (`Brief-deploys: no`, ADR-007) |
-
-**Conductor Validate hand-off evidence string:** green required-CI = run `27586299720` head `967b88c`
-(`lint-and-typecheck` ✅ + `security-scan` ✅ + `test-admin` ✅ + CodeQL js-ts + python ✅; also run
-`27586299664`). AC→test-tag→tier table: `HANDOFF-004.md` § AC → test-tag → tier → owning-task → evidence (and
-`RETRO-004.md` § AC traceability).
-
-**Docs-lane companion (separate PR, not #38):** the EPIC-004 demo gallery `docs/demos/EPIC-004/` +
-`docs/demos/README.md` ships in a docs-only fast-lane PR per DEMO-POLICY / MERGE-POLICY.
+_None._ BRIEF-004 finalized + delivered (see `## Current initiative`).
 
 ## Active bugs
 

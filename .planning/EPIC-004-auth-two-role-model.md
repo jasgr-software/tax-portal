@@ -2,7 +2,7 @@
 id: EPIC-004
 title: Authentication & the two-role model
 phase: 1
-status: planned
+status: delivered   # 2026-06-16 — 11/11 in-scope AC verified (PR #38, squash merge 0444551); 4 2FA AC remain deferred
 slice: The accountant signs in and an invited prospect creates a client account; each lands on the correct app for their role and is kept out of the other.
 requirements:
   - REQ-AUTH-001: [AC-AUTH-001-01, AC-AUTH-001-02, AC-AUTH-001-03]
