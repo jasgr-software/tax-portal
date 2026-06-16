@@ -131,7 +131,40 @@
   the **intentional deferred-Clerk seam**, disposition-with-rationale candidates). **Next: Conductor Fix
   (`/pr-fix 38`)** — fix the genuine bugs + security findings; disposition the deferred-seam over-eng findings
   with rationale (intentional next-slice seam per the brief).
-- **⏸ PAUSED (2026-06-16, user) — resume at Conductor Fix.** Fixer NOT yet spawned (clean stop). On resume,
+- **Conductor Fix DONE (2026-06-16) — `/pr-fix 38` green.** Pre-step: main session fixed a required-CI blocker
+  unrelated to the panel — `check_task_file_completion` (inside `lint-and-typecheck`) was red because
+  `TASK-004-011` used `**Field:**` (colon-inside-bold) for Started-at/Completed-at/Complexity-* vs the
+  checker's `**Field**:` form; reformatted to match siblings (commit `950a13a`). Then pr-fixer addressed 13/13
+  panel findings: **FIXED** F1/F6 fail-closed auth (throw on mock|unset AUTH_PROVIDER in prod; MOCK_SESSION_SECRET
+  required, compose `:?`), C-middleware-throw (try/catch fail-closed), C-admin-page (role===ACCOUNTANT re-check),
+  F2 (`/api/*`→`/api/mock-session` only, mock-gated), F3 (XFF behind `TRUST_PROXY`), F4 (`Secure` cookie when
+  !development), F5 (sign-up rate-limit), F7 (`redirect_url`→pathname+search), OE4 (307), OE5 (new
+  `@tax-portal/auth/testing` subpath; test-only resets off the barrel), OE8 (dead email default). Also fixed a
+  real CI gap: added "Build workspace packages" step to `test-portal`/`test-admin` jobs (was failing to resolve
+  workspace pkgs) → **both now PASS**. Commits `c89689d`, `01b4219`. **DISPOSITIONED-with-rationale (intentional
+  deferred-Clerk seam, threads resolved by Conductor):** OE1 port width, OE2 `checkSession`/`role-missing` arm,
+  OE3 dual HMAC paths. Gate was env-constrained (lint/type-check/build/auth+admin+portal unit tests only; CI is
+  the accepted gate per user 2026-06-16). **All 4 CI checks green** (run 27614184609).
+- **Conductor Merge/Finalize DONE (2026-06-16):** 3 dispositioned threads resolved → conversation-resolution
+  gate cleared (0 unresolved; `CLEAN`/`MERGEABLE`). PR #38 title/body finalized to slice level (was the premature
+  TASK-004-002 title) via REST (`gh pr edit` aborts on projects-classic deprecation). **PR #38 SQUASH-MERGED to
+  `main` @ `0444551`** (`gh pr merge --squash --delete-branch`; no `--admin`/protection toggle — MERGE-POLICY
+  Lane B; auto-merge cond. (d) Smoke = user-accepted CI substitution). Remote branch deleted; local branch
+  pruned; new docs-lane branch `chore/epic-004-close` for the close-out.
+- **IO Close-finalize DONE (2026-06-16):** **gate 8 post-merge CI PASS** — `main` @ `0444551`: `CI` ✅ +
+  `Code Quality: Push on main` ✅. Gate 9 N/A (`Brief-deploys: no`). Final 9-gate scorecard recorded; slice swept
+  from `## Awaiting PR merge` to `PROGRESS-ARCHIVE.md`; live PROGRESS.md `## Current initiative` = EPIC-004
+  delivered + next-ready EPIC-002/003.
+- **Conductor Validate (write-back) DONE (2026-06-16):** Planning agent flipped the 11 in-scope EPIC-004 AC
+  `planned`→`verified` in COVERAGE (verified 13→24); rolled EPIC-004 `planned`→`delivered` in ROADMAP;
+  EPIC-002/EPIC-003 deps satisfied (unblocked); 4 deferred 2FA AC unchanged. Evidence basis [A] = CI.
+- **Remaining:** docs-lane PR (`chore/epic-004-close`: STATE/COVERAGE/ROADMAP/EPIC-004/PROGRESS write-backs +
+  `docs/demos/EPIC-004/` gallery + `docs/demos/README.md`) on green required CI → Report.
+- **RESIDUAL user env items still pending** (both `.env*` permission-walled): merge `env.local.tmp` DB URLs into
+  `.env.local` (then DELETE `env.local.tmp` — untracked, has dev passwords); add `.env.example`
+  `RATE_LIMIT_MAX_ATTEMPTS=10` + `RATE_LIMIT_WINDOW_MS=60000`. Infra follow-up filed: clean-volume DB bootstrap +
+  Prisma P3019.
+- **⏸ PAUSED (2026-06-16, user) — resume at Conductor Fix.** [SUPERSEDED — Fix done; see entries above.] On resume,
   run `/pr-fix 38` with this guidance:
   - **FIX now (contained, sensible, no real-Clerk needed):** F1/F6 fail-closed guards (throw on mock|unset
     `AUTH_PROVIDER` when `NODE_ENV=production`; require `MOCK_SESSION_SECRET` in prod; drop the compose
@@ -257,11 +290,15 @@ in `## Current run`. → Report (STOP).
 - **EPIC-001:** **DELIVERED** ✅ (PR #35 → `f7f6c9d`; 13/13 AC verified). Plus post-delivery records PR #36
   (`8ef3622`) and the per-epic UI-demo feature PR #37 (`b0b4b11`). Full lifecycle ledger archived in
   `.implementation/tasks/RETRO-001.md` + git history.
+- **EPIC-004:** **DELIVERED** ✅ (PR #38 squash → `main` @ `0444551`, 2026-06-16; 11/15 in-scope AC verified, 4
+  2FA AC deferred by design). Shipped with the auth provider **mocked** (user-approved brief deviation); real
+  Clerk + 2FA are a future Phase-1 "2FA enablement" slice. 3-lens panel request-changes fully dispositioned
+  (genuine findings fixed; deferred-Clerk-seam over-eng dispositioned-with-rationale). Verification basis = CI
+  (user-accepted substitution for env-blocked container smoke). Ledger: `RETRO-004.md` / `HANDOFF-004.md` +
+  `PROGRESS-ARCHIVE.md` Close-finalize entry. Unblocked next: EPIC-002, EPIC-003.
 
-### EPIC-004
-**stopped-at-Implement** (2026-06-15) — deferred to the engine's **Clerk test-mode hard environment gate**.
-Compose delivered BRIEF-004; the IO completed Plan (branch `brief-004-auth-two-role-model`, full task
-decomposition) and halted before Dispatch because the slice's e2e-required AC need real Clerk test-mode
-credentials the team cannot self-provision (cost-bearing / external-SaaS / Autonomy-Ceiling). **No PR opened;
-epic NOT rolled to delivered.** Resume: provision Clerk test-mode (5-point checklist in `## Current run`), then
-re-`/orchestrate 004` → resumes at Implement/Dispatch. This is the expected guardrail behavior, not a failure.
+### EPIC-004 — first run (superseded)
+**stopped-at-Implement** (2026-06-15) — deferred to the engine's **Clerk test-mode hard environment gate**; the
+IO completed Plan and halted before Dispatch (e2e-required AC needed real Clerk test-mode creds). **Superseded
+2026-06-15** by the user's "mock the auth provider + defer 2FA" direction → re-scoped to 11 AC, re-composed
+BRIEF-004, and driven to delivery (see History entry above). Retained for run-history continuity.

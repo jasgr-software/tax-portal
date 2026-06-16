@@ -14,5 +14,6 @@ reviewable at a glance.
 | Epic | Surface | Demo |
 |---|---|---|
 | EPIC-001 — Public front door | `apps/portal` | [EPIC-001/DEMO.md](EPIC-001/DEMO.md) |
+| EPIC-004 — Auth & two-role model | `apps/portal` + `apps/admin` | [EPIC-004/DEMO.md](EPIC-004/DEMO.md) |
 
-_(EPIC-002/003/004 demos are added as those slices run through `/orchestrate`.)_
+_(EPIC-002/003 demos are added as those slices run through `/orchestrate`.)_

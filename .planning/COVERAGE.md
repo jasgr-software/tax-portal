@@ -20,15 +20,19 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | — EPIC-004 (auth & two-role model) | 11 |
 | — EPIC-002 (services-catalog management) | 7 |
 | — EPIC-003 (accountant request inbox) | 20 |
-| AC `verified` (signed off) | 13 — all of EPIC-001 (delivered 2026-06-15) |
+| AC `verified` (signed off) | 24 — all of EPIC-001 (13, delivered 2026-06-15) + all of EPIC-004 (11, delivered 2026-06-16) |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
 > **EPIC-001 (13 AC) signed off 2026-06-15** — the public front-door slice shipped (PR #35, merge `f7f6c9d`).
-> The remaining placed AC (EPIC-002/003/004) are still `planned`. The roll-up reaches **full v1 acceptance**
-> when no v1 source AC is orphaned and every non-deferred AC is `verified`.
+> **EPIC-004 (11 AC) signed off 2026-06-16** — the auth & two-role-model identity spine shipped (PR #38,
+> squash merge `0444551`); see basis note [A]. The 4 2FA AC (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) remain
+> `deferred` to the future Phase-1 "2FA enablement" slice — see Deferred. The remaining placed AC
+> (EPIC-002/003) are still `planned`. The roll-up reaches **full v1 acceptance** when no v1 source AC is
+> orphaned and every non-deferred AC is `verified`.
 >
-> **[A] Evidence basis for the EPIC-001 sign-off (precedent — set by the user 2026-06-15).** Each EPIC-001 AC
+> **[A] Evidence basis for the EPIC-001 sign-off (precedent — set by the user 2026-06-15); reused for EPIC-004
+> 2026-06-16.** Each EPIC-001 AC
 > has an automated test **tagged with its AC id** (the AC→test-tag→tier table is in
 > `.implementation/tasks/RETRO-001.md`) that **passed** under the SDET's independent acceptance-validation
 > against the real docker-compose stack — tier-3 RLS hard gate 4/4 (`engagement-request.rls.test.ts`, real SQL
@@ -41,6 +45,16 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > verification for those tiers this slice. **Tracked follow-up:** wire the AC test tiers (component + tier-3
 > + e2e) into a required CI check so future sign-offs rest on per-PR CI directly (RETRO-001 § carried
 > follow-ups; ties to the `test-portal` graduation item).
+>
+> **[A] applied to the EPIC-004 sign-off (2026-06-16).** Same user-accepted CI-as-the-gate basis as EPIC-001:
+> the env-blocked local container smoke is substituted by clean GitHub CI. The required checks
+> `lint-and-typecheck` ✅ + `security-scan` ✅ — plus `test-admin` ✅ and `test-portal` ✅ — are green on the
+> PR #38 head **and** on the post-merge `main` run at `0444551`. Each in-scope AC has automated test(s)
+> tagged with its AC id exercised by the SDET at dev time (167+ auth unit/integration tests, RLS isolation
+> tests, per-app + cross-app e2e). **Slice-specific caveat:** the auth provider was **mocked** for this slice
+> (user-approved brief deviation); real Clerk + 2FA enforcement are a deferred future Phase-1 "2FA enablement"
+> slice that re-validates the 4 deferred AC against the live provider. The same per-PR-CI-tier follow-up
+> tracked for EPIC-001 applies here.
 
 ## Coverage by acceptance criterion
 
@@ -85,21 +99,21 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-DASH-011 | AC-DASH-011-01 | EPIC-003 | 1 | `AC-DASH-011-01` | planned | — |
 | REQ-DASH-011 | AC-DASH-011-02 | EPIC-003 | 1 | `AC-DASH-011-02` | planned | — |
 | REQ-DASH-011 | AC-DASH-011-03 | EPIC-003 | 1 | `AC-DASH-011-03` | planned | — |
-| REQ-AUTH-001 | AC-AUTH-001-01 | EPIC-004 | 1 | `AC-AUTH-001-01` | planned | — |
-| REQ-AUTH-001 | AC-AUTH-001-02 | EPIC-004 | 1 | `AC-AUTH-001-02` | planned | — |
-| REQ-AUTH-001 | AC-AUTH-001-03 | EPIC-004 | 1 | `AC-AUTH-001-03` | planned | — |
+| REQ-AUTH-001 | AC-AUTH-001-01 | EPIC-004 | 1 | `AC-AUTH-001-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-001 | AC-AUTH-001-02 | EPIC-004 | 1 | `AC-AUTH-001-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-001 | AC-AUTH-001-03 | EPIC-004 | 1 | `AC-AUTH-001-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-004 | AC-AUTH-004-01 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-004-01` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
 | REQ-AUTH-004 | AC-AUTH-004-02 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-004-02` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
 | REQ-AUTH-004 | AC-AUTH-004-03 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-004-03` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
 | REQ-AUTH-005 | AC-AUTH-005-01 | (2FA-enablement, future Phase 1) | 1 | `AC-AUTH-005-01` | deferred | Deferred 2026-06-15 — 2FA not ready to deploy; see Deferred |
-| REQ-AUTH-005 | AC-AUTH-005-02 | EPIC-004 | 1 | `AC-AUTH-005-02` | planned | — |
-| REQ-AUTH-006 | AC-AUTH-006-01 | EPIC-004 | 1 | `AC-AUTH-006-01` | planned | — |
-| REQ-AUTH-006 | AC-AUTH-006-02 | EPIC-004 | 1 | `AC-AUTH-006-02` | planned | — |
-| REQ-AUTH-006 | AC-AUTH-006-03 | EPIC-004 | 1 | `AC-AUTH-006-03` | planned | — |
-| REQ-AUTH-009 | AC-AUTH-009-01 | EPIC-004 | 1 | `AC-AUTH-009-01` | planned | — |
-| REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-004 | 1 | `AC-AUTH-010-01` | planned | — |
-| REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-004 | 1 | `AC-AUTH-010-02` | planned | — |
-| REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-004 | 1 | `AC-AUTH-010-03` | planned | — |
+| REQ-AUTH-005 | AC-AUTH-005-02 | EPIC-004 | 1 | `AC-AUTH-005-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-006 | AC-AUTH-006-01 | EPIC-004 | 1 | `AC-AUTH-006-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-006 | AC-AUTH-006-02 | EPIC-004 | 1 | `AC-AUTH-006-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-006 | AC-AUTH-006-03 | EPIC-004 | 1 | `AC-AUTH-006-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-009 | AC-AUTH-009-01 | EPIC-004 | 1 | `AC-AUTH-009-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-004 | 1 | `AC-AUTH-010-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-004 | 1 | `AC-AUTH-010-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-004 | 1 | `AC-AUTH-010-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-MSG-013 | AC-MSG-013-01 | EPIC-003 | 1 | `AC-MSG-013-01` | planned | — |
 
 ## Split requirements

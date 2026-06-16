@@ -7,12 +7,24 @@
 
 ## Status / amendment history
 
+- **2026-06-16 (EPIC-004 delivered)** — Phase 1's auth & two-role-model identity spine shipped (PR #38, squash
+  merge `0444551`). **11/15 in-scope AC** signed off `verified` in `COVERAGE.md` (REQ-AUTH-001/-005-02/-006/
+  -009/-010); the **4 2FA AC** (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) remain `deferred` to a future
+  Phase-1 "2FA enablement" slice (2FA not ready to deploy; the slice shipped with the auth provider mocked, a
+  user-approved brief deviation). EPIC-004 → `delivered`. Sign-off evidence basis: green required CI
+  (`lint-and-typecheck` + `security-scan`) plus `test-admin` + `test-portal` on the PR head and the post-merge
+  `main` run — the user-accepted CI-as-the-gate substitution for the env-blocked container smoke (same basis as
+  EPIC-001; see COVERAGE note [A]). **EPIC-002 and EPIC-003 are now unblocked** — their `depends_on: EPIC-004`
+  is satisfied. Next ready: EPIC-002 (admin catalog) and EPIC-003 (request inbox); EPIC-003 also needs the
+  requests EPIC-001 produces (already delivered), so both are buildable.
+
 - **2026-06-15 (EPIC-001 delivered)** — Phase 1's first slice shipped: the public front door (PR #35, squash
   merge `f7f6c9d`). All 13 EPIC-001 AC signed off `verified` in `COVERAGE.md`; EPIC-001 → `delivered`. Sign-off
   evidence basis (precedent set this run): SDET independent acceptance-validation against the real
   docker-compose stack (tier-3 RLS 4/4, e2e 12/12, 28/28 unit/integration) + green required CI; per-PR CI does
   not yet run the AC test tiers — tracked follow-up (see COVERAGE note [A]). Next ready: EPIC-004 (the other
-  dependency-free Phase-1 slice); EPIC-002/003 unblock once EPIC-004 delivers.
+  dependency-free Phase-1 slice); EPIC-002/003 unblock once EPIC-004 delivers. *(Superseded 2026-06-16:
+  EPIC-004 delivered; EPIC-002 and EPIC-003 are now unblocked — see the entry above.)*
 
 - **2026-06-14** — Roadmap seeded. Phasing strategy established; Phase 1 (MVP) opened with the public
   front-door slice (EPIC-001 authored). Later phases and the backlog sketched as named epics to be
@@ -52,14 +64,14 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
 | **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `delivered` (PR #35, `f7f6c9d`, 2026-06-15) | — |
-| **EPIC-004** | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect (11 in-scope AC). 2FA deferred to a future Phase-1 "2FA enablement" slice (not ready to deploy) | `planned` | — |
-| **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `planned` | EPIC-004 |
-| **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `planned` | EPIC-001, EPIC-004 |
+| **EPIC-004** | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect (11 in-scope AC). 2FA deferred to a future Phase-1 "2FA enablement" slice (not ready to deploy) | `delivered` (PR #38, `0444551`, 2026-06-16) — 11/15 in-scope AC; 4 2FA AC deferred | — |
+| **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `planned` (unblocked — EPIC-004 delivered) | EPIC-004 ✅ |
+| **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `planned` (unblocked — EPIC-001 + EPIC-004 delivered) | EPIC-001 ✅, EPIC-004 ✅ |
 
-> **All four Phase-1 epics are authored and `planned`.** Build order respects `depends_on`: **EPIC-001**
-> and **EPIC-004** have no dependencies and come first (the anonymous front-door write path and the auth
-> spine stand alone); **EPIC-002** and **EPIC-003** follow once the authenticated accountant surface
-> (EPIC-004) exists, with EPIC-003 also needing the requests EPIC-001 produces.
+> **Phase-1 build status (2026-06-16):** the two dependency-free slices — **EPIC-001** (anonymous front-door
+> write path) and **EPIC-004** (the auth spine) — are both **delivered**. **EPIC-002** and **EPIC-003** are now
+> **unblocked** and ready to build: the authenticated accountant surface (EPIC-004) exists, and the requests
+> EPIC-003 consumes (EPIC-001) exist. Both remain `planned` (in-scope AC not yet verified).
 >
 > **MVP boundary (confirmed 2026-06-14):** the front-door spine only. A prospect can reach the door and
 > submit; the accountant can sign in, get notified, and accept (→ invite) or decline (→ reason email); an
