@@ -10,59 +10,30 @@
 
 ## Current initiative
 
-**BRIEF-002 — Accountant manages the services catalog (admin CRUD + accountant-only write boundary)**
-- **Branch:** `brief-002-services-catalog-management` (created from `main` this invocation)
-- **Brief-type:** feature · **Brief-deploys:** no
-- **Goal:** Deliver the *write* side behind EPIC-001's public read catalog — the signed-in accountant adds /
-  edits / deactivates services from `apps/admin`, persisted under her authenticated identity (ADR-003) and
-  authorized at the Service security-policy trust boundary (ADR-005). **Primary risk:** close EPIC-001's latent
-  write-predicate gap (CLIENT currently passes the BLOCK predicate) — AC-DOOR-002-05.
-- **Phase:** **Close-prep** — post-dispatch cascade COMPLETE through Validate. ALL dispatch nodes `done` & committed (9 commits `c500053`→`b87cd95`: 5 tasks + 3 blocking bugs + BUG-002-004). **Audit COMPLETE** (0 blocking, 1 advisory corrected, obs recorded). **Review = IO design scan PASS** vs. ADR-003/-005/-006. **Smoke gate 5 ✅** (UI PASS / Infra CONDITIONAL PASS — `sqlserver (unhealthy)` = carried healthcheck SA-password mismatch, DB operational, all EPIC-002 DB objects present). **Validate COMPLETE:** acceptance-validation (gate 6) + CI (gate 7) both adjudicated GREEN by SDET after BUG-002-004 fix (`b87cd95`); `pnpm -r test` 229/229; lint/type-check/audit clean. **Now: Close-prep** — gates 6+7 ticked, HANDOFF-002 + RETRO-002 written, task/bug files archived, slice → `## Awaiting PR merge`, PR title+body handed to main session.
-- **Gate scorecard:** (1) per-task submission gates 5/5 ✅ · (2) SDET Review 5/5 ✅ · (3) Overwatch Audit ✅ · (4) IO Design scan ✅ · (5) **Container Smoke ✅** (UI PASS / Infra CONDITIONAL PASS) · (6) **SDET Acceptance-validation ✅** (all 7 in-scope AC covered + green at mandated tiers; AC-id tags present; gherkin binding confirmed; cross-surface loop scoped to AC-DOOR-002-03) · (7) **SDET CI gate ✅** (`pnpm -r test` 229/229; `pnpm lint`+`pnpm type-check` clean; `pnpm audit --audit-level=high` exit 0; GitHub required-CI green confirmed by Conductor post-Close-prep) · (8) Post-merge CI — Close-finalize · (9) staging smoke — **N/A** (`Brief-deploys: no`).
-- **Gated:** yes (touches `apps/admin`, `packages/db`, `db/policies/`)
-- **Methodology:** gherkin acceptance format (7 scenarios → `.feature` mirror) · e2e required (apps/admin,
-  mocked auth provider) · tier-3 obligations on the write boundary + persistence · container smoke before
-  Validate · AC-id test-tag contract for COVERAGE write-back.
+_None active._ **BRIEF-002 / EPIC-002 DELIVERED** 2026-06-16 (PR #40 squash-merged to `main` @ `70ea10e`;
+gate 8 post-merge CI green; gate 9 N/A — `Brief-deploys: no`). Close-finalize complete; slice swept to
+delivered (see the Close-finalize archive entry in `PROGRESS-ARCHIVE.md` + the `## Post-Merge Addendum` in
+`RETRO-002.md`).
 
-**Tasks (5):**
-| Task | Status | Impl | E2e | AC | Notes |
-| ---- | ------ | ---- | --- | -- | ----- |
-| TASK-002-001 service-write-boundary-policy | **done** | developer | no | AC-DOOR-002-05 | **Primary risk.** Separate write predicate (`fn_service_write_access`, no CLIENT) + tier-3 RLS test. `Introduces-gate: yes`. Dependency root. **service.rls 10/10 PASS; db suite 35/35; lint/type-check/build clean.** Complexity-actual 3. **SDET APPROVED** (independent re-exec: 10/10 + 35/35; gate-authoring evidence verified; latent write-gap closed). Committed `c500053`. |
-| TASK-002-002 service-write-repository-and-actions | **done** | developer | no | -01/-02/-03 + -05 runtime | Write repo + server actions through the request-scoped `db` wrapper; tier-3 persistence. Depends on -001 (done). **SDET APPROVED** (independent re-exec: `@tax-portal/db` 39/39 incl. persistence 4/4 + rls 10/10; admin 16/16; `requestDb()` cast verified as genuine `$extends`-wrapped `db`; identity from `getIdentity()` only; deactivate UPDATE not DELETE; no schema changes). Complexity-actual 3. |
-| TASK-002-003 admin-catalog-management-ui | **done** | developer | no | AC-DASH-010-01/-02/-03 | Admin list/add/edit/deactivate behind the role gate. Depends on -002 (done). Consumes the existing `createServiceAction`/`updateServiceAction`/`deactivateServiceAction`; page reads via `listAllServices` inside `withRequestContext` (mirror `apps/admin/src/app/page.tsx`). Dev gate green: `pnpm --filter admin test` 41/41 (25 new + 15 actions + 1 healthz), lint/type-check/build clean. Reactivation intentionally absent. **SDET APPROVED** (independent re-exec: 41/41; ADR-005 boundary clean; identity provenance verified; both union branches handled; all 3 ACs covered with happy-path + error-branch tests; no portal write path). Complexity-actual 3. |
-| TASK-002-004 admin-e2e-catalog-journeys-and-cross-surface | **done** | developer | **yes** | 6 journeys + -05 UI surface + cross-loop | All 3 blocking bugs (001/002/003) `done`; developer re-ran the unchanged specs against the rebuilt container stack: **17/17 PASS, 3 sequential runs, zero flakes**. **SDET APPROVED 2026-06-16T16:42:00Z** (independent re-exec 3 × 17/17 = 51 total, zero flakes; full suite clean; all 7 focus items pass; AC-id test-tag contract verified for COVERAGE write-back). Complexity-actual 4. |
-| TASK-002-005 demo-walkthrough-spec | **done** | developer | yes | none (non-gating demo) | @demo gallery → `docs/demos/EPIC-002/`. Depends on -004 (done). 4-test `@demo` spec (list/add/edit/deactivate), 4 AC-tagged PNGs (`01-AC-DASH-010-01` / `02-AC-DOOR-002-01` / `03-AC-DOOR-002-02` / `04-AC-DOOR-002-03`), gate green, `e2e:demo` 4/4, **4 distinct sha256 hashes** (no byte-identical dupes). `@demo` excluded from gating `e2e:run` (`--grep-invert @demo`). **SDET APPROVED 2026-06-16T17:30:00Z** (independent sha256 4-distinct + per-PNG visible-distinct-state spot-check; structural non-gating confirmed; convention mirror PASS). Complexity-actual 2. Committed `f8f5405`. |
+**Phase-1 epic status:** EPIC-001 (public read catalog) ✅ · EPIC-004 (auth two-role model) ✅ · EPIC-002
+(services-catalog write side) ✅ — **all delivered**. **Next-ready epic: EPIC-003** (the only remaining
+Phase-1 epic). The IO is eligible to Plan EPIC-003 once a build brief is produced upstream (`.planning/` →
+`.orchestration/` composes the brief). No brief is in hand yet — the IO does not author briefs.
 
-**Env note (RESOLVED 2026-06-16, main session):** the EPIC-004-carried local-DB blocker is cleared. `tax_portal` DB fully bootstrapped — schema synced via `prisma db push` (sidesteps the `migrate deploy` P3019 block), all principals incl. `taxportal_user` created, all `sec` policies applied incl. the new `fn_service_write_access`. `.env.local` carries correct DB URLs. **Tier-3 RLS tests now run locally against the real SQL Server container; subsequent DB/e2e gates (TASK-002-002 persistence, TASK-002-004 e2e) can run locally.** **E2e host-port:** admin container maps **host 13001→3001** — host-run admin Playwright needs `ADMIN_BASE_URL=http://localhost:13001` (flag in the TASK-002-004 dispatch).
-
-**AC → task map (7 ACs, all traced):** AC-DOOR-002-01/-02/-03 → -002 (persist) + -004 (e2e); AC-DASH-010-01/-02/-03 → -003 (UI) + -004 (e2e); AC-DOOR-002-05 → -001 (trust boundary, tier-3) + -002 (runtime) + -004 (UI surface). AC-DOOR-002-04 is **out of scope** (owned by EPIC-001; verified only as a loop).
-
-**Design-coherence check:** PASS (recorded in the Plan session entry below). No upstream/architectural question raised — the write-predicate split realizes ADR-005's existing mandate, not a new architectural choice.
+**Carried-forward follow-ups (from BRIEF-002 Close-finalize — see `RETRO-002.md` § Post-Merge Addendum for
+full detail):** (1) infra clean-volume DB bootstrap (single root family; new BRIEF-002 manifestation = the
+`sqlserver` healthcheck SA-password-vs-volume mismatch); (2) CI/lint grep-guard for stray
+`sp_set_session_context` outside `client.ts` (panel-dispositioned); (3) pre-existing EPIC-001 `fn_service_access`
+CLIENT read-branch tightening (panel-dispositioned); (4) comment-only `service.rls.test.ts` `@read_only`/§4
+drift (rides the next `packages/db` task); (5) EPIC-004 RATE_LIMIT `.env.example` vars — user-walled, user
+applies. These also live in `## Open retro action items` below.
 
 ## Awaiting PR merge
 
-**BRIEF-002 — Accountant manages the services catalog (admin CRUD + accountant-only write boundary)**
-- **Branch:** `brief-002-services-catalog-management` (9 commits `c500053`→`b87cd95`; base `main`@`c87b5bd`).
-- **Brief-type:** feature · **Brief-deploys:** no (gate 9 N/A).
-- **AC summary (7 in-scope, all satisfied):** AC-DOOR-002-01/-02/-03 (add/edit/deactivate persist — tier-3
-  persistence + tier-6 e2e) · AC-DASH-010-01/-02/-03 (add/edit/deactivate from admin UI — tier-6 e2e,
-  dual-tagged with the DOOR journeys) · AC-DOOR-002-05 (accountant-only write boundary — tier-3 RLS
-  `service.rls.test.ts` 10/10 + UI-surface e2e). AC-DOOR-002-04 verified only as a cross-surface loop
-  (owned by EPIC-001, NOT claimed as a BRIEF-002 row).
-- **Bugs ridden (3+1):** BUG-002-001 (auth guard), BUG-002-002 (Prisma musl engine), BUG-002-003
-  (SESSION_CONTEXT `@read_only` vs pooling → ADR-003 Amendment 1), BUG-002-004 (stale portal rate-limit test).
-- **Pre-merge gates (Autonomy Ceiling item 3d) recorded:** Container Smoke ✅ (cond-pass) · SDET
-  Acceptance-validation ✅ · SDET CI gate ✅ (`pnpm -r test` 229/229) · quality audit ✅.
-- **Reports:** `HANDOFF-002.md` (AC→tag→tier table for COVERAGE write-back) · `RETRO-002.md` (9-gate scorecard
-  + classified findings).
-- **Verification basis:** CI-as-gate substitution carried from EPIC-004 (user-accepted) for the env-blocked
-  clean-volume container bootstrap; Smoke gate 5 = conditional-pass with the documented `sqlserver` healthcheck
-  caveat. GitHub required-CI green confirmed by the Conductor post-Close-prep.
-- **Awaiting:** main session opens the slice PR (title+body composed at Close-prep), then PR merge per
-  Autonomy Ceiling item 3.
-
-_BRIEF-004 finalized + delivered (PR #38 @ `0444551`, gate 8 green) — cleared from this section at its
-Close-finalize._
+_Empty._ BRIEF-002 / EPIC-002 finalized + delivered (PR #40 squash-merged @ `70ea10e`, gate 8 post-merge CI
+green; gate 9 N/A) — cleared from this section at its Close-finalize (2026-06-16). BRIEF-004 delivered earlier
+(PR #38 @ `0444551`, gate 8 green). The slice-start gate is clear for the next epic (EPIC-003) once its build
+brief lands.
 
 ## Active bugs
 
@@ -141,14 +112,13 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ---
 
-### IO Close-prep — BRIEF-002 — 2026-06-16
-**Start:** Post-dispatch cascade complete through Validate (SDET adjudicated gates 6 + 7 GREEN after the BUG-002-004 fix landed as `b87cd95`; `pnpm -r test` 229/229; lint/type-check/audit clean). Driving Close-prep: tick gates 6+7, run the hard-verification metadata gate, write HANDOFF-002 + RETRO-002, archive the 5 task + 4 bug files, move the slice to `## Awaiting PR merge`, and hand the PR title+body to the main session.
-**Phase-transition reflex (Validate→Close-prep):** swept the Validate-phase session entries (IO Smoke-disposition+Validate-start, SDET Validate-start, SDET gate-6, SDET gate-7, SDET quality audit, SDET Validate-end, SDET BUG-002-004 re-review ×2) to `PROGRESS-ARCHIVE.md` under a "Swept at Validate→Close-prep transition" marker; updated `## Current initiative` (Phase→Close-prep; scorecard gates 6+7 ✅); replaced `## Awaiting PR merge` with the BRIEF-002 slice block; collapsed `## Active bugs` to the archived 4-bug summary; appended this entry.
-**Gates 6 + 7 — TICKED ✅ on the SDET evidence:**
-- **Gate 6 (Acceptance-validation):** all 7 in-scope AC have AC-id-tagged covering tests green at the mandated tiers — tier-3 RLS `service.rls.test.ts` 10/10 (AC-DOOR-002-05), tier-3 `service.persistence.test.ts` 4/4 (AC-DOOR-002-01/-02/-03), tier-6 admin e2e 17/17 (the add/edit/deactivate journeys dual-tagged DOOR+DASH; AC-DOOR-002-05 UI surface; cross-surface loop tagged AC-DOOR-002-03, correctly NOT AC-DOOR-002-04). Gherkin `.feature` mirror present, 7 scenarios, no drift. COVERAGE-write-back AC-id tag contract complete.
-- **Gate 7 (CI / required-CI-equivalent):** `pnpm -r test` 229/229 PASS (auth 124, db 41, admin 41, portal 23 incl. rate-limit 7/7); `pnpm lint` exit 0; `pnpm type-check` exit 0; `pnpm audit --audit-level=high` exit 0 (1 moderate, below threshold). No PR open yet — GitHub required-CI green confirmed by the Conductor post-Close-prep.
-**Hard-verification metadata gate — PASS.** All 9 in-scope files (TASK-002-001..005, BUG-002-001/-002/-003/-004) carry populated, in-range `Started-at`, `Completed-at`, `Complexity-estimate`, `Complexity-actual` (1–5), `Impl`, `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`. TASK-002-001 timestamp inversion already corrected (07:01:42Z). BUG-002-004 fields complete (Cx-est 1 / Cx-act 1; the dev filled them at close). Two midnight-sentinel `Started-at` placeholders (TASK-002-003, BUG-002-004) are in-range and pass — recorded as a RETRO-002 metric-integrity observation, not a gate failure. No reject-and-fix needed.
-**9-gate scorecard (final, this slice):** (1) per-task submission 5/5 ✅ · (2) SDET Review 5/5 ✅ · (3) Overwatch Audit ✅ (0 blocking) · (4) IO Design scan ✅ · (5) Container Smoke ✅ CONDITIONAL-PASS (UI PASS / Infra cond-pass; `sqlserver (unhealthy)` healthcheck SA mismatch documented; clean-volume bootstrap env-blocked → CI-as-gate substitution carried from EPIC-004, user-accepted) · (6) SDET Acceptance-validation ✅ · (7) SDET CI gate ✅ · (8) Post-merge CI — Close-finalize · (9) staging smoke — N/A (`Brief-deploys: no`).
-**Artifacts written:** `HANDOFF-002.md` (AC→tag→tier table for COVERAGE write-back, the 3+1 bugs, the cross-surface loop evidence for AC-DOOR-002-03, carried follow-ups) · `RETRO-002.md` (9-gate scorecard + classified findings: the 4-defect container chain headline, the blast-radius lesson, the Audit observations, the carried infra item, the rule-sunset candidates, the cross-surface-parity sunset-counter status).
-**Archive:** 5 task files + 4 bug files moved to `tasks/done/`. PROGRESS-ARCHIVE.md updated.
-**End:** Close-prep complete. Slice in `## Awaiting PR merge`. PR title + body composed for the main session to open with `gh` against base `main` from `brief-002-services-catalog-management`. IO ends the invocation; PR open + merge is the main-session/user-in-loop step (Autonomy Ceiling item 3). On merge → re-invoke IO for Close-finalize (gate 8 post-merge CI; gate 9 N/A).
+### IO Close-finalize — BRIEF-002 — 2026-06-16 — SLICE DELIVERED
+**Start:** Re-invoked for Close-finalize. PR #40 squash-merged to `main` @ `70ea10e` (2026-06-16). Gate 8 (post-merge CI) confirmed GREEN by the main session — `CI` ✅ + `CodeQL` ✅ on `70ea10e` (`gh run list --branch main`). Gate 9 N/A (`Brief-deploys: no`, ADR-007). Driving the final close: record the final 9-gate scorecard, sweep the slice to delivered, write the Post-Merge Addendum, point `## Current initiative` at EPIC-003.
+**Phase-transition reflex (Close-prep→Close-finalize):** swept the IO Close-prep session entry (incl. the PR-OPENED note) to `PROGRESS-ARCHIVE.md` under a "Swept at Close-prep→Close-finalize transition" marker; updated `## Current initiative` → _None active_ + EPIC-002 delivered + next-ready EPIC-003; emptied `## Awaiting PR merge`; appended this entry.
+**Gate 8 — Post-merge CI: ✅ PASS.** `main` @ `70ea10e` — `CI` ✅ + `CodeQL` ✅ (both required checks `conclusion: SUCCESS` on the squash-merge commit). Evidence basis **[A] CI**.
+**Gate 9 — Post-merge staging smoke: N/A.** `Brief-deploys: no` (ADR-007 — no production/staging platform).
+**Final 9-gate scorecard (all closed):** (1) per-task submission 5/5 ✅ · (2) SDET Review 5/5 ✅ · (3) Overwatch Audit ✅ (0 blocking) · (4) IO Design scan ✅ · (5) Container Smoke ✅ conditional-pass (documented `sqlserver` healthcheck SA mismatch; clean-volume bootstrap env-blocked → CI-as-gate substitution, user-accepted) · (6) SDET Acceptance-validation ✅ · (7) SDET CI gate ✅ · (8) **Post-merge CI ✅** (`70ea10e`: `CI` + `CodeQL` green) · (9) staging smoke N/A.
+**Delivery record:** **PR #40 → `70ea10e`.** **7/7 in-scope AC verified** — AC-DOOR-002-01/-02/-03 (add/edit/deactivate persist) · AC-DASH-010-01/-02/-03 (admin-UI CRUD) · AC-DOOR-002-05 (accountant-only write boundary). **4 bugs ridden:** BUG-002-001 (auth fail-closed guard blocked mock in prod build) · BUG-002-002 (Prisma musl/Alpine engine binary target) · BUG-002-003 (`@read_only` SESSION_CONTEXT incompatible with Prisma pooling → **ADR-003 Amendment 1**) · BUG-002-004 (stale portal rate-limit test, blast-radius miss). **ADR-003 Amendment 1** raised upstream. **Evidence basis: [A] CI.**
+**Carried-forward follow-ups (preserved — full detail in RETRO-002 § Post-Merge Addendum + `## Open retro action items`):** (a) infra clean-volume DB bootstrap — `sa`-once login creation + Prisma port-in-authority + `!`-free logins + `migrate deploy` P3019; plus the new BRIEF-002 manifestation, the `sqlserver` healthcheck SA-password-vs-volume mismatch; (b) two panel-dispositioned follow-ups now tracked — a CI/lint grep-guard for stray `sp_set_session_context` outside `client.ts`, and the pre-existing EPIC-001 `fn_service_access` CLIENT read-branch tightening; (c) comment-only `service.rls.test.ts` `@read_only`/§4 drift (rides next `packages/db` task); (d) EPIC-004 RATE_LIMIT `.env.example` vars still pending (user-walled — user applies).
+**Artifacts:** appended `## Post-Merge Addendum` + final gate detail to `RETRO-002.md`. Zero `BUG-002-POST-*` raised. Task/bug files already in `tasks/done/` (archived at Close-prep).
+**End:** Close-finalize exit condition met. **BRIEF-002 / EPIC-002 DELIVERED 2026-06-16.** `## Awaiting PR merge` empty; `## Current initiative` empty → next-ready epic **EPIC-003** (only remaining Phase-1 epic; EPIC-001/004/002 all delivered). IO eligible to Plan EPIC-003 once its build brief lands upstream. **Note: `.implementation/**` ledger edits are NOT committed by the IO — the main session commits PROGRESS.md, PROGRESS-ARCHIVE.md, RETRO-002.md on the `chore/epic-002-close` docs-lane branch.** IO ends the invocation.

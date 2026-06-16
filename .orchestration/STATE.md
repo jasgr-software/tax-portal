@@ -7,7 +7,90 @@
 
 ## Current run
 
-### EPIC-004 — BRIEF-004 (re-scoped 2026-06-15 per user direction)
+### EPIC-002 — BRIEF-002 (services catalog management) — started 2026-06-16 — ✅ DELIVERED 2026-06-16
+- **Phase:** **DELIVERED** — full cascade complete: Implement → Audit (0 blocking) → Review (PASS) → Smoke
+  (UI PASS / Infra cond-pass) → Validate (gates 6+7 GREEN; surfaced+fixed BUG-002-004) → Close-prep → Conductor
+  Review (`/pr-review 40`: 1 major + 5 minor + 1 nit) → Fix (`/pr-fix 40`: major + determined minors fixed; 2
+  judgment-call minors dispositioned) → **Merge (PR #40 squash → `main` @ `70ea10e`, Lane B, no protection
+  toggle; user-approved merge)** → Close-finalize (gate 8 post-merge CI ✅; gate 9 N/A) → Validate write-back
+  (`/planning`: 7 COVERAGE rows verified 24→31; EPIC-002 rolled delivered in ROADMAP) → docs-lane close-out.
+- **Outcome:** **7/7 in-scope AC verified** (AC-DOOR-002-01/-02/-03/-05 + AC-DASH-010-01/-02/-03); evidence
+  basis [A] CI. **4 latent EPIC-001/004 defects fixed** (BUG-002-001 auth guard, BUG-002-002 Prisma musl engine,
+  BUG-002-003 SESSION_CONTEXT `@read_only` vs pooling → **ADR-003 Amendment 1**, BUG-002-004 stale portal test).
+  Panel major (fail-open `ALLOW_MOCK_AUTH` default) fixed. **Next-ready: EPIC-003** (only remaining Phase-1 epic;
+  EPIC-001/004/002 all delivered). Carried follow-ups: infra DB-bootstrap + `sqlserver` healthcheck mismatch;
+  `sp_set_session_context` CI grep-guard; EPIC-001 `fn_service_access` CLIENT read-branch tightening; `service.rls`
+  comment-drift; user-walled RATE_LIMIT `.env.example` vars; delete `env.local.tmp` after this PR.
+- **(historical) Phase:** Implement → **ALL DISPATCH DONE** → next = IO post-dispatch cascade (**Audit → Review → Smoke →
+  Validate → Close-prep**), then Conductor (**/pr-review → fix → merge → /planning validate → report**).
+- **★ RESUME SNAPSHOT (2026-06-16, authoritative — read this first on resume):**
+  - **Branch `brief-002-services-catalog-management`** (NOT merged; PR not yet opened — engine opens it at
+    Close-prep). Base `main` @ `c87b5bd`. Commits: TASK-002-001 `c500053`, -002 `77b91d7`, -003 `55a9caf`,
+    BUG-002-001 `fc32fdd`, BUG-002-002 `c83bd90`, BUG-002-003 `550a556`, TASK-002-004 `a7e0ab0`, TASK-002-005
+    `f8f5405`. All 5 tasks + 3 bugs **done, SDET-approved, committed**.
+  - **All 7 in-scope AC covered + verified:** tier-3 write-boundary (001, service.rls 10/10) + persistence (002,
+    39/41) + admin UI (003, 41 admin tests) + **e2e 17/17 × 3 zero-flake against the real container stack (004)**
+    + @demo gallery 4 distinct shots (005).
+  - **4 latent EPIC-001/004 defects fixed this slice** (all hidden by the previously env-blocked container smoke;
+    EPIC-002 is the first slice to run the request-scoped Prisma path in a container — PROMINENT RETRO ITEM):
+    BUG-002-001 auth guard NODE_ENV→ALLOW_MOCK_AUTH; BUG-002-002 Prisma Alpine OpenSSL-3 engine (3-layer);
+    BUG-002-003 SESSION_CONTEXT `@read_only` vs pooling → **ADR-003 §3 Amendment 1** (architecture-ratified via
+    consult; OQ-001 resolved).
+  - **Local stack state:** containers `tax-portal-{admin,portal,sqlserver,azurite,mailhog}` UP + healthy with all
+    fixes; **admin host-mapped 13001→3001** (use `ADMIN_BASE_URL=http://localhost:13001`; `journey-for-jasmine-db-1`
+    squats host 1433 so SQL is on 14330 / port-in-authority). DB fully bootstrapped (schema via `prisma db push`;
+    principals incl. `taxportal_user`; all `sec` policies incl. `fn_service_write_access`). `taxportal_admin` is
+    app_admin_role+db_owner (NOT sysadmin — do not re-grant; it breaks the RLS admin bypass).
+  - **USER-PENDING items (none block the cascade; flag at report):** (1) `.env.local` has `ADMIN_PORT=3001` from
+    `env.local.tmp` but this host needs **13001** — set `ADMIN_PORT=13001` + `ADMIN_BASE_URL=http://localhost:13001`
+    (the `env.local.tmp` I generated had the wrong port; also caused the pre-existing EPIC-004 demo test-07 to fail).
+    (2) delete `env.local.tmp` after merging. (3) EPIC-004 RATE_LIMIT `.env.example` vars + the carried infra
+    follow-ups (clean-volume DB bootstrap needs `sa` once; `migrate deploy` P3019 — worked around via `db push`).
+  - **Permission settings changed (local, `.claude/settings.local.json`, gitignored):** narrowed `.env.*` read-deny
+    to real-secret files (`.env.example` readable); added `Bash(docker exec|compose|ps|inspect|logs|port:*)` allow.
+  - **Docs-lane (closing PR) carries:** `docs/demos/EPIC-002/` (4 PNGs + DEMO.md, currently UNTRACKED) + the
+    Conductor/planning sign-off write-backs. The `@demo` spec already rode the slice PR (`f8f5405`).
+- **Phase (historical):** Compose **DONE** → Implement.
+- **Slice:** the signed-in accountant adds / edits / deactivates services in `apps/admin`; the public front
+  door reflects her changes. Closes the authoring loop behind EPIC-001's public catalog read-side.
+- **In-scope AC (7):** AC-DOOR-002-01/-02/-03/-05, AC-DASH-010-01/-02/-03. (AC-DOOR-002-04 — the public-side
+  effect — stays owned by EPIC-001; verified here only as a cross-surface loop check.)
+- **Base branch:** main · **Feature branch:** _(engine-created at Plan; planned name free — no `*002*` branch)_
+- **PR:** _(none yet — engine opens at Dispatch/Close-prep)_
+- **Select — GO.** Earliest-listed unblocked Phase-1 epic. EPIC-003 also ready (deferred to a later run —
+  one slice at a time).
+- **Gate — GO on all 7 criteria:** (1) `status: planned` ✓ (2) `open_questions: []` ✓ (3) `depends_on:
+  [EPIC-004]` delivered ✓ (4) COVERAGE has 7 EPIC-002 rows, all `planned` ✓ (5) all 7 AC resolve verbatim to
+  REQ-DOOR-002 / REQ-DASH-010 ✓ (6) engine clear — `## Awaiting PR merge` = None, no active bugs ✓ (7) tree
+  clean on `main`, no `*002*` branch ✓. _Note: `env.local.tmp` untracked at root (EPIC-004 residual, user
+  action pending) — not tracked WIP; engine names files (no `git add -A`), so no sweep risk._
+- **Compose — DONE.** Wrote `.implementation/briefs/BRIEF-002-services-catalog-management.md`: 7 AC (verbatim)
+  + 7 gherkin scenarios; methodology gherkin / e2e-required (`apps/admin`); extra_gates = **accountant-only
+  write boundary (ADR-005, HARD tier-3)**, persistence integration, **cross-surface authoring→public-door loop**
+  (pair with EPIC-001 AC-DOOR-002-04), SESSION_CONTEXT on the admin write path (ADR-003), container smoke.
+  demo: applicable yes · apps [admin] · personas [jane-accountant] · flows [flow-engagement-request].
+- **Compose carries (concrete obligations from the sources + repo state):**
+  - **Reuse the existing `Service` Prisma entity** (created in EPIC-001: id/name/description/active/sortOrder/
+    timestamps). Deactivate = `active=false` (reversible; never delete — `EngagementRequestService` references).
+  - **Latent write-boundary gap to CLOSE:** `db/policies/0002-service-readable.sql` block predicates
+    (INSERT/UPDATE/DELETE) reuse `sec.fn_service_access`, which currently returns `allowed=1` for CLIENT
+    (branch 3) — so a CLIENT principal **presently passes the write block predicate**, contradicting the
+    policy's own "only ACCOUNTANT/admin can mutate" comment. EPIC-001 only needed the read side. This slice
+    must make the **write** predicate ACCOUNTANT/admin-only (CLIENT keeps read of active rows) + prove it with
+    the tier-3 test. This is the defining invariant of AC-DOOR-002-05.
+  - Consume EPIC-004's auth seam (accountant role gate / `requireRole()`, mocked provider for e2e, `packages/db`
+    SESSION_CONTEXT wrapper). `apps/admin` already scaffolded — add a management route + server actions, no
+    re-scaffold. Catalog management must NOT be reachable from `apps/portal` (ADR-006).
+- **EPIC-004 residual user-env items still pending** (carry-forward, both `.env*` permission-walled): merge
+  `env.local.tmp` → `.env.local` then delete it; add `.env.example` `RATE_LIMIT_MAX_ATTEMPTS`/`_WINDOW_MS`;
+  infra follow-up (clean-volume DB bootstrap + Prisma P3019). May resurface at this slice's Smoke.
+
+---
+
+<!-- ARCHIVED — EPIC-004 run DELIVERED 2026-06-16 (PR #38 → 0444551). Detail retained below + in Outcome/History,
+     PROGRESS-ARCHIVE.md, RETRO-004.md, HANDOFF-004.md. Superseded as the active run by EPIC-002 above. -->
+
+### EPIC-004 — BRIEF-004 (re-scoped 2026-06-15 per user direction) — DELIVERED (archived)
 - **USER DIRECTION (2026-06-15):** _"Mock the auth provider for e2e instead. We need to defer this requirement
   since we're not ready to deploy 2FA."_ → Resolves the Clerk hard-gate by (1) **deferring the 2FA AC** out of
   EPIC-004's in-scope set and (2) **mocking the auth provider for e2e/local** (no real Clerk keys gate this
@@ -283,6 +366,101 @@ completion signal (slice in `## Awaiting PR merge` with a PR URL).
 **End:** **STOP — deferred to the engine's inner stop** (Clerk env hard-gate). No PR opened. Conductor records,
 reports, and halts at Implement per ENGINE.md § Defer-to-inner-stops / PHASES.md Stop/defer matrix. Resume path
 in `## Current run`. → Report (STOP).
+
+---
+
+### Select — EPIC-002 — 2026-06-16
+**Start:** New run (EPIC-004 delivered; no mid-flight run). Read ROADMAP + EPIC-002 + COVERAGE.
+**Actions:** EPIC-001 + EPIC-004 `delivered`; EPIC-002 + EPIC-003 both `planned` and unblocked. Picked the
+earliest-listed candidate = **EPIC-002** (services-catalog management, `apps/admin`). EPIC-003 deferred to a
+later run (one slice per invocation).
+**End:** Candidate = EPIC-002 → Gate.
+
+### Gate — EPIC-002 — 2026-06-16
+**Start:** Apply the 7-criterion readiness predicate read-only.
+**Actions:** (1) `status: planned` ✓ (2) `open_questions: []` ✓ (3) `depends_on: [EPIC-004]` delivered ✓
+(4) COVERAGE has 7 EPIC-002 rows all `planned` ✓ (5) all 7 AC resolve verbatim to REQ-DOOR-002 / REQ-DASH-010
+✓ (6) engine clear — `## Awaiting PR merge` = None, no active bugs ✓ (7) tree clean on `main`, no `*002*`
+branch ✓ (`env.local.tmp` untracked residual noted — not tracked WIP, no sweep risk).
+**End:** GO on all 7 → Compose.
+
+### Compose — EPIC-002 — 2026-06-16
+**Start:** Map GO EPIC-002 → a build brief honoring the engine's contract.
+**Actions:**
+- Read EPIC-002 + REQ-DOOR-002 + REQ-DASH-010 (verbatim AC text) + ADR-005 obligation + build-brief template +
+  BRIEF-004 exemplar + DEMO-POLICY + the live repo (`prisma/schema.prisma` `Service` model;
+  `db/policies/0002-service-readable.sql`).
+- Wrote `.implementation/briefs/BRIEF-002-services-catalog-management.md`: 7 AC (verbatim) + 7 gherkin
+  scenarios; methodology gherkin / e2e-required (`apps/admin`); extra_gates = accountant-only write boundary
+  (ADR-005, HARD tier-3), persistence integration, cross-surface authoring→public-door loop (pair EPIC-001
+  AC-DOOR-002-04), SESSION_CONTEXT admin write path (ADR-003), container smoke.
+- Carried concrete obligations: reuse the existing `Service` entity (deactivate = `active=false`, never
+  delete); **close the latent write-predicate gap** in `0002-service-readable.sql` (block predicates currently
+  pass CLIENT — must be ACCOUNTANT/admin-only for AC-DOOR-002-05); consume EPIC-004's auth seam + SESSION_CONTEXT
+  wrapper; management lives in `apps/admin` only (ADR-006).
+- demo block: applicable yes · apps [admin] · personas [jane-accountant] · flows [flow-engagement-request].
+**End:** BRIEF-002 written with every required field from real epic/source content → Implement.
+
+### Implement — EPIC-002 — 2026-06-16
+**Start:** Invoke the engine (`/io .implementation/briefs/BRIEF-002-services-catalog-management.md`); drive to
+the completion signal (slice in `## Awaiting PR merge` with a PR URL).
+**Actions:**
+- IO ran **Plan** (slice-start clear; Docker pre-flight PASS; branch `brief-002-services-catalog-management`
+  created from `main`). Confirmed the latent write-boundary gap. Designed the fix (separate
+  `sec.fn_service_write_access` predicate — admin/ACCOUNTANT only; CLIENT keeps read). Decomposed into 5 tasks
+  (001 write-boundary policy + tier-3 RLS test → 002 repo/actions → 003 admin UI → 004 e2e+cross-surface →
+  005 demo). All recorded in PROGRESS.md.
+- **Dispatch TASK-002-001** (webapp-developer): implementation COMPLETE + lint/type-check/build PASS, but the
+  tier-3 RLS test (`packages/db/src/service.rls.test.ts`) **could not execute** — the **local DB env hard-gate
+  carried from EPIC-004**: `.env.local` has stub DB URLs + the request login doesn't exist + Prisma P3019
+  bootstrap block. Developer correctly STOPPED + escalated (no fabrication, no workaround).
+- **Conductor finding (decision-critical):** "CI as the gate" does **NOT** cover this AC — `ci.yml` provisions
+  a SQL Server *service* but the test jobs point at `master`/`SA` (no `tax_portal` DB, no app principals, no
+  `sec` policies applied) and never run `pnpm --filter @tax-portal/db test` (and they're `continue-on-error`).
+  So AC-DOOR-002-05's tier-3 write-boundary test runs **nowhere** today. Surfaced to the user (the slice's
+  primary-risk AC cannot be honestly claimed verified).
+- **USER DECISION (2026-06-16): "I'll fix the local env."** User will repair the local DB so the tier-3 test
+  runs locally (same dev-time basis EPIC-001/004 shipped on). Conductor narrowed the `.env.example` Read-deny
+  (was `Read(.env.*)` → now real-secret files only) and wrote a **complete copy-paste `.env.local`** to
+  `env.local.tmp` (full structure + corrected DB URLs: port-in-authority, `!`-free `taxportal_admin`/
+  `taxportal_user` from migration 0001).
+**Env RESOLVED (2026-06-16):** user copied `env.local.tmp`→`.env.local` + confirmed the stack is up
+(tax-portal-sqlserver healthy on host 14330; `journey-for-jasmine-db-1` squats 1433 — port-in-authority fix
+essential). Conductor bootstrapped the DB: `prisma db push` (sidestepped P3019 non-destructively — schema
+synced) → `db:policies:apply` (Track B: principals incl. `taxportal_user`, audit ledger, all `sec` policies
+incl. the new `fn_service_write_access`). **Permission walls evaluated + opened** (user direction): narrowed
+`.env.example` read-deny; added `Bash(docker exec|compose|ps|inspect|logs|port:*)` allow rules (local-dev
+container access; `.env`/`.env.local`/`.secrets` stay walled). **Self-inflicted detour caught + fixed:** granted
+`taxportal_admin` sysadmin to create logins → that remaps it to `dbo` (USER_NAME()=dbo, IS_MEMBER('app_admin_role')=0)
+which broke the RLS admin bypass (tests went 8-fail); dropped sysadmin → restored `taxportal_admin` =
+app_admin_role+db_owner (correct per runbook); logins persisted. **SA password never entered context** (resolved
+inside the container).
+**TASK-002-001 GREEN (re-dispatched twice):** the policy was correct all along; first real run exposed a test-only
+bug (`isBlockPredicateError` matched uppercase `"BLOCK"` but SQL's message is lowercase "block predicate") →
+developer fixed the 4 detection helpers. Final: **service.rls 10/10**, full `@tax-portal/db` 35/35, lint/
+type-check/build clean. **AC-DOOR-002-05 genuinely verified against real SQL Server.** Task → `review`.
+**End:** TASK-002-001 at `review`. Next: SDET review → main-session commit to the feature branch → continue
+dispatch 002→005 → Audit/Review/Smoke/Validate/Close-prep → Conductor review/fix/merge/validate/report. Re-engaging
+the IO to drive the dispatch loop.
+**Carried infra follow-up (refined):** clean-volume bootstrap still needs `sa` once for CREATE LOGIN (taxportal_admin
+is intentionally NOT sysadmin); `migrate deploy` P3019 remains (worked around via `db push` locally) — both for
+the EPIC-004-carried infra ticket, not blocking this slice.
+- **Dispatch progress:** TASK-002-001 (write-boundary policy + tier-3) DONE+committed `c500053`; TASK-002-002
+  (write repo + admin server actions) DONE+committed `77b91d7`; TASK-002-003 (admin catalog UI) DONE+committed
+  `55a9caf`. All SDET-approved with independent re-execution.
+- **⚠ TASK-002-004 (e2e) — BLOCKED on an EPIC-004 DEFECT surfaced by first real container e2e.** Specs written +
+  static gates green, but rebuilding the admin/portal images (required to pick up the new `/services` route) exposed
+  that EPIC-004's F1/F6 fail-closed guard (`packages/auth/src/select.ts`, commit `c89689d`) makes the **prod-built
+  container 500 on every request when `AUTH_PROVIDER=mock`**: `if (process.env.NODE_ENV==='production'){ if(mock) throw }`
+  — but the container legitimately runs NODE_ENV=production WITH mock (the EPIC-004-sanctioned e2e/local practice),
+  and Next Edge inlines NODE_ENV at build. The guard conflates "Node build mode" with "real deployment." Shipped
+  undetected because EPIC-004's container smoke was env-blocked (CI-substituted). Admin/portal containers currently
+  `(unhealthy)` HTTP 500. Developer correctly stopped at the scope boundary (select.ts unchanged) + escalated.
+  **Conductor-recommended fix (routed to IO):** decouple from NODE_ENV — fail closed by default, permit mock only via
+  an explicit runtime opt-in (`ALLOW_MOCK_AUTH=true`, Edge-safe runtime read); wire the flag into docker-compose
+  admin/portal + `.env.example` for local/e2e; real prod never sets it → mock still throws (security intent preserved
+  + strengthened). Fix rides EPIC-002's PR (touches EPIC-004 code; note EPIC-004 had this latent defect). → BUG-002
+  task → SDET review → rebuild containers → resume TASK-002-004 e2e.
 
 ## Outcome
 

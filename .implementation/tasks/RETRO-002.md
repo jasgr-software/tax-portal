@@ -150,4 +150,36 @@ password on persisted volumes). HANDOFF-002 follow-ups #2 + #3.
 
 ## Post-Merge Addendum
 
-_Pending Close-finalize (gates 8 + 9)._
+_Close-finalize — 2026-06-16._
+
+**Merge.** PR #40 squash-merged to `main` @ `70ea10e` (2026-06-16), base `main` ← `brief-002-services-catalog-management`. Branch deleted on merge. Reviewed lane (application-code PR): panel → fix → resolve threads → merge on green required CI, no protection toggle.
+
+**Gate 8 — Post-merge CI: ✅ PASS.** Post-merge CI on `main` @ `70ea10e` is green — `CI` ✅ + `CodeQL` ✅ (confirmed via `gh run list --branch main`). Both required checks at `conclusion: SUCCESS` on the merge commit.
+
+**Gate 9 — Post-merge staging smoke: N/A.** `Brief-deploys: no` (ADR-007 — no production/staging platform). Gate 9 does not apply.
+
+**Final 9-gate scorecard (all gates closed):**
+
+| # | Gate | Verdict | Evidence basis |
+|---|------|---------|----------------|
+| 1 | Per-task submission gates | ✅ 5/5 | per-task Work Logs |
+| 2 | SDET Review | ✅ 5/5 approved | per-task `## SDET Review` |
+| 3 | Overwatch Audit | ✅ (0 blocking, 1 advisory corrected) | Audit PROGRESS entry |
+| 4 | IO Design scan | ✅ | vs ADR-003/-005/-006 |
+| 5 | Container Smoke | ✅ conditional-pass | UI PASS / Infra cond-pass (`sqlserver` healthcheck SA mismatch documented; clean-volume bootstrap env-blocked → CI-as-gate substitution carried from EPIC-004, user-accepted) |
+| 6 | SDET Acceptance-validation | ✅ | all 7 in-scope AC tagged + green at mandated tiers |
+| 7 | SDET CI gate | ✅ | `pnpm -r test` 229/229; lint/type-check/audit clean; GitHub required-CI green |
+| 8 | **Post-merge CI** | **✅ PASS** | **[A] CI — `main`@`70ea10e`: `CI` ✅ + `CodeQL` ✅** |
+| 9 | Post-merge staging smoke | N/A | `Brief-deploys: no` (ADR-007) |
+
+**Delivery evidence basis: [A] CI.** Gate 8 verified by post-merge CI green on the squash-merge commit; the env-blocked clean-volume container bootstrap (gate 5) used the user-accepted CI-as-gate substitution carried from EPIC-004.
+
+**Carried-forward follow-ups (preserved so they are not lost at slice close):**
+
+1. **Infra — clean-volume DB bootstrap (single root family, bootstrap fragility).** `sa`-once login creation + Prisma port-in-authority + `!`-free logins + `migrate deploy` P3019 (`mssql`-vs-`sqlserver`); plus the new BRIEF-002 manifestation — the `sqlserver` compose healthcheck SA-password-vs-volume mismatch (`(unhealthy)` status; Error 18456 State 8; DB fully operational via app principals, not a regression). Fix: derive the healthcheck SA password from the volume-bootstrap source, or re-assert the env SA password on persisted volumes. (HANDOFF-002 follow-ups #2 + #3.)
+2. **Panel-dispositioned follow-up — CI/lint grep-guard for stray `sp_set_session_context`.** Add a CI/lint grep-guard that rejects any `sp_set_session_context` call outside `packages/db/.../client.ts` (the sanctioned single SESSION_CONTEXT entry point), preventing identity/role context from being set off the request-scoped wrapper.
+3. **Panel-dispositioned follow-up — pre-existing EPIC-001 `fn_service_access` CLIENT read-branch tightening.** The shared read predicate's CLIENT branch (branch 3) warrants tightening review (pre-existing from EPIC-001; BRIEF-002 closed only the *write* gap via the separate `fn_service_write_access`, leaving the read branch as-is).
+4. **Comment-drift (comment-only, non-blocking) — `packages/db/src/service.rls.test.ts`.** Stale `@read_only`/"ADR-003 §4 pool hygiene" comments (~L70–72, ~L88) are factually wrong after BUG-002-003 / ADR-003 Amendment 1 dropped `@read_only`. Functional behavior correct; comment text only. Correction rides the next `packages/db` task that touches the file, or a dedicated doc-drift cleanup. (HANDOFF-002 follow-up #1.)
+5. **Env (user-walled) — EPIC-004 `.env.example` RATE_LIMIT vars** (`RATE_LIMIT_MAX_ATTEMPTS=10`, `RATE_LIMIT_WINDOW_MS=60000`) — permission-walled from agents AND main session; **user applies** (carried from HANDOFF-004 follow-up #5).
+
+**Slice DELIVERED 2026-06-16.** PR #40 → `70ea10e`. 7/7 in-scope AC verified. 4 bugs ridden (BUG-002-001/-002/-003/-004). ADR-003 Amendment 1 raised (drop `@read_only`). Next-ready epic: EPIC-003.
