@@ -13,7 +13,14 @@
  *                Exported directly — import is restricted by ESLint to allowed paths.
  *
  * ADR-003 §2: The $extends wrapper sets SESSION_CONTEXT on first use per request.
- * ADR-003 §4: Connection reset clears SESSION_CONTEXT on release (driver default behavior).
+ * ADR-003 §3 Amendment 1 (BUG-002-003): SESSION_CONTEXT keys are writable (no @read_only).
+ *   Within-request immutability is preserved structurally: the once-per-request guard
+ *   (sessionContextSet flag) + verified-identity-only provenance + no second writer in the
+ *   codebase replace the lock. @read_only was dropped because it locks the key for the
+ *   connection lifetime and is incompatible with pool reuse (error 15664 on re-acquire).
+ *   Per-request identity is re-set on every request via overwrite — reset-on-release is NOT
+ *   the mechanism (Prisma 5.22 quaint sqlserver pool issues no sp_reset_connection; the §4
+ *   "connection reset clears SESSION_CONTEXT" assumption was incorrect for this stack).
  * ADR-004: Prisma as sole ORM; no second query client.
  *
  * Environment variables (ADR-007: SQL authentication only, never Managed Identity):
@@ -164,12 +171,32 @@ function getDb(): ReturnType<PrismaClient["$extends"]> {
             );
           }
 
-          // Set SESSION_CONTEXT once per request if not already set on this connection.
-          // @read_only = 1 prevents downstream code from overwriting identity mid-request (ADR-003 §3).
+          // Set SESSION_CONTEXT once per request from the verified Clerk identity.
+          //
+          // @read_only has been removed (ADR-003 §3 Amendment 1, BUG-002-003):
+          //   @read_only = 1 locks the key for the lifetime of the SQL Server CONNECTION,
+          //   not the lifetime of the request. Under Prisma 5.22 quaint sqlserver pooling,
+          //   connections are reused across requests with no sp_reset_connection on release —
+          //   so a locked key from request N causes error 15664 on request N+1 when the pool
+          //   hands back the same connection. @read_only is fundamentally incompatible with
+          //   non-negotiable connection pooling (ADR-004).
+          //
+          //   Within-request identity immutability is preserved STRUCTURALLY:
+          //     (a) the once-per-request guard (sessionContextSet flag) prevents any
+          //         second set within the same request scope;
+          //     (b) the value written is ALWAYS the verified server-side identity from
+          //         withRequestContext() / withClerkIdentity() — never client input;
+          //     (c) no other code path issues sp_set_session_context (enforced by the
+          //         ESLint requestDb import boundary + barrel non-export).
+          //   There is no within-request second writer for @read_only to guard against.
+          //
+          // DECISION: drop @read_only — ADR-003 §3 Amendment 1 + BUG-002-003.
+          //   The pooled-reuse regression test (session-context.pooled-reuse.test.ts) is
+          //   RED on the old @read_only=1 code (15664) and GREEN with this fix.
           if (!ctx.sessionContextSet) {
             await getRequestDb().$executeRawUnsafe(
-              `EXEC sp_set_session_context @key = N'clerk_user_id', @value = @p1, @read_only = 1;
-               EXEC sp_set_session_context @key = N'role', @value = @p2, @read_only = 1;`,
+              `EXEC sp_set_session_context @key = N'clerk_user_id', @value = @p1;
+               EXEC sp_set_session_context @key = N'role', @value = @p2;`,
               ctx.clerkUserId,
               ctx.role,
             );

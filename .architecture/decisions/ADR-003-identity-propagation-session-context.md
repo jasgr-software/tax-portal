@@ -2,8 +2,21 @@
 
 **Status:** Accepted
 **Date:** 2026-04-16
+**Last-amended:** 2026-06-16 (Amendment 1 — §3 `@read_only=1` removed; §4 reset-on-release retired as unachievable; see Changelog)
 **Deciders:** SA (with user direction)
 **Related:** ADR-001 (Clerk auth), ADR-002 (SQL Server), ADR-004 (Prisma ORM), ADR-005 (RLS via Security Policies)
+
+> **Amendment 1 (2026-06-16) — pooling reconciliation.** §3 originally mandated `@read_only = 1` on both
+> `sp_set_session_context` calls and §4 mandated "reset-on-release" connection hygiene. Both are amended below.
+> `@read_only = 1` locks the key for the **connection lifetime**, not the request; under Prisma's
+> non-negotiable connection pooling (ADR-004) the first cross-request reuse of a connection throws
+> **SQL Server error 15664** on the second set. The reset-on-release mechanism §4 assumed is **not
+> deliverable** on the Prisma 5.22 `sqlserver` stack (see §4). The amended decision sets SESSION_CONTEXT
+> **writable** and relies on the already-present structural compensating controls for within-request
+> immutability. The ADR's intent is unchanged: identity is **verified-only**, set **once per request**,
+> and reaches RLS **intact**. Root cause: OQ-001 / BUG-002-003. Amended sections are marked
+> **[Amended 2026-06-16]**; the original text is preserved struck-through-in-prose so the prior decision
+> remains legible.
 
 ## Context
 
@@ -28,7 +41,7 @@ The accepted solution is (1). The design below nails down the operational discip
 
 **Every request-scoped DB connection sets `SESSION_CONTEXT` to the authenticated Clerk user's identity before any data query runs. SQL Server RLS predicates read from `SESSION_CONTEXT` and fail closed when the value is null.**
 
-The full contract has six parts: principal separation, set-on-acquire, read-only flag, reset-on-release, a middleware guard, and an admin bypass.
+The full contract has six parts: principal separation, set-on-acquire, ~~read-only flag~~ **identity-key write discipline [Amended 2026-06-16]**, ~~reset-on-release~~ **pool-reuse re-settability [Amended 2026-06-16]**, a middleware guard, and an admin bypass.
 
 ### 1. Principal separation — two pools, two DB users
 
@@ -61,9 +74,11 @@ export const db = requestDb.$extends({
         throw new Error(`No identity in request context for ${model}.${operation}`);
       }
       if (!ctx.sessionContextSet) {
+        // [Amended 2026-06-16] keys are set WITHOUT @read_only so a reused pooled
+        // connection can re-set them on the next request. See §3.
         await requestDb.$executeRawUnsafe(
-          `EXEC sp_set_session_context @key = N'clerk_user_id', @value = @p1, @read_only = 1;
-           EXEC sp_set_session_context @key = N'role',          @value = @p2, @read_only = 1;`,
+          `EXEC sp_set_session_context @key = N'clerk_user_id', @value = @p1;
+           EXEC sp_set_session_context @key = N'role',          @value = @p2;`,
           ctx.clerkUserId,
           ctx.role,
         );
@@ -84,19 +99,101 @@ Key properties:
 
 The exact implementation is refined in Epic 001; this ADR defines the contract.
 
-### 3. `@read_only = 1`
+### 3. Identity-key write discipline (SESSION_CONTEXT keys are writable) **[Amended 2026-06-16 — supersedes the original `@read_only = 1` clause]**
 
-Both `sp_set_session_context` calls pass `@read_only = 1`. Downstream code executing on the same connection — including raw SQL in `packages/db/sql/` — cannot overwrite the identity mid-request. An attempted overwrite raises an error, which is preferred to silent spoof.
+> **Original decision (2026-04-16, now superseded):** *"Both `sp_set_session_context` calls pass
+> `@read_only = 1`. Downstream code executing on the same connection — including raw SQL in
+> `packages/db/sql/` — cannot overwrite the identity mid-request. An attempted overwrite raises an error,
+> which is preferred to silent spoof."*
 
-### 4. Reset-on-release — connection pool hygiene
+**Amended decision: both `sp_set_session_context` calls set the keys WITHOUT `@read_only` (the keys
+remain writable).** The identity keys (`clerk_user_id`, `role`) are set exactly once per request from the
+verified server-side identity, and a reused pooled connection re-sets them cleanly on the next request.
 
-SQL Server's default connection reset (when a pooled connection is returned) clears `SESSION_CONTEXT`. The Prisma + `mssql` driver stack inherits this behavior by default: connections are reset via `sp_reset_connection` on return to the pool.
+**Why the read-only flag is removed (the SQL Server mechanic + the pooling collision):**
 
-However, connection reset is **not a hard guarantee across all drivers and configurations** — older `mssql` driver versions had bugs where `SESSION_CONTEXT` could leak. The contract here is:
+- `@read_only = 1` locks a SESSION_CONTEXT key for the **lifetime of the SQL Server connection**, not the
+  request. Once set, the key **cannot be changed or cleared by any subsequent `sp_set_session_context`
+  call on that connection** — only a brand-new physical connection or a driver-issued
+  `sp_reset_connection` clears it.
+- Connection pooling is non-negotiable (ADR-004). When the pool hands a previously-used connection to the
+  **next** request, the §2 middleware legitimately tries to set the keys again (the new request has a fresh
+  `RequestContext` with `sessionContextSet: false`). On the locked key this throws **SQL Server error
+  15664** (*"The key has been set as read_only for this session"*) → the request 500s. In EPIC-002 this
+  manifested as the post-write `revalidatePath` RSC re-render failing on every reused connection. So
+  `@read_only = 1` + pooling = **every reused connection fails its second request** — `@read_only` is not
+  a free design choice here, it is forced out (the only ways to keep it — disabling pooling, or a reliable
+  per-release reset — are rejected/unavailable; see §4 and Alternatives).
 
-- The driver version and connection-string options must be pinned to a configuration that resets `SESSION_CONTEXT` on release. Tested in Epic 001.
-- A **regression test** exercises the leak scenario explicitly: acquire a connection, set a spoof `clerk_user_id`, release, acquire again, read `SESSION_CONTEXT` — must be null. This test runs in CI on every PR that touches `packages/db/`.
-- As a belt-and-braces measure, the middleware wrapper (§2) could `EXEC sp_set_session_context @key=N'clerk_user_id', @value=NULL, @read_only=0` at the end of each request — but `@read_only=1` makes this impossible. Instead, we rely on the driver's connection reset; the regression test validates it.
+**What replaces the read-only flag (the compensating controls that preserve within-request immutability):**
+The property §3 originally protected was *"downstream code on the same connection cannot overwrite identity
+mid-request."* That property is preserved **structurally**, independent of `@read_only`:
+
+1. **Set once per request.** The `if (!ctx.sessionContextSet)` guard (§2) flips `sessionContextSet = true`
+   on the first set and is never re-entered within a request. There is no second set within a request.
+2. **Verified-identity-only value.** The value set comes **only** from `currentRequestContext()`,
+   populated by `withRequestContext(clerkUserId, role, …)` from the verified server-side identity
+   (`getIdentity()` → Clerk session). **No client-supplied input (body / header / query) ever reaches
+   `sp_set_session_context`** (ADR-005 trust boundary; the `session-context.propagation.test.ts`
+   trust-boundary case asserts this).
+3. **Single writer.** `sp_set_session_context` is issued from exactly one place — the §2 `$extends`
+   middleware. No application code, route handler, repository, or raw SQL issues it. This is enforced by
+   the ESLint `requestDb` import boundary (§6) and by the package barrel not exporting `requestDb` (only
+   the wrapped `db`).
+
+**Residual risk, explicitly accepted.** A within-request *second writer* would need to inject raw
+`sp_set_session_context` SQL into a request-pool query. That is a SQL-injection vulnerability — and
+`@read_only` never meaningfully mitigated it (the *same* injection could read or exfiltrate cross-tenant
+rows directly, with or without the lock). `@read_only = 1` was therefore **defense-in-depth against a
+writer that does not exist in this codebase**, purchased at the cost of pooling incompatibility. Removing
+it grants **no new capability** to the `app_user_role` principal — that principal could already call
+`sp_set_session_context` (it must, to set its own identity); `@read_only` only governed whether a *second*
+call on the same connection was rejected, never *who* could call it. The trade is accepted: real,
+shipping pooling correctness in exchange for retiring a redundant in-depth layer.
+
+### 4. Pool-reuse re-settability — connection pool hygiene **[Amended 2026-06-16 — supersedes the original "reset-on-release" clause]**
+
+> **Original decision (2026-04-16, now superseded):** the original §4 assumed SQL Server's default
+> connection reset (`sp_reset_connection`) clears `SESSION_CONTEXT` on pool release, pinned the driver to
+> a "configuration that resets `SESSION_CONTEXT` on release," and prescribed a leak regression test
+> (acquire → set spoof → release → re-acquire → read null). **That reset-on-release mechanism is not
+> deliverable on the delivered stack and the prescribed regression test was never implemented** — which is
+> the precise reason the §3 read-only lock leaked across pooled requests undetected until EPIC-002.
+
+**Determination (the load-bearing finding): reset-on-release in application code is NOT achievable with
+Prisma 5.22 + the `sqlserver` provider for the request (`db`) path.**
+
+- The request-pool `db` path runs through **Prisma's Rust query engine** (quaint) and its own sqlserver
+  connection pool — **not** the npm `mssql`/tedious driver (which this repo uses only on the raw-mssql
+  test/policy paths). Quaint's sqlserver pool **does not issue `sp_reset_connection` on checkout/checkin**
+  and exposes **no application hook** to run a cleanup statement on connection release. So:
+  - The application cannot reliably clear SESSION_CONTEXT (read-only or not) when a connection returns to
+    the pool — there is no release callback to attach it to.
+  - Even if such a hook existed, a key set with `@read_only = 1` **cannot be cleared by
+    `sp_set_session_context` at all** (see §3 mechanic) — only a fresh connection or `sp_reset_connection`
+    clears it, and the engine issues neither here.
+- Therefore the original §4 ("rely on the driver's connection reset; the regression test validates it") was
+  **founded on a behavior this stack does not exhibit**. Pinning a driver configuration cannot deliver it,
+  because the request path does not use the configurable npm driver at all.
+
+**Amended hygiene contract — re-settability instead of reset:** because the keys are now **writable** (§3),
+correctness no longer depends on the pool clearing them. The contract is:
+
+- **Every request re-sets the identity keys to its own verified identity** on first query (§2). A reused
+  connection that still holds the *previous* request's identity is harmless: the new request overwrites
+  both keys before any data query runs, so RLS always evaluates against the **current** request's verified
+  identity. There is no stale-identity window — the write precedes the first read on that connection in the
+  same `$allOperations` invocation.
+- **The leak concern is satisfied by overwrite, not by clear.** A pooled connection never serves a query
+  under a stale identity, because the per-request set (which now succeeds — no 15664) happens before the
+  query. The only way a stale identity could be observed is if a request reached the DB *without* going
+  through the §2 middleware — which §6 forbids and the middleware-guard throw catches (fail-closed).
+- **Regression obligation (§4's never-written test, now redefined and made mandatory):** a tier-3
+  integration test MUST exercise **cross-request pooled-connection reuse without `$disconnect` between the
+  requests** — the exact path the existing `session-context.propagation.test.ts` deliberately avoided with
+  its `afterEach($disconnect)`. See § Implementation contract and regression obligation (below) for the
+  precise shape. This test is a **hard** part of the contract: the defect shipped *because* this test never
+  existed.
 
 ### 5. Fail-closed RLS semantic
 
@@ -194,7 +291,7 @@ Add a second key, `clerk_jwt_hash`, that the app compares against the incoming s
 
 ## Consequences
 
-- **The app is load-bearing for identity.** A bug that forgets to set `SESSION_CONTEXT` fails closed (empty result set). A bug that sets *the wrong* user ID leaks data. The `$extends` wrapper + ESLint rule + request-context check catches both classes in development; the regression test (§4) catches pool leakage.
+- **The app is load-bearing for identity.** A bug that forgets to set `SESSION_CONTEXT` fails closed (empty result set). A bug that sets *the wrong* user ID leaks data. The `$extends` wrapper + ESLint rule + request-context check catches both classes in development; the **pool-reuse re-settability** regression test (§4, Amendment 1) catches the cross-request reuse path — every request overwrites the keys with its own verified identity before any read, so a reused connection never serves a query under a stale identity.
 - **Every request handler must pass through the request context initializer.** New routes that don't go through `withRequestContext()` either throw (good, caught in dev) or run with no identity (also caught — RLS returns empty). "Silently wrong" is not a reachable outcome.
 - **Admin-pool usage is visible by design.** The pool split is the reified trust boundary — anyone reading the code can see `requestDb` vs `adminDb` and know which side of the line a call lives on.
 - **Connection-pool tuning matters.** Pool size, reset-on-release behavior, and driver version all affect correctness. Pinned in `packages/db/` with regression tests.
@@ -213,3 +310,76 @@ Add a second key, `clerk_jwt_hash`, that the app compares against the incoming s
 - **ADR-006** — Monorepo layout; `packages/db/` holds the wrapped client and the request-context helper.
 - **Database-trust-boundary principle** — the database is the trust boundary (ADR-005); the app propagates identity (this ADR).
 - **SRS** — REQ-AUTH-003, REQ-NFR-001.
+
+## Implementation contract and regression obligation (Amendment 1, 2026-06-16)
+
+This section binds the §3/§4 amendment to a concrete, checkable implementation. It is the authoritative
+spec a developer follows; this ADR does not write the code.
+
+### `packages/db/src/client.ts` — required shape
+
+- In the `$allOperations` middleware, the `sp_set_session_context` pair MUST set both keys **without**
+  `@read_only` (writable):
+  ```sql
+  EXEC sp_set_session_context @key = N'clerk_user_id', @value = @p1;
+  EXEC sp_set_session_context @key = N'role',          @value = @p2;
+  ```
+- The `if (!ctx.sessionContextSet)` once-per-request guard MUST be left exactly as-is. The
+  `ctx === null` fail-closed throw, the `AsyncLocalStorage` scope, and the verified-identity provenance
+  path (`withRequestContext` ← `getIdentity()`) MUST NOT change. **The only change is dropping the two
+  `@read_only = 1` flags.**
+- Update the inline comment (currently lines ~167–168) to state: keys are writable so a reused pooled
+  connection re-sets them on the next request; `@read_only` was removed because it locks the key for the
+  connection lifetime and is incompatible with pool reuse (15664 on reused connections); within-request
+  immutability is preserved by the once-per-request guard + verified-identity-only value + single-writer
+  convention. Record a `// DECISION:` comment citing **ADR-003 §3 (Amendment 1, 2026-06-16)** and
+  **BUG-002-003**.
+- Also correct the file-header comment at lines 15–17 (it still asserts the retired §4 "connection reset
+  clears SESSION_CONTEXT on release (driver default behavior)"). Replace with the amended §4 re-settability
+  statement.
+
+### Regression-test obligation (HARD — closes the gap that let the defect ship)
+
+Add a **tier-3 integration test** (live SQL Server) in `packages/db/src/` that exercises
+**cross-request pooled-connection reuse WITHOUT `$disconnect` between the two request scopes** — the path
+`session-context.propagation.test.ts` deliberately avoided. It MUST fail against the old `@read_only = 1`
+code (error 15664) and pass after the flags are removed (red-then-green proof). Minimum shape:
+
+1. **Re-settability on a reused pooled connection.** Within one process, with **no** `$disconnect`
+   between, run two sequential `withClerkIdentity(...)` scopes that each go through the `$extends` `db`
+   path (forcing pool reuse). The second MUST NOT throw 15664 and MUST read back the **second** request's
+   identity.
+2. **(Stronger, preferred — doubles as the leak guard)** Cross-request reuse with an identity *change*:
+   request 1 sets `user_A`/`ACCOUNTANT`; request 2 (reused connection, no disconnect) sets
+   `user_B`/`CLIENT`; assert request 2 reads back `user_B`/`CLIENT` — the new identity wins, no 15664, no
+   stale `user_A` leak. This is the ADR-003 §4 leak obligation that was never implemented, satisfied by
+   **overwrite** rather than by clear.
+
+Do **not** add a blanket `afterEach($disconnect)` that hides reuse for this test — exercising reuse is the
+point. The existing `propagation.test.ts` may keep its `$disconnect` for its own cases, but it MUST NOT
+mask the new reuse test. Tag the test header with the AC ids and reference **BUG-002-003** + this ADR
+amendment. Per ADR-005, this test belongs to the request-pool / RLS regression set that runs on every PR
+touching `packages/db/`.
+
+### Security boundary — preserved (ADR-005)
+
+The amendment keeps the ADR-005 trust boundary intact: RLS still keys on a **server-set, verified**
+identity written only by the single §2 writer from `getIdentity()`; a CLIENT still cannot read or write
+outside policy. No predicate, BLOCK rule, or admin-pool bypass changes. The EPIC-004 F1/F6 identity-spine
+tests and the TASK-002-001 write-boundary tests remain valid — they assert *that the verified identity
+reaches RLS and that cross-tenant access is denied*, neither of which depends on the read-only flag.
+
+## Changelog
+
+- **2026-04-16 — Accepted.** Original six-part contract, including §3 `@read_only = 1` and §4
+  reset-on-release.
+- **2026-06-16 — Amendment 1 (OQ-001 / BUG-002-003).** §3 `@read_only = 1` **removed** (keys are now
+  writable); §4 "reset-on-release" **retired** as not deliverable on the Prisma 5.22 `sqlserver` (quaint)
+  request path and **replaced** by "pool-reuse re-settability." Root cause: `@read_only = 1` locks a key
+  for the connection lifetime, which collides with non-negotiable connection pooling (ADR-004) → SQL
+  Server error 15664 on every reused connection's second request. Within-request immutability is now
+  guaranteed structurally (once-per-request guard + verified-identity-only value + single-writer
+  convention) rather than by the lock. Added the previously-missing pooled-reuse regression obligation
+  (see § Implementation contract). The ADR's intent — identity verified-only, set once per request,
+  reaching RLS intact — is unchanged; ADR-005's RLS dependency is unaffected. §2's conceptual code and the
+  contract summary line were updated to match. Status remains **Accepted** (no open decision blocks it).
