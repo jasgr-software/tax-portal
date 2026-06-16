@@ -73,6 +73,18 @@ export function createAuthProvider(): AuthProvider {
     );
   }
 
+  // Contradiction guard: AUTH_PROVIDER=clerk + ALLOW_MOCK_AUTH=true is an insecure-design
+  // contradiction. A real Clerk deployment must never also permit the mock binding — the mock
+  // secret is repo-committed and would allow an attacker to forge an ACCOUNTANT session.
+  // If you need local dev with real Clerk keys, leave ALLOW_MOCK_AUTH unset.
+  if (provider === "clerk" && allowMock) {
+    throw new Error(
+      "[packages/auth] AUTH_PROVIDER=clerk and ALLOW_MOCK_AUTH=true cannot be set together. " +
+        "A real Clerk deployment must leave ALLOW_MOCK_AUTH unset. " +
+        "ALLOW_MOCK_AUTH=true is only valid with AUTH_PROVIDER=mock (local dev / e2e).",
+    );
+  }
+
   switch (provider) {
     case "mock":
       return new MockAuthProvider();

@@ -94,6 +94,10 @@ export interface UpdateServiceInput {
 /**
  * Cast the request-scoped `db` wrapper to PrismaClient for model access.
  *
+ * Named `dbAsClient` (not `requestDb`) to avoid shadowing the package's ESLint-forbidden
+ * unwrapped `requestDb` symbol with the inverse meaning. A future reader grepping for
+ * `requestDb` to audit the SESSION_CONTEXT boundary will not hit this look-alike.
+ *
  * DECISION (TASK-002-002): `db` is `ReturnType<PrismaClient["$extends"]>` — the TypeScript
  * type does not expose model delegates at compile time (complex $extends inference). At runtime
  * the object IS a PrismaClient with the SESSION_CONTEXT middleware attached. Casting through
@@ -103,7 +107,7 @@ export interface UpdateServiceInput {
  * The SESSION_CONTEXT is set by the $allOperations middleware in client.ts BEFORE the model
  * query executes — so the BLOCK predicate from TASK-002-001 sees the correct role.
  */
-function requestDb(): PrismaClient {
+function dbAsClient(): PrismaClient {
   return db as unknown as PrismaClient;
 }
 
@@ -160,7 +164,7 @@ export async function getActiveServices(): Promise<ServiceListItem[]> {
  * Ordered by active DESC (active rows first), then sortOrder ASC, then name ASC.
  */
 export async function listAllServices(): Promise<ServiceItem[]> {
-  const rows = await requestDb().service.findMany({
+  const rows = await dbAsClient().service.findMany({
     orderBy: [
       { active: "desc" },
       { sortOrder: "asc" },
@@ -205,7 +209,7 @@ export async function createService(input: CreateServiceInput): Promise<ServiceI
     throw new Error("Service name must be 200 characters or fewer");
   }
 
-  const row = await requestDb().service.create({
+  const row = await dbAsClient().service.create({
     data: {
       name,
       description: input.description?.trim() ?? null,
@@ -232,7 +236,7 @@ export async function createService(input: CreateServiceInput): Promise<ServiceI
  *
  * MUST be called inside withRequestContext(clerkUserId, 'ACCOUNTANT', fn).
  * Only fields present in the input are updated (partial update pattern).
- * The `active` flag is NOT changed by this function — use deactivateService/reactivateService.
+ * The `active` flag is NOT changed by this function — use deactivateService.
  *
  * @throws Error if name is provided but empty after trimming
  * @throws Error if the service ID is not found (Prisma throws P2025)
@@ -269,7 +273,7 @@ export async function updateService(input: UpdateServiceInput): Promise<ServiceI
     updateData.sortOrder = input.sortOrder;
   }
 
-  const row = await requestDb().service.update({
+  const row = await dbAsClient().service.update({
     where: { id: input.id },
     data: updateData,
   });
@@ -303,7 +307,7 @@ export async function deactivateService(id: string): Promise<ServiceItem> {
   // DECISION (TASK-002-002): UPDATE active = false — NEVER DELETE.
   // REQ-DOOR-002 explicitly requires reversible deactivation. The EngagementRequestService
   // join table references Service.id — a DELETE would violate FK constraints AND lose history.
-  const row = await requestDb().service.update({
+  const row = await dbAsClient().service.update({
     where: { id },
     data: { active: false },
   });
@@ -319,34 +323,3 @@ export async function deactivateService(id: string): Promise<ServiceItem> {
   };
 }
 
-/**
- * Reactivates a previously deactivated service by setting active = true.
- *
- * DECISION (TASK-002-002): Included per task spec "optionally reactivateService" — the
- * reversibility of deactivation (REQ-DOOR-002) naturally implies a reactivate path.
- * This is the counterpart to deactivateService; future UI can expose it when needed.
- *
- * MUST be called inside withRequestContext(clerkUserId, 'ACCOUNTANT', fn).
- *
- * @throws Error if the service ID is not found (Prisma throws P2025)
- */
-export async function reactivateService(id: string): Promise<ServiceItem> {
-  if (!id) {
-    throw new Error("Service id is required");
-  }
-
-  const row = await requestDb().service.update({
-    where: { id },
-    data: { active: true },
-  });
-
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    active: row.active,
-    sortOrder: row.sortOrder,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}

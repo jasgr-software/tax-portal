@@ -107,11 +107,13 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
-  // Best-effort cleanup of all Service rows created by this test run
+  // Best-effort cleanup of all Service rows created by this test run.
+  // Parameterized to avoid interpolated SQL (even though id is test-created).
   for (const id of createdServiceIds) {
     await adminPool
       .request()
-      .query(`DELETE FROM [dbo].[Service] WHERE [id] = '${id}'`)
+      .input("id", id)
+      .query("DELETE FROM [dbo].[Service] WHERE [id] = @id")
       .catch(() => {
         /* ignore — best-effort */
       });

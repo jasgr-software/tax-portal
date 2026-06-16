@@ -41,7 +41,6 @@ export {
   createService,
   updateService,
   deactivateService,
-  reactivateService,
 } from "./repositories/service.js";
 
 // Audit-event write helper (ADR-019)

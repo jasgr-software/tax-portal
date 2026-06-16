@@ -3,7 +3,8 @@
  *
  * Tests:
  *   - AUTH_PROVIDER=mock + ALLOW_MOCK_AUTH=true selects MockAuthProvider
- *   - AUTH_PROVIDER=clerk selects ClerkAuthProvider (regardless of ALLOW_MOCK_AUTH)
+ *   - AUTH_PROVIDER=clerk (without ALLOW_MOCK_AUTH) selects ClerkAuthProvider
+ *   - AUTH_PROVIDER=clerk + ALLOW_MOCK_AUTH=true is a contradiction → throws
  *   - Default (no AUTH_PROVIDER env) without ALLOW_MOCK_AUTH throws (fail-closed)
  *   - Both bindings satisfy the AuthProvider port interface (runtime shape)
  *
@@ -11,7 +12,7 @@
  *   - prod-shaped (NODE_ENV=production) + ALLOW_MOCK_AUTH=true + AUTH_PROVIDER=mock → no throw
  *   - no ALLOW_MOCK_AUTH + AUTH_PROVIDER=mock → throws
  *   - no ALLOW_MOCK_AUTH + AUTH_PROVIDER unset → throws
- *   - AUTH_PROVIDER=clerk → ClerkAuthProvider regardless of ALLOW_MOCK_AUTH
+ *   - AUTH_PROVIDER=clerk (no ALLOW_MOCK_AUTH) → ClerkAuthProvider
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -40,12 +41,12 @@ describe("binding selector", () => {
     expect(provider).toBeInstanceOf(ClerkAuthProvider);
   });
 
-  it("selects ClerkAuthProvider when AUTH_PROVIDER=clerk even when ALLOW_MOCK_AUTH=true", () => {
-    // Real deploy path: AUTH_PROVIDER=clerk is unaffected by ALLOW_MOCK_AUTH.
+  it("throws when AUTH_PROVIDER=clerk and ALLOW_MOCK_AUTH=true (contradiction guard)", () => {
+    // AUTH_PROVIDER=clerk + ALLOW_MOCK_AUTH=true is a contradiction: a real Clerk deployment
+    // must never also permit the mock binding (repo-committed secret → forgeable ACCOUNTANT cookie).
     process.env["AUTH_PROVIDER"] = "clerk";
     process.env["ALLOW_MOCK_AUTH"] = "true";
-    const provider = createAuthProvider();
-    expect(provider).toBeInstanceOf(ClerkAuthProvider);
+    expect(() => createAuthProvider()).toThrow(/AUTH_PROVIDER=clerk and ALLOW_MOCK_AUTH=true cannot be set together/);
   });
 
   it("throws for unknown AUTH_PROVIDER value (fail-closed, not fall-back)", () => {
@@ -111,8 +112,9 @@ describe("binding selector", () => {
     expect(() => createAuthProvider()).toThrow(/ALLOW_MOCK_AUTH/);
   });
 
-  it("[BUG-002-001] AUTH_PROVIDER=clerk → ClerkAuthProvider regardless of ALLOW_MOCK_AUTH (real deploy unaffected)", () => {
-    // Real prod deploy path: no ALLOW_MOCK_AUTH needed for clerk.
+  it("[BUG-002-001] AUTH_PROVIDER=clerk without ALLOW_MOCK_AUTH → ClerkAuthProvider (real deploy path)", () => {
+    // Real prod deploy path: AUTH_PROVIDER=clerk with ALLOW_MOCK_AUTH unset → ClerkAuthProvider.
+    // Note: AUTH_PROVIDER=clerk WITH ALLOW_MOCK_AUTH=true is a contradiction and throws (separate test above).
     process.env["AUTH_PROVIDER"] = "clerk";
     delete process.env["ALLOW_MOCK_AUTH"];
     const provider = createAuthProvider();
