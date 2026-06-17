@@ -23,7 +23,7 @@ of a new engagement request, let her review it, and accept (→ invitation email
 | TASK-003-001 schema + RLS (Notification + decision fields + accountant-only notification policy) | done | developer | DOOR-005-03, DOOR-006-04 (DB), DOOR-008-04 (col) | Introduces-gate: yes (notification RLS) — SDET APPROVED 2026-06-17T06:15:00Z |
 | TASK-003-002 `packages/email` seam (SMTP/Mailhog) | done | developer | none (infra) | Introduces-gate: advisory; OQ-002 raised — SDET APPROVED 2026-06-17T06:55:00Z |
 | TASK-003-003 notification generation (cross-surface portal→admin) | done | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces — SDET APPROVED 2026-06-17T06:58:00Z |
-| TASK-003-004 request inbox UI (admin) | backlog | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` |
+| TASK-003-004 request inbox UI (admin) | done | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` — SDET APPROVED 2026-06-17T06:50:00Z |
 | TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | backlog | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit |
 | TASK-003-006 e2e + gherkin + Mailhog | backlog | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) |
 | TASK-003-007 @demo gallery | backlog | developer | none (non-gating) | docs/demos/EPIC-003/ |
@@ -127,6 +127,23 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
 
 ---
+
+### SDET Review — TASK-003-004 — 2026-06-17
+**Start:** Review TASK-003-004 (request inbox UI — admin read side). Status was `review`.
+**Actions:**
+- Read ENGINE.md, sdet.md, PROGRESS.md, task file, BRIEF-003. All required spec fields present; `Introduces-gate: no`; `Complexity-actual: 3` valid; `Started-at: 2026-06-17T11:39:13Z` non-sentinel.
+- Mandatory rejection checks: all PASS. Pre-implementation breadcrumb present ("Starting implementation" entry). No tool-hygiene violations. `Complexity-actual: 3` in range.
+- Read all delivered files: `requests/page.tsx`, `requests/[id]/page.tsx`, `requests/_components/RequestList.tsx`, `requests/_components/RequestDetail.tsx`, `packages/db/src/repositories/engagement-request.ts` (new functions), `apps/admin/src/app/requests/inbox.test.tsx`.
+- Route guard: PASS — both `requests/page.tsx` and `requests/[id]/page.tsx` independently guard on `identity.role !== "ACCOUNTANT"`. ADR-010 satisfied.
+- Read path (ADR-003/ADR-005): PASS — `listEngagementRequests` and `getEngagementRequest` use `dbAsClient()` (request pool) inside `withRequestContext`. `adminDb`/`getAdminPool` absent from both read functions (only in `createEngagementRequest`, sanctioned). ADR-003 Amendment 1 honored.
+- `notFound()` on null return from `getEngagementRequest` — RLS hide produces 404.
+- ADR-006: PASS — no `/requests` directory under `apps/portal/src/app`. Portal's `/request` is the EPIC-001 submit form.
+- Security: PASS — no `dangerouslySetInnerHTML`; all PII via JSX auto-escape; identity server-side only.
+- `decisionSlot={null}` confirmed — TASK-003-005 scope not pre-built.
+- Independently ran: `pnpm --filter admin test -- inbox.test.tsx` → 30/30. `pnpm --filter admin test` → 82/82 (5 files). `pnpm --filter @tax-portal/db test` → 50/50 (10 files). Consistent with Work Log.
+- AC coverage: all 4 ACs (DASH-011-01/-02/-03, DOOR-006-01) covered by 30 tagged tests across 4 describe blocks.
+- TASK-003-004 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:50:00Z**.
+**End:** TASK-003-004 approved and marked done. Task list: TASK-003-001/-002/-003/-004 done; TASK-003-005/-006/-007 backlog. Ready for IO to dispatch TASK-003-005 (decision actions).
 
 ### SDET Review — TASK-003-003 — 2026-06-17
 **Start:** Review TASK-003-003 (notification generation — portal anonymous-submit path → admin accountant consumption). Status was `review`.

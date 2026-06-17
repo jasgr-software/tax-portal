@@ -33,10 +33,58 @@
  * (ADR-002 § Known Prisma + SQL Server rough edges — NEWSEQUENTIALID() PKs via OUTPUT clause).
  */
 
+import { PrismaClient } from "@prisma/client";
 import mssqlPkg from "mssql";
 import { getAdminPool } from "../admin-connection.js";
+import { db } from "../client.js";
 
 const { Transaction, Request: MssqlRequest } = mssqlPkg;
+
+// ─── Internal cast helper ─────────────────────────────────────────────────────
+
+/**
+ * Cast the request-scoped `db` wrapper to PrismaClient for model access.
+ * Mirrors the pattern in repositories/service.ts (TASK-002-002 DECISION).
+ * At runtime `db` IS a PrismaClient extended only with the SESSION_CONTEXT
+ * $allOperations middleware — model delegate shape is unchanged.
+ */
+function dbAsClient(): PrismaClient {
+  return db as unknown as PrismaClient;
+}
+
+// ─── Read types ───────────────────────────────────────────────────────────────
+
+/** A selected service summarised for display inside an engagement request */
+export interface EngagementRequestServiceItem {
+  serviceId: string;
+  serviceName: string;
+}
+
+/**
+ * Full engagement request shape for the accountant inbox UI.
+ *
+ * AC-DASH-011-01: Used by listEngagementRequests — all requests visible to ACCOUNTANT.
+ * AC-DASH-011-02: `status` carries 'pending' | 'accepted' | 'declined'.
+ * AC-DASH-011-03: `status === 'pending'` identifies requests awaiting a decision.
+ * AC-DOOR-006-01: `services` carry selected service names for the detail view.
+ */
+export interface EngagementRequestItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  message: string | null;
+  /** 'pending' | 'accepted' | 'declined' (or 'awaiting_review') */
+  status: string;
+  declineReason: string | null;
+  invitationTicket: string | null;
+  decidedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  /** Selected services for this request (AC-DOOR-006-01) */
+  services: EngagementRequestServiceItem[];
+}
 
 /** Notification type constant for new engagement request submissions (AC-MSG-013-01) */
 export const NOTIFICATION_TYPE_NEW_REQUEST = "new_engagement_request" as const;
@@ -176,4 +224,165 @@ export async function createEngagementRequest(
     });
     throw err;
   }
+}
+
+// ─── Read: listEngagementRequests (request pool — subject to RLS) ─────────────
+
+/**
+ * Returns ALL engagement requests visible to the current SESSION_CONTEXT identity,
+ * ordered newest-first, with their selected services included.
+ *
+ * Under sec.pol_EngagementRequest (EPIC-001 pol_EngagementRequest):
+ *   - ACCOUNTANT sees all rows (fail-open for accountant).
+ *   - CLIENT / null SESSION_CONTEXT sees ZERO rows (fail-closed).
+ *
+ * MUST be called inside withRequestContext(clerkUserId, 'ACCOUNTANT', fn) so that
+ * SESSION_CONTEXT is set and the FILTER predicate allows the read (ADR-003, ADR-005).
+ *
+ * AC-DASH-011-01: All engagement requests are visible to the accountant.
+ * AC-DASH-011-02: Each item carries a `status` field ('pending'/'accepted'/'declined').
+ * AC-DASH-011-03: Requests with status === 'pending' are identifiable.
+ * AC-DOOR-006-01: Each item includes selected services (name included for display).
+ */
+export async function listEngagementRequests(): Promise<EngagementRequestItem[]> {
+  // DECISION (TASK-003-004): Use db (Prisma request pool) for reads so SESSION_CONTEXT
+  // is set and the RLS FILTER predicate (pol_EngagementRequest) is exercised correctly.
+  // Includes services relation (join table → Service) for the detail view (AC-DOOR-006-01).
+  const client = dbAsClient();
+  const rows = await (client as unknown as {
+    engagementRequest: {
+      findMany: (args: {
+        include: { services: { include: { service: { select: { id: boolean; name: boolean } } } } };
+        orderBy: { createdAt: "desc" };
+      }) => Promise<Array<{
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string | null;
+        message: string | null;
+        status: string;
+        declineReason: string | null;
+        invitationTicket: string | null;
+        decidedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        services: Array<{
+          serviceId: string;
+          service: { id: string; name: string };
+        }>;
+      }>>;
+    };
+  }).engagementRequest.findMany({
+    include: {
+      services: {
+        include: {
+          service: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: row.email,
+    phone: row.phone,
+    message: row.message,
+    status: row.status,
+    declineReason: row.declineReason,
+    invitationTicket: row.invitationTicket,
+    decidedAt: row.decidedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    services: row.services.map((s) => ({
+      serviceId: s.serviceId,
+      serviceName: s.service.name,
+    })),
+  }));
+}
+
+// ─── Read: getEngagementRequest (request pool — subject to RLS) ───────────────
+
+/**
+ * Returns a single engagement request by ID, with its selected services included.
+ *
+ * Under sec.pol_EngagementRequest:
+ *   - ACCOUNTANT can read the row (if it exists).
+ *   - CLIENT / null SESSION_CONTEXT sees ZERO rows → null returned (fail-closed).
+ *
+ * MUST be called inside withRequestContext(clerkUserId, 'ACCOUNTANT', fn) (ADR-003, ADR-005).
+ *
+ * Returns null when:
+ *   - The ID does not exist.
+ *   - The caller's SESSION_CONTEXT does not satisfy the FILTER predicate (wrong role).
+ *
+ * AC-DOOR-006-01: Returns submitted details (name, email, phone, services, message).
+ * AC-DASH-011-02: `status` field distinguishes pending/accepted/declined.
+ */
+export async function getEngagementRequest(id: string): Promise<EngagementRequestItem | null> {
+  // DECISION (TASK-003-004): Use db (Prisma request pool) so SESSION_CONTEXT is set
+  // and pol_EngagementRequest FILTER predicate is exercised (fail-closed for non-ACCOUNTANT).
+  const client = dbAsClient();
+  const row = await (client as unknown as {
+    engagementRequest: {
+      findUnique: (args: {
+        where: { id: string };
+        include: { services: { include: { service: { select: { id: boolean; name: boolean } } } } };
+      }) => Promise<{
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string | null;
+        message: string | null;
+        status: string;
+        declineReason: string | null;
+        invitationTicket: string | null;
+        decidedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        services: Array<{
+          serviceId: string;
+          service: { id: string; name: string };
+        }>;
+      } | null>;
+    };
+  }).engagementRequest.findUnique({
+    where: { id },
+    include: {
+      services: {
+        include: {
+          service: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: row.email,
+    phone: row.phone,
+    message: row.message,
+    status: row.status,
+    declineReason: row.declineReason,
+    invitationTicket: row.invitationTicket,
+    decidedAt: row.decidedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    services: row.services.map((s) => ({
+      serviceId: s.serviceId,
+      serviceName: s.service.name,
+    })),
+  };
 }

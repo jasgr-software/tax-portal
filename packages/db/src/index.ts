@@ -28,8 +28,18 @@ export type {
 } from "@prisma/client";
 
 // Re-export repositories
-export type { CreateEngagementRequestInput, CreateEngagementRequestResult } from "./repositories/engagement-request.js";
-export { createEngagementRequest, NOTIFICATION_TYPE_NEW_REQUEST } from "./repositories/engagement-request.js";
+export type {
+  CreateEngagementRequestInput,
+  CreateEngagementRequestResult,
+  EngagementRequestItem,
+  EngagementRequestServiceItem,
+} from "./repositories/engagement-request.js";
+export {
+  createEngagementRequest,
+  NOTIFICATION_TYPE_NEW_REQUEST,
+  listEngagementRequests,
+  getEngagementRequest,
+} from "./repositories/engagement-request.js";
 export type {
   ServiceListItem,
   ServiceItem,
