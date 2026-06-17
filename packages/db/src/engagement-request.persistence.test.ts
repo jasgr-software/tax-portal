@@ -6,6 +6,9 @@
  *
  * AC-DOOR-004-03: Request persisted in pending/awaiting-review state.
  * AC-DOOR-004-04: No account/User row created at submission.
+ * AC-DOOR-005-01: Submitting a request generates exactly one accountant notification.
+ * AC-DOOR-005-02: The notification carries engagementRequestId (links to the request).
+ * AC-MSG-013-01:  The notification type is 'new_engagement_request'.
  *
  * Connection approach:
  *   Uses raw mssql (not Prisma) for direct DB verification, due to the Prisma 5.22.0
@@ -31,6 +34,7 @@ const ADMIN_URL = process.env["DATABASE_URL_ADMIN"];
 
 // Track IDs for cleanup
 const createdRequestIds: string[] = [];
+const createdNotificationIds: string[] = [];
 const createdServiceIds: string[] = [];
 
 beforeAll(async () => {
@@ -43,6 +47,14 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
+  // Cleanup Notification rows first (Notification.engagementRequestId uses SetNull on delete,
+  // so deleting EngagementRequest won't cascade-delete Notifications — must clean up explicitly).
+  // TASK-003-003: createEngagementRequest now generates a Notification in the same transaction.
+  for (const id of createdNotificationIds) {
+    await verifyPool.request().query(
+      `DELETE FROM [dbo].[Notification] WHERE [id] = '${id}'`
+    ).catch(() => { /* ignore */ });
+  }
   // Cleanup: EngagementRequestService rows cascade from EngagementRequest on DELETE
   for (const id of createdRequestIds) {
     await verifyPool.request().query(
@@ -83,6 +95,7 @@ describe("createEngagementRequest — persistence integration", () => {
       serviceIds: [serviceId],
     });
     createdRequestIds.push(result.id);
+    createdNotificationIds.push(result.notificationId);
 
     // Verify the row exists with correct status [AC-DOOR-004-03]
     const rows = await verifyPool.request().query<{ status: string; email: string }>(
@@ -95,8 +108,9 @@ describe("createEngagementRequest — persistence integration", () => {
 
   /**
    * [AC-DOOR-004-03] The returned result includes id and status='pending'.
+   * [AC-DOOR-005-01] The returned result also includes notificationId (proves notification created).
    */
-  it("[AC-DOOR-004-03] returns {id, status:'pending'} from createEngagementRequest", async () => {
+  it("[AC-DOOR-004-03][AC-DOOR-005-01] returns {id, status:'pending', notificationId} from createEngagementRequest", async () => {
     const serviceId = await seedService("Persistence Test - Return Value");
 
     const result = await createEngagementRequest({
@@ -108,9 +122,11 @@ describe("createEngagementRequest — persistence integration", () => {
       serviceIds: [serviceId],
     });
     createdRequestIds.push(result.id);
+    createdNotificationIds.push(result.notificationId);
 
     expect(result.id).toBeTruthy();
     expect(result.status).toBe("pending"); // [AC-DOOR-004-03]
+    expect(result.notificationId).toBeTruthy(); // [AC-DOOR-005-01] — notification created
   });
 
   /**
@@ -128,6 +144,7 @@ describe("createEngagementRequest — persistence integration", () => {
       serviceIds: [serviceId],
     });
     createdRequestIds.push(result.id);
+    createdNotificationIds.push(result.notificationId);
 
     // Verify no User row was created for this email [AC-DOOR-004-04]
     const userRows = await verifyPool.request().query<{ id: string }>(
@@ -150,6 +167,7 @@ describe("createEngagementRequest — persistence integration", () => {
       serviceIds: [serviceId],
     });
     createdRequestIds.push(result.id);
+    createdNotificationIds.push(result.notificationId);
 
     const rows = await verifyPool.request().query<{ email: string }>(
       `SELECT [email] FROM [dbo].[EngagementRequest] WHERE [id] = '${result.id}'`
@@ -172,6 +190,7 @@ describe("createEngagementRequest — persistence integration", () => {
       serviceIds: [serviceAId, serviceBId],
     });
     createdRequestIds.push(result.id);
+    createdNotificationIds.push(result.notificationId);
 
     const joinRows = await verifyPool.request().query<{ serviceId: string }>(
       `SELECT [serviceId] FROM [dbo].[EngagementRequestService] WHERE [engagementRequestId] = '${result.id}'`
@@ -180,5 +199,77 @@ describe("createEngagementRequest — persistence integration", () => {
     const ids = joinRows.recordset.map((r) => r.serviceId).sort();
     expect(ids).toContain(serviceAId);
     expect(ids).toContain(serviceBId);
+  });
+
+  /**
+   * [AC-DOOR-005-01] Submitting a request generates exactly one accountant notification.
+   * The notification is created atomically with the request in the same transaction.
+   */
+  it("[AC-DOOR-005-01] creates exactly one Notification row tied to the new request", async () => {
+    const serviceId = await seedService("Persistence Test - Notification Count");
+    const uniqueEmail = `notif-count-${Date.now()}@example.com`;
+
+    const result = await createEngagementRequest({
+      firstName: "Test",
+      lastName: "Notification",
+      email: uniqueEmail,
+      serviceIds: [serviceId],
+    });
+    createdRequestIds.push(result.id);
+    createdNotificationIds.push(result.notificationId);
+
+    // Verify exactly ONE Notification row was created for this request [AC-DOOR-005-01]
+    const notifRows = await verifyPool.request().query<{
+      id: string;
+      type: string;
+      title: string;
+      engagementRequestId: string;
+    }>(
+      `SELECT [id], [type], [title], [engagementRequestId]
+       FROM [dbo].[Notification]
+       WHERE [engagementRequestId] = '${result.id}'`
+    );
+    expect(notifRows.recordset).toHaveLength(1); // exactly one [AC-DOOR-005-01]
+    expect(notifRows.recordset[0]?.id).toBe(result.notificationId);
+
+    // [AC-MSG-013-01] Notification type = 'new_engagement_request'
+    expect(notifRows.recordset[0]?.type).toBe("new_engagement_request"); // [AC-MSG-013-01]
+
+    // [AC-DOOR-005-02] Notification title identifies the request; engagementRequestId links to it
+    expect(notifRows.recordset[0]?.title).toMatch(/Test Notification/); // [AC-DOOR-005-02]
+    expect(notifRows.recordset[0]?.engagementRequestId).toBe(result.id); // [AC-DOOR-005-02]
+  });
+
+  /**
+   * [AC-DOOR-005-01][AC-MSG-013-01] Notification has type 'new_engagement_request' and is unread.
+   * The title includes the prospect's name for UI display (AC-DOOR-005-02 identification).
+   */
+  it("[AC-MSG-013-01][AC-DOOR-005-02] notification type is new_engagement_request and title includes prospect name", async () => {
+    const serviceId = await seedService("Persistence Test - Notification Type");
+
+    const result = await createEngagementRequest({
+      firstName: "Alice",
+      lastName: "Applicant",
+      email: `alice.applicant.${Date.now()}@example.com`,
+      serviceIds: [serviceId],
+    });
+    createdRequestIds.push(result.id);
+    createdNotificationIds.push(result.notificationId);
+
+    const notifRows = await verifyPool.request().query<{
+      type: string;
+      title: string;
+      readAt: Date | null;
+      engagementRequestId: string;
+    }>(
+      `SELECT [type], [title], [readAt], [engagementRequestId]
+       FROM [dbo].[Notification]
+       WHERE [id] = '${result.notificationId}'`
+    );
+    expect(notifRows.recordset).toHaveLength(1);
+    expect(notifRows.recordset[0]?.type).toBe("new_engagement_request"); // [AC-MSG-013-01]
+    expect(notifRows.recordset[0]?.title).toContain("Alice Applicant"); // [AC-DOOR-005-02] — identifies the prospect
+    expect(notifRows.recordset[0]?.readAt).toBeNull(); // unread at creation
+    expect(notifRows.recordset[0]?.engagementRequestId).toBe(result.id); // [AC-DOOR-005-02] — links to request
   });
 });

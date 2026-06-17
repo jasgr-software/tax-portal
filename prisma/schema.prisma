@@ -79,11 +79,17 @@ model EngagementRequest {
   // Explicit pending/awaiting-review status model — EPIC-003 extends to accepted/declined
   // Valid values: 'pending' | 'awaiting_review' | 'accepted' | 'declined'
   status      String   @default("pending") @db.NVarChar(20)
+  // EPIC-003 decision fields (AC-DOOR-008-04 decline reason; AC-DOOR-007-04 invitation ticket; decidedAt timestamp)
+  declineReason    String?   @db.NVarChar(Max)
+  invitationTicket String?   @db.NVarChar(200)
+  decidedAt        DateTime? @db.DateTimeOffset
   createdAt   DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt   DateTime @updatedAt @db.DateTimeOffset
 
   // Join table for multi-service selection (SQL Server has no native array type — ADR-002)
   services    EngagementRequestService[]
+  // Reverse relation: notifications generated when this request is submitted (EPIC-003)
+  notifications Notification[]
 
   @@map("EngagementRequest")
 }
@@ -122,4 +128,35 @@ model User {
   updatedAt DateTime @updatedAt @db.DateTimeOffset
 
   @@map("User")
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+// In-portal accountant notification generated when an engagement request is submitted.
+// RLS (ADR-005 § Tables-in-scope): accountant-readable only (AC-DOOR-005-03).
+//   ACCOUNTANT / admin can read; CLIENT and anonymous → zero rows (fail-closed).
+//   The sec.pol_Notification policy is in db/policies/0004-notification-policy.sql (Track B).
+//
+// type:  Notification type discriminator (e.g. 'new_engagement_request').
+// title: Short display title shown in the notification feed.
+// body:  Optional richer detail text.
+// readAt: NULL until the accountant marks it read (nullable = unread state indicator).
+// FK → EngagementRequest (nullable — future notification types may not be request-related).
+//
+// Only the first EPIC-003 type (new_engagement_request) is in scope (AC-MSG-013-01).
+// Phase-4 notification types share this entity with different `type` values.
+
+model Notification {
+  id                  String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // Notification type discriminator (e.g. 'new_engagement_request') — AC-MSG-013-01
+  type                String   @db.NVarChar(50)
+  title               String   @db.NVarChar(200)
+  body                String?  @db.NVarChar(Max)
+  // readAt: null = unread; non-null = read timestamp. Accountant marks read via markNotificationRead.
+  readAt              DateTime? @db.DateTimeOffset
+  // FK → EngagementRequest (nullable for future non-request notification types)
+  engagementRequestId String?  @db.UniqueIdentifier
+  engagementRequest   EngagementRequest? @relation(fields: [engagementRequestId], references: [id], onDelete: SetNull)
+  createdAt           DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+
+  @@map("Notification")
 }

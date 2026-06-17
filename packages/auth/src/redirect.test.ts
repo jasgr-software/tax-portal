@@ -258,6 +258,29 @@ describe("adminRedirectDecision — AC-AUTH-010-* foundation", () => {
     expect(result.action).toBe("redirect");
   });
 
+  // ─ /api/test/** is auth-gated (BUG-003-001: whitelist removed) ────────────────
+  // The former /api/test/** whitelist (TASK-003-006) is removed. The reset endpoint
+  // is deleted; RATE_LIMIT_MAX_ATTEMPTS=100 in docker-compose.yml is the fix.
+  // These tests verify the /api/test/** path is now properly gated, not whitelisted.
+
+  it("[BUG-003-001] /api/test/reset-rate-limiter redirects to sign-in when unauthenticated (whitelist removed)", () => {
+    // Without the /api/test/** whitelist, an unauthenticated request to this path must
+    // redirect to /sign-in — it does NOT pass through (the endpoint no longer exists).
+    const result = adminRedirectDecision("/api/test/reset-rate-limiter", null, baseUrl);
+    expect(result.action).toBe("redirect");
+    if (result.action === "redirect") {
+      expect(result.destination.pathname).toBe("/sign-in");
+    }
+  });
+
+  it("[BUG-003-001] /api/test/anything is served for signed-in ACCOUNTANT (normal auth path)", () => {
+    // Signed-in ACCOUNTANT on any admin route → serve (normal auth path).
+    // The whitelist removal does not affect authenticated ACCOUNTANT requests — they
+    // were already served (rule 5 in adminRedirectDecision: ACCOUNTANT → serve).
+    const result = adminRedirectDecision("/api/test/anything", { role: "ACCOUNTANT" }, baseUrl);
+    expect(result.action).toBe("serve");
+  });
+
   // ─ Sign-in path always accessible ─────────────────────────────────────────────
 
   it("serves admin /sign-in for unauthenticated (no redirect loop)", () => {

@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** BUG-002-002 (Alpine/OpenSSL-3 Prisma engine binary target requirement)
+**Last updated:** BUG-003-001 (rate limiter env vars — RATE_LIMIT_MAX_ATTEMPTS/RATE_LIMIT_WINDOW_MS added to portal + admin compose services)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
