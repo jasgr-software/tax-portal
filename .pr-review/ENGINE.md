@@ -61,10 +61,34 @@ orchestrator (the main session); it does **not** post to GitHub itself — only 
    - **request-changes (advisory)** — one or more `blocker` or `major` findings survive.
    - **approve (advisory)** — only `minor`/`nit` findings, or none.
    The verdict is **textual** in the review body. It is advice, not a gate.
-3. **Posts one GitHub review** (see § Comment mechanics).
+3. **Posts one GitHub review** (see § Comment mechanics), with the machine-readable verdict block appended.
 
 The lead never silently overrides a sibling lens: if a sibling flagged a `blocker`/`major`, it appears in
 the consolidated review and drives the verdict. The lead's own judgment only decides dedupe and wording.
+
+### Machine-readable verdict block (don't discard the structure)
+
+The lead has already computed the deduped severity tally and the advisory verdict — that *is* a structured
+decision. Rendering it only to prose throws the structure away and forces any downstream consumer (the
+`.orchestration/` Conductor's fix-or-skip gate) to re-parse markdown or call the GitHub API. So the lead
+**also emits the verdict as data**, in two places, from the same computed values:
+
+1. **Appended to the review body** as an HTML-comment-wrapped JSON block (invisible in rendered markdown,
+   trivially greppable from the raw body). Schema `pr-review-verdict/v1`:
+
+   ```text
+   <!-- pr-review-verdict
+   {"schema":"pr-review-verdict/v1","pr":<N>,"verdict":"approve|request-changes",
+    "fix_required":false,"findings":{"blocker":0,"major":0,"minor":6,"nit":2,"total_after_dedupe":8},
+    "lenses":["correctness","security","over-engineering"]}
+   -->
+   ```
+
+2. **Returned to the caller** (the panel's structured result) as the same object.
+
+`fix_required` is **derived, not judged**: `fix_required == (blocker + major) > 0`. It must agree with the
+prose verdict (`request-changes` ⇔ `fix_required: true`). This single field is what lets the orchestration
+gate become pure code — no LLM re-reads the prose to decide whether `/pr-fix` runs.
 
 ## Comment mechanics (advisory, one review)
 
@@ -84,8 +108,11 @@ gh api repos/{owner}/{repo}/pulls/<N>/reviews \
   finding text, lens-tagged). Anchor to the **new** side of the diff; if a finding isn't line-anchorable,
   fold it into the summary body instead of an inline comment.
 - The summary `body` follows `_templates/pr-review-summary.md`: the advisory verdict line, then findings
-  grouped by severity, then a one-line-per-lens roll-up.
+  grouped by severity, then a one-line-per-lens roll-up, and finally the machine-readable verdict block
+  (§ Machine-readable verdict block) as the last lines of the body.
 - Build the payload as a written JSON file (Write tool), not an inline heredoc; pass it with `--input`.
+- The verdict block is part of the body string, so it ships in the same single `event=COMMENT` review — no
+  extra API call, no committed file, no dirtying of the PR's working tree.
 
 ## Scope discipline
 
