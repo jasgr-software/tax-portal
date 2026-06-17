@@ -51,3 +51,25 @@ The promotion bar is a **concrete quality-gate failure**. One finding cleared it
 - `service.rls.test.ts` comment-drift (item 3 above).
 - AC-AUTH-010-02 demo `ADMIN_APP_URL` env mismatch (item 6).
 - `personas/jane-accountant.md` v2 "solo, no staff" update when multi-accountant is phased.
+
+## Post-Merge Addendum (2026-06-17)
+
+**PR #42 squash-merged → `main` @ `ec151cb`.** Branch deleted; MERGE-POLICY Lane B (no `--admin`/protection
+toggle); `mergeable: MERGEABLE` / `mergeState: CLEAN`; 0 unresolved threads.
+
+- **Gate 8 — Post-merge CI: ✅ PASS.** `main` @ `ec151cb` — `CI` ✅ + `Code Quality: Push on main` ✅. (CodeQL
+  "Code Security must be enabled" is the known GHAS-unlicensed advisory check, `continue-on-error` — not
+  required; `pnpm audit` is the hard security gate, green.)
+- **Gate 9 — Post-merge staging smoke: N/A** (`Brief-deploys: no`, ADR-007).
+- **Final 9-gate scorecard (all closed):** submission 7/7 ✅ · SDET Review 8/8 ✅ · Overwatch Audit ✅ (0 blocking)
+  · IO Design scan ✅ · Container Smoke ✅ · SDET Acceptance-validation ✅ (20/20 AC) · SDET CI gate ✅ ·
+  **Post-merge CI ✅** · staging smoke N/A.
+- **Conductor panel/fix:** `/pr-review 42` advisory APPROVE (0 blocker/major; 6 minor + 2 nit, deduped 11→8);
+  `/pr-fix 42` fixed all 6 minors (dead `createNotification`; `stripHeaderInjection` doc/throw; write-only
+  `_sentMessages`; split accept/decline rate-limit keys; `ticket!`→explicit guard; SMTP `rejectUnauthorized`
+  gated to local hosts), dispositioned 3 (pre-existing mock-auth default; unlogged email-suppression follow-up;
+  `markNotificationRead` single-accountant model). Commit `715f7f8`. 0 `BUG-003-POST-*` raised.
+- **Delivery:** **20/20 in-scope AC verified** (evidence basis [A] CI + SDET dev-time tier-3/e2e). **Phase 1
+  (MVP front-door spine) COMPLETE** — EPIC-001/004/002/003 all delivered.
+- **Resolved this slice (was carried):** RETRO-002 `RATE_LIMIT_MAX_ATTEMPTS`/`_WINDOW_MS` env vars (BUG-003-001).
+- **Zero POST bugs.** Task/bug files already archived to `tasks/done/` at Close-prep.

@@ -7,6 +7,85 @@
 
 ## Current run
 
+### EPIC-003 — BRIEF-003 (accountant request inbox) — started 2026-06-17 — ✅ DELIVERED 2026-06-17
+- **Phase:** **DELIVERED.** Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → Implement ✓ → Review ✓ (`/pr-review 42`
+  advisory APPROVE; 0 blocker/major; 6 minor + 2 nit) → Fix ✓ (`/pr-fix 42`: 6 fixed, 3 dispositioned, threads
+  resolved, `715f7f8`) → **Merge ✓** (PR #42 squash → `main` `ec151cb`, Lane B, no protection toggle) →
+  Close-finalize ✓ (gate 8 post-merge CI green; gate 9 N/A) → Validate write-back ✓ (`/planning`: 20 COVERAGE
+  rows verified 31→51; EPIC-003 rolled `delivered`; ROADMAP Phase-1-complete entry) → Report.
+- **Outcome:** **20/20 in-scope AC verified.** 🎉 **Phase 1 (MVP front-door spine) COMPLETE** — EPIC-001/004/002/
+  003 all delivered, 51/51 placed Phase-1 AC verified. Net-new platform capabilities: first transactional-email
+  seam (`packages/email`) + first in-portal notification (`Notification` + `sec.pol_Notification`). Panel: 0
+  blocker/major; 6 minors fixed. BUG-003-001 resolved the carried RETRO-002 RATE_LIMIT gap. **OQ-002**
+  (email-transport ADR) raised-upstream to `.architecture/` — architecture to ratify/author. **Next:** Phase 2
+  (onboarding gate) is **undecomposed** — author its epics via `/planning` before the next `/orchestrate`; the
+  deferred "2FA enablement" Phase-1 slice (4 AC) also remains. Docs-lane close-out: `chore/epic-003-close`.
+- **Panel minors (fix candidates):** dead `createNotification`+types+barrel (over-eng, high); `stripHeaderInjection`
+  strip-vs-throw doc/code contradiction (corr+over-eng); write-only `_sentMessages` store (over-eng, high);
+  shared accept/decline rate-limit key (security+corr); SMTP `rejectUnauthorized:false` unconditional (security);
+  `ticket!` non-null assertion (corr). Nits: `EMAIL_PROVIDER.toLowerCase()`, Resend `void apiKey`. Folded
+  (disposition): pre-existing mock-auth `ALLOW_MOCK_AUTH` default; unlogged email-suppression; `markNotificationRead` no-rate-limit (single-accountant model).
+- **(prior) Phase:** Review — see above.
+  (engine drove 7 tasks + BUG-003-001 through Dispatch→Audit→Review→Smoke→Validate→Close-prep; **PR #42** opened,
+  slice in `## Awaiting PR merge`, pre-merge gates 1–7 GREEN incl. CI run `27696675400`). → Review → Fix →
+  Merge/Finalize → Validate(write-back) → Report.
+- **PR:** **#42** — https://github.com/jasgr-software/tax-portal/pull/42 (OPEN; base `main`; feature branch
+  `brief-003-accountant-request-inbox`). Commits: TASK-003-001 `221dcce`, -002 `ecc816d`, -003 `08d7ea4`,
+  -004 `f2fb779`, -005 `e7e791f`, -006/BUG-001 `08e6d46`, -007 `90907fe`, Close-prep `b32d53d`.
+- **Engine result:** **20/20 in-scope AC** acceptance-validated (tier-2/3/6); container smoke PASS; e2e 30/30
+  3× zero-flake; required CI green. Net-new: `packages/email` seam (first email) + `Notification` entity +
+  accountant-only `sec.pol_Notification`. OQ-002 (email-transport ADR) raised-upstream. BUG-003-001 resolved a
+  carried RETRO-002 RATE_LIMIT gap. Docs-lane held: `docs/demos/EPIC-003/` (7 PNGs) + COVERAGE sign-off.
+- **Slice:** the accountant is notified of a new engagement request, reviews it, and either **accepts** it
+  (issuing the prospect an account invitation via the `packages/auth` mock seam, tied to the request) or
+  **declines** it (writing a reason that is emailed to the prospect and retained on the request). Closes the
+  front-door loop opened by EPIC-001.
+- **In-scope AC (20):** AC-DOOR-005-01/-02/-03, AC-DOOR-006-01/-02/-03/-04/-05, AC-DOOR-007-01/-02/-03/-04,
+  AC-DOOR-008-01/-02/-03/-04, AC-DASH-011-01/-02/-03, AC-MSG-013-01.
+- **Base branch:** main @ `cf94c7e` · **Feature branch:** _(engine-created at Plan; planned name free — no `*003*` branch)_
+- **PR:** _(none yet — engine opens at Dispatch/Close-prep)_
+- **Select — GO.** Fresh run (EPIC-002 delivered; no mid-flight run). EPIC-003 pinned via `/orchestrate 003`;
+  it is also the only remaining Phase-1 epic (`planned`, unblocked).
+- **Gate — GO on all 7 criteria:** (1) `status: planned` ✓ (2) `open_questions: []` ✓ (3) `depends_on:
+  [EPIC-001, EPIC-004]` both delivered ✓ (4) COVERAGE has 20 EPIC-003 rows, all `planned` ✓ (5) all 20 AC
+  resolve verbatim to REQ-DOOR-005/-006/-007/-008 + REQ-DASH-011 + REQ-MSG-013 ✓ (6) engine clear — `##
+  Awaiting PR merge` _Empty_, no active bugs ✓ (7) tree clean on `main`, no `*003*` branch ✓ (`env.local.tmp`
+  deleted this session — root is clean).
+- **Compose — DONE.** Wrote `.implementation/briefs/BRIEF-003-accountant-request-inbox.md`: 20 AC (verbatim) +
+  gherkin bound to the epic's scenarios; methodology gherkin / e2e-required (`apps/admin`); extra_gates =
+  accountant-only READ boundary on engagement_request + the new notification entity (ADR-005, HARD tier-3),
+  decide-exactly-once invariant, Mailhog email-send verification, invitation tied to request (reuse
+  `createInvitation` seam), audit on accept/decline (ADR-019), email rate-limit (ADR-022), SESSION_CONTEXT
+  (ADR-003), container smoke. demo: yes · apps [admin] · personas [jane-accountant, tom-prospective-client] ·
+  flows [flow-engagement-request, flow-first-sign-in].
+- **Compose carries (concrete obligations from sources + live repo state):**
+  - **First email-sending slice + first notification slice** — both net-new. **No email infra and no email ADR
+    exist.** Brief mandates a provider-abstracted email seam (mirror the EPIC-004 auth-provider seam): a
+    `send(...)` port bound to the **Mailhog** catcher already in `docker-compose` (SMTP `:1025`, UI `:8025`)
+    for local+e2e; production provider a deferred drop-in (REQ-NFR-008 names no provider). **Plan-phase: IO
+    should consult the architecture agent — an email-transport ADR may be warranted** (analogous to ADR-001 /
+    ADR-008). Surfaced, not invented.
+  - **Reuse the existing `EngagementRequest` entity** (EPIC-001) — its `status` field already reserves
+    `accepted`/`declined` ("EPIC-003 adds this transition"). Add `declineReason` + the request↔invitation link
+    (AC-DOOR-007-04). Add a **new accountant-scoped `Notification` entity** with an ADR-005 read policy.
+  - **Reuse `packages/auth` `createInvitation(email,'CLIENT')`** (EPIC-004 mock seam) for acceptance; the
+    `RateLimiter` + audit-ledger seams (EPIC-004) for ADR-022 / ADR-019; the `packages/db` request-scoped
+    wrapper + `sec` predicate pattern (EPIC-001/002) for SESSION_CONTEXT + the read boundary. Honor **ADR-003
+    Amendment 1** (no `@read_only` on the SET).
+  - **Cross-surface seam:** the notification is *generated* on the EPIC-001 **portal** submit path (anonymous
+    insert under the admin pool) but *consumed* on the **admin** surface — slice touches both; validate both
+    surfaces per CLAUDE.md § Platform-frontend scope.
+  - Inbox + decision actions live in **`apps/admin` only** (ADR-006); the invitation email links to the client
+    surface (`apps/portal`) for sign-up (ADR-010).
+- **Carried infra follow-ups (may resurface at Smoke; not slice-blocking):** clean-volume DB bootstrap (`sa`-once
+  login creation, Prisma port-in-authority, `!`-free logins, `migrate deploy` P3019), `sqlserver` healthcheck SA
+  mismatch, `sp_set_session_context` CI grep-guard; user-walled EPIC-004 `RATE_LIMIT_*` `.env.example` vars.
+
+---
+
+<!-- ARCHIVED — EPIC-002 run DELIVERED 2026-06-16 (PR #40 → 70ea10e). Superseded as the active run by EPIC-003
+     above. Detail retained below + in Outcome/History, PROGRESS-ARCHIVE.md, RETRO-002.md. -->
+
 ### EPIC-002 — BRIEF-002 (services catalog management) — started 2026-06-16 — ✅ DELIVERED 2026-06-16
 - **Phase:** **DELIVERED** — full cascade complete: Implement → Audit (0 blocking) → Review (PASS) → Smoke
   (UI PASS / Infra cond-pass) → Validate (gates 6+7 GREEN; surfaced+fixed BUG-002-004) → Close-prep → Conductor
@@ -461,6 +540,40 @@ the EPIC-004-carried infra ticket, not blocking this slice.
   admin/portal + `.env.example` for local/e2e; real prod never sets it → mock still throws (security intent preserved
   + strengthened). Fix rides EPIC-002's PR (touches EPIC-004 code; note EPIC-004 had this latent defect). → BUG-002
   task → SDET review → rebuild containers → resume TASK-002-004 e2e.
+
+### Select — EPIC-003 — 2026-06-17
+**Start:** Fresh run (EPIC-002 delivered; no mid-flight `## Current run`). `/orchestrate 003` pins EPIC-003.
+**Actions:** Read ROADMAP + EPIC-003 + COVERAGE. EPIC-003 (request inbox) is the only un-delivered Phase-1
+epic; `status: planned`, `depends_on: [EPIC-001, EPIC-004]` both delivered, 20 AC placed (all `planned`).
+**End:** Candidate = EPIC-003 → Gate.
+
+### Gate — EPIC-003 — 2026-06-17
+**Start:** Apply the 7-criterion readiness predicate read-only.
+**Actions:** (1) `status: planned` ✓ (2) `open_questions: []` ✓ (3) `depends_on: [EPIC-001, EPIC-004]` both
+`delivered` ✓ (4) COVERAGE has 20 EPIC-003 rows all `planned` ✓ (5) all 20 AC resolve verbatim to
+REQ-DOOR-005/-006/-007/-008 + REQ-DASH-011 + REQ-MSG-013 (AC-01) ✓ (6) engine clear — `## Awaiting PR merge`
+_Empty_, no active bugs ✓ (7) tree clean on `main` @ `cf94c7e`, no `*003*` branch ✓.
+**End:** GO on all 7 → Compose.
+
+### Compose — EPIC-003 — 2026-06-17
+**Start:** Map GO EPIC-003 → a build brief honoring the engine's contract.
+**Actions:**
+- Read EPIC-003 + the 6 REQ sources + REQ-NFR-008 (verbatim AC text) + build-brief template + BRIEF-002
+  exemplar + the live repo (`prisma/schema.prisma` `EngagementRequest`/`Service`/`User`; `packages/` —
+  confirmed **no email infra**, **no email ADR**; `packages/auth` `createInvitation` seam present; Mailhog in
+  `docker-compose`).
+- Wrote `.implementation/briefs/BRIEF-003-accountant-request-inbox.md`: 20 AC (verbatim) + gherkin bound to the
+  epic's 20 scenarios; methodology gherkin / e2e-required (`apps/admin`); extra_gates = accountant-only READ
+  boundary (ADR-005, HARD tier-3) on engagement_request + new notification entity, decide-exactly-once,
+  Mailhog email-send verification, invitation-tied-to-request, audit (ADR-019), email rate-limit (ADR-022),
+  SESSION_CONTEXT (ADR-003), container smoke.
+- Carried obligations: first email + first notification slice → provider-abstracted email seam to Mailhog +
+  **IO architecture-consult for a possible email-transport ADR**; reuse `EngagementRequest` (add `declineReason`
+  + invitation link) + new `Notification` entity; reuse the EPIC-004 `createInvitation`/RateLimiter/audit seams
+  + EPIC-001/002 RLS-predicate pattern; cross-surface notification seam (portal generates, admin consumes).
+- demo: applicable yes · apps [admin] · personas [jane-accountant, tom-prospective-client] · flows
+  [flow-engagement-request, flow-first-sign-in].
+**End:** BRIEF-003 written with every required field from real epic/source content → Implement.
 
 ## Outcome
 

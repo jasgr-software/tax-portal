@@ -20,8 +20,8 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | — EPIC-004 (auth & two-role model) | 11 |
 | — EPIC-002 (services-catalog management) | 7 |
 | — EPIC-003 (accountant request inbox) | 20 |
-| AC `verified` (signed off) | 31 — all of EPIC-001 (13, delivered 2026-06-15) + all of EPIC-004 (11, delivered 2026-06-16) + all of EPIC-002 (7, delivered 2026-06-16) |
-| AC still `planned` (placed, not yet verified) | 20 — all of EPIC-003 |
+| AC `verified` (signed off) | **51 — all 51 Phase-1 placed AC** — EPIC-001 (13, 2026-06-15) + EPIC-004 (11, 2026-06-16) + EPIC-002 (7, 2026-06-16) + EPIC-003 (20, 2026-06-17). **Phase 1 (MVP) complete.** |
+| AC still `planned` (placed, not yet verified) | 0 — every placed Phase-1 AC is verified |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -34,8 +34,30 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > deactivate persist), AC-DOOR-002-05 (accountant-only write boundary — the new `sec.fn_service_write_access`
 > BLOCK predicate, which **closed EPIC-001's latent write-predicate gap**, with CLIENT + anonymous rejected at
 > tier-3 RLS 10/10), and AC-DASH-010-01/-02/-03 (the same capability from the admin UI, dual-tagged with the
-> DOOR journeys). The remaining placed AC (EPIC-003, 20 AC) are still `planned`. The roll-up reaches **full v1
-> acceptance** when no v1 source AC is orphaned and every non-deferred AC is `verified`.
+> DOOR journeys).
+> **EPIC-003 (20 AC) signed off 2026-06-17** — the accountant request inbox slice shipped (PR #42, squash
+> merge `ec151cb`); see basis note [A]. All 20 in-scope AC verified: AC-DOOR-005-01/-02/-03 (new-request
+> accountant notification, leads-to-request, accountant-only), AC-DOOR-006-01/-02/-03/-04/-05 (view details,
+> accept, decline, only-accountant-decides, decide-exactly-once), AC-DOOR-007-01/-02/-03/-04 (invitation sent /
+> directs to client sign-up / no-account-before-sign-up / tied-to-request), AC-DOOR-008-01/-02/-03/-04 (reason
+> captured / emailed / no-account-needed / retained), AC-DASH-011-01/-02/-03 (inbox view-all / states / pending
+> identifiable), AC-MSG-013-01 (new-service-request notification). **This completes Phase 1 (the MVP front-door
+> spine): EPIC-001/004/002/003 all delivered — 51/51 placed Phase-1 AC verified.** The roll-up reaches **full
+> v1 acceptance** when no v1 source AC is orphaned and every non-deferred AC is `verified` (Phases 2–4 remain).
+>
+> **[A] applied to the EPIC-003 sign-off (2026-06-17).** Same user-accepted CI-as-the-gate basis as
+> EPIC-001/002/004. The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on the PR #42
+> pre-merge run `27696675400` **and** the post-merge `main` run at `ec151cb` (`CI` ✅ + `Code Quality` ✅;
+> `test-admin`/`test-portal` advisory, also green). Each of the 20 in-scope AC has automated test(s) tagged
+> with its AC id, exercised by the SDET at dev time against the real container stack (incl. **Mailhog** —
+> EPIC-003 is the first email-sending slice): tier-3 RLS (`notification.rls.test.ts` accountant-only read 4/4;
+> `engagement-request.decide-boundary.rls.test.ts` CLIENT decide-write BLOCK 3/3), tier-3 persistence
+> (`engagement-request.persistence.test.ts` notification-atomic), tier-2 unit (`actions.test.ts` decision/audit/
+> rate-limit/invitation invariants), and tier-6 admin e2e (`request-inbox`/`request-accept`/`request-decline`
+> specs — accept→invitation-email & decline→reason-email captured via the Mailhog HTTP API; 30/30, 3× zero-flake).
+> The cross-epic seam AC-DOOR-007-03 ↔ EPIC-004 AC-AUTH-006-01 (account exists only after sign-up) is intact.
+> The AC→test-tag→tier table is in `.implementation/tasks/HANDOFF-003.md`. The same per-PR-CI-tier follow-up
+> tracked for EPIC-001 applies here.
 >
 > **[A] Evidence basis for the EPIC-001 sign-off (precedent — set by the user 2026-06-15); reused for EPIC-004
 > 2026-06-16.** Each EPIC-001 AC
@@ -94,28 +116,28 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-DOOR-004 | AC-DOOR-004-03 | EPIC-001 | 1 | `AC-DOOR-004-03` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
 | REQ-DOOR-004 | AC-DOOR-004-04 | EPIC-001 | 1 | `AC-DOOR-004-04` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
 | REQ-DOOR-004 | AC-DOOR-004-05 | EPIC-001 | 1 | `AC-DOOR-004-05` | verified | PR#35 `f7f6c9d` · SDET+CI [A] |
-| REQ-DOOR-005 | AC-DOOR-005-01 | EPIC-003 | 1 | `AC-DOOR-005-01` | planned | — |
-| REQ-DOOR-005 | AC-DOOR-005-02 | EPIC-003 | 1 | `AC-DOOR-005-02` | planned | — |
-| REQ-DOOR-005 | AC-DOOR-005-03 | EPIC-003 | 1 | `AC-DOOR-005-03` | planned | — |
-| REQ-DOOR-006 | AC-DOOR-006-01 | EPIC-003 | 1 | `AC-DOOR-006-01` | planned | — |
-| REQ-DOOR-006 | AC-DOOR-006-02 | EPIC-003 | 1 | `AC-DOOR-006-02` | planned | — |
-| REQ-DOOR-006 | AC-DOOR-006-03 | EPIC-003 | 1 | `AC-DOOR-006-03` | planned | — |
-| REQ-DOOR-006 | AC-DOOR-006-04 | EPIC-003 | 1 | `AC-DOOR-006-04` | planned | — |
-| REQ-DOOR-006 | AC-DOOR-006-05 | EPIC-003 | 1 | `AC-DOOR-006-05` | planned | — |
-| REQ-DOOR-007 | AC-DOOR-007-01 | EPIC-003 | 1 | `AC-DOOR-007-01` | planned | — |
-| REQ-DOOR-007 | AC-DOOR-007-02 | EPIC-003 | 1 | `AC-DOOR-007-02` | planned | — |
-| REQ-DOOR-007 | AC-DOOR-007-03 | EPIC-003 | 1 | `AC-DOOR-007-03` | planned | — |
-| REQ-DOOR-007 | AC-DOOR-007-04 | EPIC-003 | 1 | `AC-DOOR-007-04` | planned | — |
-| REQ-DOOR-008 | AC-DOOR-008-01 | EPIC-003 | 1 | `AC-DOOR-008-01` | planned | — |
-| REQ-DOOR-008 | AC-DOOR-008-02 | EPIC-003 | 1 | `AC-DOOR-008-02` | planned | — |
-| REQ-DOOR-008 | AC-DOOR-008-03 | EPIC-003 | 1 | `AC-DOOR-008-03` | planned | — |
-| REQ-DOOR-008 | AC-DOOR-008-04 | EPIC-003 | 1 | `AC-DOOR-008-04` | planned | — |
+| REQ-DOOR-005 | AC-DOOR-005-01 | EPIC-003 | 1 | `AC-DOOR-005-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-005 | AC-DOOR-005-02 | EPIC-003 | 1 | `AC-DOOR-005-02` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-005 | AC-DOOR-005-03 | EPIC-003 | 1 | `AC-DOOR-005-03` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-006 | AC-DOOR-006-01 | EPIC-003 | 1 | `AC-DOOR-006-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-006 | AC-DOOR-006-02 | EPIC-003 | 1 | `AC-DOOR-006-02` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-006 | AC-DOOR-006-03 | EPIC-003 | 1 | `AC-DOOR-006-03` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-006 | AC-DOOR-006-04 | EPIC-003 | 1 | `AC-DOOR-006-04` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-006 | AC-DOOR-006-05 | EPIC-003 | 1 | `AC-DOOR-006-05` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-007 | AC-DOOR-007-01 | EPIC-003 | 1 | `AC-DOOR-007-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-007 | AC-DOOR-007-02 | EPIC-003 | 1 | `AC-DOOR-007-02` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-007 | AC-DOOR-007-03 | EPIC-003 | 1 | `AC-DOOR-007-03` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-007 | AC-DOOR-007-04 | EPIC-003 | 1 | `AC-DOOR-007-04` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-008 | AC-DOOR-008-01 | EPIC-003 | 1 | `AC-DOOR-008-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-008 | AC-DOOR-008-02 | EPIC-003 | 1 | `AC-DOOR-008-02` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-008 | AC-DOOR-008-03 | EPIC-003 | 1 | `AC-DOOR-008-03` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DOOR-008 | AC-DOOR-008-04 | EPIC-003 | 1 | `AC-DOOR-008-04` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
 | REQ-DASH-010 | AC-DASH-010-01 | EPIC-002 | 1 | `AC-DASH-010-01` | verified | PR#40 `70ea10e` (2026-06-16) · SDET+CI [A] |
 | REQ-DASH-010 | AC-DASH-010-02 | EPIC-002 | 1 | `AC-DASH-010-02` | verified | PR#40 `70ea10e` (2026-06-16) · SDET+CI [A] |
 | REQ-DASH-010 | AC-DASH-010-03 | EPIC-002 | 1 | `AC-DASH-010-03` | verified | PR#40 `70ea10e` (2026-06-16) · SDET+CI [A] |
-| REQ-DASH-011 | AC-DASH-011-01 | EPIC-003 | 1 | `AC-DASH-011-01` | planned | — |
-| REQ-DASH-011 | AC-DASH-011-02 | EPIC-003 | 1 | `AC-DASH-011-02` | planned | — |
-| REQ-DASH-011 | AC-DASH-011-03 | EPIC-003 | 1 | `AC-DASH-011-03` | planned | — |
+| REQ-DASH-011 | AC-DASH-011-01 | EPIC-003 | 1 | `AC-DASH-011-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DASH-011 | AC-DASH-011-02 | EPIC-003 | 1 | `AC-DASH-011-02` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-DASH-011 | AC-DASH-011-03 | EPIC-003 | 1 | `AC-DASH-011-03` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
 | REQ-AUTH-001 | AC-AUTH-001-01 | EPIC-004 | 1 | `AC-AUTH-001-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-001 | AC-AUTH-001-02 | EPIC-004 | 1 | `AC-AUTH-001-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-001 | AC-AUTH-001-03 | EPIC-004 | 1 | `AC-AUTH-001-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
@@ -131,7 +153,7 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-004 | 1 | `AC-AUTH-010-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-004 | 1 | `AC-AUTH-010-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-004 | 1 | `AC-AUTH-010-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
-| REQ-MSG-013 | AC-MSG-013-01 | EPIC-003 | 1 | `AC-MSG-013-01` | planned | — |
+| REQ-MSG-013 | AC-MSG-013-01 | EPIC-003 | 1 | `AC-MSG-013-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
 
 ## Split requirements
 

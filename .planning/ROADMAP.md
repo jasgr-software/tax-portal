@@ -7,6 +7,22 @@
 
 ## Status / amendment history
 
+- **2026-06-17 (EPIC-003 delivered — 🎉 Phase 1 / MVP COMPLETE)** — the accountant request inbox shipped (PR #42,
+  squash merge `ec151cb`). All **20 in-scope AC** signed off `verified` in `COVERAGE.md`: AC-DOOR-005-01/-02/-03
+  (new-request accountant notification), AC-DOOR-006-01..05 (view/accept/decline/only-accountant/decide-once),
+  AC-DOOR-007-01..04 (acceptance invitation → client-surface sign-up, tied to the request, no account before
+  sign-up), AC-DOOR-008-01..04 (decline reason captured/emailed/retained), AC-DASH-011-01/-02/-03 (inbox by
+  state), AC-MSG-013-01 (new-request notification). EPIC-003 → `delivered`. Net-new platform capabilities: the
+  first **transactional-email seam** (`packages/email`, SMTP→Mailhog; Resend deferred) and the first **in-portal
+  notification** (`Notification` entity + accountant-only `sec.pol_Notification`). Sign-off basis [A]: green
+  required CI (`lint-and-typecheck` + `security-scan`) on the PR head + post-merge `main` `ec151cb`, plus the
+  SDET's dev-time tier-3/e2e (incl. Mailhog) acceptance-validation (20/20). **This completes the Phase-1 MVP
+  front-door spine — EPIC-001/004/002/003 all delivered, 51/51 placed Phase-1 AC verified.** A prospect can
+  browse services and submit a request; the accountant signs in, is notified, reviews, and accepts (→ invite)
+  or declines (→ reason email); an accepted prospect can create a client account. **Next:** Phase 2 (onboarding
+  gate) is undecomposed — a future Planning Agent run slices it before the next `/orchestrate`. The deferred
+  "2FA enablement" Phase-1 slice (4 deferred AC) also remains.
+
 - **2026-06-16 (EPIC-002 delivered)** — Phase 1's accountant services-catalog management slice shipped (PR #40,
   squash merge `70ea10e`). All **7 in-scope AC** signed off `verified` in `COVERAGE.md`: AC-DOOR-002-01/-02/-03
   (accountant add/edit/deactivate persist), AC-DOOR-002-05 (accountant-only write boundary — the new
@@ -80,7 +96,7 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 | **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `delivered` (PR #35, `f7f6c9d`, 2026-06-15) | — |
 | **EPIC-004** | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect (11 in-scope AC). 2FA deferred to a future Phase-1 "2FA enablement" slice (not ready to deploy) | `delivered` (PR #38, `0444551`, 2026-06-16) — 11/15 in-scope AC; 4 2FA AC deferred | — |
 | **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `delivered` (PR #40, `70ea10e`, 2026-06-16) — 7/7 in-scope AC | EPIC-004 ✅ |
-| **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `planned` (unblocked — EPIC-001 + EPIC-004 delivered) | EPIC-001 ✅, EPIC-004 ✅ |
+| **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `delivered` (PR #42, `ec151cb`, 2026-06-17) — 20/20 in-scope AC | EPIC-001 ✅, EPIC-004 ✅ |
 
 > **Phase-1 build status (2026-06-16):** three of the four Phase-1 slices are **delivered** — **EPIC-001**
 > (anonymous front-door write path), **EPIC-004** (the auth spine), and **EPIC-002** (the accountant
