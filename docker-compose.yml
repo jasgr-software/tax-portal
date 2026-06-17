@@ -126,6 +126,13 @@ services:
       MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:?MOCK_SESSION_SECRET env var is required — generate with: openssl rand -hex 32}"
       # Placeholder for Clerk (TASK-004-003) — not used in this slice
       # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+      # Email transport (REQ-NFR-008 / TASK-003-002 — packages/email seam).
+      # "smtp" → Mailhog catcher (local/e2e default).
+      # "resend" → deferred production drop-in (requires RESEND_API_KEY).
+      EMAIL_PROVIDER: "${EMAIL_PROVIDER:-smtp}"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+      EMAIL_FROM: "${EMAIL_FROM:-noreply@tax-portal.dev}"
     ports:
       - "${PORTAL_PORT:-3000}:3000"
     depends_on:
@@ -186,6 +193,13 @@ services:
       MOCK_SESSION_SECRET: "${MOCK_SESSION_SECRET:?MOCK_SESSION_SECRET env var is required — generate with: openssl rand -hex 32}"
       # Placeholder for Clerk (TASK-004-003) — not used in this slice
       # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+      # Email transport (REQ-NFR-008 / TASK-003-002 — packages/email seam).
+      # "smtp" → Mailhog catcher (local/e2e default).
+      # "resend" → deferred production drop-in (requires RESEND_API_KEY).
+      EMAIL_PROVIDER: "${EMAIL_PROVIDER:-smtp}"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+      EMAIL_FROM: "${EMAIL_FROM:-noreply@tax-portal.dev}"
     ports:
       - "${ADMIN_PORT:-3001}:3001"
     depends_on:

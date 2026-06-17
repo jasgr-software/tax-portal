@@ -98,6 +98,11 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | portal + admin | Clerk publishable key (TASK-004-002) |
 | `CLERK_SECRET_KEY` | portal + admin | Clerk secret key (TASK-004-002) |
 | `CLERK_WEBHOOK_SECRET` | portal | Clerk webhook signing secret (ADR-001, TASK-004-002) |
+| `EMAIL_PROVIDER` | Both | Email provider selector: `smtp` (local/e2e default) or `resend` (production) or `mock` (unit tests). Defaults to `smtp` via `${EMAIL_PROVIDER:-smtp}` in compose. Added TASK-003-002. |
+| `SMTP_HOST` | Both | SMTP server hostname. Hard-coded to `mailhog` (compose service name) in `docker-compose.yml` so the app containers reach the Mailhog container. On the host, defaults to `localhost` (`.env.example`). Added TASK-003-002. |
+| `SMTP_PORT` | Both | SMTP server port. Hard-coded to `1025` (Mailhog SMTP) in `docker-compose.yml`. On the host, defaults to `1025`. Added TASK-003-002. |
+| `EMAIL_FROM` | Both | Sender address for outbound email (`From:` header). Defaults to `noreply@tax-portal.dev` in compose. Set to a verified domain in production. Added TASK-003-002. |
+| `RESEND_API_KEY` | Both | Resend API key (production only — `EMAIL_PROVIDER=resend`). Not required in local/e2e. `packages/email` `ResendEmailProvider` constructor throws `EmailBindingNotAvailableError` if `EMAIL_PROVIDER=resend` and this key is absent (fail-closed). Added TASK-003-002. |
 
 ---
 

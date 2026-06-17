@@ -21,7 +21,7 @@ of a new engagement request, let her review it, and accept (→ invitation email
 | Task | Status | Impl | AC | Notes |
 | ---- | ------ | ---- | -- | ----- |
 | TASK-003-001 schema + RLS (Notification + decision fields + accountant-only notification policy) | done | developer | DOOR-005-03, DOOR-006-04 (DB), DOOR-008-04 (col) | Introduces-gate: yes (notification RLS) — SDET APPROVED 2026-06-17T06:15:00Z |
-| TASK-003-002 `packages/email` seam (SMTP/Mailhog) | backlog | developer | none (infra) | Introduces-gate: advisory; OQ-002 raised |
+| TASK-003-002 `packages/email` seam (SMTP/Mailhog) | done | developer | none (infra) | Introduces-gate: advisory; OQ-002 raised — SDET APPROVED 2026-06-17T06:55:00Z |
 | TASK-003-003 notification generation (cross-surface portal→admin) | backlog | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces |
 | TASK-003-004 request inbox UI (admin) | backlog | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` |
 | TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | backlog | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit |
@@ -127,6 +127,24 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
 
 ---
+
+### SDET Review — TASK-003-002 — 2026-06-17
+**Start:** Review TASK-003-002 (`packages/email` outbound transactional-email seam). Status was `review`.
+**Actions:**
+- Docker pre-flight: PASS (docker 29.4.1; Mailhog container `tax-portal-mailhog` up and healthy).
+- Read ENGINE.md, PROGRESS.md, task file, BRIEF-003. Confirmed `Introduces-gate: advisory`, `Acceptance criteria: none (infra justification)`, all required spec fields present.
+- Read all delivered files: `packages/email/src/{port.ts,select.ts,index.ts,bindings/{smtp,mock,resend}.ts,email.test.ts}`, `packages/email/package.json`, `docker-compose.yml` email vars, `.env.example` email section, `inventory.md`, `runbook.md`.
+- Mandatory rejection checks: all PASS (Complexity-actual=3, pre-impl breadcrumb present, no tool-hygiene violations, all required spec fields present).
+- Independently ran: `pnpm --filter @tax-portal/email test` → 39/39, 343 ms.
+- Mailhog integration: confirmed NOT a vacuous skip — `curl http://localhost:8025/api/v2/messages` returned 3 matching `TASK-003-002-integration-*` subjects from the test runs.
+- OE5 barrel compliance: confirmed 4 test-only resets absent from `index.ts`; 6 barrel regression tests verify this.
+- Header injection: `stripHeaderInjection()` throws on CRLF; applied to `to`/`subject`/`from` in SMTP + mock; resend stub throws before any header used.
+- Introduces-gate advisory: Work Log makes no required-gate claim. Correct.
+- `pnpm audit`: 1 moderate (pre-existing PostCSS/next), 0 high/critical. 7 nodemailer CVEs cleared.
+- Infra-docs: `inventory.md` EMAIL_PROVIDER/SMTP_HOST/SMTP_PORT/EMAIL_FROM/RESEND_API_KEY documented; `runbook.md` header updated; both `portal` + `admin` compose services wired.
+- Lint + type-check: PASS (workspace-wide). Confirmed `packages/email` build (tsc) clean.
+- TASK-003-002 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:55:00Z**.
+**End:** TASK-003-002 approved and marked done. Task list: TASK-003-001 + TASK-003-002 done; TASK-003-003 through 007 backlog. Ready for IO to dispatch next task.
 
 ### SDET Review — TASK-003-001 — 2026-06-17
 **Start:** Review TASK-003-001 (schema + RLS + notification policy + tier-3 tests). Status was `review`.
