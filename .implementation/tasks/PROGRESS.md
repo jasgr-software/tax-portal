@@ -10,15 +10,31 @@
 
 ## Current initiative
 
-_None active._ **BRIEF-002 / EPIC-002 DELIVERED** 2026-06-16 (PR #40 squash-merged to `main` @ `70ea10e`;
-gate 8 post-merge CI green; gate 9 N/A — `Brief-deploys: no`). Close-finalize complete; slice swept to
-delivered (see the Close-finalize archive entry in `PROGRESS-ARCHIVE.md` + the `## Post-Merge Addendum` in
-`RETRO-002.md`).
+**BRIEF-003 / EPIC-003 — Accountant request inbox.** Phase: **Plan → Dispatch** (Plan complete; entering
+Dispatch). **Branch:** `brief-003-accountant-request-inbox` (from `main` @ `cf94c7e`). **Gated:** yes.
+**Brief-type:** feature · **Brief-deploys:** no. **Goal:** close the front-door loop — notify the accountant
+of a new engagement request, let her review it, and accept (→ invitation email tied to the request) or decline
+(→ reason email + retention). 20 in-scope AC. **Methodology:** gherkin (epic's 20 scenarios) · e2e-required
+(`apps/admin`) · tier-3 RLS/decision invariants · container smoke.
 
-**Phase-1 epic status:** EPIC-001 (public read catalog) ✅ · EPIC-004 (auth two-role model) ✅ · EPIC-002
-(services-catalog write side) ✅ — **all delivered**. **Next-ready epic: EPIC-003** (the only remaining
-Phase-1 epic). The IO is eligible to Plan EPIC-003 once a build brief is produced upstream (`.planning/` →
-`.orchestration/` composes the brief). No brief is in hand yet — the IO does not author briefs.
+**Task list (7, dependency-ordered):**
+| Task | Status | Impl | AC | Notes |
+| ---- | ------ | ---- | -- | ----- |
+| TASK-003-001 schema + RLS (Notification + decision fields + accountant-only notification policy) | done | developer | DOOR-005-03, DOOR-006-04 (DB), DOOR-008-04 (col) | Introduces-gate: yes (notification RLS) — SDET APPROVED 2026-06-17T06:15:00Z |
+| TASK-003-002 `packages/email` seam (SMTP/Mailhog) | backlog | developer | none (infra) | Introduces-gate: advisory; OQ-002 raised |
+| TASK-003-003 notification generation (cross-surface portal→admin) | backlog | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces |
+| TASK-003-004 request inbox UI (admin) | backlog | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` |
+| TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | backlog | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit |
+| TASK-003-006 e2e + gherkin + Mailhog | backlog | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) |
+| TASK-003-007 @demo gallery | backlog | developer | none (non-gating) | docs/demos/EPIC-003/ |
+
+**Plan artifacts:** design-coherence check PASS; OQ-002 (email-transport ADR) **raised-upstream** to
+`.architecture/` (non-blocking — proceeding on the proposed `packages/email` seam default); reuse of the
+existing `pol_EngagementRequest` read boundary (EPIC-001), the `createInvitation` seam + audit + RateLimiter
+(EPIC-004), and the `packages/db` request-pool wrapper + `sec` predicate pattern (EPIC-001/002).
+
+**Phase-1 epic status:** EPIC-001 ✅ · EPIC-004 ✅ · EPIC-002 ✅ — **all delivered**. EPIC-003 is the last
+Phase-1 epic, now in build.
 
 **Carried-forward follow-ups (from BRIEF-002 Close-finalize — see `RETRO-002.md` § Post-Merge Addendum for
 full detail):** (1) infra clean-volume DB bootstrap (single root family; new BRIEF-002 manifestation = the
@@ -112,13 +128,45 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ---
 
-### IO Close-finalize — BRIEF-002 — 2026-06-16 — SLICE DELIVERED
-**Start:** Re-invoked for Close-finalize. PR #40 squash-merged to `main` @ `70ea10e` (2026-06-16). Gate 8 (post-merge CI) confirmed GREEN by the main session — `CI` ✅ + `CodeQL` ✅ on `70ea10e` (`gh run list --branch main`). Gate 9 N/A (`Brief-deploys: no`, ADR-007). Driving the final close: record the final 9-gate scorecard, sweep the slice to delivered, write the Post-Merge Addendum, point `## Current initiative` at EPIC-003.
-**Phase-transition reflex (Close-prep→Close-finalize):** swept the IO Close-prep session entry (incl. the PR-OPENED note) to `PROGRESS-ARCHIVE.md` under a "Swept at Close-prep→Close-finalize transition" marker; updated `## Current initiative` → _None active_ + EPIC-002 delivered + next-ready EPIC-003; emptied `## Awaiting PR merge`; appended this entry.
-**Gate 8 — Post-merge CI: ✅ PASS.** `main` @ `70ea10e` — `CI` ✅ + `CodeQL` ✅ (both required checks `conclusion: SUCCESS` on the squash-merge commit). Evidence basis **[A] CI**.
-**Gate 9 — Post-merge staging smoke: N/A.** `Brief-deploys: no` (ADR-007 — no production/staging platform).
-**Final 9-gate scorecard (all closed):** (1) per-task submission 5/5 ✅ · (2) SDET Review 5/5 ✅ · (3) Overwatch Audit ✅ (0 blocking) · (4) IO Design scan ✅ · (5) Container Smoke ✅ conditional-pass (documented `sqlserver` healthcheck SA mismatch; clean-volume bootstrap env-blocked → CI-as-gate substitution, user-accepted) · (6) SDET Acceptance-validation ✅ · (7) SDET CI gate ✅ · (8) **Post-merge CI ✅** (`70ea10e`: `CI` + `CodeQL` green) · (9) staging smoke N/A.
-**Delivery record:** **PR #40 → `70ea10e`.** **7/7 in-scope AC verified** — AC-DOOR-002-01/-02/-03 (add/edit/deactivate persist) · AC-DASH-010-01/-02/-03 (admin-UI CRUD) · AC-DOOR-002-05 (accountant-only write boundary). **4 bugs ridden:** BUG-002-001 (auth fail-closed guard blocked mock in prod build) · BUG-002-002 (Prisma musl/Alpine engine binary target) · BUG-002-003 (`@read_only` SESSION_CONTEXT incompatible with Prisma pooling → **ADR-003 Amendment 1**) · BUG-002-004 (stale portal rate-limit test, blast-radius miss). **ADR-003 Amendment 1** raised upstream. **Evidence basis: [A] CI.**
-**Carried-forward follow-ups (preserved — full detail in RETRO-002 § Post-Merge Addendum + `## Open retro action items`):** (a) infra clean-volume DB bootstrap — `sa`-once login creation + Prisma port-in-authority + `!`-free logins + `migrate deploy` P3019; plus the new BRIEF-002 manifestation, the `sqlserver` healthcheck SA-password-vs-volume mismatch; (b) two panel-dispositioned follow-ups now tracked — a CI/lint grep-guard for stray `sp_set_session_context` outside `client.ts`, and the pre-existing EPIC-001 `fn_service_access` CLIENT read-branch tightening; (c) comment-only `service.rls.test.ts` `@read_only`/§4 drift (rides next `packages/db` task); (d) EPIC-004 RATE_LIMIT `.env.example` vars still pending (user-walled — user applies).
-**Artifacts:** appended `## Post-Merge Addendum` + final gate detail to `RETRO-002.md`. Zero `BUG-002-POST-*` raised. Task/bug files already in `tasks/done/` (archived at Close-prep).
-**End:** Close-finalize exit condition met. **BRIEF-002 / EPIC-002 DELIVERED 2026-06-16.** `## Awaiting PR merge` empty; `## Current initiative` empty → next-ready epic **EPIC-003** (only remaining Phase-1 epic; EPIC-001/004/002 all delivered). IO eligible to Plan EPIC-003 once its build brief lands upstream. **Note: `.implementation/**` ledger edits are NOT committed by the IO — the main session commits PROGRESS.md, PROGRESS-ARCHIVE.md, RETRO-002.md on the `chore/epic-002-close` docs-lane branch.** IO ends the invocation.
+### SDET Review — TASK-003-001 — 2026-06-17
+**Start:** Review TASK-003-001 (schema + RLS + notification policy + tier-3 tests). Status was `review`.
+**Actions:**
+- Docker pre-flight: PASS (docker 29.4.1, containers up including sqlserver).
+- Read ENGINE.md, sdet.md, PROGRESS.md, BRIEF-003, task spec, ADR-005, ADR-003.
+- Read all delivered files: 0004-notification-policy.sql, notification.rls.test.ts, engagement-request.decide-boundary.rls.test.ts, repositories/notification.ts, prisma/schema.prisma, migration.sql, packages/db/src/index.ts, packages/db/src/client.ts.
+- Mandatory rejection checks: all PASS (Complexity-actual=4, pre-impl breadcrumb present, no tool-hygiene violations, all required spec fields present).
+- Independently ran targeted tests: `pnpm --filter @tax-portal/db test -- src/notification.rls.test.ts src/engagement-request.decide-boundary.rls.test.ts` → 2 files / 7 tests / 0 failures.
+- Policy `0004-notification-policy.sql` verified to mirror `0001` (ITVF, SCHEMABINDING, GO-batched, FILTER+BLOCK predicates, STATE=ON). Fail-closed on null SESSION_CONTEXT confirmed by test.
+- Decide-boundary: CLIENT UPDATE correctly asserts rowsAffected=0 + admin read-back confirms no mutation — correct SQL Server BLOCK silent-suppress behavior, not a false pass.
+- ADR-003 Amendment 1: no @read_only in production code or new test files.
+- Gate-Authoring three-item evidence: all three items present in Work Log and test file header.
+- AC coverage: DOOR-005-03 (4 tests), DOOR-006-04 DB layer (3 tests), DOOR-008-04 schema column (migration + schema).
+- Security: no client-assertable role, single sp_set_session_context writer, createNotification parameterized, markNotificationRead via Prisma.
+- TASK-003-001 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:15:00Z**.
+**End:** TASK-003-001 approved and marked done. Task list: TASK-003-001 done; TASK-003-002 through 007 backlog. Ready for IO to dispatch next task.
+
+### IO Plan — BRIEF-003 / EPIC-003 — 2026-06-17
+**Start:** New slice. Conductor handed `.implementation/briefs/BRIEF-003-accountant-request-inbox.md` (20 AC,
+gherkin, e2e-required). Slice-start gate clear (`## Awaiting PR merge` empty; no active bugs; retro items all
+dispositioned observations). Ran Plan: Ingest → Clarify → Design → Decompose.
+**Actions:**
+- **Docker pre-flight PASS** — `docker info` → 29.4.1 / linux up.
+- **Branch** `brief-003-accountant-request-inbox` created from `main` @ `cf94c7e`.
+- **Ingest/Clarify** — 20 AC all testable; resolved verbatim to REQ-DOOR-005/-006/-007/-008 + REQ-DASH-011 +
+  REQ-MSG-013 (AC-01). Methodology: gherkin (bind the epic's 20 scenarios) · e2e-required (`apps/admin`) ·
+  tier-3 RLS/decision invariants · container smoke.
+- **Design** (surveyed live repo): the `engagement_request` accountant-only **read** boundary already exists
+  (`db/policies/0001-engagement-request-policy.sql`, EPIC-001) + its UPDATE BLOCK predicates → reuse, don't
+  recreate. `createInvitation(email, role)` exists on the `AuthProvider` port (EPIC-004 mock seam). Audit
+  (`recordAuthEvent`/`withAuditTransaction`) + `RateLimiter` (EPIC-004) reused. `packages/db` request-pool
+  wrapper + `sec` ITVF pattern (EPIC-001/002) reused. **Net-new:** a `Notification` entity + accountant-only
+  read policy (mirror `0001`), and the **first email-sending capability** → a provider-abstracted
+  `packages/email` seam (SMTP→Mailhog local/e2e; Resend deferred drop-in). **Design-coherence check PASS.**
+- **Architecture consult** — no ADR governs email transport; **raised OQ-002 `raised-upstream`** to
+  `.architecture/` (non-blocking — proceeding on the proposed `packages/email` default per the brief intent).
+- **Decompose** — 7 tasks (001 schema+RLS → 002 email seam → 003 notification gen → 004 inbox UI → 005 decision
+  actions → 006 e2e+gherkin+Mailhog → 007 demo). All `Impl: developer`; each carries `**Acceptance criteria:**`,
+  `**Upstream refs:**`, `**Introduces-gate:**`. 001 + 006 introduce gates (notification RLS / email e2e).
+**End:** Plan exit condition met — branch created, 7 task files at `backlog` with all required fields,
+methodology recorded, design-coherence PASS, PROGRESS.md `## Current initiative` populated. → **Dispatch**
+(TASK-003-001 first; dependency-free root).

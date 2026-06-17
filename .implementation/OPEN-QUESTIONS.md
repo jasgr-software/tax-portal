@@ -69,3 +69,32 @@ write-boundary tests remain valid. The **never-written §4 reset-on-release regr
 scopes — red against old `@read_only=1` code with 15664, green after removal). Implementation contract + test
 shape are specified in **ADR-003 § Implementation contract and regression obligation (Amendment 1)**. IO may
 now compose the BUG-002-003 fix dispatch.
+
+---
+
+## OQ-002 — No ADR governs the outbound transactional-email transport (REQ-NFR-008)
+
+**Status:** `raised-upstream` (owner: `.architecture/`) — IO proceeds on the brief's stated intent; not blocking.
+**Raised by:** IO, during BRIEF-003 / EPIC-003 Plan (2026-06-17).
+**Blocks:** nothing — TASK-003-002 proceeds on the proposed default below.
+
+**The question:** EPIC-003 is the **first slice that sends email** (acceptance invitation — AC-DOOR-007-01;
+decline reason — AC-DOOR-008-02/-03). REQ-NFR-008 mandates only the *property* — "reliable transactional email
+delivery" — and explicitly leaves the sending service + templating as an implementation decision. There is no
+`ADR-*` for email transport (cf. ADR-001 for auth, ADR-008 for object-storage abstraction), so the
+cross-cutting transport seam this slice introduces has no governing architecture record.
+
+**Why raised, not decided locally:** a new cross-cutting transport pattern that later phases (Phase 4 messaging,
+digests, all client notifications) will depend on is an **architectural** contract, not a slice-local choice.
+The team does not author system ADRs.
+
+**IO proposed default (proceeding now; architecture to ratify/replace):** mirror the established
+provider-abstraction precedent (ADR-001 auth seam, ADR-008 storage seam) — a new `packages/email` package with
+a thin `send(EmailMessage)` **port**, a binding **selector** keyed on `EMAIL_PROVIDER`, an **SMTP binding**
+(nodemailer) bound to the **Mailhog** catcher already in `docker-compose` (SMTP `:1025`, UI `:8025`) for local +
+e2e, and a **production provider** (e.g. Resend) left as a deferred drop-in that throws if selected without
+configuration (exactly the EPIC-004 mock-vs-Clerk pattern). The seam is the deliverable; the concrete production
+provider is deferred like the real-Clerk provisioning. **Architecture's call:** ratify this as an
+`ADR-email-transport` (or amend an existing ADR), or propose an alternative; confirm the provider selection +
+templating approach for production. Until then the slice ships the seam validated against Mailhog (CI + dev
+container runs as the gate — same user-accepted basis as EPIC-004).

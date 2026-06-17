@@ -2495,3 +2495,15 @@ Branch: `brief-002-services-catalog-management`. No PR open yet — GitHub requi
 
 **End:** BUG-002-004 APPROVED. CI gate PASS. Reporting to IO.
 
+---
+
+<!-- Swept from PROGRESS.md at the EPIC-002 Close-finalize → EPIC-003 Plan transition (2026-06-17). -->
+
+### IO Close-finalize — BRIEF-002 — 2026-06-16 — SLICE DELIVERED
+**Start:** Re-invoked for Close-finalize. PR #40 squash-merged to `main` @ `70ea10e` (2026-06-16). Gate 8 (post-merge CI) confirmed GREEN by the main session — `CI` ✅ + `CodeQL` ✅ on `70ea10e`. Gate 9 N/A (`Brief-deploys: no`, ADR-007). Driving the final close.
+**Gate 8 — Post-merge CI: ✅ PASS.** `main` @ `70ea10e` — `CI` ✅ + `CodeQL` ✅. Evidence basis **[A] CI**.
+**Gate 9 — Post-merge staging smoke: N/A.** `Brief-deploys: no` (ADR-007).
+**Final 9-gate scorecard (all closed):** (1) submission 5/5 ✅ · (2) SDET Review 5/5 ✅ · (3) Overwatch Audit ✅ · (4) IO Design scan ✅ · (5) Container Smoke ✅ conditional-pass · (6) SDET Acceptance-validation ✅ · (7) SDET CI gate ✅ · (8) Post-merge CI ✅ · (9) staging smoke N/A.
+**Delivery record:** PR #40 → `70ea10e`. 7/7 in-scope AC verified. 4 bugs ridden (BUG-002-001..004). ADR-003 Amendment 1 raised. Evidence basis [A] CI.
+**End:** Close-finalize exit met. BRIEF-002 / EPIC-002 DELIVERED 2026-06-16. (Full detail retained in `RETRO-002.md` § Post-Merge Addendum.)
+

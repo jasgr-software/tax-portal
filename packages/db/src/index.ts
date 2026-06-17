@@ -17,9 +17,10 @@ export { db, adminDb } from "./client.js";
 export { withClerkIdentity, withRequestContext, currentRequestContext } from "./context.js";
 
 // Re-export Prisma types so consumers don't need to import @prisma/client directly.
-// This includes EngagementRequest, Service, User model types, and Prisma namespace.
+// This includes EngagementRequest, Notification, Service, User model types, and Prisma namespace.
 export type {
   EngagementRequest,
+  Notification,
   Service,
   EngagementRequestService,
   User,
@@ -42,6 +43,21 @@ export {
   updateService,
   deactivateService,
 } from "./repositories/service.js";
+
+// Notification repository (EPIC-003 — accountant inbox, AC-DOOR-005-03, AC-MSG-013-01)
+// createNotification — admin pool insert (called by TASK-003-003 from the portal submit action)
+// listNotifications  — request pool read (ACCOUNTANT-only via sec.pol_Notification)
+// markNotificationRead — request pool update (marks a notification as read)
+export type {
+  CreateNotificationInput,
+  CreateNotificationResult,
+  NotificationItem,
+} from "./repositories/notification.js";
+export {
+  createNotification,
+  listNotifications,
+  markNotificationRead,
+} from "./repositories/notification.js";
 
 // Audit-event write helper (ADR-019)
 // recordAuthEvent INSERTs a tamper-evident audit row into the AuditEvent ledger table.
