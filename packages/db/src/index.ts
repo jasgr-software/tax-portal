@@ -29,7 +29,7 @@ export type {
 
 // Re-export repositories
 export type { CreateEngagementRequestInput, CreateEngagementRequestResult } from "./repositories/engagement-request.js";
-export { createEngagementRequest } from "./repositories/engagement-request.js";
+export { createEngagementRequest, NOTIFICATION_TYPE_NEW_REQUEST } from "./repositories/engagement-request.js";
 export type {
   ServiceListItem,
   ServiceItem,

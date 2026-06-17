@@ -22,7 +22,7 @@ of a new engagement request, let her review it, and accept (→ invitation email
 | ---- | ------ | ---- | -- | ----- |
 | TASK-003-001 schema + RLS (Notification + decision fields + accountant-only notification policy) | done | developer | DOOR-005-03, DOOR-006-04 (DB), DOOR-008-04 (col) | Introduces-gate: yes (notification RLS) — SDET APPROVED 2026-06-17T06:15:00Z |
 | TASK-003-002 `packages/email` seam (SMTP/Mailhog) | done | developer | none (infra) | Introduces-gate: advisory; OQ-002 raised — SDET APPROVED 2026-06-17T06:55:00Z |
-| TASK-003-003 notification generation (cross-surface portal→admin) | backlog | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces |
+| TASK-003-003 notification generation (cross-surface portal→admin) | done | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces — SDET APPROVED 2026-06-17T06:58:00Z |
 | TASK-003-004 request inbox UI (admin) | backlog | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` |
 | TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | backlog | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit |
 | TASK-003-006 e2e + gherkin + Mailhog | backlog | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) |
@@ -127,6 +127,22 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
 
 ---
+
+### SDET Review — TASK-003-003 — 2026-06-17
+**Start:** Review TASK-003-003 (notification generation — portal anonymous-submit path → admin accountant consumption). Status was `review`.
+**Actions:**
+- Docker pre-flight: PASS (docker 29.4.1).
+- Read ENGINE.md, sdet.md, PROGRESS.md, task file, BRIEF-003. All required spec fields present; `Introduces-gate: no` correct; `Complexity-actual: 3` valid.
+- Read all delivered files: `packages/db/src/repositories/engagement-request.ts`, `packages/db/src/repositories/notification.ts`, `packages/db/src/index.ts`, `apps/admin/src/app/requests/actions.ts`, `apps/admin/src/app/requests/_components/NotificationsIndicator.tsx`, `apps/portal/src/app/(public)/request/actions.ts`, and all three test files.
+- Mandatory rejection checks: all PASS. Pre-implementation breadcrumb present; no tool-hygiene violations; `Complexity-actual: 3` in range; all required fields present.
+- Cross-surface validation: portal generation inside atomic mssql Transaction (Request + EngagementRequestService + Notification, one commit). Admin consumption: `adminDb` absent from `apps/admin/.../requests/actions.ts` (grep confirmed); `withRequestContext` + `listNotifications`/`markNotificationRead` use `db` request pool → `sec.pol_Notification` FILTER active. Both surfaces verified.
+- Security: dual-layer guard confirmed (identity: `role !== 'ACCOUNTANT' → null → unauthorized`; RLS: `sec.pol_Notification` proven by TASK-003-001). No SQL injection (parameterized queries). No XSS (JSX auto-escape; `engagementRequestId` is server-generated UUID).
+- Atomicity probe: Notification INSERT inside `try` before `transaction.commit()`; failure throws → `catch` calls `transaction.rollback()`. Request cannot commit without notification.
+- Independently ran all three suites: `pnpm --filter portal test` → 29/29; `pnpm --filter admin test` → 52/52; `pnpm --filter @tax-portal/db test` → 50/50. All green on real containers.
+- Lint + type-check: PASS (workspace-wide).
+- AC coverage: AC-DOOR-005-01 covered at tier-2 (portal unit, admin unit) and tier-3 (persistence integration); AC-DOOR-005-02 covered at tier-2 and tier-3; AC-MSG-013-01 covered at tier-2 and tier-3.
+- TASK-003-003 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:58:00Z**.
+**End:** TASK-003-003 approved and marked done. Task list: TASK-003-001/-002/-003 done; TASK-003-004 through 007 backlog. Ready for IO to dispatch next task.
 
 ### SDET Review — TASK-003-002 — 2026-06-17
 **Start:** Review TASK-003-002 (`packages/email` outbound transactional-email seam). Status was `review`.
