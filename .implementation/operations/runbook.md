@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-003-002 (email transport seam — packages/email; EMAIL_PROVIDER/SMTP_HOST/SMTP_PORT/EMAIL_FROM added to portal + admin compose services)
+**Last updated:** BUG-003-001 (rate limiter env vars — RATE_LIMIT_MAX_ATTEMPTS/RATE_LIMIT_WINDOW_MS added to portal + admin compose services)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.

@@ -25,7 +25,7 @@ of a new engagement request, let her review it, and accept (→ invitation email
 | TASK-003-003 notification generation (cross-surface portal→admin) | done | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces — SDET APPROVED 2026-06-17T06:58:00Z |
 | TASK-003-004 request inbox UI (admin) | done | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` — SDET APPROVED 2026-06-17T06:50:00Z |
 | TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | done | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit — SDET APPROVED 2026-06-17T11:09:00Z |
-| TASK-003-006 e2e + gherkin + Mailhog | backlog | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) |
+| TASK-003-006 e2e + gherkin + Mailhog | done | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) — SDET APPROVED 2026-06-17T14:05:00Z (BUG-003-001 fix verified: 3× 30/30 zero-flake) |
 | TASK-003-007 @demo gallery | backlog | developer | none (non-gating) | docs/demos/EPIC-003/ |
 
 **Plan artifacts:** design-coherence check PASS; OQ-002 (email-transport ADR) **raised-upstream** to
@@ -91,8 +91,8 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 - **[gated-path candidate — carried] ESLint import boundary covers only `requestDb`, not `adminDb`** — consider
   extending `packages/eslint-config` to also restrict `adminDb` imports outside sanctioned admin paths.
   (Observation; moved with the deferred Clerk-binding scope to the 2FA-enablement slice.)
-- **[env — carried] `.env.example` RATE_LIMIT vars** (`RATE_LIMIT_MAX_ATTEMPTS=10`, `RATE_LIMIT_WINDOW_MS=60000`)
-  — permission-walled from agents AND main session; **user applies** (HANDOFF-004 follow-up #5).
+- **[env — RESOLVED BUG-003-001] `.env.example` RATE_LIMIT vars** (`RATE_LIMIT_MAX_ATTEMPTS=10`, `RATE_LIMIT_WINDOW_MS=60000`)
+  — previously permission-walled; **resolved by BUG-003-001 fix**: both vars documented in `.env.example`; docker-compose.yml defaults to 100 for portal + admin (prevents e2e exhaustion without user action).
 - **[demo — carried] EPIC-001 engagement-demo `localhost:1433` flake** — pre-existing, transient/timing
   (HANDOFF-004 follow-up #6).
 - **[metric-integrity — BRIEF-002 Audit Obs 2] `Started-at` midnight-sentinel placeholder** — TASK-002-003 AND
@@ -127,6 +127,47 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
 
 ---
+
+### SDET Re-Review — TASK-003-006 + BUG-003-001 — 2026-06-17
+**Start:** Re-review TASK-003-006 and BUG-003-001 after BUG-003-001 fix (Option A + surface reduction). Prior rejection: run 3 of independent 3× e2e flaked on AC-DOOR-007-01 and AC-DOOR-008-02 (rate-limiter exhaustion). Fix: `RATE_LIMIT_MAX_ATTEMPTS=100` added to docker-compose.yml for both portal and admin; reset endpoint deleted; `/api/test/**` whitelist reverted.
+**Actions:**
+- Docker pre-flight: PASS (docker 29.4.1). Stack confirmed up: admin container (tax-portal-admin, healthy, port 13001), mailhog (healthy, port 18025), portal (healthy, port 3000), sqlserver (unhealthy healthcheck — carry-forward infra item, non-blocking), azurite (healthy).
+- Container env verified: `docker exec tax-portal-admin printenv RATE_LIMIT_MAX_ATTEMPTS RATE_LIMIT_WINDOW_MS` → `100` / `60000` (from docker-compose.yml `:-100` default, NOT `.env.local`).
+- Surface removal verified: `apps/admin/src/app/api/test/` directory ABSENT. No dangling references to `reset-rate-limiter` or `resetRateLimiter` in non-test, non-dist, non-doc application source.
+- `redirect.ts` revert verified: only `/api/mock-session` whitelisted; `/api/test/**` is now auth-gated.
+- `docker-compose.yml`: RATE_LIMIT vars on both portal (lines 140-141) and admin (lines 213-214) — confirmed by grep.
+- `.env.example`: RATE_LIMIT vars documented with production defaults — confirmed by grep.
+- `inventory.md` / `runbook.md`: both updated with RATE_LIMIT env vars and `Last updated: BUG-003-001`.
+- `redirect.test.ts` 46/46 pass — 2 new BUG-003-001 tests verified: unauthenticated `/api/test/**` → redirect; ACCOUNTANT → serve.
+- `pnpm -r test` → 358/358 (126 auth + 39 email + 50 db + 29 portal + 114 admin).
+- SDET independent 3× e2e (`ADMIN_BASE_URL=http://localhost:13001 pnpm --filter admin e2e:run`): Run 1 30/30 (8.0s), Run 2 30/30 (7.8s), Run 3 30/30 (7.9s). Tests 9 (AC-DOOR-007-01) and 11 (AC-DOOR-008-02) PASS all three runs.
+- BUG-003-001: `Complexity-actual: 2` valid; pre-implementation breadcrumb present. APPROVED → Status: done.
+- TASK-003-006: `Complexity-actual: 5` valid; all Quality Gates ticked. APPROVED → Status: done.
+- RETRO-002 RATE_LIMIT carried follow-up: RESOLVED (updated in Open retro action items above).
+**End:** BUG-003-001 → done (Completed-at 2026-06-17T14:05:00Z). TASK-003-006 → done (Completed-at 2026-06-17T14:05:00Z). All 6 tasks in BRIEF-003 except TASK-003-007 (@demo) are now done. TASK-003-007 is the sole remaining backlog item.
+
+### SDET Review — TASK-003-006 — 2026-06-17
+**Start:** Review TASK-003-006 (e2e + gherkin + Mailhog). Status was `review`. E2e-required: yes. Independent re-run mandated — SDET cannot approve on developer evidence alone.
+**Actions:**
+- Docker pre-flight: PASS (docker 29.4.1). Built new admin image with Dockerfile changes, started on port 13001 (port 3001 occupied by another project on this host). Stack: sqlserver (unhealthy healthcheck but DB-operational, carry-forward infra item), azurite, mailhog, portal, admin — all services accessible.
+- Read ENGINE.md, sdet.md, PROGRESS.md, TASK-003-006, BRIEF-003. All required spec fields present. `Complexity-actual: 5` (valid, in range). `Started-at: 2026-06-17T12:10:56Z` non-sentinel. Pre-implementation breadcrumb present.
+- Mandatory rejection checks: all PASS on task spec fields. No tool-hygiene violations in Work Log. Required fields present. Quality Gates checklist: Work Log PASS, Submission gate PASS, Targeted e2e box TICKED but SDET independent re-run found a flake — see below.
+- Security analysis — `/api/test/reset-rate-limiter` route + `/api/test/**` redirect whitelist:
+  - Route guard: `isMockActive()` checks `AUTH_PROVIDER=mock` and returns 404 if not. This is CONSISTENT with the existing `/api/mock-session` route pattern (same guard). Real production deployment sets `AUTH_PROVIDER=clerk` → both endpoints return 404. The `select.ts` double guard (`ALLOW_MOCK_AUTH=true` is ALSO required for the mock auth provider to instantiate at all). In a real Clerk production deployment, `AUTH_PROVIDER=clerk` means `isMockActive()` returns false → 404. No auth bypass path.
+  - Redirect whitelist: `adminRedirectDecision()` in `redirect.ts` — the `/api/test/**` exemption is conditional on `isMockAuth` (computed from `AUTH_PROVIDER`). On production, `AUTH_PROVIDER=clerk`, `isMockAuth=false`, so `/api/test/**` is NOT exempt from auth middleware and flows to the normal unauthenticated redirect path. No auth bypass in prod.
+  - MISSING UNIT TEST: `redirect.test.ts` has no test covering `/api/test/**` in `adminRedirectDecision()` — neither the mock-active case (should serve) nor the mock-inactive case (should redirect). This is a coverage gap on a security-relevant path change. The existing test `"redirects /api/some-route to sign-in when unauthenticated"` does NOT cover `/api/test/` specifically and does not test the `isMockAuth=false` branch for the test namespace. This is an observation, not a hard rejection on its own.
+- Code review:
+  - `revalidatePath` reorder (actions.ts): CORRECT — `revalidatePath` now fires before the rate-limit check, so the UI always reflects the committed decision even when email is rate-limited. Email ordering unchanged (still after transaction commit). This addresses the prior design-scan observation correctly.
+  - Dockerfile (admin + portal): `packages/email` copy + build step added. CONSISTENT with `packages/auth` and `packages/db` pattern. Infra-docs: `inventory.md` already documents `EMAIL_PROVIDER`/`SMTP_HOST`/`SMTP_PORT`/`EMAIL_FROM` (added at TASK-003-002). `runbook.md` last-updated header says TASK-003-002. Neither file was updated for this Dockerfile topology change. However, TASK-003-002 added the email seam and inventory/runbook were updated there; this task only adds the package to the build layer in the Dockerfile, not a new service or env var. The existing inventory entry for `packages/email` (added TASK-003-002) covers this change. Acceptable.
+  - Feature file: 20 scenarios × 20 ACs — verified against `.planning/EPIC-003` scenarios. Verbatim transcription confirmed (side-by-side check of 14 scenarios). Not re-authored.
+  - E2e specs: AC coverage per task `Acceptance criteria` field checked. All 13 new tests trace to their tagged ACs. Security tests 20+21 present.
+  - Gate-authoring three-item evidence for advisory email-delivery gate: Item 1 (run/log) — Work Log mentions the runs are in the log itself (acceptable for local advisory gate). Items 2+3 (named code path + counterfactual) — present and specific. Adequate for `Introduces-gate: advisory`.
+- **INDEPENDENT E2E RE-RUN:**
+  - Run 1: 30/30 PASS (8.5s) — including test 9 (AC-DOOR-006-02/007-01 invitation email in Mailhog) and test 11 (AC-DOOR-006-03/008-01/008-02/008-04 decline email in Mailhog). Mailhog messages confirmed real via internal container curl.
+  - Run 2: 30/30 PASS (7.8s) — all email assertions green.
+  - Run 3: **28/30 FAIL** — tests 9 (AC-DOOR-007-01 invitation email) and 11 (AC-DOOR-008-02 decline email) both timed out at 15s (`waitForEmail` timeout). Both failures are on the Mailhog email-delivery assertion. Root cause: **rate-limiter exhaustion**. The developer's 3× runs used `RATE_LIMIT_MAX_ATTEMPTS=100` in their `.env.local` (carried-forward item from RETRO-002), which fed into the container env and prevented exhaustion. The freshly rebuilt admin container runs at the default 10 per 60s (not in docker-compose.yml). `resetRateLimiter()` in `test.beforeAll` may not be resetting the correct singleton in the compiled Next.js production build (module isolation risk between the API route chunk and the server action chunk). Run 4 (after explicit pre-run `curl -X POST reset-rate-limiter`): 30/30 PASS — confirming rate-limit reset works when called BEFORE the test run starts, but the in-test `test.beforeAll` reset may fire too late or target a different module instance.
+- **VERDICT: REJECTION.** The Targeted e2e Quality Gate "3× sequential zero-flake runs" is NOT met under SDET independent conditions. Run 3 produced 2 failures on AC-DOOR-007-01 and AC-DOOR-008-02 — the two email-delivery ACs this task is specifically designed to prove. These are not environment noise; they are deterministic failures caused by a design gap in the rate-limiter reset mechanism that the developer's env (RATE_LIMIT_MAX_ATTEMPTS=100) masked. Reject and BUG filed.
+**End:** TASK-003-006 → **REJECTED**. BUG-003-001 created. Task remains `review`. Developer must fix the e2e rate-limiter reset mechanism (add `RATE_LIMIT_MAX_ATTEMPTS` to docker-compose.yml or fix the `resetRateLimiter` module-isolation issue in prod builds) and re-run 3× zero-flake.
 
 ### SDET Review — TASK-003-005 — 2026-06-17
 **Start:** Review TASK-003-005 (decision actions — accept→invite+email, decline→reason+email; decide-once, audit, rate-limit). Status was `review`.

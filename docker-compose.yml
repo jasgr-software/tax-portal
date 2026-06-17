@@ -133,6 +133,12 @@ services:
       SMTP_HOST: "mailhog"
       SMTP_PORT: "1025"
       EMAIL_FROM: "${EMAIL_FROM:-noreply@tax-portal.dev}"
+      # Rate limiter — elevated for e2e/local dev so sequential test runs don't exhaust the window.
+      # Default: 10/60s (production). Local/e2e: 100/60s — prevents InMemoryRateLimiter exhaustion
+      # across 3× sequential pnpm e2e:run invocations (BUG-003-001 fix).
+      # Override via .env.local if needed; "100" safely covers the worst-case sequential test load.
+      RATE_LIMIT_MAX_ATTEMPTS: "${RATE_LIMIT_MAX_ATTEMPTS:-100}"
+      RATE_LIMIT_WINDOW_MS: "${RATE_LIMIT_WINDOW_MS:-60000}"
     ports:
       - "${PORTAL_PORT:-3000}:3000"
     depends_on:
@@ -200,6 +206,12 @@ services:
       SMTP_HOST: "mailhog"
       SMTP_PORT: "1025"
       EMAIL_FROM: "${EMAIL_FROM:-noreply@tax-portal.dev}"
+      # Rate limiter — elevated for e2e/local dev so sequential test runs don't exhaust the window.
+      # Default: 10/60s (production). Local/e2e: 100/60s — prevents InMemoryRateLimiter exhaustion
+      # across 3× sequential pnpm e2e:run invocations (BUG-003-001 fix).
+      # Override via .env.local if needed; "100" safely covers the worst-case sequential test load.
+      RATE_LIMIT_MAX_ATTEMPTS: "${RATE_LIMIT_MAX_ATTEMPTS:-100}"
+      RATE_LIMIT_WINDOW_MS: "${RATE_LIMIT_WINDOW_MS:-60000}"
     ports:
       - "${ADMIN_PORT:-3001}:3001"
     depends_on:

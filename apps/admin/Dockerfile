@@ -26,6 +26,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/db/package.json ./packages/db/package.json
 COPY packages/auth/package.json ./packages/auth/package.json
+COPY packages/email/package.json ./packages/email/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY packages/tsconfig/package.json ./packages/tsconfig/package.json
 COPY packages/eslint-config/package.json ./packages/eslint-config/package.json
@@ -47,6 +48,8 @@ RUN pnpm --filter @tax-portal/ui build
 RUN pnpm --filter @tax-portal/db build
 # Build packages/auth (provides middleware + redirect helper)
 RUN pnpm --filter @tax-portal/auth build
+# Build packages/email (transactional email seam — TASK-003-002/REQ-NFR-008)
+RUN pnpm --filter @tax-portal/email build
 # Build the admin app
 RUN pnpm --filter admin build
 

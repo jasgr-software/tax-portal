@@ -217,7 +217,10 @@ export function adminRedirectDecision(
 
   // 1b. Only the mock-session setup endpoint passes through without auth — and only
   //     when the mock auth binding is active. All other /api/* routes require auth.
-  //     (F2 — review finding: narrowed from blanket /api/* to exact /api/mock-session.)
+  //     (F2 — review finding: narrowed from blanket /api/* to the exact path that needs it.)
+  //     - /api/mock-session  — session cookie setup for e2e test fixtures
+  //     (BUG-003-001 fix: /api/test/** whitelist removed — rate-limiter reset endpoint
+  //      removed in favour of RATE_LIMIT_MAX_ATTEMPTS=100 in docker-compose.yml.)
   if (
     pathname === "/api/mock-session" &&
     (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase() === "mock"

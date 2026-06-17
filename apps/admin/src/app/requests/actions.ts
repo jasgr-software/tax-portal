@@ -310,16 +310,20 @@ export async function acceptRequest(requestId: string): Promise<DecisionResult> 
     throw err;
   }
 
-  // ── 5. After transaction commits: rate-limit + send invitation email ───────
+  // ── 5. Revalidate + rate-limit + send invitation email ──────────────────────
   // DECISION (TASK-003-005): Email sent AFTER transaction commit. If email fails,
   // the decision is already committed (cannot be lost). Return partial success.
+  // DECISION (TASK-003-006 fix): revalidatePath is called FIRST, unconditionally,
+  // so the UI always reflects the committed decision regardless of email outcome.
+  revalidatePath("/requests");
+  revalidatePath(`/requests/${requestId}`);
 
   const rateLimiter = getRateLimiter();
   const rateLimitKey = buildRateLimitKey(identity.clerkUserId, "admin:decision-email");
   const rlResult = rateLimiter.consume(rateLimitKey);
 
   if (!rlResult.allowed) {
-    // Decision committed; email blocked by rate limiter.
+    // Decision committed + page revalidated; email blocked by rate limiter.
     // DECISION (TASK-003-005): Record the skip in the return value. The caller
     // can surface a retry message. The decision stands — the accountant can use
     // a future resend mechanism. The rate limiter is reset per invocation for tests.
@@ -357,10 +361,6 @@ export async function acceptRequest(requestId: string): Promise<DecisionResult> 
       emailError: `Decision recorded; invitation email failed to send: ${errMsg}`,
     };
   }
-
-  // Revalidate the requests list so the UI reflects the new status
-  revalidatePath("/requests");
-  revalidatePath(`/requests/${requestId}`);
 
   return { success: true, emailSent: true };
 }
@@ -445,9 +445,13 @@ export async function declineRequest(
     throw err;
   }
 
-  // ── 5. After transaction commits: rate-limit + send decline email ──────────
+  // ── 5. Revalidate + rate-limit + send decline email ──────────────────────────
   // DECISION (TASK-003-005): See acceptRequest — same email-after-transaction pattern.
   // AC-DOOR-008-03: the prospect has no portal account; plain email delivery only.
+  // DECISION (TASK-003-006 fix): revalidatePath called FIRST so the UI always reflects
+  // the committed decision regardless of email outcome (rate-limit or failure).
+  revalidatePath("/requests");
+  revalidatePath(`/requests/${requestId}`);
 
   const rateLimiter = getRateLimiter();
   const rateLimitKey = buildRateLimitKey(identity.clerkUserId, "admin:decision-email");
@@ -481,10 +485,6 @@ export async function declineRequest(
       emailError: `Decision recorded; decline email failed to send: ${errMsg}`,
     };
   }
-
-  // Revalidate the requests list
-  revalidatePath("/requests");
-  revalidatePath(`/requests/${requestId}`);
 
   return { success: true, emailSent: true };
 }

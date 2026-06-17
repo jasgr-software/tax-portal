@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** BUG-002-002 (Alpine/OpenSSL-3 Prisma engine binary target requirement)
+**Last updated:** BUG-003-001 (RATE_LIMIT_MAX_ATTEMPTS + RATE_LIMIT_WINDOW_MS added to portal + admin compose services)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -103,6 +103,8 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `SMTP_PORT` | Both | SMTP server port. Hard-coded to `1025` (Mailhog SMTP) in `docker-compose.yml`. On the host, defaults to `1025`. Added TASK-003-002. |
 | `EMAIL_FROM` | Both | Sender address for outbound email (`From:` header). Defaults to `noreply@tax-portal.dev` in compose. Set to a verified domain in production. Added TASK-003-002. |
 | `RESEND_API_KEY` | Both | Resend API key (production only — `EMAIL_PROVIDER=resend`). Not required in local/e2e. `packages/email` `ResendEmailProvider` constructor throws `EmailBindingNotAvailableError` if `EMAIL_PROVIDER=resend` and this key is absent (fail-closed). Added TASK-003-002. |
+| `RATE_LIMIT_MAX_ATTEMPTS` | Both | `InMemoryRateLimiter` max attempts per window per rate key. Production default: `10`. **docker-compose.yml defaults to `100`** via `${RATE_LIMIT_MAX_ATTEMPTS:-100}` for e2e/local dev — prevents `InMemoryRateLimiter` exhaustion across 3× sequential `pnpm e2e:run` invocations. Override in `.env.local` only if needed. Added BUG-003-001. |
+| `RATE_LIMIT_WINDOW_MS` | Both | `InMemoryRateLimiter` sliding window duration in milliseconds. Default: `60000` (60 seconds). Set in docker-compose.yml for both portal and admin services. Added BUG-003-001. |
 
 ---
 
