@@ -44,6 +44,9 @@ importers:
       '@tax-portal/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@tax-portal/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@tax-portal/ui':
         specifier: workspace:*
         version: link:../../packages/ui

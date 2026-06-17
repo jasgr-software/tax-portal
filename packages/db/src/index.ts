@@ -39,6 +39,9 @@ export {
   NOTIFICATION_TYPE_NEW_REQUEST,
   listEngagementRequests,
   getEngagementRequest,
+  acceptEngagementRequest,
+  declineEngagementRequest,
+  AlreadyDecidedError,
 } from "./repositories/engagement-request.js";
 export type {
   ServiceListItem,

@@ -306,6 +306,140 @@ export async function listEngagementRequests(): Promise<EngagementRequestItem[]>
   }));
 }
 
+// ─── Write: acceptEngagementRequest (decide-once, admin pool) ────────────────
+
+/**
+ * Transition an engagement request from a pending state to 'accepted', persisting
+ * the invitation ticket.
+ *
+ * DECIDE-ONCE GUARD (AC-DOOR-006-05): The UPDATE is conditional on
+ * `WHERE status IN ('pending','awaiting_review')`. If the row is already decided
+ * (accepted/declined) the UPDATE affects 0 rows. The caller MUST check rowsAffected
+ * and treat 0 as an error (AlreadyDecidedError) — not a silent no-op.
+ *
+ * Uses the ADMIN POOL so the UPDATE bypasses the RLS BLOCK predicate for this
+ * one sanctioned admin write (action-layer gate is the primary guard — ADR-003 §1).
+ * The RLS BLOCK predicate is defense-in-depth for non-admin callers (ADR-005).
+ *
+ * NOTE: this is intentionally admin-pool because the action has already verified
+ * the accountant identity. The action guard (requireRole ACCOUNTANT) is the primary
+ * gate; the admin pool bypasses RLS for this controlled write path, consistent with
+ * the pattern established for createEngagementRequest.
+ *
+ * // DECISION (TASK-003-005): The status-transition, ticket persistence, and audit
+ * // row are all committed in the SAME transaction by the action layer (via withAuditTransaction).
+ * // This function accepts an optional mssql Transaction and uses it if provided.
+ * // If null, it executes standalone (useful for testing without a full audit transaction).
+ *
+ * AC-DOOR-006-02: Transitions to 'accepted'.
+ * AC-DOOR-006-05: Decide-once guard — rejects if already decided.
+ * AC-DOOR-007-04: Persists the invitation ticket to EngagementRequest.invitationTicket.
+ *
+ * @param id The engagement request ID.
+ * @param ticket The invitation ticket returned by createInvitation() (AC-DOOR-007-04).
+ * @param transaction Optional mssql Transaction for atomic audit-commit.
+ * @returns { rowsAffected: number } — 1 on success, 0 on already-decided (AlreadyDecidedError thrown).
+ * @throws AlreadyDecidedError if rowsAffected === 0 (request already decided).
+ */
+export class AlreadyDecidedError extends Error {
+  constructor(requestId: string) {
+    super(
+      `[engagement-request] acceptEngagementRequest/declineEngagementRequest: ` +
+        `request ${requestId} has already been decided (status not in pending/awaiting_review). ` +
+        `A decision can only be made once (AC-DOOR-006-05).`,
+    );
+    this.name = "AlreadyDecidedError";
+  }
+}
+
+export async function acceptEngagementRequest(
+  id: string,
+  ticket: string,
+  transaction?: InstanceType<typeof Transaction>,
+): Promise<void> {
+  let req: InstanceType<typeof MssqlRequest>;
+
+  if (transaction) {
+    req = new MssqlRequest(transaction);
+  } else {
+    const pool = await getAdminPool();
+    req = new MssqlRequest(pool);
+  }
+
+  req.input("id", id);
+  req.input("ticket", ticket);
+
+  // Decide-once guard: WHERE status IN ('pending','awaiting_review')
+  // If the row is already decided, @@ROWCOUNT = 0 → throw AlreadyDecidedError.
+  const result = await req.query<{ rowsAffected: number }>(
+    `UPDATE [dbo].[EngagementRequest]
+     SET [status] = N'accepted',
+         [invitationTicket] = @ticket,
+         [decidedAt] = SYSDATETIMEOFFSET(),
+         [updatedAt] = SYSDATETIMEOFFSET()
+     WHERE [id] = @id
+       AND [status] IN (N'pending', N'awaiting_review');
+     SELECT @@ROWCOUNT AS rowsAffected;`,
+  );
+
+  const rowsAffected = (result.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+  if (rowsAffected === 0) {
+    throw new AlreadyDecidedError(id);
+  }
+}
+
+/**
+ * Transition an engagement request from a pending state to 'declined', persisting
+ * the free-text decline reason.
+ *
+ * DECIDE-ONCE GUARD (AC-DOOR-006-05): Same optimistic guard as acceptEngagementRequest.
+ * UPDATE conditional on `WHERE status IN ('pending','awaiting_review')`.
+ * rowsAffected === 0 → AlreadyDecidedError.
+ *
+ * AC-DOOR-006-03: Transitions to 'declined'.
+ * AC-DOOR-006-05: Decide-once guard.
+ * AC-DOOR-008-01: Accepts the free-text reason.
+ * AC-DOOR-008-04: Persists the reason to EngagementRequest.declineReason.
+ *
+ * @param id The engagement request ID.
+ * @param reason The free-text decline reason (AC-DOOR-008-01/-04).
+ * @param transaction Optional mssql Transaction for atomic audit-commit.
+ * @throws AlreadyDecidedError if request already decided.
+ */
+export async function declineEngagementRequest(
+  id: string,
+  reason: string,
+  transaction?: InstanceType<typeof Transaction>,
+): Promise<void> {
+  let req: InstanceType<typeof MssqlRequest>;
+
+  if (transaction) {
+    req = new MssqlRequest(transaction);
+  } else {
+    const pool = await getAdminPool();
+    req = new MssqlRequest(pool);
+  }
+
+  req.input("id", id);
+  req.input("reason", reason);
+
+  const result = await req.query<{ rowsAffected: number }>(
+    `UPDATE [dbo].[EngagementRequest]
+     SET [status] = N'declined',
+         [declineReason] = @reason,
+         [decidedAt] = SYSDATETIMEOFFSET(),
+         [updatedAt] = SYSDATETIMEOFFSET()
+     WHERE [id] = @id
+       AND [status] IN (N'pending', N'awaiting_review');
+     SELECT @@ROWCOUNT AS rowsAffected;`,
+  );
+
+  const rowsAffected = (result.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+  if (rowsAffected === 0) {
+    throw new AlreadyDecidedError(id);
+  }
+}
+
 // ─── Read: getEngagementRequest (request pool — subject to RLS) ───────────────
 
 /**

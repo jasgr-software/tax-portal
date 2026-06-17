@@ -24,7 +24,7 @@ of a new engagement request, let her review it, and accept (→ invitation email
 | TASK-003-002 `packages/email` seam (SMTP/Mailhog) | done | developer | none (infra) | Introduces-gate: advisory; OQ-002 raised — SDET APPROVED 2026-06-17T06:55:00Z |
 | TASK-003-003 notification generation (cross-surface portal→admin) | done | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces — SDET APPROVED 2026-06-17T06:58:00Z |
 | TASK-003-004 request inbox UI (admin) | done | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` — SDET APPROVED 2026-06-17T06:50:00Z |
-| TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | backlog | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit |
+| TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | done | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit — SDET APPROVED 2026-06-17T11:09:00Z |
 | TASK-003-006 e2e + gherkin + Mailhog | backlog | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) |
 | TASK-003-007 @demo gallery | backlog | developer | none (non-gating) | docs/demos/EPIC-003/ |
 
@@ -127,6 +127,25 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
 
 ---
+
+### SDET Review — TASK-003-005 — 2026-06-17
+**Start:** Review TASK-003-005 (decision actions — accept→invite+email, decline→reason+email; decide-once, audit, rate-limit). Status was `review`.
+**Actions:**
+- Read ENGINE.md, sdet.md, PROGRESS.md, task file, BRIEF-003. All required spec fields present; `Introduces-gate: no` correct; `Complexity-actual: 4` valid; `Started-at: 2026-06-17T11:50:05Z` non-sentinel; pre-implementation breadcrumb present.
+- Mandatory rejection checks: all PASS. No tool-hygiene violations in Work Log.
+- Read all delivered files: `apps/admin/src/app/requests/actions.ts` (decision actions + identity helper), `packages/db/src/repositories/engagement-request.ts` (acceptEngagementRequest/declineEngagementRequest/AlreadyDecidedError), `packages/db/src/audit.ts` (withAuditTransaction/recordAuthEvent), `packages/db/src/index.ts` (exports), `apps/admin/src/app/requests/actions.test.ts` (32 tests), `apps/admin/src/app/requests/_components/DecisionActions.tsx`, `apps/admin/src/app/requests/[id]/page.tsx`, `packages/db/src/engagement-request.decide-boundary.rls.test.ts`.
+- **Independently ran**: `pnpm --filter admin test -- src/app/requests/actions.test.ts` → **32/32 PASS**; `pnpm --filter admin test` → **114/114 PASS** (6 files); `pnpm --filter @tax-portal/db test` → **50/50 PASS** (10 files). `pnpm lint` → PASS. `pnpm type-check` → PASS.
+- Decide-exactly-once (AC-DOOR-006-05): WHERE status IN ('pending','awaiting_review') + @@ROWCOUNT check; 0 rows → AlreadyDecidedError thrown; action catches and returns `{ success: false, error: 'already_decided' }`. Genuine rejection. DB-layer proven by 3-test tier-3 RLS suite against real SQL Server.
+- Only-accountant-decides (AC-DOOR-006-04): dual guard — action layer `getAccountantIdentity()` checks role from verified session; DB-layer BLOCK predicate (TASK-003-001). Role never client-assertable.
+- Invitation provenance + tie (AC-DOOR-007-01/-02/-03/-04): `createInvitation(email, 'CLIENT')` with role server-set; ticket persisted via `acceptEngagementRequest(id, ticket, txn)`; email body links to `PORTAL_APP_URL/sign-up?ticket=<encoded>`; no User row created (no user-creation call in acceptRequest).
+- Decline (AC-DOOR-008-01/-02/-03/-04): reason validated (empty/whitespace rejected); trimmed before persistence; emailed to prospect contact email; `declineEngagementRequest` called with trimmed reason.
+- Audit (ADR-019): `recordAuthEvent` inside `withAuditTransaction` callback (same transaction as status transition). Tests verify audit NOT written on unauthorized and NOT written on AlreadyDecidedError (thrown before recordAuthEvent in transaction callback).
+- Rate-limit (ADR-022): per-`clerkUserId` key — design rationale sound for single trusted admin user. Email sent after commit; on rate-limit, partial-success returned with decision committed.
+- Transaction discipline: email after `withAuditTransaction` resolves (after commit). `createInvitation` inside transaction — DECISION comment notes real-Clerk consideration.
+- Security: no client-assertable role; ticket server-generated; parameterized queries; header-injection guard in email seam (TASK-003-002).
+- Observation noted: `revalidatePath` skipped on partial-success paths (rate-limited or email failed) — decision committed but UI not auto-refreshed. Not a correctness defect; UI has manual refresh button. Passed to IO for design scan.
+- TASK-003-005 → **APPROVED, Status: done, Completed-at: 2026-06-17T11:09:00Z**.
+**End:** TASK-003-005 approved and marked done. Task list: TASK-003-001 through TASK-003-005 all done; TASK-003-006 (e2e+gherkin+Mailhog) and TASK-003-007 (demo) remain. Ready for IO to dispatch TASK-003-006.
 
 ### SDET Review — TASK-003-004 — 2026-06-17
 **Start:** Review TASK-003-004 (request inbox UI — admin read side). Status was `review`.

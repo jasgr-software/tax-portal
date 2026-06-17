@@ -18,8 +18,8 @@
  * ADR-005: Identity from verified session (getIdentity()) — never from URL params.
  * ADR-006: Admin-only route — there is NO mirror in apps/portal.
  *
- * The `decisionSlot` prop of RequestDetail is intentionally left empty here:
- * TASK-003-005 will wire the accept/decline forms into this page.
+ * The `decisionSlot` prop of RequestDetail is wired to DecisionActions (TASK-003-005):
+ * a client component that renders Accept button + Decline form for pending requests.
  */
 
 import { headers } from "next/headers";
@@ -28,6 +28,7 @@ import { getAuthProvider } from "@tax-portal/auth";
 import { withRequestContext, getEngagementRequest } from "@tax-portal/db";
 import type { EngagementRequestItem } from "@tax-portal/db";
 import { RequestDetail } from "../_components/RequestDetail";
+import { DecisionActions } from "../_components/DecisionActions";
 
 // ─── Route params ─────────────────────────────────────────────────────────────
 
@@ -139,11 +140,19 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
           </div>
         )}
         {request && (
-          // DECISION (TASK-003-004): decisionSlot left null here — TASK-003-005 wires
-          // the accept/decline forms into this page.
+          // TASK-003-005: Wire DecisionActions into the decisionSlot.
+          // DecisionActions is a client component that renders Accept/Decline affordances
+          // only when the request is in a decidable state (pending/awaiting_review).
+          // AC-DOOR-006-02/-03/-04: accept/decline buttons guarded by ACCOUNTANT role
+          // (the server actions re-verify identity before acting).
           <RequestDetail
             request={request}
-            decisionSlot={null}
+            decisionSlot={
+              <DecisionActions
+                requestId={request.id}
+                status={request.status}
+              />
+            }
           />
         )}
       </main>
