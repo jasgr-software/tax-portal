@@ -78,10 +78,15 @@ the consolidation per `ENGINE.md` § "The lead aggregates and posts":
    `blocker`/`major` — surface it.
 2. **Assign the advisory verdict** — **request-changes** if any `blocker`/`major` survives, else **approve**
    (advisory). The verdict is textual; it is advice, not a merge gate.
-3. **Compose** the consolidated review body from `_templates/pr-review-summary.md`.
+3. **Compose** the consolidated review body from `_templates/pr-review-summary.md`, including the trailing
+   `<!-- pr-review-verdict … -->` block (`ENGINE.md` § Machine-readable verdict block). Fill it from the same
+   counts as the prose **Findings:** line; `fix_required` is derived, not judged
+   (`(blocker + major) > 0`), and must agree with the prose verdict.
 4. **Post one** GitHub review via `gh api repos/{owner}/{repo}/pulls/<N>/reviews` with `event=COMMENT`, an
    inline `comments[]` array, and the summary body (see `ENGINE.md` § Comment mechanics). Build the payload
    with the Write tool and pass it with `--input`; do not use an inline heredoc.
+5. **Return** the same verdict object as your structured result (the `pr-review-verdict/v1` payload), so a
+   caller that invoked the panel in-session gets the decision without re-reading the PR.
 
 ## Constraints
 

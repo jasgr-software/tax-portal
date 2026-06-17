@@ -1,0 +1,1 @@
+{"schema":"pr-review-verdict/v1","pr":7,"verdict":"approve","fix_required":false,"findings":{"blocker":1,"major":0,"minor":0,"nit":0,"total_after_dedupe":1},"lenses":["correctness","security","over-engineering"]}

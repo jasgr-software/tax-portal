@@ -43,6 +43,21 @@ its AC resolve to testable text in the cited `REQ-*`; the engine is clear to sta
 feature-branch name is free. **If nothing is GO, emit the blockers report (per candidate, *why*) and STOP.**
 Do not relax a criterion or invent missing AC/scenarios.
 
+> **Gate rails (Increment 1 — see `design/NORTH-STAR.md`).** The **mechanical** criteria — status, open-questions,
+> depends-on-delivered, COVERAGE rows (1–4, 7) and engine-clear (6) — are evaluated in pure code by
+> `bin/orchestrate-gates.sh`, which re-derives each verdict from primary sources and appends a record to the
+> verdict log (`runs/gate-log.jsonl`):
+>
+> ```bash
+> bash .orchestration/bin/orchestrate-gates.sh --gate readiness --epic <EPIC-ID>
+> bash .orchestration/bin/orchestrate-gates.sh --gate engine-clear
+> ```
+>
+> Run it and treat a non-zero exit as a hard GO-blocker (report its failing gates verbatim). **Criterion 5
+> (AC resolve to testable text) is the one semantic judgment and remains yours** — the harness does not
+> evaluate it (a gate-judge for it is increment 2). Never substitute a recorded "✓" for re-running the
+> harness; the log entry is evidence, the rerun is the check.
+
 > Against the current roadmap this resolves to **EPIC-001** (only `planned`, dependency-free epic);
 > EPIC-002/003 are blocked on the unauthored EPIC-004, EPIC-004 itself is `backlog` (not authored).
 
@@ -79,13 +94,24 @@ PR number in `STATE.md`. You orchestrate the engine's turns; you never substitut
 code edits for it. If the engine raises an inner stop, defer (record + report + STOP).
 
 ### Review
-Invoke `/pr-review <N>` (the 3-lens advisory panel). Capture the advisory verdict and the per-severity
-counts in `STATE.md`.
+Invoke `/pr-review <N>` (the 3-lens advisory panel). The panel emits a **machine-readable verdict block**
+(`pr-review-verdict/v1`; `.pr-review/ENGINE.md` § Machine-readable verdict block) as the last lines of its
+review body and returns the same object. Capture that object — write it to a file (e.g.
+`runs/PR-<N>-verdict.json`, extracting the `<!-- pr-review-verdict … -->` payload from the review body if you
+only have the posted review) and record the verdict + counts in `STATE.md`.
 
 ### Fix
-**Only if** the panel posted actionable findings (any `blocker`/`major`; `minor` at your discretion), invoke
-`/pr-fix <N>` and let it run its bounded loop to green. If the panel approved with zero/`nit`-only findings,
-**skip** Fix and note it. If the fixer hits its attempt cap without green, defer (record + report + STOP).
+The fix-or-skip decision is now **derived in pure code** from the structured verdict — not read off the prose:
+
+```bash
+bash .orchestration/bin/orchestrate-gates.sh --gate fix-decision --pr-verdict runs/PR-<N>-verdict.json --pr <N>
+```
+
+It routes `RUN /pr-fix` when `(blocker + major) > 0`, else `SKIP`, and **fails** if the payload's
+`fix_required`/`verdict` disagree with the derived value (an erosion signal — investigate before proceeding).
+**Only if** it routes to run (any `blocker`/`major`; `minor` at your discretion), invoke `/pr-fix <N>` and let
+it run its bounded loop to green. If it routes to skip, **skip** Fix and note it. If the fixer hits its
+attempt cap without green, defer (record + report + STOP).
 
 ### Merge / Finalize
 Merge + Close-finalize are the **engine's** autonomy, not yours. Let the engine's auto-merge fire under its
