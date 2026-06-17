@@ -10,8 +10,11 @@
 
 ## Current initiative
 
-**BRIEF-003 / EPIC-003 — Accountant request inbox.** Phase: **Plan → Dispatch** (Plan complete; entering
-Dispatch). **Branch:** `brief-003-accountant-request-inbox` (from `main` @ `cf94c7e`). **Gated:** yes.
+**BRIEF-003 / EPIC-003 — Accountant request inbox.** Phase: **Close-prep DONE → in PR limbo** (`## Awaiting
+PR merge`). Dispatch (7/7 + BUG-003-001) → Audit (0 blocking) → Review/design-scan (0 violations) → Smoke
+(PASS) → Validate (gates 6+7 GREEN) → Close-prep (RETRO-003 + HANDOFF-003 written; task files archived; **PR
+#42 opened**). Next: Conductor `/pr-review 42` → fix → merge → `/planning validate` → Close-finalize.
+**Branch:** `brief-003-accountant-request-inbox` (from `main` @ `cf94c7e`). **Gated:** yes.
 **Brief-type:** feature · **Brief-deploys:** no. **Goal:** close the front-door loop — notify the accountant
 of a new engagement request, let her review it, and accept (→ invitation email tied to the request) or decline
 (→ reason email + retention). 20 in-scope AC. **Methodology:** gherkin (epic's 20 scenarios) · e2e-required
@@ -46,10 +49,18 @@ applies. These also live in `## Open retro action items` below.
 
 ## Awaiting PR merge
 
-_Empty._ BRIEF-002 / EPIC-002 finalized + delivered (PR #40 squash-merged @ `70ea10e`, gate 8 post-merge CI
-green; gate 9 N/A) — cleared from this section at its Close-finalize (2026-06-16). BRIEF-004 delivered earlier
-(PR #38 @ `0444551`, gate 8 green). The slice-start gate is clear for the next epic (EPIC-003) once its build
-brief lands.
+### BRIEF-003 / EPIC-003 — Accountant request inbox — **PR #42** (https://github.com/jasgr-software/tax-portal/pull/42)
+- **Branch:** `brief-003-accountant-request-inbox` → base `main`. **Brief-deploys:** no (gate 9 N/A).
+- **Pre-merge gates GREEN (1–7):** submission 7/7 (+BUG-003-001) · SDET Review 8/8 · Overwatch Audit 0 blocking
+  · IO Design scan 0 violations · Container Smoke PASS · SDET Acceptance-validation **20/20 AC** · SDET CI gate
+  required GREEN (`lint-and-typecheck`+`security-scan`; run `27696675400`).
+- **Awaiting:** Conductor `/pr-review 42` → `/pr-fix 42` (if findings) → merge on green required CI (MERGE-POLICY
+  Lane B, no protection toggle) → IO **Close-finalize** (gate 8 post-merge CI) → `/planning validate EPIC-003`.
+- **Evidence basis:** [A] CI + SDET dev-time tier-3/e2e vs real containers (same basis as EPIC-001/002/004).
+- Artifacts: RETRO-003.md + HANDOFF-003.md; task/bug files archived to `tasks/done/`. Docs-lane close-out
+  (held): `docs/demos/EPIC-003/` gallery (7 PNGs + DEMO.md) + COVERAGE/ROADMAP sign-off.
+
+_(Prior: BRIEF-002/EPIC-002 PR #40 `70ea10e`; BRIEF-004/EPIC-004 PR #38 `0444551` — both delivered.)_
 
 ## Active bugs
 
@@ -125,6 +136,100 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   the healthcheck should derive its SA password from the same source the volume was bootstrapped with (or the
   bootstrap should re-assert the env SA password on persisted volumes). Same root family as the carried
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
+
+---
+
+### SDET Validate — Gate 6 (Acceptance-validation) — BRIEF-003 / EPIC-003 — 2026-06-17T22:00:00Z
+**Start:** Validate phase — cross-referencing all 20 in-scope AC against delivered tests (gherkin methodology, e2e-required). Reading brief, epic, all test files, and feature file.
+**Actions:**
+- Read ENGINE.md, sdet.md, BRIEF-003, EPIC-003 (acceptance scenarios), PROGRESS.md.
+- Read e2e specs: request-inbox.spec.ts, request-accept.spec.ts, request-decline.spec.ts.
+- Read unit/integration tests: actions.test.ts (admin), notifications.test.ts, inbox.test.tsx, portal/request/actions.test.ts, engagement-request.persistence.test.ts, notification.rls.test.ts, engagement-request.decide-boundary.rls.test.ts, invitation-provenance.test.ts.
+- Read feature file: apps/admin/e2e/features/request-inbox.feature (20 scenarios verbatim-transcribed from EPIC-003, tagged with tier and AC ids).
+- Confirmed: Cucumber tooling not yet landed — validated prose-vs-implementation as mandated by CLAUDE.md § Executable gherkin tooling. Feature file is the human-readable binding; Playwright .spec.ts files are the executable tests.
+- Built AC-by-AC traceability table (see SDET Validate text report).
+- Confirmed SDET independent 3× zero-flake e2e run evidence from TASK-003-006 re-review (30/30 × 3 runs). Gate 6 verdict: PASS — all 20 AC have passing tagged tests at prescribed tiers.
+**End:** Gate 6 PASS. Proceeding to Gate 7 (CI gate).
+
+### SDET Validate — Gate 7 (CI gate) — BRIEF-003 / EPIC-003 — 2026-06-17T22:05:00Z
+**Start:** CI gate — run ID 27696675400 on branch `brief-003-accountant-request-inbox`.
+**Actions:**
+- Polled `gh run watch 27696675400 --exit-status` to completion.
+- All 4 jobs completed:
+  - `lint-and-typecheck` (required) — SUCCESS (1m7s). Steps: pnpm lint PASS, pnpm type-check PASS, validate-gates.sh PASS.
+  - `security-scan` (required) — SUCCESS (1m57s). Steps: pnpm audit (high+critical) PASS, CodeQL PASS.
+  - `test-admin` (advisory, continue-on-error) — SUCCESS (1m20s). `pnpm --filter admin test` PASS.
+  - `test-portal` (advisory, continue-on-error) — SUCCESS (1m20s). `pnpm --filter portal test` PASS.
+- Run URL: https://github.com/jasgr-software/tax-portal/actions/runs/27696675400
+- Overall workflow conclusion: success.
+**End:** Gate 7 PASS. Both required checks (`lint-and-typecheck`, `security-scan`) green. Advisory checks (`test-admin`, `test-portal`) also green — no regression on either surface. Proceeding to Quality audit.
+
+### SDET Validate — Quality Audit — BRIEF-003 / EPIC-003 — 2026-06-17T22:10:00Z
+**Start:** Quality parity audit — scanning integrated slice for gaps missed by per-task reviews.
+**Actions:**
+- E2e infrastructure parity: both `apps/portal` and `apps/admin` have e2e config + `e2e:run` scripts (CLAUDE.md § Platform-frontend scope). PASS.
+- Brief mandated e2e for apps/admin only — portal surface not in scope for this slice's e2e; pre-existing portal e2e coverage from EPIC-001/004. PASS.
+- No coverage_target set in brief — no coverage rejection. PASS.
+- Test-only surface: `/api/test/` removed by BUG-003-001 fix — only `/api/mock-session` present. Confirmed by filesystem check (`ls apps/admin/src/app/api/` → `mock-session` only). PASS.
+- RLS fail-closed: `sec.pol_Notification` FILTER predicate verified zero-rows on null SESSION_CONTEXT in `notification.rls.test.ts`. `sec.pol_EngagementRequest` BLOCK predicate verified 0 rows affected for CLIENT/null in `engagement-request.decide-boundary.rls.test.ts`. PASS.
+- No client-assertable role: `getAccountantIdentity()` in `actions.ts` evaluates role from server-side session; DB BLOCK predicate is second layer. PASS.
+- Email header-injection guard: `stripHeaderInjection()` applied to `to`, `subject`, `from` in SMTP binding; throws `EmailHeaderInjectionError` on CRLF — confirmed in `packages/email/src/port.ts` and `smtp.ts`. PASS.
+- Decide-once invariant: `WHERE status IN ('pending','awaiting_review')` + `@@ROWCOUNT=0 → AlreadyDecidedError` in both `acceptEngagementRequest` and `declineEngagementRequest`. Proven at tier-3 (boundary RLS test for BLOCK predicate) and tier-2 (AlreadyDecidedError propagation test in actions.test.ts). PASS.
+- Rate-limit invariant: `getRateLimiter().consume()` called after transaction commit; on exhausted → decision committed, email skipped, `{ success: true, emailSent: false }` returned. Tested in actions.test.ts; `RATE_LIMIT_MAX_ATTEMPTS=100` in docker-compose.yml prevents e2e exhaustion (BUG-003-001). PASS.
+- Audit trail: `recordAuthEvent` called inside `withAuditTransaction` for both accept and decline. Not written on AlreadyDecidedError or unauthorized. PASS.
+- SESSION_CONTEXT on all inbox reads + writes: `withRequestContext` wrapper used throughout; `adminDb` absent from read functions confirmed at TASK-003-004 review; existing session-context.propagation.test.ts carries coverage. PASS.
+- Overwatch advisory findings:
+  - Midnight-sentinel/chronological-inversion metadata: not a BRIEF-003 issue; carried retro observation. Not a blocker.
+  - service.rls.test.ts comment-drift: comment-only, not a behavior defect. Not a blocker.
+  - portal submit.spec.ts notification-assertion gap: notification existence not asserted at e2e tier in portal submit spec; covered at tier-3 in engagement-request.persistence.test.ts and tier-2 in portal/request/actions.test.ts. The brief's tier map places AC-DOOR-005-01 at tier-3, not e2e — no gap against the brief's contract. Not a blocker.
+- Convention compliance: ADR-006 (inbox admin-only), ADR-003 Amendment 1 (no @read_only), ADR-005 (policies in db/policies/), ADR-019 (audit via recordAuthEvent/withAuditTransaction), ADR-022 (RateLimiter port) — all verified at task reviews. PASS.
+- Submission-gate parity: both `pnpm --filter portal test` and `pnpm --filter admin test` listed in CLAUDE.md. PASS.
+**End:** Quality audit PASS — no blocking gaps found in the integrated slice. All 3 Validate gates PASS. Reporting to IO for SDET CI gate tick + Quality audit gate tick.
+
+### SDET Container Smoke — BRIEF-003 / EPIC-003 — 2026-06-17T21:05:00Z
+**Scope:** Container smoke gate for the request-inbox slice. All 7 tasks approved; running against the docker-compose stack to confirm deployment-layer coherence and the new Mailhog email seam before Validate.
+
+**Docker pre-flight:** PASS — Docker 29.4.1 / Docker Desktop, 11 containers running.
+
+**Stack state (`docker compose --env-file .env.local ps`):**
+| Service | Status | Ports |
+| --- | --- | --- |
+| tax-portal-admin | Up 47 min **(healthy)** | 0.0.0.0:13001→3001 |
+| tax-portal-azurite | Up 38 h **(healthy)** | 0.0.0.0:10000→10000 |
+| tax-portal-mailhog | Up 38 h **(healthy)** | 0.0.0.0:11025→1025, 0.0.0.0:18025→8025 |
+| tax-portal-portal | Up 22 h **(healthy)** | 0.0.0.0:3000→3000 |
+| tax-portal-sqlserver | Up 24 h **(unhealthy)** | 0.0.0.0:14330→1433 |
+
+Known carried item: `sqlserver` `(unhealthy)` = SA-password-vs-volume mismatch (RETRO-002 / Open retro action items). DB fully operational via `taxportal_user`/`taxportal_admin` SQL logins — not a regression, not a blocker.
+
+**New slice surface — Mailhog:** `tax-portal-mailhog` healthy; HTTP API at port 18025 returns messages (1 message present, `noreply@tax-portal.dev`). MAILHOG UP: PASS.
+
+**App health checks:**
+- `GET http://localhost:13001/healthz` → `{"status":"ok","app":"admin"}` — PASS
+- `GET http://localhost:13001/readyz` → `{"status":"ready","app":"admin"}` — PASS
+- `GET http://localhost:3000` → HTTP 307 (auth guard redirect, expected for unauthenticated) — PASS
+- `GET http://localhost:13001/requests` → HTTP 307 (ACCOUNTANT guard, expected for unauthenticated) — PASS
+
+**Container env verification (admin):**
+- `EMAIL_PROVIDER=smtp`, `SMTP_HOST=mailhog`, `SMTP_PORT=1025`, `EMAIL_FROM=noreply@tax-portal.dev` — email seam wired to Mailhog container. PASS.
+- `RATE_LIMIT_MAX_ATTEMPTS=100`, `RATE_LIMIT_WINDOW_MS=60000` — BUG-003-001 fix confirmed in container env. PASS.
+
+**Targeted smoke e2e (`ADMIN_BASE_URL=http://localhost:13001 pnpm --filter admin e2e:run -- --grep 'inbox|accept|decline|request'`):**
+Output redirected to `/tmp/smoke-003-e2e.log`. Result: **30/30 PASS (8.2s)**.
+
+Key targeted tests:
+- Test 9 `[AC-DOOR-006-02][AC-DOOR-007-01]` accept → invitation email in Mailhog: PASS
+- Test 11 `[AC-DOOR-006-03][AC-DOOR-008-01][AC-DOOR-008-02][AC-DOOR-008-04]` decline → reason email in Mailhog + reason retained: PASS
+- Tests 15-19 request inbox (DASH-011-01/-02/-03, DOOR-006-01, DOOR-005-02): all PASS
+- Tests 20-21 security / non-ACCOUNTANT access rejected: PASS
+- Tests 9-14 accept/decline flows (DOOR-006-02/-03/-05, DOOR-008-01/-04): all PASS
+- Scaffold smoke (healthz, readyz, unauthenticated redirect): PASS
+
+Known carried items noted (not new, not BRIEF-003 regressions):
+1. `sqlserver` `(unhealthy)` healthcheck label — DB is operational, documented RETRO-002.
+2. AC-AUTH-010-02 ADMIN_PORT redirect mismatch in `identity-spine.demo.spec.ts` — pre-existing EPIC-004 issue, confirmed no EPIC-003 commits touched that path; 0/30 targeted tests involve that spec.
+
+**VERDICT: PASS** — container stack is coherent, Mailhog email seam resolves in the containerized env, the accept→invitation-email and decline→reason-email paths work end-to-end in containers, ACCOUNTANT guard is live on `/requests`, all 30 targeted smoke tests pass. No container-layer failures.
 
 ---
 
