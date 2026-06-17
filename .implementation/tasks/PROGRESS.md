@@ -10,11 +10,17 @@
 
 ## Current initiative
 
-**BRIEF-003 / EPIC-003 — Accountant request inbox.** Phase: **Close-prep DONE → in PR limbo** (`## Awaiting
-PR merge`). Dispatch (7/7 + BUG-003-001) → Audit (0 blocking) → Review/design-scan (0 violations) → Smoke
-(PASS) → Validate (gates 6+7 GREEN) → Close-prep (RETRO-003 + HANDOFF-003 written; task files archived; **PR
-#42 opened**). Next: Conductor `/pr-review 42` → fix → merge → `/planning validate` → Close-finalize.
-**Branch:** `brief-003-accountant-request-inbox` (from `main` @ `cf94c7e`). **Gated:** yes.
+_None active._ **BRIEF-003 / EPIC-003 DELIVERED** 2026-06-17 (PR #42 squash-merged to `main` @ `ec151cb`;
+gate 8 post-merge CI green — `CI` ✅ + `Code Quality` ✅; gate 9 N/A — `Brief-deploys: no`). Full cascade:
+Dispatch (7/7 + BUG-003-001) → Audit (0 blocking) → design scan (0 violations) → Smoke (PASS) → Validate
+(20/20 AC + required CI green) → Close-prep → Conductor `/pr-review 42` (advisory APPROVE; 0 blocker/major; 6
+minor + 2 nit) → `/pr-fix 42` (6 fixed, 3 dispositioned, threads resolved, `715f7f8`) → merge `ec151cb` →
+Close-finalize (gate 8 ✅). **20/20 in-scope AC verified.** Net-new: `packages/email` seam (first email) +
+`Notification` entity + accountant-only `sec.pol_Notification`. **Completes Phase 1 (MVP front-door spine):
+EPIC-001/004/002/003 all delivered.** Validate write-back via `/planning validate EPIC-003` (Conductor).
+
+<!-- prior phase detail (Close-prep → merged) retained in RETRO-003 + PROGRESS-ARCHIVE -->
+**Branch (delivered):** `brief-003-accountant-request-inbox` → `main` @ `ec151cb`. **Gated:** yes.
 **Brief-type:** feature · **Brief-deploys:** no. **Goal:** close the front-door loop — notify the accountant
 of a new engagement request, let her review it, and accept (→ invitation email tied to the request) or decline
 (→ reason email + retention). 20 in-scope AC. **Methodology:** gherkin (epic's 20 scenarios) · e2e-required
@@ -49,18 +55,10 @@ applies. These also live in `## Open retro action items` below.
 
 ## Awaiting PR merge
 
-### BRIEF-003 / EPIC-003 — Accountant request inbox — **PR #42** (https://github.com/jasgr-software/tax-portal/pull/42)
-- **Branch:** `brief-003-accountant-request-inbox` → base `main`. **Brief-deploys:** no (gate 9 N/A).
-- **Pre-merge gates GREEN (1–7):** submission 7/7 (+BUG-003-001) · SDET Review 8/8 · Overwatch Audit 0 blocking
-  · IO Design scan 0 violations · Container Smoke PASS · SDET Acceptance-validation **20/20 AC** · SDET CI gate
-  required GREEN (`lint-and-typecheck`+`security-scan`; run `27696675400`).
-- **Awaiting:** Conductor `/pr-review 42` → `/pr-fix 42` (if findings) → merge on green required CI (MERGE-POLICY
-  Lane B, no protection toggle) → IO **Close-finalize** (gate 8 post-merge CI) → `/planning validate EPIC-003`.
-- **Evidence basis:** [A] CI + SDET dev-time tier-3/e2e vs real containers (same basis as EPIC-001/002/004).
-- Artifacts: RETRO-003.md + HANDOFF-003.md; task/bug files archived to `tasks/done/`. Docs-lane close-out
-  (held): `docs/demos/EPIC-003/` gallery (7 PNGs + DEMO.md) + COVERAGE/ROADMAP sign-off.
-
-_(Prior: BRIEF-002/EPIC-002 PR #40 `70ea10e`; BRIEF-004/EPIC-004 PR #38 `0444551` — both delivered.)_
+_Empty._ **BRIEF-003 / EPIC-003 finalized + delivered** (PR #42 squash-merged @ `ec151cb`, gate 8 post-merge
+CI green; gate 9 N/A) — cleared at Close-finalize (2026-06-17). Prior: PR #40 `70ea10e` (EPIC-002), PR #38
+`0444551` (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) — all delivered. **Phase 1 (MVP) complete.** Slice-start
+gate clear; no Phase-2 brief in hand yet (`.planning/` Phase 2 = onboarding gate, to decompose).
 
 ## Active bugs
 

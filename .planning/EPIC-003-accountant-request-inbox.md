@@ -2,7 +2,7 @@
 id: EPIC-003
 title: Accountant request inbox — notify, review, accept/decline, invite
 phase: 1
-status: planned
+status: delivered   # 2026-06-17 — PR #42 squash-merged @ ec151cb; 20/20 in-scope AC verified (COVERAGE [A])
 slice: The accountant is notified of a new engagement request, reviews it, and either accepts it (sending the prospect an account invitation) or declines it (sending a reason by email).
 requirements:
   - REQ-DOOR-005: [AC-DOOR-005-01, AC-DOOR-005-02, AC-DOOR-005-03]
