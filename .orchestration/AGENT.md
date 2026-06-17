@@ -122,6 +122,15 @@ Smoke/Validate (`docs/demos/EPIC-NNN/DEMO.md` + AC-tagged PNGs) is docs — **in
 docs-lane PR** and reference it in the run report's **UI Demo** section (path + screen count). If the brief is
 not applicable, the report records `UI demo: skipped (backend-only)`.
 
+**Phase-closeout check (every Report).** After the validate write-back rolls the epic to `delivered`, read
+`.planning/ROADMAP.md` and ask: **did this slice complete its roadmap phase** (is *every* epic listed under that
+phase now `delivered`)? If yes, produce/refresh the phase's **walkthrough video** per `DEMO-POLICY.md` § Part B —
+bring the stack up, run `pnpm --filter <app> e2e:video`, `node scripts/make-phase-video.mjs <N>`, eyeball it,
+write `docs/demos/phase-<N>/README.md`, and **include `docs/demos/phase-<N>/` in the same docs-lane PR**.
+Reference it in the run report's **Phase closeout** line (path · duration · chapters). If the slice did **not**
+complete a phase, record `Phase closeout: n/a (phase in progress)`. The `@video` spec itself is application
+code authored on the phase-completing slice's PR; only the generated video + README ride the docs lane.
+
 ## Hard rules (recap)
 
 - **One slice, then stop.** Re-invoke for the next.

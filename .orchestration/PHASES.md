@@ -16,7 +16,7 @@ condition**; `STATE.md` is updated at every transition.
 | **Fix** | If the panel posted actionable findings, invoke `/pr-fix <N>`; else skip. Defer if the fixer caps out. | Panel findings addressed and CI green — or "skipped (clean)" recorded. |
 | **Merge/Finalize** | Merge per `MERGE-POLICY.md` (application-code lane: panel→fix→**resolve threads**→merge on green required CI; **no `--admin`/`enforce_admins` toggle**) + resume post-merge finalize. Surface (don't satisfy) a workflow-file LGTM hold or a genuine governance gate (e.g. an unsatisfiable required review). | PR merged + engine finalize complete; merge SHA in `STATE.md` — or STOP on an LGTM/governance gate. |
 | **Validate** | Invoke the validate capability with merged-PR CI evidence; the planning agent writes back. | Validation verdict captured; COVERAGE rows flipped / epic rolled by the planning agent. |
-| **Report** | Write the run report; set `STATE.md` `## Outcome`. | `delivered` (or `stopped-at-<phase>` + reason) recorded; STOP. |
+| **Report** | Write the run report; set `STATE.md` `## Outcome`. **Phase-closeout check:** if this slice completed its roadmap phase (all phase epics `delivered`), produce/refresh the phase **walkthrough video** (`DEMO-POLICY.md` § Part B) and ship `docs/demos/phase-<N>/` in the docs-lane PR. | `delivered` (or `stopped-at-<phase>` + reason) recorded; phase video produced/refreshed if the phase closed (else n/a); STOP. |
 
 ## Stop / defer matrix
 

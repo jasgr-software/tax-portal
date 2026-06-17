@@ -56,11 +56,17 @@ around any guardrail. See `PHASES.md` § Stop/defer matrix.
 ├── ENGINE.md            # shared rules: autonomy boundary, engine interface, readiness gate, state contract
 ├── PHASES.md            # per-phase responsibilities + exit conditions + the Stop/defer matrix
 ├── STATE.md             # the run ledger — single source of truth for a run (resumable)
+├── DEMO-POLICY.md       # visual evidence: per-epic UI demo galleries + per-phase walkthrough videos
+├── MERGE-POLICY.md      # the two merge lanes (reviewed slice PR vs docs fast-lane)
 ├── seed/
 │   └── sources.md       # THE coupling knob: roadmap source + engine binding + review/fix + validate
 └── _templates/
     └── run-report.md    # the per-slice run-summary shape
 ```
+
+At **phase closeout** (the slice that delivers a roadmap phase's last epic), the Conductor also produces a
+**human-speed walkthrough video** of the whole phase under `docs/demos/phase-<N>/` — see `DEMO-POLICY.md`
+§ Part B. Per-epic screenshot demos (Part A) ride each slice; the phase video is produced once per phase.
 
 ## Relationship to the other layers
 
