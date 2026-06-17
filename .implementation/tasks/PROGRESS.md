@@ -26,7 +26,7 @@ of a new engagement request, let her review it, and accept (→ invitation email
 | TASK-003-004 request inbox UI (admin) | done | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` — SDET APPROVED 2026-06-17T06:50:00Z |
 | TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | done | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit — SDET APPROVED 2026-06-17T11:09:00Z |
 | TASK-003-006 e2e + gherkin + Mailhog | done | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) — SDET APPROVED 2026-06-17T14:05:00Z (BUG-003-001 fix verified: 3× 30/30 zero-flake) |
-| TASK-003-007 @demo gallery | backlog | developer | none (non-gating) | docs/demos/EPIC-003/ |
+| TASK-003-007 @demo gallery | done | developer | none (non-gating) | docs/demos/EPIC-003/ — SDET APPROVED 2026-06-17T20:30:00Z |
 
 **Plan artifacts:** design-coherence check PASS; OQ-002 (email-transport ADR) **raised-upstream** to
 `.architecture/` (non-blocking — proceeding on the proposed `packages/email` seam default); reuse of the
@@ -127,6 +127,18 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
 
 ---
+
+### SDET Review — TASK-003-007 (@demo gallery) — 2026-06-17
+**Start:** Review TASK-003-007 (non-gating `@demo` gallery for EPIC-003). Status was `review`. IO is approval authority; SDET does the rigorous artifact + regression check.
+**Actions:**
+- Read ENGINE.md, sdet.md, DEMO-POLICY.md, PROGRESS.md, task file, the demo spec, DEMO.md. All required spec fields present. `Complexity-actual: 2` valid. `Started-at: 2026-06-17T14:14:47Z` non-sentinel. Pre-implementation breadcrumb present.
+- Mandatory rejection checks: all PASS. No tool-hygiene violations. `Introduces-gate: no` correct.
+- DEMO-POLICY adherence: dedicated `@demo` spec (`apps/admin/e2e/demo/request-inbox.demo.spec.ts`), excluded from `e2e:run`, 5 tests covering notification→inbox→detail→accept→decline journey. Persona (jane-accountant) + flows (flow-engagement-request, flow-first-sign-in) cited. ADR-006 admin surface honored.
+- Gallery verification: 7 PNGs present in `docs/demos/EPIC-003/`. All non-empty (54 KB – 962 KB). All 7 SHA256 hashes distinct — no byte-identical stale stubs. Naming convention compliant. DEMO.md has 7 sections mapping each PNG to AC ids; persona/flow links + regenerate footer present.
+- Spec quality: every test asserts target element visible before screenshotting; `try/finally` DB cleanup; unique email helpers prevent cross-test interference. E2e-grade assertions on `data-status` attributes, text content, and URL navigation.
+- Regression check (AC-AUTH-010-02 failure in `identity-spine.demo.spec.ts`): CONFIRMED PRE-EXISTING. Evidence: (1) PROGRESS-ARCHIVE records it explicitly from EPIC-002 time as an ADMIN_PORT 13001-vs-3001 redirect-destination mismatch; (2) `identity-spine.demo.spec.ts` has zero EPIC-003 commits; (3) the one EPIC-003 change to `redirect.ts` (commit `08e6d46`) is a 4-line comment-only addition inside `adminRedirectDecision()` — the `portalRedirectDecision()` path used by AC-AUTH-010-02 is not touched at all. Not a regression; not a blocker.
+- Non-gating per DEMO-POLICY: artifact failure would not block delivery; but the 5 EPIC-003 tests are clean.
+**End:** TASK-003-007 → **APPROVED, Status: done, Completed-at: 2026-06-17T20:30:00Z**. All 7 BRIEF-003 tasks (6 feature + 1 demo) are now done. IO may proceed to Close-prep / Validate phase.
 
 ### SDET Re-Review — TASK-003-006 + BUG-003-001 — 2026-06-17
 **Start:** Re-review TASK-003-006 and BUG-003-001 after BUG-003-001 fix (Option A + surface reduction). Prior rejection: run 3 of independent 3× e2e flaked on AC-DOOR-007-01 and AC-DOOR-008-02 (rate-limiter exhaustion). Fix: `RATE_LIMIT_MAX_ATTEMPTS=100` added to docker-compose.yml for both portal and admin; reset endpoint deleted; `/api/test/**` whitelist reverted.
