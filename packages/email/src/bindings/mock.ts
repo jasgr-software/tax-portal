@@ -28,7 +28,6 @@ import { stripHeaderInjection } from "../port.js";
  * Global in-memory store for captured emails.
  * One store per process; reset between test suites via `resetMockEmailProviderForTesting()`.
  */
-const _sentMessages: SentEmail[] = [];
 const _sentPayloads: EmailMessage[] = [];
 
 /**
@@ -39,7 +38,6 @@ const _sentPayloads: EmailMessage[] = [];
  * Import directly from this binding file in tests.
  */
 export function resetMockEmailProviderForTesting(): void {
-  _sentMessages.length = 0;
   _sentPayloads.length = 0;
 }
 
@@ -95,7 +93,6 @@ export class MockEmailProvider implements EmailProvider {
       ...(message.html !== undefined ? { html: message.html } : {}),
     };
     _sentPayloads.push(captured);
-    _sentMessages.push({ id });
 
     // Suppress unused-variable lint on sanitisedFrom (used for side-effect validation).
     void sanitisedFrom;

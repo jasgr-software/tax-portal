@@ -29,6 +29,15 @@ function getTransporter(): Transporter {
   const host = process.env["SMTP_HOST"] ?? "localhost";
   const port = parseInt(process.env["SMTP_PORT"] ?? "1025", 10);
 
+  // Allow insecure TLS only when explicitly opted-in via ALLOW_INSECURE_SMTP=true
+  // (set in docker-compose for the Mailhog catcher) or when the host is a known
+  // local dev target. Defaults to secure (rejectUnauthorized: true) for all other hosts.
+  const allowInsecureSmtp =
+    process.env["ALLOW_INSECURE_SMTP"] === "true" ||
+    host === "localhost" ||
+    host === "mailhog" ||
+    host === "mailcatcher";
+
   // No auth for Mailhog (it accepts all connections without credentials).
   // For a production SMTP relay that requires auth, the production drop-in
   // (ResendEmailProvider or a future authenticated SMTP binding) handles it.
@@ -41,7 +50,9 @@ function getTransporter(): Transporter {
     // Fail fast: if the connection cannot be established, surface the error
     // immediately rather than queuing and silently dropping messages.
     tls: {
-      rejectUnauthorized: false, // Mailhog has a self-signed cert in some configs
+      // Relax TLS validation only for local dev (Mailhog / mailcatcher hosts or
+      // explicit ALLOW_INSECURE_SMTP=true). Defaults to secure for all other hosts.
+      rejectUnauthorized: !allowInsecureSmtp,
     },
   });
 

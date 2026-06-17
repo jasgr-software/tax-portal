@@ -18,20 +18,20 @@
 // ─── Security helpers ─────────────────────────────────────────────────────────
 
 /**
- * Sanitise a single header field value by stripping CRLF characters.
+ * Guard a single header field value against CRLF injection.
  *
  * OWASP email header injection: an attacker who controls `to` or `subject`
  * could inject additional headers (e.g. `Bcc:`, `From:`) by embedding CR/LF.
- * This function strips those characters before the value reaches the mailer.
+ * This function throws `EmailHeaderInjectionError` if CR or LF is detected,
+ * refusing to pass the value to the mailer.
  *
  * Applied to: `to`, `subject`, and `from` (the three header-injectable fields).
  *
- * DECISION (TASK-003-002): Strip (not reject) for graceful handling; caller
- * receives the sanitised value. If the caller needs to detect injection, it can
- * compare the sanitised value against the original.
+ * DECISION (TASK-003-002): Throw (not strip) on detection — a value containing
+ * CR/LF is an injection attempt; the correct response is to refuse the send, not
+ * to silently alter the caller's input. Callers and tests rely on the throw contract.
  */
 export function stripHeaderInjection(value: string): string {
-  // Remove any CR (\r) and LF (\n) characters.
   // eslint-disable-next-line no-control-regex
   const sanitised = value.replace(/[\r\n]/g, "");
   if (sanitised !== value) {

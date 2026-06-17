@@ -6,49 +6,20 @@
  * AC-DOOR-005-03: Notifications are delivered to the accountant only.
  * AC-MSG-013-01:  Accountant receives a notification when a new service request is submitted.
  *
- * DECISION: Three operations, two pools:
- *   - createNotification: uses admin pool (app_admin_role, RLS-exempt).
- *     Rationale: notifications are generated as part of recording an anonymous submission
- *     (TASK-003-003 will call this from the portal submit action, which runs under the
- *     admin pool — the one sanctioned identity-less write pattern per ADR-003 §1/§6).
- *     The admin pool bypasses sec.pol_Notification's BLOCK predicates, so the INSERT
- *     succeeds. The request pool would fail the BLOCK predicate in any case.
+ * DECISION: Two operations, one pool:
  *   - listNotifications / markNotificationRead: use the request pool (db / SESSION_CONTEXT).
  *     Rationale: reads are accountant-context operations; sec.pol_Notification FILTER
  *     predicate enforces accountant-only visibility — a CLIENT or null SESSION_CONTEXT
  *     context sees ZERO rows (ADR-005, ADR-003).
  *
- * No @read_only on SESSION_CONTEXT (ADR-003 Amendment 1 — BUG-002-003).
+ * NOTE: createNotification was removed — TASK-003-003 inlined the INSERT directly into
+ * createEngagementRequest (packages/db/src/repositories/engagement-request.ts) using the
+ * admin pool there. No external call sites exist for a standalone createNotification function.
  *
- * Implementation note: uses raw mssql via getAdminPool() for createNotification, and
- * the Prisma `db` extended client for reads, consistent with the patterns in this package.
- * The Prisma client for reads is used here because Notification reads are always within
- * an authenticated request context (withRequestContext() / withClerkIdentity() in tests).
+ * No @read_only on SESSION_CONTEXT (ADR-003 Amendment 1 — BUG-002-003).
  */
 
-import mssqlPkg from "mssql";
-import { getAdminPool } from "../admin-connection.js";
 import { db } from "../client.js";
-
-const { Request: MssqlRequest } = mssqlPkg;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface CreateNotificationInput {
-  /** Notification type discriminator (e.g. 'new_engagement_request') — AC-MSG-013-01 */
-  type: string;
-  /** Short display title for the notification feed */
-  title: string;
-  /** Optional richer detail text */
-  body?: string | undefined;
-  /** FK → EngagementRequest (nullable for future non-request notification types) */
-  engagementRequestId?: string | undefined;
-}
-
-export interface CreateNotificationResult {
-  /** The newly created notification ID (UNIQUEIDENTIFIER as string) */
-  id: string;
-}
 
 export interface NotificationItem {
   id: string;
@@ -59,45 +30,6 @@ export interface NotificationItem {
   readAt: Date | null;
   engagementRequestId: string | null;
   createdAt: Date;
-}
-
-// ─── createNotification (admin pool — RLS-exempt INSERT) ───────────────────────
-
-/**
- * Creates a new Notification row.
- *
- * DECISION: Uses admin pool (app_admin_role, RLS-exempt) because notifications are
- * generated during anonymous engagement request submissions (TASK-003-003) — the one
- * sanctioned identity-less write path (ADR-003 §1/§6).
- *
- * The sec.pol_Notification BLOCK predicate guards AFTER INSERT on the request pool;
- * the admin pool bypasses it (IS_MEMBER('app_admin_role') = 1 branch).
- *
- * Returns {id} of the new notification row.
- */
-export async function createNotification(
-  input: CreateNotificationInput,
-): Promise<CreateNotificationResult> {
-  const pool = await getAdminPool();
-  const req = new MssqlRequest(pool);
-  req.input("type", input.type);
-  req.input("title", input.title);
-  req.input("body", input.body ?? null);
-  req.input("engagementRequestId", input.engagementRequestId ?? null);
-
-  const result = await req.query<{ id: string }>(
-    `INSERT INTO [dbo].[Notification]
-       ([type], [title], [body], [engagementRequestId])
-     OUTPUT INSERTED.[id]
-     VALUES (@type, @title, @body, @engagementRequestId)`,
-  );
-
-  const newNotification = result.recordset[0];
-  if (!newNotification) {
-    throw new Error("createNotification: INSERT did not return a row — unexpected SQL Server behavior");
-  }
-
-  return { id: newNotification.id };
 }
 
 // ─── listNotifications (request pool — subject to RLS) ────────────────────────

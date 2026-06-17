@@ -51,12 +51,13 @@
  * // and would return notifications to ANY caller — using the request pool is the correct,
  * // fail-closed pattern.
  *
- * // DECISION (TASK-003-005): Rate-limit key is 'admin:decision-email' keyed by accountant
- * // clerkUserId (not source IP) because: (a) this is an admin-initiated action, not a
- * // public endpoint; (b) the accountant is a single trusted user, so per-user keying
- * // is the meaningful boundary; (c) rate-limiting is anti-abuse for outbound email
+ * // DECISION (TASK-003-005): Rate-limit keys are 'admin:accept-email' and 'admin:decline-email',
+ * // each keyed by accountant clerkUserId (not source IP) because: (a) this is an admin-initiated
+ * // action, not a public endpoint; (b) the accountant is a single trusted user, so per-user
+ * // keying is the meaningful boundary; (c) rate-limiting is anti-abuse for outbound email
  * // (ADR-022), not brute-force auth protection. Using source IP would be overly restrictive
- * // if the accountant's IP changes (e.g., VPN). The same InMemoryRateLimiter singleton
+ * // if the accountant's IP changes (e.g., VPN). Separate keys prevent accept bursts from
+ * // starving the decline email budget (and vice versa). The same InMemoryRateLimiter singleton
  * // is reused (per ADR-022 §2 single-process constraint documented in the runbook).
  */
 
@@ -278,7 +279,7 @@ export async function acceptRequest(requestId: string): Promise<DecisionResult> 
   // Both acceptEngagementRequest and recordAuthEvent are bound to this transaction.
   // createInvitation runs inside the transaction (see DECISION above).
 
-  let ticket: string;
+  let ticket: string | undefined;
 
   try {
     await withAuditTransaction(async (txn) => {
@@ -319,7 +320,7 @@ export async function acceptRequest(requestId: string): Promise<DecisionResult> 
   revalidatePath(`/requests/${requestId}`);
 
   const rateLimiter = getRateLimiter();
-  const rateLimitKey = buildRateLimitKey(identity.clerkUserId, "admin:decision-email");
+  const rateLimitKey = buildRateLimitKey(identity.clerkUserId, "admin:accept-email");
   const rlResult = rateLimiter.consume(rateLimitKey);
 
   if (!rlResult.allowed) {
@@ -336,8 +337,16 @@ export async function acceptRequest(requestId: string): Promise<DecisionResult> 
 
   // Build the invitation email linking to the CLIENT surface sign-up (ADR-010)
   // AC-DOOR-007-02: invitation directs recipient to create their own account on the client surface.
+  if (!ticket) {
+    // createInvitation returned no ticket — this is unexpected and unrecoverable;
+    // the transaction committed but we cannot build the sign-up link.
+    throw new Error(
+      "[acceptRequest] createInvitation returned no ticket — cannot build invitation URL",
+    );
+  }
+
   const portalAppUrl = getPortalAppUrl();
-  const signUpUrl = `${portalAppUrl}/sign-up?ticket=${encodeURIComponent(ticket!)}`;
+  const signUpUrl = `${portalAppUrl}/sign-up?ticket=${encodeURIComponent(ticket)}`;
 
   const emailProvider = getEmailProvider();
   try {
@@ -454,7 +463,7 @@ export async function declineRequest(
   revalidatePath(`/requests/${requestId}`);
 
   const rateLimiter = getRateLimiter();
-  const rateLimitKey = buildRateLimitKey(identity.clerkUserId, "admin:decision-email");
+  const rateLimitKey = buildRateLimitKey(identity.clerkUserId, "admin:decline-email");
   const rlResult = rateLimiter.consume(rateLimitKey);
 
   if (!rlResult.allowed) {
