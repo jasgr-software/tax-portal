@@ -92,7 +92,7 @@ Close-prep done: consistency gate PASS; 7 task files + BUG-006-001 archived to `
 `brief-006-intake-questionnaire`; **reviewed lane** — application code → `/pr-review` panel). **`.orchestration/
 STATE.md` + `.planning/EPIC-002` reconciliation are out-of-slice docs-lane edits and must NOT enter this PR.**
 Next IO step after merge: **Close-finalize** (gate 8 post-merge CI; gate 9 N/A; append Post-Merge Addendum).
-**PR #: _pending_.**
+**PR #50** — https://github.com/jasgr-software/tax-portal/pull/50 (OPEN; base `main`; head `brief-006-intake-questionnaire`). Awaiting Conductor Review (`/pr-review 50`) → Fix → reviewed-lane merge → IO Close-finalize (gate 8).
 
 Prior delivered: PR #48 `f879da2` (EPIC-005 — opens Phase 2), PR #42 `ec151cb` (EPIC-003), PR #40 `70ea10e`
 (EPIC-002), PR #38 `0444551` (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) — all merged. **Phase 1 (MVP) complete;
