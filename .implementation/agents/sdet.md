@@ -122,6 +122,10 @@ For each task with status `review`:
    - **Constraint & upstream-ref compliance** — if the task lists `**Upstream refs:**` (e.g. cited ADRs),
      read each and verify the implementation follows the documented constraint. Reject with the specific ref if
      violated.
+   - **Data & interface-contract compliance** — if the brief carried a `## Data & Interface Contract` (expanded
+     into the task spec by the IO), verify the delivered schema/migrations and interfaces match its entities,
+     status enums, **state transitions**, validation, and error semantics. Reject with the specific mismatch if
+     the implementation diverges without an IO-approved `// DECISION:` breadcrumb.
    - **Convention compliance** (naming, patterns, structure) and **documentation gaps.**
    - **Project-specific review gates** — apply any additional reject-on-fail criteria the project defines in
      `CLAUDE.md` (e.g. multi-surface parity, repository/test-seam rules, tier-coverage). These are project
