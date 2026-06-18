@@ -83,6 +83,7 @@ export { getAdminPool, closeAdminPool } from "./admin-connection.js";
 // createEngagement            — admin pool write at accept-time (DECISION-A: clientUserId nullable)
 // getEngagementForClient      — request pool read (sec.pol_Engagement FILTER enforces client isolation)
 // getEngagementByRequestId    — request pool read by engagementRequestId
+// getMyEngagement             — no-arg request pool read (FILTER returns caller's own row; TASK-005-006)
 // recordLetterSignature       — admin-pool signature write (substrate/tests; bypasses BLOCK)
 // recordLetterSignatureAsClient — REQUEST POOL signature write (BLOCK-governed; production path)
 export type {
@@ -95,6 +96,7 @@ export {
   createEngagement,
   getEngagementForClient,
   getEngagementByRequestId,
+  getMyEngagement,
   recordLetterSignature,
   recordLetterSignatureAsClient,
   updateEngagementClientUserId,

@@ -47,6 +47,7 @@ import {
 import {
   withRequestContext,
   getEngagementForClient,
+  getMyEngagement,
   getCurrentLetterTemplate,
   recordLetterSignatureAsClient,
   recordAuthEvent,
@@ -107,6 +108,58 @@ export type SignEngagementLetterResult =
   | { success: false; error: string; refused?: boolean };
 
 // ─── Server Actions ───────────────────────────────────────────────────────────
+
+/**
+ * Return the onboarding read model for the authenticated CLIENT without a client-supplied id.
+ *
+ * This is the page-facing no-arg action: the page NEVER receives an id from the client.
+ * Engagement resolution is server-side, FILTER-governed (ADR-001/ADR-005).
+ *
+ * // DECISION (TASK-005-006): The onboarding page resolves the client's engagement by calling
+ * // getMyEngagement() under withRequestContext — no id from URL param, form data, or body.
+ * // sec.pol_Engagement FILTER returns only the caller's own row (fail-closed for non-owners).
+ * // In Phase 2 a client owns exactly one engagement (brief's out-of-scope fence on multi-
+ * // participant). This is the companion to getOnboardingAction(id) which is kept for -007 e2e.
+ *
+ * Also loads the current LetterTemplate content so the page can render the letter for review
+ * (AC-IDNT-007-03 UI surface) without a second round-trip.
+ *
+ * AC-ONBD-001-01: Returns exactly three ordered steps.
+ * AC-ONBD-001-02: Steps 2/3 are accessible: false when letterSignedAt is NULL.
+ * AC-ONBD-001-03: currentStep + remaining derived server-side.
+ * AC-IDNT-007-03: The accountant's edited template content is included for display.
+ * ADR-003: reads run under withRequestContext(CLIENT) so the FILTER predicate governs.
+ */
+export async function getMyOnboardingAction(): Promise<
+  | { success: true; data: OnboardingReadModel; letterContent: string }
+  | { success: false; error: string }
+> {
+  const identity = await getClientIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: CLIENT identity required" };
+  }
+
+  // Resolve engagement server-side via FILTER predicate — no client-supplied id.
+  const engagement = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    () => getMyEngagement(),
+  );
+
+  if (!engagement) {
+    // FILTER returned ZERO rows — not the owner, clientUserId not set, or no engagement exists.
+    return { success: false, error: "No active engagement found" };
+  }
+
+  const model = resolveOnboarding(engagement);
+
+  // Load the current letter template for the letter step display (AC-IDNT-007-03 UI).
+  // Admin pool read — safe for server-side display; content is auto-escaped at render.
+  const template = await getCurrentLetterTemplate();
+  const letterContent = template?.content ?? "";
+
+  return { success: true, data: model, letterContent };
+}
 
 /**
  * Return the onboarding read model for the authenticated CLIENT.

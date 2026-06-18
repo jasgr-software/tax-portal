@@ -127,6 +127,7 @@ type EngagementRow = {
  * Two findUnique overloads: by id and by engagementRequestId (@unique FK).
  * Prisma generates both as valid findUnique where clauses because both fields have
  * @id / @unique constraints in the schema.
+ * Also exposes findFirst (no-arg) for the getMyEngagement resolver.
  */
 function dbAsEngagementClient() {
   return db as unknown as {
@@ -135,6 +136,7 @@ function dbAsEngagementClient() {
         (args: { where: { id: string } }): Promise<EngagementRow | null>;
         (args: { where: { engagementRequestId: string } }): Promise<EngagementRow | null>;
       };
+      findFirst: (args?: { orderBy?: { createdAt: "asc" | "desc" } }) => Promise<EngagementRow | null>;
     };
   };
 }
@@ -300,6 +302,44 @@ export async function getEngagementByRequestId(
   const client = dbAsEngagementClient();
   const row = await client.engagement.findUnique({
     where: { engagementRequestId },
+  });
+
+  if (!row) return null;
+
+  return mapRow(row);
+}
+
+// ─── Read: getMyEngagement (request pool — no-arg, FILTER-governed) ──────────
+
+/**
+ * Returns the Engagement visible to the current SESSION_CONTEXT identity, with no
+ * caller-supplied id. In Phase 2 a CLIENT owns exactly one engagement.
+ *
+ * // DECISION (TASK-005-006): The client's engagement is resolved server-side under the
+ * // sec.pol_Engagement FILTER predicate — never from a client-supplied URL param, form
+ * // data, or body. The FILTER already scopes the query to the caller's own row(s);
+ * // findFirst returns that single row. In Phase 2 the brief's out-of-scope fence
+ * // (single primary participant per engagement) means at most one row is visible.
+ * // If the CLIENT has no engagement yet (clientUserId not yet back-filled — DECISION-A)
+ * // the FILTER returns ZERO rows → null (fail-closed). A non-owner or null
+ * // SESSION_CONTEXT also returns null (fail-closed, ADR-003 §5).
+ * //
+ * // This function is the minimal additive read needed by the onboarding page (TASK-005-006)
+ * // so the page never receives an id from the client. It mirrors the established FILTER
+ * // pattern already used by getEngagementForClient and getEngagementByRequestId.
+ *
+ * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+ *
+ * Returns null when:
+ *   - The CLIENT has no engagement (clientUserId not yet set — DECISION-A).
+ *   - The caller's SESSION_CONTEXT does not satisfy the FILTER predicate.
+ */
+export async function getMyEngagement(): Promise<EngagementItem | null> {
+  const client = dbAsEngagementClient();
+  // findFirst under the FILTER-governed request pool: returns the caller's own row.
+  // Phase 2: at most one Engagement is visible (one-per-client).
+  const row = await client.engagement.findFirst({
+    orderBy: { createdAt: "asc" },
   });
 
   if (!row) return null;
