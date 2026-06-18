@@ -4,6 +4,22 @@
 
 ---
 
+<!-- Swept at BRIEF-005 Plan-start (slice-start) transition (2026-06-18) -->
+
+### BRIEF-003 / EPIC-003 session entries — swept (delivered 2026-06-17, PR #42 → `ec151cb`)
+
+The full BRIEF-003 session log (IO Plan; SDET Reviews TASK-003-001 through -007; SDET Re-Review
+TASK-003-006 + BUG-003-001; SDET Container Smoke; SDET Validate gates 6 + 7 + Quality Audit) was swept
+here at BRIEF-005 Plan-start. **Headline:** 7 tasks + BUG-003-001 all `done`; 20/20 in-scope AC verified;
+container smoke PASS; gates 6 + 7 PASS; PR #42 squash-merged @ `ec151cb`; gate 8 post-merge CI green; gate 9
+N/A (`Brief-deploys: no`). Net-new delivered: `packages/email` SMTP seam (first email), `Notification` entity
++ accountant-only `sec.pol_Notification`. **Completed Phase 1 (MVP).** Full narrative detail retained in
+`RETRO-003.md` / `HANDOFF-003.md` and the BRIEF-003 task files in `tasks/done/`. The verbatim per-entry
+session text (previously below the `---` in the live PROGRESS) is preserved in git history at the BRIEF-003
+close commits; it is intentionally not re-duplicated line-for-line here to keep the archive scannable.
+
+---
+
 <!-- Swept at Close-prep→Close-finalize transition (2026-06-16) -->
 
 ### IO Close-finalize — BRIEF-002 — 2026-06-16 — SLICE DELIVERED

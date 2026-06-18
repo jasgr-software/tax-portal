@@ -10,55 +10,67 @@
 
 ## Current initiative
 
-_None active._ **BRIEF-003 / EPIC-003 DELIVERED** 2026-06-17 (PR #42 squash-merged to `main` @ `ec151cb`;
-gate 8 post-merge CI green — `CI` ✅ + `Code Quality` ✅; gate 9 N/A — `Brief-deploys: no`). Full cascade:
-Dispatch (7/7 + BUG-003-001) → Audit (0 blocking) → design scan (0 violations) → Smoke (PASS) → Validate
-(20/20 AC + required CI green) → Close-prep → Conductor `/pr-review 42` (advisory APPROVE; 0 blocker/major; 6
-minor + 2 nit) → `/pr-fix 42` (6 fixed, 3 dispositioned, threads resolved, `715f7f8`) → merge `ec151cb` →
-Close-finalize (gate 8 ✅). **20/20 in-scope AC verified.** Net-new: `packages/email` seam (first email) +
-`Notification` entity + accountant-only `sec.pol_Notification`. **Completes Phase 1 (MVP front-door spine):
-EPIC-001/004/002/003 all delivered.** Validate write-back via `/planning validate EPIC-003` (Conductor).
+**BRIEF-005 / EPIC-005 — Client onboarding spine + engagement-letter e-sign gate.** Phase: **Dispatch →
+TASK-005-001 done (SDET approved 2026-06-18); next: TASK-005-002 (e-sign seam) + TASK-005-003 (engagement creation on accept)**. **Branch:** `brief-005-onboarding-spine-engagement-letter` (created from `main` @ `97330ab`).
+**Gated:** yes. **Brief-type:** feature · **Brief-deploys:** no. **Opens Phase 2 (the onboarding gate).**
 
-<!-- prior phase detail (Close-prep → merged) retained in RETRO-003 + PROGRESS-ARCHIVE -->
-**Branch (delivered):** `brief-003-accountant-request-inbox` → `main` @ `ec151cb`. **Gated:** yes.
-**Brief-type:** feature · **Brief-deploys:** no. **Goal:** close the front-door loop — notify the accountant
-of a new engagement request, let her review it, and accept (→ invitation email tied to the request) or decline
-(→ reason email + retention). 20 in-scope AC. **Methodology:** gherkin (epic's 20 scenarios) · e2e-required
-(`apps/admin`) · tier-3 RLS/decision invariants · container smoke.
+**Goal:** stand up the onboarding spine + its first hard gate. On request acceptance (EPIC-003), a minimal
+**`Engagement`** is created in status `New`, linked 1:1 to the accepted `EngagementRequest` and resolved to the
+client `User` (the **first client-owned rows**). The signed-up client opens their engagement in `apps/portal`,
+sees a **three-step onboarding sequence** (letter e-sign → questionnaire → document upload) with steps 2+3
+**server-side-locked** until the engagement letter is **e-signed** (through a **mock `ESignatureProvider`
+seam**, ADR-023/024). On signature the letter is recorded against the engagement + audited and the later steps
+unlock. The accountant edits the engagement-letter template (from a system default) in `apps/admin`; her edited
+content is what the client signs. **10 in-scope AC.**
 
-**Task list (7, dependency-ordered):**
+**Methodology:** gherkin (bind the epic's 10 scenarios) · **e2e-required** (`apps/portal` + `apps/admin`, +
+`e2e:cross-app` for the edit→sign cross-surface path) · tier mapping per ADR-012 (tier-6 e2e / tier-3 service
+integration / tier-2/5 unit-component) · **first client-owned-rows ADR-005 client-isolation policy (HARD
+tier-3)** · container smoke before Validate.
+
+**Tier map (from brief / epic sign-off contract):**
+- **e2e (tier 6):** AC-ONBD-001-01/-03, AC-ONBD-002-03, AC-IDNT-007-03.
+- **service integration (tier 3):** AC-ONBD-001-02, AC-ONBD-002-01/-02, AC-ONBD-002-04, + the new
+  client-isolation policy test (ADR-005).
+- **unit/component (tier 2/5):** AC-IDNT-007-01/-02, AC-ONBD-001-03 (progress rendering).
+
+**Task list (8, dependency-ordered):**
 | Task | Status | Impl | AC | Notes |
 | ---- | ------ | ---- | -- | ----- |
-| TASK-003-001 schema + RLS (Notification + decision fields + accountant-only notification policy) | done | developer | DOOR-005-03, DOOR-006-04 (DB), DOOR-008-04 (col) | Introduces-gate: yes (notification RLS) — SDET APPROVED 2026-06-17T06:15:00Z |
-| TASK-003-002 `packages/email` seam (SMTP/Mailhog) | done | developer | none (infra) | Introduces-gate: advisory; OQ-002 raised — SDET APPROVED 2026-06-17T06:55:00Z |
-| TASK-003-003 notification generation (cross-surface portal→admin) | done | developer | DOOR-005-01/-02, MSG-013-01 | touches both surfaces — SDET APPROVED 2026-06-17T06:58:00Z |
-| TASK-003-004 request inbox UI (admin) | done | developer | DASH-011-01/-02/-03, DOOR-006-01 | mirror EPIC-002 `services` — SDET APPROVED 2026-06-17T06:50:00Z |
-| TASK-003-005 decision actions (accept→invite+email, decline→reason+email) | done | developer | DOOR-006-02/-03/-04/-05, DOOR-007-01/-02/-03/-04, DOOR-008-01/-02/-03/-04 | decide-once + audit + rate-limit — SDET APPROVED 2026-06-17T11:09:00Z |
-| TASK-003-006 e2e + gherkin + Mailhog | done | developer | DOOR-005-02, 006-01/-02/-03, 007-01, 008-01/-02/-04, DASH-011-* | E2e-required; Introduces-gate: advisory (email e2e) — SDET APPROVED 2026-06-17T14:05:00Z (BUG-003-001 fix verified: 3× 30/30 zero-flake) |
-| TASK-003-007 @demo gallery | done | developer | none (non-gating) | docs/demos/EPIC-003/ — SDET APPROVED 2026-06-17T20:30:00Z |
+| TASK-005-001 schema (Engagement + onboarding-state + LetterTemplate) + client-isolation RLS policy + tier-3 isolation tests | done | developer | ONBD-001-02/002-01/002-02/002-04 (DB layer) | **Introduces-gate: yes** (FIRST client-owned-rows `sec.pol_Engagement` — three-item evidence: CLIENT-A≠CLIENT-B, anon=ZERO, ACCOUNTANT=all) — SDET APPROVED 2026-06-18T08:15:00Z |
+| TASK-005-002 `packages/esign` provider seam (port + mock binding + fail-closed selector) | backlog | developer | none (infra) | **Introduces-gate: advisory**; ADR-023/024 §1 — default real, `ALLOW_MOCK_ESIGN` non-prod opt-in; mirror auth `select.ts` (inverted default) |
+| TASK-005-003 engagement creation on accept (extend EPIC-003 `acceptRequest`) + client-link resolution | backlog | developer | ONBD-001-01 (substrate) | additive to EPIC-003 accept; create Engagement(New) + onboarding-state in the existing audit transaction |
+| TASK-005-004 letter-template setting UI + actions (admin) — default present, edit persists | backlog | developer | IDNT-007-01/-02 | `apps/admin`; accountant-principal write via `withRequestContext`; system default seeded |
+| TASK-005-005 onboarding read model + server-side step-accessibility gate + sign action (portal) | backlog | developer | ONBD-001-01/-02/-03, ONBD-002-01/-02/-03/-04, IDNT-007-03 | `apps/portal`; client-principal; sign via `ESignatureProvider` port; record evidence + audit; locked step **refused** not hidden |
+| TASK-005-006 onboarding sequence UI (portal) — three steps, locked affordances, position/remaining | backlog | developer | ONBD-001-01/-03 | `apps/portal`; renders read model from -005; presents edited template at letter step |
+| TASK-005-007 e2e + gherkin binding + cross-app (both surfaces) | backlog | developer | ONBD-001-01/-03, ONBD-002-03, IDNT-007-03 (+ cross-app edit→sign) | **E2e-required; Introduces-gate: advisory** (e-sign mock e2e); bind epic's 10 gherkin scenarios |
+| TASK-005-008 @demo gallery (admin edit + portal sign→unlock) | backlog | developer | none (non-gating) | docs/demos/EPIC-005/ |
 
-**Plan artifacts:** design-coherence check PASS; OQ-002 (email-transport ADR) **raised-upstream** to
-`.architecture/` (non-blocking — proceeding on the proposed `packages/email` seam default); reuse of the
-existing `pol_EngagementRequest` read boundary (EPIC-001), the `createInvitation` seam + audit + RateLimiter
-(EPIC-004), and the `packages/db` request-pool wrapper + `sec` predicate pattern (EPIC-001/002).
+**Plan artifacts:** design-coherence check **PASS**; full field-level expansion of the brief's `## Data &
+Interface Contract` recorded in the Plan session entry below + bound into the task specs. **No new
+OPEN-QUESTION raised** — the e-sign seam is fully governed by ADR-023 + ADR-024 (both **Accepted**); the
+REQ-AUTH-003 *feature*-AC boundary is already a planning-flagged note in the brief/epic (Phase-3-owned), not an
+IO decision. Reuse surveyed in-repo: `packages/db` `withRequestContext` + `$extends` SET hook + `sec`
+predicate/FILTER-BLOCK policy pattern (`db/policies/0001`/`0004`); the audit seam
+(`recordAuthEvent`/`withAuditTransaction`); the EPIC-003 `acceptRequest` action; `packages/auth` `select.ts`
+fail-closed selector (the e-sign selector mirrors it with the **inverted** default — real-first); `packages/email`
+seam shape; the portal `getAccountantIdentity()` pattern (new portal `getClientIdentity()` mirror).
 
-**Phase-1 epic status:** EPIC-001 ✅ · EPIC-004 ✅ · EPIC-002 ✅ — **all delivered**. EPIC-003 is the last
-Phase-1 epic, now in build.
+**Phase-2 epic status:** EPIC-005 (this slice) opens Phase 2; EPIC-006/007/008 planned, decomposed. Phase 1
+(EPIC-001/004/002/003) all delivered.
 
-**Carried-forward follow-ups (from BRIEF-002 Close-finalize — see `RETRO-002.md` § Post-Merge Addendum for
-full detail):** (1) infra clean-volume DB bootstrap (single root family; new BRIEF-002 manifestation = the
-`sqlserver` healthcheck SA-password-vs-volume mismatch); (2) CI/lint grep-guard for stray
-`sp_set_session_context` outside `client.ts` (panel-dispositioned); (3) pre-existing EPIC-001 `fn_service_access`
-CLIENT read-branch tightening (panel-dispositioned); (4) comment-only `service.rls.test.ts` `@read_only`/§4
-drift (rides the next `packages/db` task); (5) EPIC-004 RATE_LIMIT `.env.example` vars — user-walled, user
-applies. These also live in `## Open retro action items` below.
+**Carried infra follow-ups (from prior retros / STATE — may resurface at Smoke, not slice-blocking):**
+clean-volume DB bootstrap; the `sqlserver` healthcheck SA-password mismatch; the `sp_set_session_context` CI
+grep-guard; comment-only `service.rls.test.ts` `@read_only`/§4 drift (rides the next `packages/db` task — and
+TASK-005-001 touches `packages/db`, so it is the natural carrier). These also live in `## Open retro action
+items` below.
 
 ## Awaiting PR merge
 
-_Empty._ **BRIEF-003 / EPIC-003 finalized + delivered** (PR #42 squash-merged @ `ec151cb`, gate 8 post-merge
-CI green; gate 9 N/A) — cleared at Close-finalize (2026-06-17). Prior: PR #40 `70ea10e` (EPIC-002), PR #38
-`0444551` (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) — all delivered. **Phase 1 (MVP) complete.** Slice-start
-gate clear; no Phase-2 brief in hand yet (`.planning/` Phase 2 = onboarding gate, to decompose).
+_Empty._ Slice-start gate **clear** for BRIEF-005 (verified at Plan-start 2026-06-18). Prior delivered: PR #42
+`ec151cb` (EPIC-003), PR #40 `70ea10e` (EPIC-002), PR #38 `0444551` (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) —
+all merged. **Phase 1 (MVP) complete.** BRIEF-005 (Phase-2 onboarding spine) now in build on
+`brief-005-onboarding-spine-engagement-letter`.
 
 ## Active bugs
 
@@ -84,13 +96,9 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ## Open retro action items
 
-> The TASK-004-007 item below is now **resolved this slice** (the `$extends` regression test landed). The
-> remaining items carry forward as observations. Three new carried follow-ups recorded in `HANDOFF-004.md`.
+> Carried observations below (RESOLVED items pruned at BRIEF-005 Plan-start: TASK-004-007 `$extends`
+> propagation test + BUG-003-001 RATE_LIMIT `.env.example` vars — both landed in delivered slices).
 
-- **[RESOLVED — TASK-004-007, this slice] `client.ts` `$extends` SESSION_CONTEXT propagation untested** — the
-  regression test (`packages/db/src/session-context.propagation.test.ts`, 4 live-container tests) now proves
-  identity+role are set before the first real query on the authenticated accountant path. Closes the carried
-  EPIC-001 retro item.
 - **[CI — carried, now actionable] `test-portal` job lacks a `packages/**` build step** — graduate
   `test-portal` to required only after adding `pnpm -r --filter './packages/**' build --if-present` (HANDOFF-004
   follow-up #3; the `@tax-portal/ui` failures pre-date EPIC-004, run `27568768517`; EPIC-004 extends the pattern
@@ -100,8 +108,6 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 - **[gated-path candidate — carried] ESLint import boundary covers only `requestDb`, not `adminDb`** — consider
   extending `packages/eslint-config` to also restrict `adminDb` imports outside sanctioned admin paths.
   (Observation; moved with the deferred Clerk-binding scope to the 2FA-enablement slice.)
-- **[env — RESOLVED BUG-003-001] `.env.example` RATE_LIMIT vars** (`RATE_LIMIT_MAX_ATTEMPTS=10`, `RATE_LIMIT_WINDOW_MS=60000`)
-  — previously permission-walled; **resolved by BUG-003-001 fix**: both vars documented in `.env.example`; docker-compose.yml defaults to 100 for portal + admin (prevents e2e exhaustion without user action).
 - **[demo — carried] EPIC-001 engagement-demo `localhost:1433` flake** — pre-existing, transient/timing
   (HANDOFF-004 follow-up #6).
 - **[metric-integrity — BRIEF-002 Audit Obs 2] `Started-at` midnight-sentinel placeholder** — TASK-002-003 AND
@@ -137,262 +143,55 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ---
 
-### SDET Validate — Gate 6 (Acceptance-validation) — BRIEF-003 / EPIC-003 — 2026-06-17T22:00:00Z
-**Start:** Validate phase — cross-referencing all 20 in-scope AC against delivered tests (gherkin methodology, e2e-required). Reading brief, epic, all test files, and feature file.
+### IO Plan — BRIEF-005 / EPIC-005 — 2026-06-18
+**Start:** New slice (Phase-2 opener). Conductor handed `.implementation/briefs/BRIEF-005-onboarding-spine-engagement-letter.md` (10 AC, gherkin, e2e-required both surfaces; the FIRST brief carrying a `## Data & Interface Contract`). Slice-start gate clear (`## Awaiting PR merge` empty; no active bugs; retro items all dispositioned observations). Ran Plan: Ingest → Clarify → Design (incl. full field-level contract expansion) → Decompose.
+**Phase-transition reflex (slice-start):** swept the BRIEF-003 session entries to `PROGRESS-ARCHIVE.md` under a Plan-start marker; rewrote `## Current initiative` for BRIEF-005 (8 tasks, tier map, reuse survey); refreshed `## Awaiting PR merge`; pruned the resolved RATE_LIMIT/`$extends` retro items; appended this entry.
+**Docker pre-flight:** PASS — `docker info` → 29.4.1 up (main session pre-verified; IO re-confirmed).
+**Context pre-flight:** `/compact` — the Conductor handed this invocation fresh; the IO requests the user run `/compact` before the first Dispatch turn if context pressure appears.
+**Branch:** `brief-005-onboarding-spine-engagement-letter` created from `main` @ `97330ab`.
+
+**Ingest / Clarify — 10 AC all testable, traced to scenarios + tiers:**
+- REQ-ONBD-001 (3 ordered steps): AC-ONBD-001-01 (e2e), -02 (tier-3 server-side sequencing), -03 (e2e + tier-2 progress).
+- REQ-ONBD-002 (letter hard gate): AC-ONBD-002-01/-02 (tier-3 server-side lock), -03 (e2e sign→unlock), -04 (tier-3 evidence recorded).
+- REQ-IDNT-007 (editable default template): AC-IDNT-007-01/-02 (tier-2/5 default present + edit persists), -03 (e2e edited template shown to client).
+- Methodology recorded: gherkin (bind epic's 10 scenarios; prose-bind until Cucumber tooling lands, per CLAUDE.md) · e2e-required both surfaces + `e2e:cross-app` for edit→sign · extra gates: ADR-005 client-isolation (HARD tier-3), server-side gate enforcement (tier-3), signed-evidence+audit (tier-3), e-sign mock-first fail-closed seam, SESSION_CONTEXT on all reads/writes, cross-surface validate, container smoke.
+
+**Design — full field-level expansion of the brief's `## Data & Interface Contract` (binding ref for developers; bound into TASK-005-001/-002/-003/-005 specs):**
+- **`Engagement` (NEW, dbo, RLS-covered):** `id UNIQUEIDENTIFIER PK NEWSEQUENTIALID()`; `engagementRequestId UNIQUEIDENTIFIER NOT NULL UNIQUE` FK→`EngagementRequest` (1:1, `onDelete: NoAction`); `clientUserId UNIQUEIDENTIFIER NULL` FK→`User` (**nullable** — the engagement is created at accept-time *before* the prospect signs up; resolved/back-filled at sign-up — see DECISION-A); `status NVARCHAR(20) NOT NULL DEFAULT 'New'` (∈ {`New`,`In Progress`}; created `New`, never transitioned this slice); `createdAt/updatedAt DATETIMEOFFSET` (ADR-002 conventions). **Client-owner identity** for the isolation predicate resolves `SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id = Engagement.clientUserId`.
+- **Onboarding state — DECISION-B: discrete columns on `Engagement`** (not a separate table; Phase-2 minimal, one letter gate + a 3-step sequence whose only dynamic state is letter-signed): `letterSignedAt DATETIMEOFFSET NULL` (NULL = unsigned; non-null = signed → the gate-open signal); `letterSignatureEvidence NVARCHAR(MAX) NULL` (the mock provider's deterministic signed-evidence JSON — AC-ONBD-002-04); `letterTemplateSnapshot NVARCHAR(MAX) NULL` (the template content captured at sign time, so later template edits never retro-change a signed letter — DECISION-C). Current step / "what remains" is **derived** server-side from `letterSignedAt` + the fixed 3-step order, not stored (no drift risk).
+- **`LetterTemplate` (NEW, dbo, accountant-owned — NOT client-readable):** single-current-row model (**DECISION-D: single row, not versioned** — Phase 2 needs only "the current template"; versioning is a later concern). `id UNIQUEIDENTIFIER PK`; `content NVARCHAR(MAX) NOT NULL`; `isSystemDefault BIT NOT NULL DEFAULT 0` (the seeded default row flips to 0 semantics once edited — or simply: edit overwrites `content` and clears the default marker); `updatedBy NVARCHAR(64) NULL` (accountant clerkId); `createdAt/updatedAt DATETIMEOFFSET`. **System default seeded** via the raw-SQL/seed path so AC-IDNT-007-01 holds out-of-box. Editing = UPDATE the single row under the accountant principal (AC-IDNT-007-02). The client signs `LetterTemplate.content` as it stands at sign time (AC-IDNT-007-03) — snapshotted into `Engagement.letterTemplateSnapshot`.
+- **`sec.fn_engagement_access(@engagementId)` + `sec.pol_Engagement` (NEW — FIRST client-owned-rows policy):** mirrors `0001`/`0004` ITVF+SCHEMABINDING+FILTER/BLOCK shape, but **adds the live CLIENT-ownership branch** the prior policies stubbed out: (1) `IS_MEMBER('app_admin_role')=1` → pass; (2) `SESSION_CONTEXT('role')='ACCOUNTANT'` → pass (all); (3) **CLIENT branch:** `EXISTS (SELECT 1 FROM dbo.[User] u WHERE u.clerkId = CAST(SESSION_CONTEXT('clerk_user_id') AS NVARCHAR(64)) AND u.id = <row>.clientUserId)` → pass only own rows; null SESSION_CONTEXT → all branches fail → ZERO (fail-closed). FILTER + BLOCK(AFTER INSERT/BEFORE+AFTER UPDATE/BEFORE DELETE). New policy file `db/policies/0005-engagement-policy.sql`. **HARD tier-3 evidence (three-item gate):** CLIENT-A-cannot-read-CLIENT-B; anonymous/null reads ZERO; ACCOUNTANT reads all.
+- **`ESignatureProvider` port (NEW `packages/esign` — ADR-023/024 §1):** narrow surface — `createSignatureRequest({ engagementId, letterContent, signer: { clerkUserId, email } }): Promise<SignatureRequest>` and `verifyCompletion(ref): Promise<SignatureCompletion>` where `SignatureCompletion = { signed: true, signedAt, evidence } | { signed: false }`. `bindings/mock.ts` returns a deterministic `signed: true` + evidence blob (faithful-to-behavior, not security — ADR-023 §6). `select.ts` keyed on `ESIGN_PROVIDER`, **fail-closed, real-binding default** (inverts the auth selector's mock-default): the mock is selectable **only** with `ALLOW_MOCK_ESIGN=true` (non-prod opt-in; `ESIGN_PROVIDER=docuseal` + `ALLOW_MOCK_ESIGN=true` is a contradiction throw, same as auth). `bindings/docuseal.ts` is a deferred stub that throws if selected (real enablement is a later slice). Onboarding depends only on the port.
+- **Onboarding read/accessibility contract:** a server-side `getOnboarding(engagementId)` (client principal, `withRequestContext`) returns the 3 steps + per-step `accessible: boolean` + current position, derived from `letterSignedAt`. A locked step's action is **refused server-side** (the sign action + any step-2/3 entry point check `letterSignedAt != null` before acting — not merely a hidden link), satisfying AC-ONBD-001-02 / -002-01/-02 at tier-3.
+- **`// DECISION:`s for developers (recorded here, to appear in code):** **DECISION-A** Engagement created at accept-time with `clientUserId = NULL`, resolved at the EPIC-004 sign-up path by matching the invitation ticket → request → engagement and back-filling `clientUserId` (sign-up already runs the audit transaction; the back-fill rides it). **DECISION-B** onboarding-state as columns on `Engagement`. **DECISION-C** snapshot template content at sign time. **DECISION-D** single-row `LetterTemplate`. **DECISION-E** e-sign selector default = real / fail-closed via `ALLOW_MOCK_ESIGN` (NOT NODE_ENV — the BUG-002-001 generalization).
+- **Reuse (surveyed live):** `packages/db` `withRequestContext`+`$extends` SET hook + barrel; `sec` ITVF FILTER/BLOCK pattern (`0001`/`0004`); `recordAuthEvent`/`withAuditTransaction` (audit); EPIC-003 `acceptRequest` (`apps/admin/.../requests/actions.ts`, extended additively); `packages/auth` `getAuthProvider`/`getIdentity` + the admin `getAccountantIdentity()` shape (new portal `getClientIdentity()` mirror); `packages/email`/`packages/auth` `select.ts` as the e-sign selector template (inverted default); Prisma Track-A + raw-SQL Track-B migration discipline (ADR-002).
+
+**Architecture posture:** **No new OPEN-QUESTION.** ADR-023 (provider-seam/mock-first) + ADR-024 (Docuseal-behind-seam) are both **Accepted** and govern the e-sign seam end-to-end — the Conductor confirmed no consult needed. The REQ-AUTH-003 *feature*-AC boundary (client-data RLS AC owned in Phase 3) is already a planning-flagged note in the brief + epic; the isolation *mechanism* + its per-policy test land here — this is upstream's stated intent, not an IO invention, so nothing is raised.
+
+**Design-coherence check vs. brief: PASS.** Every in-scope AC maps to a task + tier; the mock-first fail-closed e-sign seam, the first client-isolation policy + its HARD three-item test, server-side gate enforcement, signed-evidence+audit, SESSION_CONTEXT on both principals, and the two-surface split (portal onboarding / admin template) are all bound into task specs. Out-of-scope (lifecycle pipeline, questionnaire/upload internals, real Docuseal, multi-participant signing, AUTH-003 feature AC) explicitly fenced.
+
+**Decompose:** 8 tasks, dependency-ordered (see task table above). 001 introduces the gate (`yes` — first client-owned-rows policy, three-item evidence); 002 + 007 advisory (e-sign seam / mock e2e). All `Impl: developer` (each touches multiple files / real debugging expected — none qualifies for `Impl: io`). All carry `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`, `E2e-required`, `Brief-deploys: no`.
+**End:** Plan exit condition met — branch created, 8 task files at `backlog` with all required fields, methodology + tier map recorded, full Data-&-Interface-Contract expansion bound into specs, design-coherence PASS, PROGRESS.md `## Current initiative` populated. → **Dispatch** (TASK-005-001 first; dependency-free root: schema + first client-isolation policy + tier-3 isolation tests).
+
+### SDET Review — BRIEF-005 / TASK-005-001 — 2026-06-18
+**Start:** Independent review of TASK-005-001 (Engagement schema + RLS policy + tier-3 isolation tests). Developer-implemented; `Introduces-gate: yes` (FIRST client-owned-rows policy). Three load-bearing review concerns per the dispatch: (1) Gate-Authoring three-item evidence, (2) independent re-run of the tier-3 isolation suite against the real SQL Server container, (3) Data-&-Interface-contract compliance.
 **Actions:**
-- Read ENGINE.md, sdet.md, BRIEF-003, EPIC-003 (acceptance scenarios), PROGRESS.md.
-- Read e2e specs: request-inbox.spec.ts, request-accept.spec.ts, request-decline.spec.ts.
-- Read unit/integration tests: actions.test.ts (admin), notifications.test.ts, inbox.test.tsx, portal/request/actions.test.ts, engagement-request.persistence.test.ts, notification.rls.test.ts, engagement-request.decide-boundary.rls.test.ts, invitation-provenance.test.ts.
-- Read feature file: apps/admin/e2e/features/request-inbox.feature (20 scenarios verbatim-transcribed from EPIC-003, tagged with tier and AC ids).
-- Confirmed: Cucumber tooling not yet landed — validated prose-vs-implementation as mandated by CLAUDE.md § Executable gherkin tooling. Feature file is the human-readable binding; Playwright .spec.ts files are the executable tests.
-- Built AC-by-AC traceability table (see SDET Validate text report).
-- Confirmed SDET independent 3× zero-flake e2e run evidence from TASK-003-006 re-review (30/30 × 3 runs). Gate 6 verdict: PASS — all 20 AC have passing tagged tests at prescribed tiers.
-**End:** Gate 6 PASS. Proceeding to Gate 7 (CI gate).
+- Mandatory checklist: all boxes pass. `Complexity-actual=4` (integer 1–5). `Started-at`/`Complexity-estimate` populated. Dispatch-Checkpoint pre-impl entry present. Required task-spec fields (`**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`) all present.
+- Docker pre-flight: PASS — Docker 29.4.1, `tax-portal-sqlserver` Up 47 hours (unhealthy SA healthcheck — carried retro item, non-blocking; DB fully operational via `taxportal_admin`/`taxportal_user` principals as confirmed by test runs).
+- **Independent isolation suite re-run** (`pnpm --filter @tax-portal/db test -- src/engagement.client-isolation.rls.test.ts`): **6/6 PASS** against real container. All three ADR-005 §6 HARD tests pass: CLIENT-A positive, CLIENT-B ZERO, anon ZERO, ACCOUNTANT all, BLOCK write boundary (rowsAffected=0 + admin read-back unchanged). Admin-pool sanity check PASS.
+- **Independent persistence suite re-run** (`pnpm --filter @tax-portal/db test -- src/engagement.persistence.test.ts`): **9/9 PASS**. Full suite: **12 files, 65 tests, 0 failures** (matches developer's reported run exactly).
+- **Gate-Authoring three-item evidence:** (1) Run marker — test names in Work Log reproduced verbatim; independently confirmed. (2) Named code path — `sec.fn_engagement_access` CLIENT-ownership EXISTS branch + FILTER/BLOCK predicates in `db/policies/0005-engagement-policy.sql`; live container query confirms `SQL_INLINE_TABLE_VALUED_FUNCTION` (ITVF, correct) and 5 predicates deployed. (3) Counterfactual — three distinct regression paths named; specific and convincing.
+- **Data-&-Interface-contract compliance:** Live schema queried via sqlcmd against `tax_portal` DB. All 9 `Engagement` columns present with correct types and nullability (contract match). All 6 `LetterTemplate` columns present (contract match). `sec.pol_Engagement` present, `is_enabled=1`, 5 predicates (FILTER + 4 BLOCK). UNIQUE constraint on `engagementRequestId`, both FKs confirmed. Default template seeded (1 row). Migration file is well-formed and matches live schema — no drift detected.
+- **ADR-003 Amendment 1:** No `@read_only=1` in any live `sp_set_session_context` call in new code. Test helpers use `@read_only=0` throughout. Stale comments in `service.rls.test.ts`/`session-context.propagation.test.ts` are the pre-existing carried Obs 3 items — non-blocking.
+- **ADR-006:** No app surface code leaked (`apps/portal`/`apps/admin` untouched).
+- **Non-blocking observation recorded in task SDET Notes:** `recordLetterSignature` uses admin pool in this substrate slice; BLOCK predicate independently tested via raw request pool in isolation suite; TASK-005-005 owns the real signed request-pool path.
+- **Atomic close-edit:** SDET Review box ticked; `## SDET Review` Decision=approved + Notes filled; approval breadcrumb appended to Work Log; `Status: review → done`; `Completed-at: 2026-06-18T08:15:00Z`.
+**End:** TASK-005-001 **APPROVED**. TASK-005-001 status → `done` in task table below. → IO: next dependency-order dispatch (TASK-005-002 e-sign seam and/or TASK-005-003 engagement-creation-on-accept).
 
-### SDET Validate — Gate 7 (CI gate) — BRIEF-003 / EPIC-003 — 2026-06-17T22:05:00Z
-**Start:** CI gate — run ID 27696675400 on branch `brief-003-accountant-request-inbox`.
+### IO Dispatch/Review — BRIEF-005 / TASK-005-001 returned → SDET review — 2026-06-18
+**Start:** TASK-005-001 (developer-implemented, dependency-free root) returned from the webapp-developer at `Status: review`, Complexity-actual 4; lint/type-check/build green, `@tax-portal/db` 12 files / 65 tests pass. It **introduces the FIRST client-owned-rows gate** (`sec.pol_Engagement`) and is the first task to carry a `## Field-level contract`.
 **Actions:**
-- Polled `gh run watch 27696675400 --exit-status` to completion.
-- All 4 jobs completed:
-  - `lint-and-typecheck` (required) — SUCCESS (1m7s). Steps: pnpm lint PASS, pnpm type-check PASS, validate-gates.sh PASS.
-  - `security-scan` (required) — SUCCESS (1m57s). Steps: pnpm audit (high+critical) PASS, CodeQL PASS.
-  - `test-admin` (advisory, continue-on-error) — SUCCESS (1m20s). `pnpm --filter admin test` PASS.
-  - `test-portal` (advisory, continue-on-error) — SUCCESS (1m20s). `pnpm --filter portal test` PASS.
-- Run URL: https://github.com/jasgr-software/tax-portal/actions/runs/27696675400
-- Overall workflow conclusion: success.
-**End:** Gate 7 PASS. Both required checks (`lint-and-typecheck`, `security-scan`) green. Advisory checks (`test-admin`, `test-portal`) also green — no regression on either surface. Proceeding to Quality audit.
-
-### SDET Validate — Quality Audit — BRIEF-003 / EPIC-003 — 2026-06-17T22:10:00Z
-**Start:** Quality parity audit — scanning integrated slice for gaps missed by per-task reviews.
-**Actions:**
-- E2e infrastructure parity: both `apps/portal` and `apps/admin` have e2e config + `e2e:run` scripts (CLAUDE.md § Platform-frontend scope). PASS.
-- Brief mandated e2e for apps/admin only — portal surface not in scope for this slice's e2e; pre-existing portal e2e coverage from EPIC-001/004. PASS.
-- No coverage_target set in brief — no coverage rejection. PASS.
-- Test-only surface: `/api/test/` removed by BUG-003-001 fix — only `/api/mock-session` present. Confirmed by filesystem check (`ls apps/admin/src/app/api/` → `mock-session` only). PASS.
-- RLS fail-closed: `sec.pol_Notification` FILTER predicate verified zero-rows on null SESSION_CONTEXT in `notification.rls.test.ts`. `sec.pol_EngagementRequest` BLOCK predicate verified 0 rows affected for CLIENT/null in `engagement-request.decide-boundary.rls.test.ts`. PASS.
-- No client-assertable role: `getAccountantIdentity()` in `actions.ts` evaluates role from server-side session; DB BLOCK predicate is second layer. PASS.
-- Email header-injection guard: `stripHeaderInjection()` applied to `to`, `subject`, `from` in SMTP binding; throws `EmailHeaderInjectionError` on CRLF — confirmed in `packages/email/src/port.ts` and `smtp.ts`. PASS.
-- Decide-once invariant: `WHERE status IN ('pending','awaiting_review')` + `@@ROWCOUNT=0 → AlreadyDecidedError` in both `acceptEngagementRequest` and `declineEngagementRequest`. Proven at tier-3 (boundary RLS test for BLOCK predicate) and tier-2 (AlreadyDecidedError propagation test in actions.test.ts). PASS.
-- Rate-limit invariant: `getRateLimiter().consume()` called after transaction commit; on exhausted → decision committed, email skipped, `{ success: true, emailSent: false }` returned. Tested in actions.test.ts; `RATE_LIMIT_MAX_ATTEMPTS=100` in docker-compose.yml prevents e2e exhaustion (BUG-003-001). PASS.
-- Audit trail: `recordAuthEvent` called inside `withAuditTransaction` for both accept and decline. Not written on AlreadyDecidedError or unauthorized. PASS.
-- SESSION_CONTEXT on all inbox reads + writes: `withRequestContext` wrapper used throughout; `adminDb` absent from read functions confirmed at TASK-003-004 review; existing session-context.propagation.test.ts carries coverage. PASS.
-- Overwatch advisory findings:
-  - Midnight-sentinel/chronological-inversion metadata: not a BRIEF-003 issue; carried retro observation. Not a blocker.
-  - service.rls.test.ts comment-drift: comment-only, not a behavior defect. Not a blocker.
-  - portal submit.spec.ts notification-assertion gap: notification existence not asserted at e2e tier in portal submit spec; covered at tier-3 in engagement-request.persistence.test.ts and tier-2 in portal/request/actions.test.ts. The brief's tier map places AC-DOOR-005-01 at tier-3, not e2e — no gap against the brief's contract. Not a blocker.
-- Convention compliance: ADR-006 (inbox admin-only), ADR-003 Amendment 1 (no @read_only), ADR-005 (policies in db/policies/), ADR-019 (audit via recordAuthEvent/withAuditTransaction), ADR-022 (RateLimiter port) — all verified at task reviews. PASS.
-- Submission-gate parity: both `pnpm --filter portal test` and `pnpm --filter admin test` listed in CLAUDE.md. PASS.
-**End:** Quality audit PASS — no blocking gaps found in the integrated slice. All 3 Validate gates PASS. Reporting to IO for SDET CI gate tick + Quality audit gate tick.
-
-### SDET Container Smoke — BRIEF-003 / EPIC-003 — 2026-06-17T21:05:00Z
-**Scope:** Container smoke gate for the request-inbox slice. All 7 tasks approved; running against the docker-compose stack to confirm deployment-layer coherence and the new Mailhog email seam before Validate.
-
-**Docker pre-flight:** PASS — Docker 29.4.1 / Docker Desktop, 11 containers running.
-
-**Stack state (`docker compose --env-file .env.local ps`):**
-| Service | Status | Ports |
-| --- | --- | --- |
-| tax-portal-admin | Up 47 min **(healthy)** | 0.0.0.0:13001→3001 |
-| tax-portal-azurite | Up 38 h **(healthy)** | 0.0.0.0:10000→10000 |
-| tax-portal-mailhog | Up 38 h **(healthy)** | 0.0.0.0:11025→1025, 0.0.0.0:18025→8025 |
-| tax-portal-portal | Up 22 h **(healthy)** | 0.0.0.0:3000→3000 |
-| tax-portal-sqlserver | Up 24 h **(unhealthy)** | 0.0.0.0:14330→1433 |
-
-Known carried item: `sqlserver` `(unhealthy)` = SA-password-vs-volume mismatch (RETRO-002 / Open retro action items). DB fully operational via `taxportal_user`/`taxportal_admin` SQL logins — not a regression, not a blocker.
-
-**New slice surface — Mailhog:** `tax-portal-mailhog` healthy; HTTP API at port 18025 returns messages (1 message present, `noreply@tax-portal.dev`). MAILHOG UP: PASS.
-
-**App health checks:**
-- `GET http://localhost:13001/healthz` → `{"status":"ok","app":"admin"}` — PASS
-- `GET http://localhost:13001/readyz` → `{"status":"ready","app":"admin"}` — PASS
-- `GET http://localhost:3000` → HTTP 307 (auth guard redirect, expected for unauthenticated) — PASS
-- `GET http://localhost:13001/requests` → HTTP 307 (ACCOUNTANT guard, expected for unauthenticated) — PASS
-
-**Container env verification (admin):**
-- `EMAIL_PROVIDER=smtp`, `SMTP_HOST=mailhog`, `SMTP_PORT=1025`, `EMAIL_FROM=noreply@tax-portal.dev` — email seam wired to Mailhog container. PASS.
-- `RATE_LIMIT_MAX_ATTEMPTS=100`, `RATE_LIMIT_WINDOW_MS=60000` — BUG-003-001 fix confirmed in container env. PASS.
-
-**Targeted smoke e2e (`ADMIN_BASE_URL=http://localhost:13001 pnpm --filter admin e2e:run -- --grep 'inbox|accept|decline|request'`):**
-Output redirected to `/tmp/smoke-003-e2e.log`. Result: **30/30 PASS (8.2s)**.
-
-Key targeted tests:
-- Test 9 `[AC-DOOR-006-02][AC-DOOR-007-01]` accept → invitation email in Mailhog: PASS
-- Test 11 `[AC-DOOR-006-03][AC-DOOR-008-01][AC-DOOR-008-02][AC-DOOR-008-04]` decline → reason email in Mailhog + reason retained: PASS
-- Tests 15-19 request inbox (DASH-011-01/-02/-03, DOOR-006-01, DOOR-005-02): all PASS
-- Tests 20-21 security / non-ACCOUNTANT access rejected: PASS
-- Tests 9-14 accept/decline flows (DOOR-006-02/-03/-05, DOOR-008-01/-04): all PASS
-- Scaffold smoke (healthz, readyz, unauthenticated redirect): PASS
-
-Known carried items noted (not new, not BRIEF-003 regressions):
-1. `sqlserver` `(unhealthy)` healthcheck label — DB is operational, documented RETRO-002.
-2. AC-AUTH-010-02 ADMIN_PORT redirect mismatch in `identity-spine.demo.spec.ts` — pre-existing EPIC-004 issue, confirmed no EPIC-003 commits touched that path; 0/30 targeted tests involve that spec.
-
-**VERDICT: PASS** — container stack is coherent, Mailhog email seam resolves in the containerized env, the accept→invitation-email and decline→reason-email paths work end-to-end in containers, ACCOUNTANT guard is live on `/requests`, all 30 targeted smoke tests pass. No container-layer failures.
-
----
-
-### SDET Review — TASK-003-007 (@demo gallery) — 2026-06-17
-**Start:** Review TASK-003-007 (non-gating `@demo` gallery for EPIC-003). Status was `review`. IO is approval authority; SDET does the rigorous artifact + regression check.
-**Actions:**
-- Read ENGINE.md, sdet.md, DEMO-POLICY.md, PROGRESS.md, task file, the demo spec, DEMO.md. All required spec fields present. `Complexity-actual: 2` valid. `Started-at: 2026-06-17T14:14:47Z` non-sentinel. Pre-implementation breadcrumb present.
-- Mandatory rejection checks: all PASS. No tool-hygiene violations. `Introduces-gate: no` correct.
-- DEMO-POLICY adherence: dedicated `@demo` spec (`apps/admin/e2e/demo/request-inbox.demo.spec.ts`), excluded from `e2e:run`, 5 tests covering notification→inbox→detail→accept→decline journey. Persona (jane-accountant) + flows (flow-engagement-request, flow-first-sign-in) cited. ADR-006 admin surface honored.
-- Gallery verification: 7 PNGs present in `docs/demos/EPIC-003/`. All non-empty (54 KB – 962 KB). All 7 SHA256 hashes distinct — no byte-identical stale stubs. Naming convention compliant. DEMO.md has 7 sections mapping each PNG to AC ids; persona/flow links + regenerate footer present.
-- Spec quality: every test asserts target element visible before screenshotting; `try/finally` DB cleanup; unique email helpers prevent cross-test interference. E2e-grade assertions on `data-status` attributes, text content, and URL navigation.
-- Regression check (AC-AUTH-010-02 failure in `identity-spine.demo.spec.ts`): CONFIRMED PRE-EXISTING. Evidence: (1) PROGRESS-ARCHIVE records it explicitly from EPIC-002 time as an ADMIN_PORT 13001-vs-3001 redirect-destination mismatch; (2) `identity-spine.demo.spec.ts` has zero EPIC-003 commits; (3) the one EPIC-003 change to `redirect.ts` (commit `08e6d46`) is a 4-line comment-only addition inside `adminRedirectDecision()` — the `portalRedirectDecision()` path used by AC-AUTH-010-02 is not touched at all. Not a regression; not a blocker.
-- Non-gating per DEMO-POLICY: artifact failure would not block delivery; but the 5 EPIC-003 tests are clean.
-**End:** TASK-003-007 → **APPROVED, Status: done, Completed-at: 2026-06-17T20:30:00Z**. All 7 BRIEF-003 tasks (6 feature + 1 demo) are now done. IO may proceed to Close-prep / Validate phase.
-
-### SDET Re-Review — TASK-003-006 + BUG-003-001 — 2026-06-17
-**Start:** Re-review TASK-003-006 and BUG-003-001 after BUG-003-001 fix (Option A + surface reduction). Prior rejection: run 3 of independent 3× e2e flaked on AC-DOOR-007-01 and AC-DOOR-008-02 (rate-limiter exhaustion). Fix: `RATE_LIMIT_MAX_ATTEMPTS=100` added to docker-compose.yml for both portal and admin; reset endpoint deleted; `/api/test/**` whitelist reverted.
-**Actions:**
-- Docker pre-flight: PASS (docker 29.4.1). Stack confirmed up: admin container (tax-portal-admin, healthy, port 13001), mailhog (healthy, port 18025), portal (healthy, port 3000), sqlserver (unhealthy healthcheck — carry-forward infra item, non-blocking), azurite (healthy).
-- Container env verified: `docker exec tax-portal-admin printenv RATE_LIMIT_MAX_ATTEMPTS RATE_LIMIT_WINDOW_MS` → `100` / `60000` (from docker-compose.yml `:-100` default, NOT `.env.local`).
-- Surface removal verified: `apps/admin/src/app/api/test/` directory ABSENT. No dangling references to `reset-rate-limiter` or `resetRateLimiter` in non-test, non-dist, non-doc application source.
-- `redirect.ts` revert verified: only `/api/mock-session` whitelisted; `/api/test/**` is now auth-gated.
-- `docker-compose.yml`: RATE_LIMIT vars on both portal (lines 140-141) and admin (lines 213-214) — confirmed by grep.
-- `.env.example`: RATE_LIMIT vars documented with production defaults — confirmed by grep.
-- `inventory.md` / `runbook.md`: both updated with RATE_LIMIT env vars and `Last updated: BUG-003-001`.
-- `redirect.test.ts` 46/46 pass — 2 new BUG-003-001 tests verified: unauthenticated `/api/test/**` → redirect; ACCOUNTANT → serve.
-- `pnpm -r test` → 358/358 (126 auth + 39 email + 50 db + 29 portal + 114 admin).
-- SDET independent 3× e2e (`ADMIN_BASE_URL=http://localhost:13001 pnpm --filter admin e2e:run`): Run 1 30/30 (8.0s), Run 2 30/30 (7.8s), Run 3 30/30 (7.9s). Tests 9 (AC-DOOR-007-01) and 11 (AC-DOOR-008-02) PASS all three runs.
-- BUG-003-001: `Complexity-actual: 2` valid; pre-implementation breadcrumb present. APPROVED → Status: done.
-- TASK-003-006: `Complexity-actual: 5` valid; all Quality Gates ticked. APPROVED → Status: done.
-- RETRO-002 RATE_LIMIT carried follow-up: RESOLVED (updated in Open retro action items above).
-**End:** BUG-003-001 → done (Completed-at 2026-06-17T14:05:00Z). TASK-003-006 → done (Completed-at 2026-06-17T14:05:00Z). All 6 tasks in BRIEF-003 except TASK-003-007 (@demo) are now done. TASK-003-007 is the sole remaining backlog item.
-
-### SDET Review — TASK-003-006 — 2026-06-17
-**Start:** Review TASK-003-006 (e2e + gherkin + Mailhog). Status was `review`. E2e-required: yes. Independent re-run mandated — SDET cannot approve on developer evidence alone.
-**Actions:**
-- Docker pre-flight: PASS (docker 29.4.1). Built new admin image with Dockerfile changes, started on port 13001 (port 3001 occupied by another project on this host). Stack: sqlserver (unhealthy healthcheck but DB-operational, carry-forward infra item), azurite, mailhog, portal, admin — all services accessible.
-- Read ENGINE.md, sdet.md, PROGRESS.md, TASK-003-006, BRIEF-003. All required spec fields present. `Complexity-actual: 5` (valid, in range). `Started-at: 2026-06-17T12:10:56Z` non-sentinel. Pre-implementation breadcrumb present.
-- Mandatory rejection checks: all PASS on task spec fields. No tool-hygiene violations in Work Log. Required fields present. Quality Gates checklist: Work Log PASS, Submission gate PASS, Targeted e2e box TICKED but SDET independent re-run found a flake — see below.
-- Security analysis — `/api/test/reset-rate-limiter` route + `/api/test/**` redirect whitelist:
-  - Route guard: `isMockActive()` checks `AUTH_PROVIDER=mock` and returns 404 if not. This is CONSISTENT with the existing `/api/mock-session` route pattern (same guard). Real production deployment sets `AUTH_PROVIDER=clerk` → both endpoints return 404. The `select.ts` double guard (`ALLOW_MOCK_AUTH=true` is ALSO required for the mock auth provider to instantiate at all). In a real Clerk production deployment, `AUTH_PROVIDER=clerk` means `isMockActive()` returns false → 404. No auth bypass path.
-  - Redirect whitelist: `adminRedirectDecision()` in `redirect.ts` — the `/api/test/**` exemption is conditional on `isMockAuth` (computed from `AUTH_PROVIDER`). On production, `AUTH_PROVIDER=clerk`, `isMockAuth=false`, so `/api/test/**` is NOT exempt from auth middleware and flows to the normal unauthenticated redirect path. No auth bypass in prod.
-  - MISSING UNIT TEST: `redirect.test.ts` has no test covering `/api/test/**` in `adminRedirectDecision()` — neither the mock-active case (should serve) nor the mock-inactive case (should redirect). This is a coverage gap on a security-relevant path change. The existing test `"redirects /api/some-route to sign-in when unauthenticated"` does NOT cover `/api/test/` specifically and does not test the `isMockAuth=false` branch for the test namespace. This is an observation, not a hard rejection on its own.
-- Code review:
-  - `revalidatePath` reorder (actions.ts): CORRECT — `revalidatePath` now fires before the rate-limit check, so the UI always reflects the committed decision even when email is rate-limited. Email ordering unchanged (still after transaction commit). This addresses the prior design-scan observation correctly.
-  - Dockerfile (admin + portal): `packages/email` copy + build step added. CONSISTENT with `packages/auth` and `packages/db` pattern. Infra-docs: `inventory.md` already documents `EMAIL_PROVIDER`/`SMTP_HOST`/`SMTP_PORT`/`EMAIL_FROM` (added at TASK-003-002). `runbook.md` last-updated header says TASK-003-002. Neither file was updated for this Dockerfile topology change. However, TASK-003-002 added the email seam and inventory/runbook were updated there; this task only adds the package to the build layer in the Dockerfile, not a new service or env var. The existing inventory entry for `packages/email` (added TASK-003-002) covers this change. Acceptable.
-  - Feature file: 20 scenarios × 20 ACs — verified against `.planning/EPIC-003` scenarios. Verbatim transcription confirmed (side-by-side check of 14 scenarios). Not re-authored.
-  - E2e specs: AC coverage per task `Acceptance criteria` field checked. All 13 new tests trace to their tagged ACs. Security tests 20+21 present.
-  - Gate-authoring three-item evidence for advisory email-delivery gate: Item 1 (run/log) — Work Log mentions the runs are in the log itself (acceptable for local advisory gate). Items 2+3 (named code path + counterfactual) — present and specific. Adequate for `Introduces-gate: advisory`.
-- **INDEPENDENT E2E RE-RUN:**
-  - Run 1: 30/30 PASS (8.5s) — including test 9 (AC-DOOR-006-02/007-01 invitation email in Mailhog) and test 11 (AC-DOOR-006-03/008-01/008-02/008-04 decline email in Mailhog). Mailhog messages confirmed real via internal container curl.
-  - Run 2: 30/30 PASS (7.8s) — all email assertions green.
-  - Run 3: **28/30 FAIL** — tests 9 (AC-DOOR-007-01 invitation email) and 11 (AC-DOOR-008-02 decline email) both timed out at 15s (`waitForEmail` timeout). Both failures are on the Mailhog email-delivery assertion. Root cause: **rate-limiter exhaustion**. The developer's 3× runs used `RATE_LIMIT_MAX_ATTEMPTS=100` in their `.env.local` (carried-forward item from RETRO-002), which fed into the container env and prevented exhaustion. The freshly rebuilt admin container runs at the default 10 per 60s (not in docker-compose.yml). `resetRateLimiter()` in `test.beforeAll` may not be resetting the correct singleton in the compiled Next.js production build (module isolation risk between the API route chunk and the server action chunk). Run 4 (after explicit pre-run `curl -X POST reset-rate-limiter`): 30/30 PASS — confirming rate-limit reset works when called BEFORE the test run starts, but the in-test `test.beforeAll` reset may fire too late or target a different module instance.
-- **VERDICT: REJECTION.** The Targeted e2e Quality Gate "3× sequential zero-flake runs" is NOT met under SDET independent conditions. Run 3 produced 2 failures on AC-DOOR-007-01 and AC-DOOR-008-02 — the two email-delivery ACs this task is specifically designed to prove. These are not environment noise; they are deterministic failures caused by a design gap in the rate-limiter reset mechanism that the developer's env (RATE_LIMIT_MAX_ATTEMPTS=100) masked. Reject and BUG filed.
-**End:** TASK-003-006 → **REJECTED**. BUG-003-001 created. Task remains `review`. Developer must fix the e2e rate-limiter reset mechanism (add `RATE_LIMIT_MAX_ATTEMPTS` to docker-compose.yml or fix the `resetRateLimiter` module-isolation issue in prod builds) and re-run 3× zero-flake.
-
-### SDET Review — TASK-003-005 — 2026-06-17
-**Start:** Review TASK-003-005 (decision actions — accept→invite+email, decline→reason+email; decide-once, audit, rate-limit). Status was `review`.
-**Actions:**
-- Read ENGINE.md, sdet.md, PROGRESS.md, task file, BRIEF-003. All required spec fields present; `Introduces-gate: no` correct; `Complexity-actual: 4` valid; `Started-at: 2026-06-17T11:50:05Z` non-sentinel; pre-implementation breadcrumb present.
-- Mandatory rejection checks: all PASS. No tool-hygiene violations in Work Log.
-- Read all delivered files: `apps/admin/src/app/requests/actions.ts` (decision actions + identity helper), `packages/db/src/repositories/engagement-request.ts` (acceptEngagementRequest/declineEngagementRequest/AlreadyDecidedError), `packages/db/src/audit.ts` (withAuditTransaction/recordAuthEvent), `packages/db/src/index.ts` (exports), `apps/admin/src/app/requests/actions.test.ts` (32 tests), `apps/admin/src/app/requests/_components/DecisionActions.tsx`, `apps/admin/src/app/requests/[id]/page.tsx`, `packages/db/src/engagement-request.decide-boundary.rls.test.ts`.
-- **Independently ran**: `pnpm --filter admin test -- src/app/requests/actions.test.ts` → **32/32 PASS**; `pnpm --filter admin test` → **114/114 PASS** (6 files); `pnpm --filter @tax-portal/db test` → **50/50 PASS** (10 files). `pnpm lint` → PASS. `pnpm type-check` → PASS.
-- Decide-exactly-once (AC-DOOR-006-05): WHERE status IN ('pending','awaiting_review') + @@ROWCOUNT check; 0 rows → AlreadyDecidedError thrown; action catches and returns `{ success: false, error: 'already_decided' }`. Genuine rejection. DB-layer proven by 3-test tier-3 RLS suite against real SQL Server.
-- Only-accountant-decides (AC-DOOR-006-04): dual guard — action layer `getAccountantIdentity()` checks role from verified session; DB-layer BLOCK predicate (TASK-003-001). Role never client-assertable.
-- Invitation provenance + tie (AC-DOOR-007-01/-02/-03/-04): `createInvitation(email, 'CLIENT')` with role server-set; ticket persisted via `acceptEngagementRequest(id, ticket, txn)`; email body links to `PORTAL_APP_URL/sign-up?ticket=<encoded>`; no User row created (no user-creation call in acceptRequest).
-- Decline (AC-DOOR-008-01/-02/-03/-04): reason validated (empty/whitespace rejected); trimmed before persistence; emailed to prospect contact email; `declineEngagementRequest` called with trimmed reason.
-- Audit (ADR-019): `recordAuthEvent` inside `withAuditTransaction` callback (same transaction as status transition). Tests verify audit NOT written on unauthorized and NOT written on AlreadyDecidedError (thrown before recordAuthEvent in transaction callback).
-- Rate-limit (ADR-022): per-`clerkUserId` key — design rationale sound for single trusted admin user. Email sent after commit; on rate-limit, partial-success returned with decision committed.
-- Transaction discipline: email after `withAuditTransaction` resolves (after commit). `createInvitation` inside transaction — DECISION comment notes real-Clerk consideration.
-- Security: no client-assertable role; ticket server-generated; parameterized queries; header-injection guard in email seam (TASK-003-002).
-- Observation noted: `revalidatePath` skipped on partial-success paths (rate-limited or email failed) — decision committed but UI not auto-refreshed. Not a correctness defect; UI has manual refresh button. Passed to IO for design scan.
-- TASK-003-005 → **APPROVED, Status: done, Completed-at: 2026-06-17T11:09:00Z**.
-**End:** TASK-003-005 approved and marked done. Task list: TASK-003-001 through TASK-003-005 all done; TASK-003-006 (e2e+gherkin+Mailhog) and TASK-003-007 (demo) remain. Ready for IO to dispatch TASK-003-006.
-
-### SDET Review — TASK-003-004 — 2026-06-17
-**Start:** Review TASK-003-004 (request inbox UI — admin read side). Status was `review`.
-**Actions:**
-- Read ENGINE.md, sdet.md, PROGRESS.md, task file, BRIEF-003. All required spec fields present; `Introduces-gate: no`; `Complexity-actual: 3` valid; `Started-at: 2026-06-17T11:39:13Z` non-sentinel.
-- Mandatory rejection checks: all PASS. Pre-implementation breadcrumb present ("Starting implementation" entry). No tool-hygiene violations. `Complexity-actual: 3` in range.
-- Read all delivered files: `requests/page.tsx`, `requests/[id]/page.tsx`, `requests/_components/RequestList.tsx`, `requests/_components/RequestDetail.tsx`, `packages/db/src/repositories/engagement-request.ts` (new functions), `apps/admin/src/app/requests/inbox.test.tsx`.
-- Route guard: PASS — both `requests/page.tsx` and `requests/[id]/page.tsx` independently guard on `identity.role !== "ACCOUNTANT"`. ADR-010 satisfied.
-- Read path (ADR-003/ADR-005): PASS — `listEngagementRequests` and `getEngagementRequest` use `dbAsClient()` (request pool) inside `withRequestContext`. `adminDb`/`getAdminPool` absent from both read functions (only in `createEngagementRequest`, sanctioned). ADR-003 Amendment 1 honored.
-- `notFound()` on null return from `getEngagementRequest` — RLS hide produces 404.
-- ADR-006: PASS — no `/requests` directory under `apps/portal/src/app`. Portal's `/request` is the EPIC-001 submit form.
-- Security: PASS — no `dangerouslySetInnerHTML`; all PII via JSX auto-escape; identity server-side only.
-- `decisionSlot={null}` confirmed — TASK-003-005 scope not pre-built.
-- Independently ran: `pnpm --filter admin test -- inbox.test.tsx` → 30/30. `pnpm --filter admin test` → 82/82 (5 files). `pnpm --filter @tax-portal/db test` → 50/50 (10 files). Consistent with Work Log.
-- AC coverage: all 4 ACs (DASH-011-01/-02/-03, DOOR-006-01) covered by 30 tagged tests across 4 describe blocks.
-- TASK-003-004 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:50:00Z**.
-**End:** TASK-003-004 approved and marked done. Task list: TASK-003-001/-002/-003/-004 done; TASK-003-005/-006/-007 backlog. Ready for IO to dispatch TASK-003-005 (decision actions).
-
-### SDET Review — TASK-003-003 — 2026-06-17
-**Start:** Review TASK-003-003 (notification generation — portal anonymous-submit path → admin accountant consumption). Status was `review`.
-**Actions:**
-- Docker pre-flight: PASS (docker 29.4.1).
-- Read ENGINE.md, sdet.md, PROGRESS.md, task file, BRIEF-003. All required spec fields present; `Introduces-gate: no` correct; `Complexity-actual: 3` valid.
-- Read all delivered files: `packages/db/src/repositories/engagement-request.ts`, `packages/db/src/repositories/notification.ts`, `packages/db/src/index.ts`, `apps/admin/src/app/requests/actions.ts`, `apps/admin/src/app/requests/_components/NotificationsIndicator.tsx`, `apps/portal/src/app/(public)/request/actions.ts`, and all three test files.
-- Mandatory rejection checks: all PASS. Pre-implementation breadcrumb present; no tool-hygiene violations; `Complexity-actual: 3` in range; all required fields present.
-- Cross-surface validation: portal generation inside atomic mssql Transaction (Request + EngagementRequestService + Notification, one commit). Admin consumption: `adminDb` absent from `apps/admin/.../requests/actions.ts` (grep confirmed); `withRequestContext` + `listNotifications`/`markNotificationRead` use `db` request pool → `sec.pol_Notification` FILTER active. Both surfaces verified.
-- Security: dual-layer guard confirmed (identity: `role !== 'ACCOUNTANT' → null → unauthorized`; RLS: `sec.pol_Notification` proven by TASK-003-001). No SQL injection (parameterized queries). No XSS (JSX auto-escape; `engagementRequestId` is server-generated UUID).
-- Atomicity probe: Notification INSERT inside `try` before `transaction.commit()`; failure throws → `catch` calls `transaction.rollback()`. Request cannot commit without notification.
-- Independently ran all three suites: `pnpm --filter portal test` → 29/29; `pnpm --filter admin test` → 52/52; `pnpm --filter @tax-portal/db test` → 50/50. All green on real containers.
-- Lint + type-check: PASS (workspace-wide).
-- AC coverage: AC-DOOR-005-01 covered at tier-2 (portal unit, admin unit) and tier-3 (persistence integration); AC-DOOR-005-02 covered at tier-2 and tier-3; AC-MSG-013-01 covered at tier-2 and tier-3.
-- TASK-003-003 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:58:00Z**.
-**End:** TASK-003-003 approved and marked done. Task list: TASK-003-001/-002/-003 done; TASK-003-004 through 007 backlog. Ready for IO to dispatch next task.
-
-### SDET Review — TASK-003-002 — 2026-06-17
-**Start:** Review TASK-003-002 (`packages/email` outbound transactional-email seam). Status was `review`.
-**Actions:**
-- Docker pre-flight: PASS (docker 29.4.1; Mailhog container `tax-portal-mailhog` up and healthy).
-- Read ENGINE.md, PROGRESS.md, task file, BRIEF-003. Confirmed `Introduces-gate: advisory`, `Acceptance criteria: none (infra justification)`, all required spec fields present.
-- Read all delivered files: `packages/email/src/{port.ts,select.ts,index.ts,bindings/{smtp,mock,resend}.ts,email.test.ts}`, `packages/email/package.json`, `docker-compose.yml` email vars, `.env.example` email section, `inventory.md`, `runbook.md`.
-- Mandatory rejection checks: all PASS (Complexity-actual=3, pre-impl breadcrumb present, no tool-hygiene violations, all required spec fields present).
-- Independently ran: `pnpm --filter @tax-portal/email test` → 39/39, 343 ms.
-- Mailhog integration: confirmed NOT a vacuous skip — `curl http://localhost:8025/api/v2/messages` returned 3 matching `TASK-003-002-integration-*` subjects from the test runs.
-- OE5 barrel compliance: confirmed 4 test-only resets absent from `index.ts`; 6 barrel regression tests verify this.
-- Header injection: `stripHeaderInjection()` throws on CRLF; applied to `to`/`subject`/`from` in SMTP + mock; resend stub throws before any header used.
-- Introduces-gate advisory: Work Log makes no required-gate claim. Correct.
-- `pnpm audit`: 1 moderate (pre-existing PostCSS/next), 0 high/critical. 7 nodemailer CVEs cleared.
-- Infra-docs: `inventory.md` EMAIL_PROVIDER/SMTP_HOST/SMTP_PORT/EMAIL_FROM/RESEND_API_KEY documented; `runbook.md` header updated; both `portal` + `admin` compose services wired.
-- Lint + type-check: PASS (workspace-wide). Confirmed `packages/email` build (tsc) clean.
-- TASK-003-002 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:55:00Z**.
-**End:** TASK-003-002 approved and marked done. Task list: TASK-003-001 + TASK-003-002 done; TASK-003-003 through 007 backlog. Ready for IO to dispatch next task.
-
-### SDET Review — TASK-003-001 — 2026-06-17
-**Start:** Review TASK-003-001 (schema + RLS + notification policy + tier-3 tests). Status was `review`.
-**Actions:**
-- Docker pre-flight: PASS (docker 29.4.1, containers up including sqlserver).
-- Read ENGINE.md, sdet.md, PROGRESS.md, BRIEF-003, task spec, ADR-005, ADR-003.
-- Read all delivered files: 0004-notification-policy.sql, notification.rls.test.ts, engagement-request.decide-boundary.rls.test.ts, repositories/notification.ts, prisma/schema.prisma, migration.sql, packages/db/src/index.ts, packages/db/src/client.ts.
-- Mandatory rejection checks: all PASS (Complexity-actual=4, pre-impl breadcrumb present, no tool-hygiene violations, all required spec fields present).
-- Independently ran targeted tests: `pnpm --filter @tax-portal/db test -- src/notification.rls.test.ts src/engagement-request.decide-boundary.rls.test.ts` → 2 files / 7 tests / 0 failures.
-- Policy `0004-notification-policy.sql` verified to mirror `0001` (ITVF, SCHEMABINDING, GO-batched, FILTER+BLOCK predicates, STATE=ON). Fail-closed on null SESSION_CONTEXT confirmed by test.
-- Decide-boundary: CLIENT UPDATE correctly asserts rowsAffected=0 + admin read-back confirms no mutation — correct SQL Server BLOCK silent-suppress behavior, not a false pass.
-- ADR-003 Amendment 1: no @read_only in production code or new test files.
-- Gate-Authoring three-item evidence: all three items present in Work Log and test file header.
-- AC coverage: DOOR-005-03 (4 tests), DOOR-006-04 DB layer (3 tests), DOOR-008-04 schema column (migration + schema).
-- Security: no client-assertable role, single sp_set_session_context writer, createNotification parameterized, markNotificationRead via Prisma.
-- TASK-003-001 → **APPROVED, Status: done, Completed-at: 2026-06-17T06:15:00Z**.
-**End:** TASK-003-001 approved and marked done. Task list: TASK-003-001 done; TASK-003-002 through 007 backlog. Ready for IO to dispatch next task.
-
-### IO Plan — BRIEF-003 / EPIC-003 — 2026-06-17
-**Start:** New slice. Conductor handed `.implementation/briefs/BRIEF-003-accountant-request-inbox.md` (20 AC,
-gherkin, e2e-required). Slice-start gate clear (`## Awaiting PR merge` empty; no active bugs; retro items all
-dispositioned observations). Ran Plan: Ingest → Clarify → Design → Decompose.
-**Actions:**
-- **Docker pre-flight PASS** — `docker info` → 29.4.1 / linux up.
-- **Branch** `brief-003-accountant-request-inbox` created from `main` @ `cf94c7e`.
-- **Ingest/Clarify** — 20 AC all testable; resolved verbatim to REQ-DOOR-005/-006/-007/-008 + REQ-DASH-011 +
-  REQ-MSG-013 (AC-01). Methodology: gherkin (bind the epic's 20 scenarios) · e2e-required (`apps/admin`) ·
-  tier-3 RLS/decision invariants · container smoke.
-- **Design** (surveyed live repo): the `engagement_request` accountant-only **read** boundary already exists
-  (`db/policies/0001-engagement-request-policy.sql`, EPIC-001) + its UPDATE BLOCK predicates → reuse, don't
-  recreate. `createInvitation(email, role)` exists on the `AuthProvider` port (EPIC-004 mock seam). Audit
-  (`recordAuthEvent`/`withAuditTransaction`) + `RateLimiter` (EPIC-004) reused. `packages/db` request-pool
-  wrapper + `sec` ITVF pattern (EPIC-001/002) reused. **Net-new:** a `Notification` entity + accountant-only
-  read policy (mirror `0001`), and the **first email-sending capability** → a provider-abstracted
-  `packages/email` seam (SMTP→Mailhog local/e2e; Resend deferred drop-in). **Design-coherence check PASS.**
-- **Architecture consult** — no ADR governs email transport; **raised OQ-002 `raised-upstream`** to
-  `.architecture/` (non-blocking — proceeding on the proposed `packages/email` default per the brief intent).
-- **Decompose** — 7 tasks (001 schema+RLS → 002 email seam → 003 notification gen → 004 inbox UI → 005 decision
-  actions → 006 e2e+gherkin+Mailhog → 007 demo). All `Impl: developer`; each carries `**Acceptance criteria:**`,
-  `**Upstream refs:**`, `**Introduces-gate:**`. 001 + 006 introduce gates (notification RLS / email e2e).
-**End:** Plan exit condition met — branch created, 7 task files at `backlog` with all required fields,
-methodology recorded, design-coherence PASS, PROGRESS.md `## Current initiative` populated. → **Dispatch**
-(TASK-003-001 first; dependency-free root).
+- Verified the task file is well-formed at `review`: Dispatch-Checkpoint pre-impl Work Log entry present; `Started-at`/`Complexity-estimate`/`Complexity-actual` populated; three-item Gate-Authoring evidence recorded in the Work Log; field-level contract block present.
+- Phase-transition reflex: `## Current initiative` phase → Review; TASK-005-001 status → `review` in the task table; this entry appended. (No prior-session entries to sweep — Plan entry is this slice's first and stays.)
+- Composed the single Review dispatch: **SDET review of TASK-005-001** (developer-implemented → `Reviewer: sdet`). Loaded the SDET with the three review concerns flagged by this dispatch: (1) the three-item Gate-Authoring evidence for the new required gate; (2) independent re-run of the tier-3 isolation suite against the **real container** (Docker 29.4.1 up), not trusting the developer's reported run; (3) the new **Data-&-Interface-contract compliance** check — delivered `Engagement`/`LetterTemplate` schema + `sec.pol_Engagement` must match the binding field-level contract (entities, `New` status default, `unsigned→signed` letter transition via `letterSignedAt`, nullability of `clientUserId`, the isolation ownership join). Also flagged the **hand-crafted Track-A migration applied via sqlcmd workaround** (carried P3019/TLS `migrate deploy` env issue) — the SDET must confirm the migration file is well-formed and the live schema state matches it, not merely that tests pass.
+**End:** SDET dispatch composed (`## Next Dispatch`). Awaiting SDET verdict; on APPROVE → next dependency-order dispatch (TASK-005-002 e-sign seam, the other dependency-free root); on REJECT → re-dispatch the developer with the SDET's rejection reasons.

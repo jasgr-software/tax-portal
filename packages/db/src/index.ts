@@ -17,13 +17,16 @@ export { db, adminDb } from "./client.js";
 export { withClerkIdentity, withRequestContext, currentRequestContext } from "./context.js";
 
 // Re-export Prisma types so consumers don't need to import @prisma/client directly.
-// This includes EngagementRequest, Notification, Service, User model types, and Prisma namespace.
+// This includes EngagementRequest, Notification, Service, User, Engagement, LetterTemplate
+// model types, and Prisma namespace.
 export type {
   EngagementRequest,
   Notification,
   Service,
   EngagementRequestService,
   User,
+  Engagement,
+  LetterTemplate,
   Prisma,
 } from "@prisma/client";
 
@@ -75,3 +78,30 @@ export { recordAuthEvent, withAuditTransaction } from "./audit.js";
 // as the account-creation mutation). Primarily used by apps/portal sign-up/actions.ts.
 // ADR-003 §7: admin pool is allowed for mutations that run outside a request-context scope.
 export { getAdminPool, closeAdminPool } from "./admin-connection.js";
+
+// Engagement repository (EPIC-005 / TASK-005-001 — first client-owned-rows entity)
+// createEngagement     — admin pool write at accept-time (DECISION-A: clientUserId nullable)
+// getEngagementForClient  — request pool read (sec.pol_Engagement FILTER enforces client isolation)
+// getEngagementByRequestId — request pool read by engagementRequestId
+// recordLetterSignature — signature evidence recorded against the engagement (AC-ONBD-002-04)
+export type {
+  CreateEngagementInput,
+  CreateEngagementResult,
+  EngagementItem,
+  RecordLetterSignatureInput,
+} from "./repositories/engagement.js";
+export {
+  createEngagement,
+  getEngagementForClient,
+  getEngagementByRequestId,
+  recordLetterSignature,
+} from "./repositories/engagement.js";
+
+// LetterTemplate repository (EPIC-005 / TASK-005-001)
+// getCurrentLetterTemplate — admin pool read (accountant + system; not client-readable)
+// updateLetterTemplate     — admin pool write (accountant-only; AC-IDNT-007-02)
+export type {
+  LetterTemplateItem,
+  UpdateLetterTemplateInput,
+} from "./repositories/letter-template.js";
+export { getCurrentLetterTemplate, updateLetterTemplate } from "./repositories/letter-template.js";
