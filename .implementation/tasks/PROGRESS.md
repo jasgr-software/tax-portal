@@ -15,7 +15,9 @@ the onboarding sequence**, on top of the delivered EPIC-005 onboarding spine + l
 `brief-006-intake-questionnaire` (from `main` @ `3dee2f1`). **Gated:** yes. **Brief-type:** feature ·
 **Brief-deploys:** no. **Phase:** DISPATCH. **7 in-scope AC.**
 
-**Dispatch progress (2026-06-18):** TASK-006-001 **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:00:00Z`). HARD tier-3 isolation test independently re-run live: 7/7 PASS. Gate Authoring three-item evidence verified real. Substrate proven — schema, repos, `0006` policy, inventory.md Track-B drift resolved. **Next: dispatch TASK-006-002 (admin template UI) and TASK-006-003 (engagement→service-type resolution) on the proven substrate.** Nothing committed yet (main session owns git; changes in the working tree).
+**Dispatch progress (2026-06-18):** TASK-006-001 **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:00:00Z`). HARD tier-3 isolation test independently re-run live: 7/7 PASS. Gate Authoring three-item evidence verified real. Substrate proven — schema, repos, `0006` policy, inventory.md Track-B drift resolved. **TASK-006-002 (admin template UI) returned `Status: review`** (`Started-at: 2026-06-18T20:15:00Z`; `Complexity-actual: 3`) — 42 new tests, `pnpm --filter admin test` 184 pass, lint/type-check clean, ADR-006 fence asserted (`find apps/portal/src -name "*questionnaire*"` → 0). Mirrors EPIC-005 `letter-template/`, accountant-owned (no FILTER), `apps/admin` ONLY. **Dispatching SDET review of TASK-006-002** now (one-dispatch-per-turn). TASK-006-003 (engagement→service-type resolution) is the next dispatch after approval. Substrate (schema + repos + `0006`) committed to `brief-006-intake-questionnaire`; TASK-006-002 code in working tree, uncommitted until SDET-approved (per-task commit cadence).
+
+**Carried semantic note for TASK-006-005 (from TASK-006-001 SDET review):** in `submitQuestionnaireAsClient` (`packages/db/src/repositories/questionnaire-answer.ts`), `SELECT @@ROWCOUNT` follows the `UPDATE [Engagement]` so it captures the UPDATE's rowcount, not the INSERT's. Functionally correct for v1 (deny-case both 0, success-case both 1; mirrors `recordLetterSignatureAsClient`), but glance at it when TASK-006-005 wires the production submit action.
 
 **Goal:** the accountant authors/maintains a **per-service-type** intake-questionnaire template in `apps/admin`
 (the **first per-service-type template** — contrast EPIC-005's single global `LetterTemplate`); the client —
@@ -43,7 +45,7 @@ client-owned-rows ADR-005 isolation policy (HARD tier-3)** on the answer rows ·
 | Task | Status | Impl | AC | Notes |
 | ---- | ------ | ---- | -- | ----- |
 | TASK-006-001 schema (QuestionnaireTemplate per-service + QuestionnaireAnswer + `Engagement.questionnaireSubmittedAt`) + SECOND client-isolation policy (`0006`) + tier-3 isolation tests | **done** | webapp-developer | ONBD-003-04 / DASH-012-02 / ONBD-003-02 (DB substrate) | **Introduces-gate: yes** (SECOND client-owned-rows `sec.pol_QuestionnaireAnswer` — three-item evidence + HARD tier-3 CLIENT-A≠CLIENT-B). Template write-predicate mirrors `fn_service_write_access` (accountant-only, no FILTER). SDET-APPROVED 2026-06-18T20:00:00Z |
-| TASK-006-002 admin template-management UI + actions (create / bind-to-service / edit) | backlog | webapp-developer | DASH-012-01/-02/-03, ONBD-003-02 (dual-tagged) | `apps/admin` ONLY (ADR-006 fence); mirror EPIC-005 `letter-template/` (admin-pool, `getAccountantIdentity()` guard); per-service-type set, not single row |
+| TASK-006-002 admin template-management UI + actions (create / bind-to-service / edit) | **done** | webapp-developer | DASH-012-01/-02/-03, ONBD-003-02 (dual-tagged) | `apps/admin` ONLY (ADR-006 fence); mirror EPIC-005 `letter-template/` (admin-pool, `getAccountantIdentity()` guard); per-service-type set, not single row. **SDET-APPROVED 2026-06-18T20:06:28Z** |
 | TASK-006-003 engagement→service-type resolution + correct-template read (tier-3) | backlog | webapp-developer | ONBD-003-01 (server-side match) | DECISION-F: primary service type = first selected by `sortOrder`,`id`; FILTER-governed engagement gate first; absent template → null |
 | TASK-006-004 portal questionnaire step UI (render correct template behind the letter gate) | backlog | webapp-developer | ONBD-003-01 (UI), ONBD-003-03 (UI affordance) | `apps/portal`; consumes EPIC-005 read model `accessible`/`done`; **does NOT re-derive gate logic**; no client-supplied ids; locked/empty/submitted states |
 | TASK-006-005 submit action (record answers + satisfy step) + read-model extension (tier-3) | backlog | webapp-developer | ONBD-003-03 (server-side satisfaction), ONBD-003-04 (recorded), ONBD-003-01 | extends `packages/db/src/onboarding.ts` (`done` from `questionnaireSubmittedAt`, DECISION-I); owner-only BLOCK-governed submit (mirror `recordLetterSignatureAsClient`); gate-checked refusal when unsigned |
@@ -164,6 +166,23 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   the healthcheck should derive its SA password from the same source the volume was bootstrapped with (or the
   bootstrap should re-assert the env SA password on persisted volumes). Same root family as the carried
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
+
+---
+
+### SDET Review — TASK-006-002 — 2026-06-18T20:06:28Z
+**Start:** Review TASK-006-002 (admin questionnaire-template management UI + server actions) against BRIEF-006 acceptance criteria and mandatory focus areas.
+**Actions:**
+- Read ENGINE.md, sdet.md, TASK-006-002 task file, PROGRESS.md.
+- Read all delivered files: `actions.ts`, `actions.test.ts`, `_components/QuestionnaireTemplateEditor.tsx`, `page.tsx`, `template-editor.test.tsx`, `packages/db/src/repositories/questionnaire-template.ts`, reference `letter-template/actions.ts`.
+- Independently ran `pnpm --filter admin test` → **184 pass / 10 files** (42 new tests confirmed; matches developer report).
+- Independently ran `pnpm lint` → zero warnings/errors (both apps clean).
+- Independently ran `pnpm type-check` → zero errors.
+- ADR-006 fence: `find apps/portal/src -name "*questionnaire*"` → 0 results; `grep -r questionnaire apps/portal/src -l` → only EPIC-005 onboarding step-key references (`onboarding/` module, authored in TASK-005 for the intake-questionnaire step slot — not template management). `apps/portal/src/app/settings/` does not exist. Fence clean.
+- Security: `getAccountantIdentity()` mirrors `letter-template/actions.ts` exactly; `accountantClerkId` from verified session only; no `dangerouslySetInnerHTML`; serviceId FK enforced at DB layer; admin pool only (`getAdminPool()`), no `withRequestContext`.
+- AC↔test traceability: all four ACs (DASH-012-01/-02/-03, ONBD-003-02) tagged and covered by both action-unit and component tests.
+- data-* hooks confirmed: `data-testid="questionnaire-editor"`, `data-service-id`, `data-question-row`, `data-testid="save-template"`.
+- Metadata contract: `Started-at` present, `Complexity-estimate: 3`, `Complexity-actual: 3`. Pre-implementation dispatch-checkpoint entry present. `Completed-at` written by SDET: `2026-06-18T20:06:28Z`.
+**End:** **APPROVED**. Status: done. TASK-006-002 `Completed-at: 2026-06-18T20:06:28Z`. TASK-006-003 is next dispatch.
 
 ---
 
