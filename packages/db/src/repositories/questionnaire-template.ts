@@ -428,21 +428,50 @@ export async function upsertTemplateForService(
     return { rowsAffected: updateRows, action: "updated" };
   }
 
-  // Step 2: INSERT (no existing template for this serviceId)
+  // Step 2: INSERT (no existing template for this serviceId).
+  // F6 FIX: If two concurrent calls both see UPDATE 0 rows and both attempt INSERT,
+  // the second INSERT hits the serviceId UNIQUE constraint (SQL Server error 2601).
+  // Catch the unique-violation and retry as UPDATE — this resolves the race gracefully
+  // without redesigning the upsert (low-frequency accountant-only action).
   const insertReq = new MssqlRequest(pool);
   insertReq.input("serviceId", input.serviceId);
   insertReq.input("questions", mssqlPkg.NVarChar(mssqlPkg.MAX), input.questions);
   insertReq.input("accountantClerkId", input.accountantClerkId);
 
-  const insertResult = await insertReq.query<{ rowsAffected: number }>(
-    `INSERT INTO [dbo].[QuestionnaireTemplate]
-       ([serviceId], [questions], [updatedBy], [updatedAt])
-     VALUES (@serviceId, @questions, @accountantClerkId, SYSDATETIMEOFFSET());
-     SELECT @@ROWCOUNT AS rowsAffected;`,
-  );
+  try {
+    const insertResult = await insertReq.query<{ rowsAffected: number }>(
+      `INSERT INTO [dbo].[QuestionnaireTemplate]
+         ([serviceId], [questions], [updatedBy], [updatedAt])
+       VALUES (@serviceId, @questions, @accountantClerkId, SYSDATETIMEOFFSET());
+       SELECT @@ROWCOUNT AS rowsAffected;`,
+    );
 
-  const insertRows =
-    (insertResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+    const insertRows =
+      (insertResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
 
-  return { rowsAffected: insertRows, action: "created" };
+    return { rowsAffected: insertRows, action: "created" };
+  } catch (err) {
+    // SQL Server error 2601: unique index violation; 2627: primary key violation.
+    // Either means a concurrent INSERT won the race — retry as UPDATE.
+    const mssqlErr = err as { number?: number };
+    if (mssqlErr.number === 2601 || mssqlErr.number === 2627) {
+      const retryReq = new MssqlRequest(pool);
+      retryReq.input("serviceId", input.serviceId);
+      retryReq.input("questions", mssqlPkg.NVarChar(mssqlPkg.MAX), input.questions);
+      retryReq.input("accountantClerkId", input.accountantClerkId);
+
+      const retryResult = await retryReq.query<{ rowsAffected: number }>(
+        `UPDATE [dbo].[QuestionnaireTemplate]
+         SET [questions]  = @questions,
+             [updatedBy]  = @accountantClerkId,
+             [updatedAt]  = SYSDATETIMEOFFSET()
+         WHERE [serviceId] = @serviceId;
+         SELECT @@ROWCOUNT AS rowsAffected;`,
+      );
+      const retryRows =
+        (retryResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+      return { rowsAffected: retryRows, action: "updated" };
+    }
+    throw err;
+  }
 }

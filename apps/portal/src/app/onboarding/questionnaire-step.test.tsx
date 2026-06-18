@@ -138,7 +138,6 @@ beforeEach(() => {
     success: true,
     data: SAMPLE_TEMPLATE,
     alreadySubmitted: false,
-    existingAnswers: null,
   });
   mockSubmitQuestionnaireAction.mockResolvedValue({ success: true });
   mockSignEngagementLetterAction.mockResolvedValue({
@@ -157,7 +156,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-01] renders the resolved template's
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -170,7 +168,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-01] renders the resolved template's
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -185,7 +182,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-01] renders the resolved template's
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -204,7 +200,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-01] renders the resolved template's
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -222,7 +217,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-01] renders the resolved template's
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -238,7 +232,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-01] renders the resolved template's
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -257,7 +250,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-01] renders the resolved template's
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -277,7 +269,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-03] submit affordance before and af
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -290,7 +281,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-03] submit affordance before and af
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -312,7 +302,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-03] submit affordance before and af
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -326,7 +315,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-03] submit affordance before and af
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -340,7 +328,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-03] submit affordance before and af
         stepState={{ accessible: true, done: true }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={true}
-        existingAnswers={null}
       />,
     );
 
@@ -354,7 +341,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-03] submit affordance before and af
         stepState={{ accessible: true, done: true }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={true}
-        existingAnswers={null}
       />,
     );
 
@@ -368,7 +354,6 @@ describe("QuestionnaireStep — [AC-ONBD-003-03] submit affordance before and af
         stepState={{ accessible: true, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -400,7 +385,6 @@ describe("QuestionnaireStep — [AC-ONBD-002-01 honored] letter-unsigned → loc
         stepState={{ accessible: false, done: false }}
         questionnaire={null}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -414,7 +398,6 @@ describe("QuestionnaireStep — [AC-ONBD-002-01 honored] letter-unsigned → loc
         stepState={{ accessible: false, done: false }}
         questionnaire={null}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -428,7 +411,6 @@ describe("QuestionnaireStep — [AC-ONBD-002-01 honored] letter-unsigned → loc
         stepState={{ accessible: false, done: false }}
         questionnaire={null}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -444,7 +426,6 @@ describe("QuestionnaireStep — [AC-ONBD-002-01 honored] letter-unsigned → loc
         stepState={{ accessible: false, done: false }}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -464,7 +445,6 @@ describe("QuestionnaireStep — [edge] absent template → awaiting-questionnair
         stepState={{ accessible: true, done: false }}
         questionnaire={TEMPLATE_NULL_QUESTIONNAIRE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -478,7 +458,6 @@ describe("QuestionnaireStep — [edge] absent template → awaiting-questionnair
         stepState={{ accessible: true, done: false }}
         questionnaire={null}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -494,7 +473,6 @@ describe("QuestionnaireStep — [edge] absent template → awaiting-questionnair
         stepState={{ accessible: true, done: false }}
         questionnaire={TEMPLATE_NULL_QUESTIONNAIRE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -507,7 +485,6 @@ describe("QuestionnaireStep — [edge] absent template → awaiting-questionnair
         stepState={{ accessible: true, done: false }}
         questionnaire={TEMPLATE_NULL_QUESTIONNAIRE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -549,7 +526,6 @@ describe("QuestionnaireStep — [security] question content auto-escaped", () =>
         stepState={{ accessible: true, done: false }}
         questionnaire={maliciousTemplate}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -573,7 +549,6 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -588,7 +563,6 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={null}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 
@@ -604,7 +578,6 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={true}
-        existingAnswers={null}
       />,
     );
 
@@ -618,7 +591,6 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={TEMPLATE_NULL_QUESTIONNAIRE}
         alreadySubmitted={false}
-        existingAnswers={null}
       />,
     );
 

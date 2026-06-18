@@ -240,8 +240,10 @@ This branch is bound as `FILTER PREDICATE [sec].[fn_questionnaire_answer_access]
 
 **3. Counterfactual — concrete change that reds the gate:**
 
-- **Removing the CLIENT-ownership EXISTS branch** from `fn_questionnaire_answer_access` would cause `"[AC-ONBD-003-04] CLIENT-A reads only their own questionnaire answers — positive"` to return 0 rows instead of 1 (CLIENT-A's own answers become invisible), failing that positive test.
-- **Removing the FILTER PREDICATE** from `sec.pol_QuestionnaireAnswer` entirely would cause `"[AC-ONBD-003-04] CLIENT-B sees ZERO rows for CLIENT-A's answers"` to return 1 row (CLIENT-B can see CLIENT-A's answer), failing the isolation test.
+- RED: Removing the CLIENT-ownership EXISTS branch from `fn_questionnaire_answer_access` causes `"[AC-ONBD-003-04] CLIENT-A reads only their own questionnaire answers — positive"` to return 0 rows instead of 1 (CLIENT-A's own answers become invisible), failing that positive test.
+- GREEN: With the EXISTS branch present, CLIENT-A's query returns exactly 1 row — the gate is green.
+- RED: Removing the FILTER PREDICATE from `sec.pol_QuestionnaireAnswer` entirely causes `"[AC-ONBD-003-04] CLIENT-B sees ZERO rows for CLIENT-A's answers"` to return 1 row (CLIENT-B can see CLIENT-A's answer), failing the isolation test.
+- GREEN: With the FILTER PREDICATE bound, CLIENT-B sees ZERO rows — the isolation gate is green.
 
 **What's next:** SDET review. No blockers.
 **Blockers:** none

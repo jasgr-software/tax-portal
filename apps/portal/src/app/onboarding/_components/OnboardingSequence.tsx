@@ -43,7 +43,6 @@ interface OnboardingSequenceProps {
    * questionnaire.template = null = no template authored yet (awaiting state).
    *
    * ADR-001/ADR-005: server-resolved; never from a client-supplied id.
-   * TASK-006-005 will extend this to carry alreadySubmitted + existingAnswers.
    */
   questionnaire: QuestionnaireForEngagement | null;
   /**
@@ -52,11 +51,6 @@ interface OnboardingSequenceProps {
    * Server-derived (TASK-006-005); never client-asserted.
    */
   alreadySubmitted: boolean;
-  /**
-   * Existing answers if previously submitted (DECISION-H: serialized JSON blob).
-   * null when no prior submission exists.
-   */
-  existingAnswers: string | null;
 }
 
 // ─── Step metadata ────────────────────────────────────────────────────────────
@@ -93,7 +87,6 @@ export function OnboardingSequence({
   letterContent,
   questionnaire,
   alreadySubmitted,
-  existingAnswers,
 }: OnboardingSequenceProps) {
   const totalSteps = model.steps.length;
   // stepNumber is 1-based index of the current step (first non-done step).
@@ -252,7 +245,6 @@ export function OnboardingSequence({
                   stepState={{ accessible: step.accessible, done: step.done }}
                   questionnaire={questionnaire}
                   alreadySubmitted={alreadySubmitted}
-                  existingAnswers={existingAnswers}
                 />
               )}
 

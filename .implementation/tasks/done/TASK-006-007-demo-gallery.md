@@ -75,7 +75,7 @@ Non-gating UI demo (`demo.applicable: yes` in the brief). A dedicated `@demo` Pl
 
 ### 2026-06-18T22:39:45Z — webapp-developer — in-progress
 
-**What done:** Status set to in-progress. Complexity-estimate: 2 (non-gating demo gallery — mirrors TASK-005-008 exactly; the fixture/selector patterns are already established by the EPIC-006 gating specs).
+**What done:** Starting implementation. Status set to in-progress. Complexity-estimate: 2 (non-gating demo gallery — mirrors TASK-005-008 exactly; the fixture/selector patterns are already established by the EPIC-006 gating specs).
 **What next:** Create `docs/demos/EPIC-006/` output dir; author `apps/admin/e2e/demo/questionnaire-template.demo.spec.ts` (jane-accountant surface); author `apps/portal/e2e/demo/questionnaire.demo.spec.ts` (sarah-returning-client / post-letter-gate surface); run `pnpm lint`, `pnpm type-check`, `pnpm build`, then run the `@demo` walkthrough against the live stack and paste output.
 **Blockers:** None.
 

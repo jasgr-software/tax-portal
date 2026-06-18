@@ -575,6 +575,33 @@ describe("submitQuestionnaireAction — submit + step satisfaction", () => {
     expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
   });
 
+  it("[F1] returns error when an answer value is a non-string (number) — no throw, no write, no audit", async () => {
+    // A well-formed JSON object whose value is a number, not a string.
+    // Before the fix, parsedAnswers[q.id]?.trim() would throw TypeError; now it must return
+    // { success: false } gracefully without calling submitQuestionnaireAsClient or recordAuthEvent.
+    const nonStringAnswers = JSON.stringify({ q1: 5, q2: "No notes" });
+
+    const result = await submitQuestionnaireAction(nonStringAnswers);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Invalid answers format");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+    expect(mockRecordAuthEvent).not.toHaveBeenCalled();
+  });
+
+  it("[F1] returns error when an answer value is an object (nested) — no throw, no write", async () => {
+    // A nested object value is also non-string and must be rejected gracefully.
+    const nestedAnswers = JSON.stringify({ q1: {}, q2: "some" });
+
+    const result = await submitQuestionnaireAction(nestedAnswers);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Invalid answers format");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
   it("returns error when no questionnaire template is configured", async () => {
     mockGetMyQuestionnaire.mockResolvedValue({
       ...MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT,
@@ -614,10 +641,9 @@ describe("getMyQuestionnaireAction — load questionnaire + submitted state", ()
     if (!result.success) return;
     expect(result.data).toEqual(MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT);
     expect(result.alreadySubmitted).toBe(false);
-    expect(result.existingAnswers).toBeNull();
   });
 
-  it("returns alreadySubmitted: true and existingAnswers when questionnaire was submitted", async () => {
+  it("returns alreadySubmitted: true when questionnaire was submitted", async () => {
     const existingAnswersJson = JSON.stringify({ q1: "Alice Smith" });
     mockGetMyQuestionnaireAnswer.mockResolvedValue({
       id: "answer-uuid-001",
@@ -634,7 +660,6 @@ describe("getMyQuestionnaireAction — load questionnaire + submitted state", ()
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.alreadySubmitted).toBe(true);
-    expect(result.existingAnswers).toBe(existingAnswersJson);
   });
 
   it("returns error when no CLIENT identity", async () => {

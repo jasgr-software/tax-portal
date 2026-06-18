@@ -121,7 +121,6 @@ export type GetMyQuestionnaireResult =
       success: true;
       data: QuestionnaireForEngagement;
       alreadySubmitted: boolean;
-      existingAnswers: string | null;
     }
   | { success: false; error: string };
 
@@ -375,7 +374,6 @@ export async function getMyQuestionnaireAction(): Promise<GetMyQuestionnaireResu
     success: true,
     data: questionnaire,
     alreadySubmitted: existingAnswer !== null,
-    existingAnswers: existingAnswer?.answers ?? null,
   };
 }
 
@@ -475,16 +473,27 @@ export async function submitQuestionnaireAction(
     };
   }
 
-  let parsedAnswers: Record<string, string>;
+  let parsedAnswers: Record<string, unknown>;
   try {
     const raw: unknown = JSON.parse(answersJson);
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
       throw new TypeError("answers must be a JSON object");
     }
-    parsedAnswers = raw as Record<string, string>;
+    parsedAnswers = raw as Record<string, unknown>;
   } catch {
     return { success: false, error: "Invalid answers format: expected JSON object { [questionId]: string }" };
   }
+
+  // F1: Reject any answer value that is not a string — a non-string (number, object, etc.)
+  // would cause .trim() to throw a TypeError outside the try/catch above.
+  for (const val of Object.values(parsedAnswers)) {
+    if (typeof val !== "string") {
+      return { success: false, error: "Invalid answers format: expected JSON object { [questionId]: string }" };
+    }
+  }
+
+  // Safe cast: all values confirmed string above.
+  const stringAnswers = parsedAnswers as Record<string, string>;
 
   // Validate all required questions have non-empty answers.
   let questions: QuestionDef[];
@@ -499,7 +508,7 @@ export async function submitQuestionnaireAction(
   }
 
   const missingRequired = questions
-    .filter((q) => q.required && !parsedAnswers[q.id]?.trim())
+    .filter((q) => q.required && !stringAnswers[q.id]?.trim())
     .map((q) => q.id);
 
   if (missingRequired.length > 0) {
@@ -509,15 +518,29 @@ export async function submitQuestionnaireAction(
     };
   }
 
+  // F2: Reconstruct the stored blob from template question IDs only (key-whitelist).
+  // Unknown keys from the client are dropped; the value type is already confirmed string.
+  // Enforce a sane total-size cap (64 KB) before persisting to NVARCHAR(MAX).
+  const sanitizedAnswers: Record<string, string> = {};
+  for (const q of questions) {
+    sanitizedAnswers[q.id] = stringAnswers[q.id] ?? "";
+  }
+  const sanitizedAnswersJson = JSON.stringify(sanitizedAnswers);
+  const ANSWERS_MAX_BYTES = 65_536; // 64 KB — sane cap for NVARCHAR(MAX) serialized answers
+  if (Buffer.byteLength(sanitizedAnswersJson, "utf8") > ANSWERS_MAX_BYTES) {
+    return { success: false, error: "Answers payload exceeds maximum allowed size" };
+  }
+
   // Step 5: owner-only BLOCK-governed write (REQUEST POOL).
   // submitQuestionnaireAsClient inserts the QuestionnaireAnswer row AND sets
   // Engagement.questionnaireSubmittedAt in one batch (DECISION in questionnaire-answer.ts).
   // rowsAffected = 0 → BLOCK denied (not the owner or null SESSION_CONTEXT) → refusal.
   // templateId is server-derived from questionnaire.template.id — never client-supplied.
+  // Stored blob uses sanitizedAnswersJson (key-whitelisted, size-capped) — not raw client input.
   const submitResult = await submitQuestionnaireAsClient({
     engagementId: engagement.id,
     templateId: questionnaire.template.id,
-    answers: answersJson,
+    answers: sanitizedAnswersJson,
     clerkUserId: identity.clerkUserId,
     role: "CLIENT",
   });

@@ -24,7 +24,7 @@
  * ADR-001/ADR-005: No client-supplied ids. Questionnaire resolved server-side.
  *
  * Coordination seam with TASK-006-005:
- *   - Props receive `questionnaire`, `alreadySubmitted`, `existingAnswers` from parent.
+ *   - Props receive `questionnaire`, `alreadySubmitted` from parent.
  *   - `submitQuestionnaireAction` is imported from `../actions` — TASK-006-005 implements
  *     the server-side body. This task defines the import seam and calls the action.
  *   - DECISION (TASK-006-004/005 coordination): the component calls submitQuestionnaireAction()
@@ -68,12 +68,6 @@ export interface QuestionnaireStepProps {
    */
   alreadySubmitted: boolean;
   /**
-   * Existing answers if the client has previously submitted.
-   * Serialized JSON: { [questionId]: string } (DECISION-H).
-   * Null when no prior submission exists.
-   */
-  existingAnswers: string | null;
-  /**
    * Optional callback: called after a successful submit.
    * Used by tests (and optionally by parent components) to observe submit completion.
    */
@@ -100,7 +94,6 @@ export function QuestionnaireStep({
   stepState,
   questionnaire,
   alreadySubmitted,
-  existingAnswers: _existingAnswers,
   onSubmitComplete,
 }: QuestionnaireStepProps) {
   // ── State 1: LOCKED — EPIC-005 gate not passed ────────────────────────────
@@ -125,7 +118,6 @@ export function QuestionnaireStep({
   return (
     <QuestionnaireForm
       template={template}
-      questionnaire={questionnaire}
       onSubmitComplete={onSubmitComplete}
     />
   );
@@ -253,11 +245,9 @@ function QuestionnaireSubmittedState({
  */
 function QuestionnaireForm({
   template,
-  questionnaire,
   onSubmitComplete,
 }: {
   template: NonNullable<QuestionnaireForEngagement["template"]>;
-  questionnaire: QuestionnaireForEngagement;
   onSubmitComplete?: (() => void) | undefined;
 }) {
   // Parse question definitions (DECISION-G: serialized JSON blob)
@@ -314,8 +304,6 @@ function QuestionnaireForm({
   }
 
   // Suppress unused-var warning for questionnaire (used for type safety + future serviceName display)
-  void questionnaire;
-
   return (
     <div
       data-testid="questionnaire-form"

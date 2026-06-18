@@ -280,8 +280,9 @@ export async function submitQuestionnaireAsClient(input: SubmitQuestionnaireInpu
     req.input("engagementId", mssql.NVarChar(50), input.engagementId);
     req.input("templateId", mssql.NVarChar(50), input.templateId);
 
-    // Batch: set SESSION_CONTEXT → INSERT answer row → UPDATE Engagement.questionnaireSubmittedAt
-    // → SELECT @@ROWCOUNT → clear SESSION_CONTEXT.
+    // Batch: set SESSION_CONTEXT → INSERT answer row → capture INSERT rowcount →
+    // UPDATE Engagement.questionnaireSubmittedAt → SELECT captured INSERT rowcount →
+    // clear SESSION_CONTEXT.
     //
     // DECISION (TASK-006-005): The sec.pol_QuestionnaireAnswer BLOCK predicate is AFTER INSERT
     // (not BEFORE INSERT — SQL Server enforces AFTER INSERT BLOCK predicates differently).
@@ -296,21 +297,25 @@ export async function submitQuestionnaireAsClient(input: SubmitQuestionnaireInpu
     //
     // The Engagement UPDATE (BEFORE UPDATE BLOCK predicate) fires AFTER the QuestionnaireAnswer
     // INSERT. On the non-owner path the INSERT throws before the UPDATE runs, so
-    // questionnaireSubmittedAt is never set. @@ROWCOUNT glance-item: on the owner path,
-    // SELECT @@ROWCOUNT follows the UPDATE → captures the UPDATE rowcount (1).
-    // On the deny path, the INSERT error is caught here → we return 0 (never reaches @@ROWCOUNT).
-    // No partial-write masking is possible: INSERT throws → UPDATE never runs.
+    // questionnaireSubmittedAt is never set.
+    //
+    // F3 FIX: @insertRows captures @@ROWCOUNT immediately after the INSERT (before the UPDATE
+    // resets it). The final SELECT reports the INSERT rowcount, not the UPDATE rowcount, so a
+    // theoretical INSERT-succeeds/UPDATE-returns-zero case cannot mask a partial write as a
+    // clean refusal. The non-owner deny path (INSERT throws → caught above) still returns 0.
     const sql = `
       EXEC sp_set_session_context @key = N'clerk_user_id', @value = N'${escapedClerkId}', @read_only = 0;
       EXEC sp_set_session_context @key = N'role', @value = N'${escapedRole}', @read_only = 0;
+      DECLARE @insertRows INT;
       INSERT INTO [dbo].[QuestionnaireAnswer]
         ([engagementId], [templateId], [answers], [updatedAt])
       VALUES (@engagementId, @templateId, @answers, SYSDATETIMEOFFSET());
+      SET @insertRows = @@ROWCOUNT;
       UPDATE [dbo].[Engagement]
       SET [questionnaireSubmittedAt] = SYSDATETIMEOFFSET(),
           [updatedAt] = SYSDATETIMEOFFSET()
       WHERE [id] = @engagementId;
-      SELECT @@ROWCOUNT AS rowsAffected;
+      SELECT @insertRows AS rowsAffected;
       EXEC sp_set_session_context @key = N'clerk_user_id', @value = NULL, @read_only = 0;
       EXEC sp_set_session_context @key = N'role', @value = NULL, @read_only = 0;
     `;

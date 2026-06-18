@@ -75,7 +75,6 @@ export default async function OnboardingPage() {
   // Extract questionnaire data (non-blocking — null on failure shows awaiting state in step).
   const questionnaire = questionnaireResult.success ? questionnaireResult.data : null;
   const alreadySubmitted = questionnaireResult.success ? questionnaireResult.alreadySubmitted : false;
-  const existingAnswers = questionnaireResult.success ? questionnaireResult.existingAnswers : null;
 
   return (
     <OnboardingSequence
@@ -83,7 +82,6 @@ export default async function OnboardingPage() {
       letterContent={onboardingResult.letterContent}
       questionnaire={questionnaire}
       alreadySubmitted={alreadySubmitted}
-      existingAnswers={existingAnswers}
     />
   );
 }
