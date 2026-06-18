@@ -15,13 +15,19 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 
 | Measure | Count |
 |---|---|
-| AC placed in an epic (all Phase 1) | 51 |
-| — EPIC-001 (public front door) | 13 |
-| — EPIC-004 (auth & two-role model) | 11 |
-| — EPIC-002 (services-catalog management) | 7 |
-| — EPIC-003 (accountant request inbox) | 20 |
+| AC placed in an epic (Phase 1 + Phase 2) | 95 |
+| — Phase 1 (EPIC-001/004/002/003) | 51 |
+| &nbsp;&nbsp;— EPIC-001 (public front door) | 13 |
+| &nbsp;&nbsp;— EPIC-004 (auth & two-role model) | 11 |
+| &nbsp;&nbsp;— EPIC-002 (services-catalog management) | 7 |
+| &nbsp;&nbsp;— EPIC-003 (accountant request inbox) | 20 |
+| — Phase 2 (EPIC-005/006/007/008) | 44 |
+| &nbsp;&nbsp;— EPIC-005 (onboarding spine + letter gate) | 10 |
+| &nbsp;&nbsp;— EPIC-006 (intake questionnaire) | 7 |
+| &nbsp;&nbsp;— EPIC-007 (initial document upload) | 19 |
+| &nbsp;&nbsp;— EPIC-008 (onboarding completion → In Progress) | 8 |
 | AC `verified` (signed off) | **51 — all 51 Phase-1 placed AC** — EPIC-001 (13, 2026-06-15) + EPIC-004 (11, 2026-06-16) + EPIC-002 (7, 2026-06-16) + EPIC-003 (20, 2026-06-17). **Phase 1 (MVP) complete.** |
-| AC still `planned` (placed, not yet verified) | 0 — every placed Phase-1 AC is verified |
+| AC still `planned` (placed, not yet verified) | **44 — the Phase-2 onboarding-gate set** (EPIC-005/006/007/008); none verified yet (Phase 2 not yet built) |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -154,6 +160,50 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-004 | 1 | `AC-AUTH-010-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-004 | 1 | `AC-AUTH-010-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-MSG-013 | AC-MSG-013-01 | EPIC-003 | 1 | `AC-MSG-013-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
+| REQ-ONBD-001 | AC-ONBD-001-01 | EPIC-005 | 2 | `AC-ONBD-001-01` | planned | — |
+| REQ-ONBD-001 | AC-ONBD-001-02 | EPIC-005 | 2 | `AC-ONBD-001-02` | planned | — |
+| REQ-ONBD-001 | AC-ONBD-001-03 | EPIC-005 | 2 | `AC-ONBD-001-03` | planned | — |
+| REQ-ONBD-002 | AC-ONBD-002-01 | EPIC-005 | 2 | `AC-ONBD-002-01` | planned | — |
+| REQ-ONBD-002 | AC-ONBD-002-02 | EPIC-005 | 2 | `AC-ONBD-002-02` | planned | — |
+| REQ-ONBD-002 | AC-ONBD-002-03 | EPIC-005 | 2 | `AC-ONBD-002-03` | planned | — |
+| REQ-ONBD-002 | AC-ONBD-002-04 | EPIC-005 | 2 | `AC-ONBD-002-04` | planned | — |
+| REQ-IDNT-007 | AC-IDNT-007-01 | EPIC-005 | 2 | `AC-IDNT-007-01` | planned | — |
+| REQ-IDNT-007 | AC-IDNT-007-02 | EPIC-005 | 2 | `AC-IDNT-007-02` | planned | — |
+| REQ-IDNT-007 | AC-IDNT-007-03 | EPIC-005 | 2 | `AC-IDNT-007-03` | planned | — |
+| REQ-ONBD-003 | AC-ONBD-003-01 | EPIC-006 | 2 | `AC-ONBD-003-01` | planned | — |
+| REQ-ONBD-003 | AC-ONBD-003-02 | EPIC-006 | 2 | `AC-ONBD-003-02` | planned | — |
+| REQ-ONBD-003 | AC-ONBD-003-03 | EPIC-006 | 2 | `AC-ONBD-003-03` | planned | — |
+| REQ-ONBD-003 | AC-ONBD-003-04 | EPIC-006 | 2 | `AC-ONBD-003-04` | planned | — |
+| REQ-DASH-012 | AC-DASH-012-01 | EPIC-006 | 2 | `AC-DASH-012-01` | planned | — |
+| REQ-DASH-012 | AC-DASH-012-02 | EPIC-006 | 2 | `AC-DASH-012-02` | planned | — |
+| REQ-DASH-012 | AC-DASH-012-03 | EPIC-006 | 2 | `AC-DASH-012-03` | planned | — |
+| REQ-ONBD-004 | AC-ONBD-004-01 | EPIC-007 | 2 | `AC-ONBD-004-01` | planned | — |
+| REQ-ONBD-004 | AC-ONBD-004-02 | EPIC-007 | 2 | `AC-ONBD-004-02` | planned | — |
+| REQ-ONBD-004 | AC-ONBD-004-03 | EPIC-007 | 2 | `AC-ONBD-004-03` | planned | — |
+| REQ-ONBD-004 | AC-ONBD-004-04 | EPIC-007 | 2 | `AC-ONBD-004-04` | planned | — |
+| REQ-FILE-007 | AC-FILE-007-01 | EPIC-007 | 2 | `AC-FILE-007-01` | planned | — |
+| REQ-FILE-007 | AC-FILE-007-02 | EPIC-007 | 2 | `AC-FILE-007-02` | planned | — |
+| REQ-FILE-007 | AC-FILE-007-03 | EPIC-007 | 2 | `AC-FILE-007-03` | planned | — |
+| REQ-FILE-008 | AC-FILE-008-01 | EPIC-007 | 2 | `AC-FILE-008-01` | planned | — |
+| REQ-FILE-008 | AC-FILE-008-02 | EPIC-007 | 2 | `AC-FILE-008-02` | planned | — |
+| REQ-FILE-008 | AC-FILE-008-03 | EPIC-007 | 2 | `AC-FILE-008-03` | planned | — |
+| REQ-FILE-001 | AC-FILE-001-02 | EPIC-007 | 2 | `AC-FILE-001-02` | planned | — |
+| REQ-FILE-001 | AC-FILE-001-05 | EPIC-007 | 2 | `AC-FILE-001-05` | planned | — |
+| REQ-FILE-002 | AC-FILE-002-01 | EPIC-007 | 2 | `AC-FILE-002-01` | planned | — |
+| REQ-FILE-003 | AC-FILE-003-01 | EPIC-007 | 2 | `AC-FILE-003-01` | planned | — |
+| REQ-FILE-003 | AC-FILE-003-02 | EPIC-007 | 2 | `AC-FILE-003-02` | planned | — |
+| REQ-FILE-003 | AC-FILE-003-03 | EPIC-007 | 2 | `AC-FILE-003-03` | planned | — |
+| REQ-FILE-003 | AC-FILE-003-04 | EPIC-007 | 2 | `AC-FILE-003-04` | planned | — |
+| REQ-NFR-009 | AC-NFR-009-01 | EPIC-007 | 2 | `AC-NFR-009-01` | planned | — |
+| REQ-NFR-009 | AC-NFR-009-02 | EPIC-007 | 2 | `AC-NFR-009-02` | planned | — |
+| REQ-ONBD-005 | AC-ONBD-005-01 | EPIC-008 | 2 | `AC-ONBD-005-01` | planned | — |
+| REQ-ONBD-005 | AC-ONBD-005-02 | EPIC-008 | 2 | `AC-ONBD-005-02` | planned | — |
+| REQ-ONBD-006 | AC-ONBD-006-01 | EPIC-008 | 2 | `AC-ONBD-006-01` | planned | — |
+| REQ-ONBD-006 | AC-ONBD-006-02 | EPIC-008 | 2 | `AC-ONBD-006-02` | planned | — |
+| REQ-ONBD-006 | AC-ONBD-006-03 | EPIC-008 | 2 | `AC-ONBD-006-03` | planned | — |
+| REQ-ONBD-007 | AC-ONBD-007-01 | EPIC-008 | 2 | `AC-ONBD-007-01` | planned | — |
+| REQ-ONBD-007 | AC-ONBD-007-02 | EPIC-008 | 2 | `AC-ONBD-007-02` | planned | — |
+| REQ-MSG-013 | AC-MSG-013-04 | EPIC-008 | 2 | `AC-MSG-013-04` | planned | — |
 
 ## Split requirements
 
@@ -164,12 +214,21 @@ Requirements whose AC span more than one epic (or one epic + orphans/deferred) �
     or request form) — testable from the public front door.
   - **EPIC-002** owns **AC-DOOR-002-01, -02, -03, -05** (accountant add/edit/deactivate + "only the
     accountant may change the catalog") — these need the authenticated accountant admin surface.
-- **REQ-MSG-013 (accountant notification types)** — split between MVP and Phase 4:
-  - **EPIC-003** owns **AC-MSG-013-01** (new service-request notification) — the only MSG-013 event that
-    exists in the MVP.
-  - **AC-MSG-013-02..06** (new message, document uploaded, onboarding completed, document-request overdue,
-    due-date approaching) → **Orphans**, targeted at **Phase 4** (the notification feed), since those source
-    events are not built until later phases.
+- **REQ-MSG-013 (accountant notification types)** — split across two phases plus a Phase-4 remainder:
+  - **EPIC-003** (Phase 1) owns **AC-MSG-013-01** (new service-request notification).
+  - **EPIC-008** (Phase 2) owns **AC-MSG-013-04** (onboarding completed) — the ONBD-007 notification is the
+    MSG-013-04 event; pulled forward from Phase 4 because onboarding completion is built in Phase 2 (same
+    pattern as EPIC-003 owning -01).
+  - **AC-MSG-013-02/-03/-05/-06** (new message, document uploaded, document-request overdue, due-date
+    approaching) → **Orphans**, targeted at **Phase 4** (the notification feed), since those source events
+    are not built until later phases.
+- **REQ-FILE-001 (file exchange within an engagement)** — split between Phase 2 (onboarding upload) and
+  Phase 3 (full exchange):
+  - **EPIC-007** (Phase 2) owns **AC-FILE-001-02** (client uploads to their engagement) and
+    **AC-FILE-001-05** (engagement isolation) — the client-upload path the onboarding document step needs.
+  - **AC-FILE-001-01** (accountant upload) and **AC-FILE-001-03/-04** (both-party download) → **Orphans**,
+    targeted at **Phase 3** (the file-exchange epic) — accountant upload and download are the broader
+    exchange surface, not onboarding's "client provides documents" step.
 
 ## Orphans
 
@@ -177,8 +236,9 @@ Source AC not yet decomposed into any epic. This is the v1 work remaining — ea
 Planning Agent run places it in an epic. (v2 AC are tracked separately under Deferred, not here.)
 
 **MVP-adjacent (deferred for lack of an MVP home — reconciled this run, with target phase):**
-- **REQ-DOOR-009** (returning client requests from inside the portal) — AC-DOOR-009-01..04 → **Phase 2–3**
-  (needs a client portal home).
+- **REQ-DOOR-009** (returning client requests from inside the portal) — AC-DOOR-009-01..04 → **Phase 3**.
+  *(Now newly buildable: Phase 2 introduces an authenticated client portal home. Kept Phase 3 because it is
+  a distinct feature, not part of the onboarding gate — to be placed when Phase 3 is decomposed.)*
 - **REQ-DOOR-010** (accountant initiates an engagement for an existing client) — AC-DOOR-010-01..04 →
   **Phase 3** (needs the engagement entity / lifecycle).
 - **REQ-AUTH-002** (accountant full visibility) — AC-AUTH-002-01..03 → **Phase 3** (needs engagements + a
@@ -193,17 +253,25 @@ Planning Agent run places it in an epic. (v2 AC are tracked separately under Def
   feed; in the MVP accept/decline reach the account-less prospect by email, not a feed).
 
 **Whole domains pending decomposition** (each `AC-*` orphaned until a future run slices it into a phase —
-see `ROADMAP.md` Phases 2–4):
-- **ONBD** (Phase 2) — REQ-ONBD-001..007 (v1). *(REQ-ONBD-008 is v2 → Deferred.)*
-- **LIFE** (Phase 3) — REQ-LIFE-001..012 (v1). *(REQ-LIFE-013/014 are v2 → Deferred.)*
-- **FILE** (Phase 3) — REQ-FILE-001..015 (v1). *(REQ-FILE-016 is v2 → Deferred.)*
-- **MSG** (Phase 4) — REQ-MSG-001..012, -015..018 (v1, plus the MSG-013/014 remainders above).
-  *(REQ-MSG-019 is v2 → Deferred.)*
-- **DASH** (Phase 4) — REQ-DASH-001..009, -012, -013 (DASH-010 in EPIC-002, DASH-011 in EPIC-003).
-- **IDNT** (Phase 4) — REQ-IDNT-001..004, -006, -007 (IDNT-005 → Deferred).
-- **NFR** (cross-cutting) — REQ-NFR-001..011 mapped onto the epic(s) whose slice must demonstrate each (e.g.
-  RLS isolation on the first client-scoped read slice; malware scanning on the first upload slice). To be
-  attached to epics as those slices are authored.
+see `ROADMAP.md` Phases 3–4):
+- **ONBD** — ✅ **fully placed in Phase 2** (EPIC-005/006/007/008): REQ-ONBD-001..007. No ONBD orphans
+  remain. *(REQ-ONBD-008 is v2 → Deferred.)*
+- **LIFE** (Phase 3) — REQ-LIFE-001..012 (v1). The *minimal* Engagement substrate (New / In Progress) is
+  introduced in Phase 2, but no LIFE AC are claimed there — the full pipeline AC are Phase 3.
+  *(REQ-LIFE-013/014 are v2 → Deferred.)*
+- **FILE** (Phase 3) — REQ-FILE-004/005/006/009..015 (v1), plus the **REQ-FILE-001 remainder**
+  (AC-FILE-001-01/-03/-04 — see Split requirements). **Placed in Phase 2 (EPIC-007):** FILE-002, FILE-003,
+  FILE-007, FILE-008 in full, and the FILE-001 client-upload/isolation subset. *(REQ-FILE-016 is v2 →
+  Deferred.)*
+- **MSG** (Phase 4) — REQ-MSG-001..012, -015..018 (v1), plus the MSG-013 remainder (**-02/-03/-05/-06** —
+  -01 in EPIC-003, **-04 in EPIC-008**) and the MSG-014 remainder above. *(REQ-MSG-019 is v2 → Deferred.)*
+- **DASH** (Phase 4) — REQ-DASH-001..009, -013 (DASH-010 in EPIC-002, DASH-011 in EPIC-003, **DASH-012 in
+  EPIC-006**).
+- **IDNT** (Phase 4) — REQ-IDNT-001..004, -006 (**IDNT-007 in EPIC-005**; IDNT-005 → Deferred).
+- **NFR** (cross-cutting) — REQ-NFR-001..008, -010, -011 mapped onto the epic(s) whose slice must
+  demonstrate each (e.g. RLS isolation on the first client-scoped read slice; malware scanning on the first
+  upload slice). **AC-NFR-009 (malware scan) placed in Phase 2 (EPIC-007)** — the first upload slice. The
+  rest are attached to epics as those slices are authored.
 
 ## Deferred
 

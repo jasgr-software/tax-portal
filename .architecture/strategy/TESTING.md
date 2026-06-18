@@ -7,6 +7,9 @@
 
 ## Status / amendment history
 
+- **2026-06-17** — Added ADR-023 (provider-seam & mock-first integration) to Governing decisions: an
+  external integration's mock binding is the tier-2/5 substitution point; its real binding / emulator is
+  exercised by tiers 3/6. No tier promotion; clarifies what tiers 2/5 mock for external boundaries.
 - **2026-06-13** — Extracted into `.architecture/strategy/` from ADR-012 as the living strategy surface.
   No posture change; ADR-012 remains the decision of record.
 - **2026-04-29** — Pyramid adopted (ADR-012).
@@ -53,6 +56,11 @@ ADR-012 § Codification mechanisms defines five mechanisms; the load-bearing one
 - **ADR-003 / ADR-005** — the trust boundary, which forces tier 3 to required-on-PR.
 - **ADR-011** — repository interface as the test seam (enables tier-2 mocking; concrete repos exercised
   by tier 3).
+- **ADR-023** — provider-seam & mock-first external-integration strategy: each external integration's
+  **mock binding** is what tiers 2/5 bind, while the **real binding** (or a local emulator — Azurite,
+  Mailhog) is exercised by tiers 3/6. A mock proves wiring/logic, **not** the provider's security property
+  (the ADR-011 §5 distinction generalized) — real-provider re-validation lands with the integration's
+  deferred enablement slice. Mock bindings are non-production only and fail closed.
 - **ADR-006** — two front ends + per-app Playwright configs; coverage spans `apps/portal` **and**
   `apps/admin` (CLAUDE.md § Platform-frontend scope).
 - **ADR-007** — deploy platform deferred, which defers tiers 8–9.

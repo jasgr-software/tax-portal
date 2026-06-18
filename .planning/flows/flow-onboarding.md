@@ -3,7 +3,7 @@
 **Flow ID:** `flow-onboarding`  
 **One-line summary:** A newly accepted client completes the three-step onboarding gate — engagement letter e-sign, intake questionnaire, initial document upload — causing the engagement to transition from `New` to `In Progress`.
 
-**Status:** Phase 3 stub — covers Epic 003 (Client Onboarding) scope. Authored here for flow-gate completeness; will be refined during Epic 003 pre-planning. The Docuseal integration details depend on CLARIF-006 resolution.
+**Status:** Active — realizes **Phase 2** (the onboarding gate). Reconciled 2026-06-17 against the authored Phase-2 epics: **EPIC-005** (onboarding spine + engagement-letter e-sign gate — steps 1–2 of this flow), **EPIC-006** (intake questionnaire — step 3), **EPIC-007** (initial document upload — step 4), **EPIC-008** (completion → New→In Progress transition + accountant notification — steps 5–6). The earlier "Phase 3 stub / Epic 003" label was migrated legacy numbering and is corrected here. The e-signature integration (step 2) still depends on an architecture decision the architecture layer must ratify (no e-sign ADR yet; Docuseal appears only in the C4 model — see ROADMAP amendment 2026-06-17). Multi-participant signing (branch B1) is Phase 3.
 
 ---
 

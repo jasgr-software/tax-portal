@@ -7,6 +7,32 @@
 
 ## Status / amendment history
 
+- **2026-06-17 (Phase 2 decomposed — onboarding gate sliced into 4 epics)** — Authored **EPIC-005**
+  (onboarding spine + engagement-letter e-sign gate), **EPIC-006** (intake questionnaire — per-service-type
+  templates), **EPIC-007** (initial document upload — checklist + first secure file-storage path + malware
+  scan), and **EPIC-008** (onboarding completion → automatic New→In Progress transition + accountant
+  notification). All four `planned`. **44 AC newly placed**: ONBD-001..007 (the whole v1 ONBD domain),
+  IDNT-007 (letter template), DASH-012 (questionnaire templates), FILE-007/008 + a client-upload/isolation
+  subset of FILE-001 + FILE-002 + FILE-003 (first file-storage slice's security set), NFR-009 (malware
+  scan), and AC-MSG-013-04 (onboarding-complete notification, pulled from the Phase-4 orphan set — same
+  pattern as EPIC-003 owning MSG-013-01). **Engagement substrate decision (user, 2026-06-17):** Phase 2
+  introduces a *minimal* Engagement entity (created on acceptance → status New; the one automatic
+  transition to In Progress on completion); the full four-stage pipeline + manual transitions +
+  client-facing labels (REQ-LIFE-001/002/003) stay **Phase 3**. **Splits:** REQ-FILE-001 splits Phase 2
+  (client upload + isolation) / Phase 3 (accountant upload + download); REQ-MSG-013 now spans EPIC-003
+  (-01) / EPIC-008 (-04) / Phase 4 (-02/-03/-05/-06). **Two boundary flags for the next run / user:** (1)
+  REQ-AUTH-003 (client-data RLS isolation) — its enabling slice (first client-owned rows) now lands in
+  Phase 2; the isolation mechanism + per-policy test are built in EPIC-005/007 but the AUTH-003 *feature*
+  AC remain Phase-3-owned. (2) REQ-DOOR-009 (returning-client in-portal request) — a client portal home now
+  exists in Phase 2, so it is newly buildable, but kept Phase 3 (it is a distinct feature, not part of the
+  onboarding gate). **Third-party integrations mocked (standing user directive, 2026-06-17):** e-sign
+  (EPIC-005) and the malware scanner (EPIC-007) ship behind **mocked provider seams**; the matching AC are
+  delivered/`verified` against the mock and the real Docuseal / real-scanner wiring (and their ADRs) are
+  deferred "enablement" slices — same pattern as EPIC-004's mocked auth → deferred 2FA. So **no third-party
+  ADR blocks dispatch**; the e-sign/scanner ADRs become upstream architecture follow-ups, not Phase-2
+  gates. `flow-onboarding` reconciled from its stale "Phase 3 / Epic 003" label to the real Phase-2 epics.
+  **Next:** Phase 2 is ready for `/orchestrate` (EPIC-005 first — no Phase-2 predecessor).
+
 - **2026-06-17 (EPIC-003 delivered — 🎉 Phase 1 / MVP COMPLETE)** — the accountant request inbox shipped (PR #42,
   squash merge `ec151cb`). All **20 in-scope AC** signed off `verified` in `COVERAGE.md`: AC-DOOR-005-01/-02/-03
   (new-request accountant notification), AC-DOOR-006-01..05 (view/accept/decline/only-accountant/decide-once),
@@ -112,16 +138,54 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 > organizer, prior-year detection, outstanding-question tracking, proactive follow-up engine, recurring
 > engagements, multi-accountant) are **not phased here** — they sit above v1 acceptance.
 
-## Phase 2 — Onboarding gate *(to decompose)*
+## Phase 2 — Onboarding gate
 
-Invited client creates an account, signs the engagement letter (e-sign), completes the intake
-questionnaire, and uploads initial documents — the hard gate before an engagement goes "In Progress".
-Requirement themes: ONBD, the client side of AUTH. Depends on Phase 1's accept→invite path.
+**Milestone:** a newly accepted client signs in, e-signs the engagement letter (the hard gate), completes
+the per-service-type intake questionnaire, and uploads their initial documents against a checklist — and
+when all three steps are done, the engagement automatically moves New → In Progress and the accountant is
+notified. This is the first **authenticated client** surface and the first **file-storage** path.
+Requirement themes: ONBD (the whole v1 domain), plus the minimal supporting capabilities the gate
+consumes — the engagement-letter template (IDNT), the questionnaire templates (DASH), and the document
+checklist + secure upload (FILE, NFR malware scan). Depends on Phase 1's accept→invite path.
+
+| Epic | Slice | Status | Depends on |
+|---|---|---|---|
+| **EPIC-005** | Onboarding spine + engagement-letter e-sign gate — minimal Engagement entity (created on accept, status New), three-step sequence, the letter hard gate, editable letter template (10 AC) | `planned` | EPIC-003 ✅, EPIC-004 ✅ |
+| **EPIC-006** | Intake questionnaire — accountant authors per-service-type templates; client completes the matching questionnaire (7 AC) | `planned` | EPIC-005, EPIC-002 ✅ |
+| **EPIC-007** | Initial document upload — accountant defines the checklist; client uploads against it via the first secure, malware-scanned, non-public file-storage path (19 AC) | `planned` | EPIC-005 |
+| **EPIC-008** | Onboarding completion — all-three-steps gate, automatic New → In Progress transition, accountant in-portal notification (8 AC, incl. AC-MSG-013-04) | `planned` | EPIC-005, EPIC-006, EPIC-007 |
+
+> **Build order:** EPIC-005 first (no Phase-2 predecessor). EPIC-006 and EPIC-007 both build on EPIC-005's
+> onboarding sequence and gate and are independent of each other (parallelizable). EPIC-008 is the capstone
+> — it depends on all three step-epics because onboarding completion is defined over their outputs.
+>
+> **Scope boundaries (this phase):** Phase 2 introduces only the *minimal* Engagement substrate (New /
+> In Progress) the gate needs — the **full four-stage lifecycle pipeline, manual transitions, and
+> client-facing status labels (REQ-LIFE-001/002/003) stay Phase 3**. The document-upload slice owns only
+> the file properties the *first* stored file forces (security, malware scan, engagement isolation,
+> any-type) and the client-upload path; **accountant upload, download, folders, versioning, and retention
+> are Phase 3**. Multi-participant signing (Martha & James) is Phase 3.
+>
+> **Third-party integrations are mocked (standing directive, 2026-06-17).** Every external SaaS in Phase 2
+> is built behind a **mocked provider seam** and kept mocked as long as possible — the engagement-letter
+> **e-sign** (EPIC-005, real Docuseal deferred) and the **malware scanner** (EPIC-007, real scanner
+> deferred); object storage uses the Azurite emulator. The matching AC are **delivered/`verified` against
+> the mock** (provider-agnostic behavior contract), exactly like EPIC-004's mocked auth → deferred 2FA
+> slice. Consequence: **no third-party ADR blocks dispatch** — the real-integration ADRs (e-sign;
+> scanner) are upstream follow-ups, and each real-provider wiring is tracked as its own deferred
+> "enablement" slice. This implies a provider-seam / deferred-real-integration **architecture strategy the
+> architecture layer should own**.
 
 ## Phase 3 — Engagement lifecycle & secure file exchange *(to decompose)*
 
-The New → In Progress → Review → Complete pipeline (manual transitions) and per-engagement folder-
-structured document exchange with retention/versioning. Requirement themes: LIFE, FILE.
+Builds the **full** New → In Progress → Review → Complete pipeline (manual transitions, client-facing
+labels) on top of the *minimal* Engagement substrate Phase 2 introduced, plus the per-engagement folder-
+structured document exchange (accountant upload, both-party download, folders, versioning, retention/
+legal-hold) on top of the *first* secure file-storage path Phase 2 stood up. Requirement themes: LIFE,
+FILE remainder. **Carried-in placements to formalize when this phase is decomposed:** REQ-AUTH-003 (client-
+data RLS isolation — its enabling slice + per-policy test were built in Phase 2 EPIC-005/007; the feature
+AC are signed off here), REQ-AUTH-002/007/008, REQ-DOOR-009/010, and the REQ-FILE-001 remainder
+(AC-FILE-001-01/-03/-04).
 
 ## Phase 4 — Messaging, notifications & the accountant dashboard *(to decompose)*
 
