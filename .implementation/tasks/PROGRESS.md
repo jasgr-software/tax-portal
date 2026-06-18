@@ -13,7 +13,7 @@
 **EPIC-006 — Intake questionnaire (per-service-type templates + client completion).** BRIEF-006 — **step 2 of
 the onboarding sequence**, on top of the delivered EPIC-005 onboarding spine + letter gate. **Branch:**
 `brief-006-intake-questionnaire` (from `main` @ `3dee2f1`). **Gated:** yes. **Brief-type:** feature ·
-**Brief-deploys:** no. **Phase:** DISPATCH-EXIT → AUDIT (all 7 tasks `done` — TASK-006-007 @demo SDET-APPROVED 2026-06-19T02:15:00Z; Dispatch-exit condition met; awaiting main session commit + Overwatch Audit). **7 in-scope AC.**
+**Brief-deploys:** no. **Phase:** CLOSE-PREP **COMPLETE → `## Awaiting PR merge` (PR limbo)** (all 7 tasks `done` + committed; Audit **CLEAN**; IO Review **design-scan PASS**; Smoke **gate 5 PASS**; **Validate PASS** — gate 6 [7/7 AC gherkin prose-bind PASS], gate 7 [CI: pnpm ci:local EXIT 0; portal e2e 35/36 + 36/36 on retry [AC-ONBD-001-01 pre-existing flake, BRIEF-006 ACs both green]; admin e2e 35/35; cross-app 11/11 PASS], quality audit [PASS — no blocking gaps; ADR-006 fence clean; HARD tier-3 7/7 live; tier honesty verified]). **Close-prep done:** consistency gate PASS; 7 task files + BUG-006-001 archived to `tasks/done/`; `RETRO-006.md` + `HANDOFF-006.md` written; slice moved to `## Awaiting PR merge`. **7 in-scope AC. 7/7 PASS.** Next: **main session pushes the branch + opens the PR** (reviewed lane); then IO **Close-finalize** (gate 8) after merge.
 
 **Dispatch progress (2026-06-18):** TASK-006-001 **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:00:00Z`). HARD tier-3 isolation test independently re-run live: 7/7 PASS. Gate Authoring three-item evidence verified real. Substrate proven — schema, repos, `0006` policy, inventory.md Track-B drift resolved. TASK-006-002 (admin template UI) **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:06:28Z`; `Complexity-actual: 3`) — 42 new tests, `pnpm --filter admin test` 184 pass, lint/type-check clean, ADR-006 fence VERIFIED live (`find apps/portal/src -name "*questionnaire*"` → 0), all 4 AC behaviorally tested, committed to `brief-006-intake-questionnaire`. TASK-006-003 (engagement→service-type resolution + correct-template read, tier-3) **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:23:09Z`; `Complexity-actual: 3`) — `getQuestionnaireForEngagement(engagementId)` + no-arg `getMyQuestionnaire()` resolver in `questionnaire-template.ts`; request-pool FILTER engagement gate FIRST verified in code and live, then admin-pool service join DECISION-F `sortOrder ASC, id ASC` (tiebreak live-proven), then admin-pool template read; absent-template → null (live-proven); non-owner → null FILTER fail-closed (live-proven). Independent SDET run: 6/6 tier-3 PASS; lint/type-check clean. TASK-006-003 committed to `brief-006-intake-questionnaire` (`e8b585c`, main session). TASK-006-004 (portal questionnaire step UI) **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:38:52Z`; `Complexity-actual: 3`) — renders the resolved template behind the EPIC-005 letter gate; consumes EPIC-005 read model `accessible`/`done` (does NOT re-derive gate logic); no client-supplied ids (no-arg `getMyQuestionnaire()` from 003); locked/awaiting/submitted/active-form states; question content rendered as React text (no `dangerouslySetInnerHTML`). 27 new component tests; `pnpm --filter portal test` 102/102 (independently verified live); lint/type-check clean. **Action seam:** `getMyQuestionnaireAction()` (thin no-arg wrapper around `getMyQuestionnaire()` via `withRequestContext`) + `submitQuestionnaireAction(answersJson)` typed STUB — **both bodies replaced by TASK-006-005** (coordination `// DECISION (TASK-006-004/005)` comments present; stub hardcodes `alreadySubmitted:false`/`existingAnswers:null`). Not yet committed — main session commits after SDET approval. **Coordination note:** server-side satisfaction+recording is TASK-006-005; E2e consolidated in TASK-006-006 (004 `E2e-required: no`). **Carry-forward for TASK-006-005:** `SELECT @@ROWCOUNT` in `submitQuestionnaireAsClient` follows the `UPDATE [Engagement]` (captures UPDATE rowcount not INSERT's) — functionally correct for v1; verify at 005 production-submit wiring.
 
@@ -83,7 +83,16 @@ bootstrap/P3019 (infra, surfaces at Smoke). Cross-surface-parity sunset counter 
 
 ## Awaiting PR merge
 
-_None — no slice in PR limbo._
+**BRIEF-006 / EPIC-006 — Intake questionnaire (per-service-type templates + client completion).** Branch
+`brief-006-intake-questionnaire` (7 commits ahead of `main` @ `3dee2f1`; 51 files, +11465/−334). **Brief-type:**
+feature · **Brief-deploys:** no. **Pre-merge gates 1–7 ALL GREEN** (7/7 submission · 7/7 SDET Review · Audit
+CLEAN · Design-scan PASS · Smoke PASS · Acceptance-validation 7/7 AC · CI gate PASS + quality audit CLEAN).
+Close-prep done: consistency gate PASS; 7 task files + BUG-006-001 archived to `tasks/done/`; `RETRO-006.md` +
+`HANDOFF-006.md` written. **PR pending — main session pushes the branch + opens the PR** (base `main`, head
+`brief-006-intake-questionnaire`; **reviewed lane** — application code → `/pr-review` panel). **`.orchestration/
+STATE.md` + `.planning/EPIC-002` reconciliation are out-of-slice docs-lane edits and must NOT enter this PR.**
+Next IO step after merge: **Close-finalize** (gate 8 post-merge CI; gate 9 N/A; append Post-Merge Addendum).
+**PR #: _pending_.**
 
 Prior delivered: PR #48 `f879da2` (EPIC-005 — opens Phase 2), PR #42 `ec151cb` (EPIC-003), PR #40 `70ea10e`
 (EPIC-002), PR #38 `0444551` (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) — all merged. **Phase 1 (MVP) complete;
@@ -166,6 +175,146 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   the healthcheck should derive its SA password from the same source the volume was bootstrapped with (or the
   bootstrap should re-assert the env SA password on persisted volumes). Same root family as the carried
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
+- **[ungated-fix candidate — RETRO-006 item 3] `scripts/smoke-test.sh` defaults unsuitable for this project** —
+  the script defaults `ADMIN_URL=http://localhost:3001` (not the project-remapped `:13001`) and its `sqlserver`
+  readiness wait uses `sqlcmd -U sa -P "$MSSQL_SA_PASSWORD"`, which blocks on the carried SA-password/volume
+  mismatch. SDET used the CLAUDE.md manual fallback at BRIEF-006 Smoke. Harden: default `ADMIN_URL` to `:13001`;
+  derive/re-assert the SA password from the volume bootstrap source. Same root family as the `sqlserver`
+  healthcheck item above. (Observation — not promoted; no gate failure.)
+- **[ungated-fix candidate — RETRO-006 item 4] `@demo` prior-epic PNG byte-churn** — `@demo` runs rewrite
+  prior-epic PNGs (3rd-ish occurrence; main session manually `git checkout`-reverts each slice). TASK-006-007
+  itself was scope-disciplined (only EPIC-006 PNGs written); this concerns the *other* `@demo` specs' default
+  output paths. Scope each `@demo` spec's screenshot output to its own `docs/demos/EPIC-NNN/` path so the manual
+  revert isn't needed. (Observation — not promoted.)
+- **[e2e-determinism — RETRO-006 item 5] AC-ONBD-001-01 (EPIC-005-owned) portal e2e flake** —
+  `apps/portal/e2e/specs/onboarding.spec.ts:312` failed once at single-run in the full portal suite
+  (`data-testid="onboarding-steps"` not found within 5000ms), passed on `--retries 1` at 259ms. File unmodified
+  this branch (last touched `f879da2`/EPIC-005). Not a BRIEF-006 regression, not a BRIEF-006 AC. Investigate the
+  `beforeEach`/onboarding-nav fixture timing for that describe block. (Non-blocking follow-up.)
+- **[metric-integrity — RETRO-006 item 2] Clock-source `Completed-at`/`Started-at` inversion** — TASK-006-002
+  `Completed-at` (20:06:28Z) precedes `Started-at` (20:15:00Z). **6th occurrence** of the clock-source family
+  (RETRO-002/003/004/005). The other 6 tasks were forward-ordered with real `Started-at` (the RETRO-005 carry was
+  actioned). Observation — not promoted; **Overwatch: elevate to `ungated-fix` if it recurs to a 7th** without a
+  dispatch-checkpoint/SDET clock-domain convention fix.
+
+---
+
+### IO Close-prep — BRIEF-006 — 2026-06-19 (consistency gate + archive + retro + handoff; slice → PR limbo)
+**Start:** Resuming post-context. SDET returned Validate OVERALL PASS (gates 6+7+quality audit). Phase already
+advanced to CLOSE-PREP. Read startup checklist (PROGRESS.md, PHASES.md, seed/sources.md, ENGINE.md § Retro
+Classification/Rule Sunset, RETRO-005 + HANDOFF-005 as templates, BRIEF-006 front-matter).
+**Consistency gate — PASS.** (1) All 7 tasks committed across 7 commits on `brief-006-intake-questionnaire`
+(`git log main..HEAD`: 10ecb90 / 4b40c67 / e8b585c / ac499f5 / cb43671 / f166615 / 8497a07) — matches the
+7-task list. (2) Committed diffstat 51 files, +11465/−334 — matches the Review design-scan. (3) **Out-of-slice
+docs-lane files confirmed NOT on the committed branch** — `.orchestration/STATE.md` + `.planning/EPIC-002` are
+uncommitted in the working tree (correct; they take the separate docs-lane, not this PR). (4) All 7 AC trace to
+passing AC-tagged evidence (HANDOFF-006 table). (5) 7/7 tasks `done` with `Complexity-actual` ∈ 1–5 +
+Dispatch-Checkpoint present (per prior SDET-review entries).
+**Archive:** `git mv`'d the 7 `TASK-006-*` files + `BUG-006-001-*` to `tasks/done/`. `tasks/` now holds only
+PROGRESS/ARCHIVE + HANDOFF-001..005 + RETRO-001..005 (+ the new 006 files).
+**RETRO-006.md written** — 9-gate scorecard (gates 1–7 green, 8 pending, 9 N/A); what-shipped; **retro finding
+classification** per ENGINE.md (promotion bar = concrete gate failure): **1 finding cleared the bar** —
+BUG-006-001 SDET rejection (mock-interface drift, 2nd manifestation), classified `ungated-fix` (resolved this
+slice, test-mock-only, 184/184 on re-run). 4 observations did NOT clear the bar (clock inversion 6th occurrence;
+smoke-script defaults; @demo PNG churn; AC-ONBD-001-01 EPIC-005 flake) — carried to `## Open retro action items`,
+not promoted. **Rule Sunset:** `--no-verify` KEEP; PushNotification guard KEEP; cross-surface-parity counter at
+2/3 post-EPIC-005-decision (BRIEF-006 again zero-finding) — KEEP, re-evaluate next Close-prep, do NOT sunset.
+**HANDOFF-006.md written** — for `.planning/` COVERAGE write-back: 7/7 in-scope AC `ready-for-verified` with the
+tier/evidence table + the HARD ADR-005 second-policy isolation proof; net-new capabilities; out-of-scope honored;
+zero upstream items raised; resolved-this-slice (inventory.md Track-B drift + the `@@ROWCOUNT` glance-item).
+**Phase-transition reflex (Validate→Close-prep→PR limbo):** updated `## Current initiative` Phase to CLOSE-PREP
+COMPLETE; moved the slice to `## Awaiting PR merge` (PR # pending); appended the 4 carried action items to
+`## Open retro action items`; appended this entry. No sweep to PROGRESS-ARCHIVE needed (all inline entries are
+current-slice BRIEF-006 gate records).
+**End:** Close-prep exit condition met — RETRO-006 + HANDOFF-006 written, task files archived, slice in
+`## Awaiting PR merge`. **IO ends the invocation.** PR creation is the main session's job (git-owned) + the
+user-in-loop merge checkpoint. Dispatch block below tells the main session exactly what to push + the PR
+title/body. After merge → re-invoke IO for Close-finalize (gate 8 post-merge CI; gate 9 N/A — `Brief-deploys:
+no`).
+
+---
+
+### SDET Validate — BRIEF-006 — 2026-06-18T (gates 6/7 + quality audit) — OVERALL: PASS
+**Start:** Resuming from context compaction. Completed startup checklist: ENGINE.md, sdet.md, PROGRESS.md, BRIEF-006, EPIC-006 acceptance scenarios. Docker pre-flight PASS (Engine 29.4.1). HARD tier-3 isolation re-run (7/7) already complete from prior session segment. CI gate was running in background; AC-ONBD-001-01 retry was running in background. Read all completed log files; composed verdicts.
+
+**Gate 6 — Acceptance-Validation (gherkin prose-bind, 7 AC):**
+All 7 BRIEF-006 in-scope AC validated. Summary:
+- AC-ONBD-003-01 (correct questionnaire for service type): PASS — tier-3 6/6 (`questionnaire-resolution.rls.test.ts`) + tier-6 e2e portal test 18 (`onboarding-questionnaire.spec.ts:443` AC-ONBD-003-01, 787ms PASS) + cross-app test 24/7 (questionnaire-cross-app).
+- AC-ONBD-003-02 (one template per service type, letter gate not weakened): PASS — tier-3 via `@@unique([serviceId])` constraint and `accessible: signed` confirmed in `onboarding.ts`; `submitQuestionnaireAction` calls `checkStepAccessibility`; non-owner FILTER fail-closed tier-3 live-proven.
+- AC-ONBD-003-03 (step unsatisfied before submit, satisfied after): PASS — tier-3 10/10 (`onboarding-questionnaire.rls.test.ts`) + tier-6 portal test 19 (`onboarding-questionnaire.spec.ts:546` AC-ONBD-003-03, 1.0s PASS). `questionnaireSubmittedAt != null` drives read model.
+- AC-ONBD-003-04 (answers recorded per engagement): PASS — tier-3: `submitQuestionnaireAsClient` INSERT+UPDATE batch, `@@unique([engagementId])` one-per-engagement constraint, positive DB-backed test confirms recording; cross-app e2e (test 24) confirms answer persisted across surfaces.
+- AC-DASH-012-01 (accountant creates a questionnaire template): PASS — tier-6 admin test 11 (`questionnaire-templates.spec.ts:197` AC-DASH-012-01, 1.0s PASS) + 42 Vitest component tests (admin 184/184).
+- AC-DASH-012-02 (template bound to chosen service type): PASS — tier-3 (DECISION-F `sortOrder ASC, id ASC` tiebreak; `@@unique([serviceId])` schema constraint; resolution test 6/6) + tier-6 admin test 12 (`questionnaire-templates.spec.ts:270` AC-DASH-012-02, 2.6s PASS).
+- AC-DASH-012-03 (edited template retained): PASS — tier-6 admin test 13 (`questionnaire-templates.spec.ts:369` AC-DASH-012-03, 1.0s PASS).
+Cross-cutting constraints: (a) letter hard gate NOT weakened — `accessible: signed` in `onboarding.ts` unchanged; portal e2e drives real letter-sign before questionnaire access (tests 18/19 precondition). (b) ADR-005 `0006` isolation policy HARD tier-3 re-run live: 7/7 PASS (`questionnaire-answer.client-isolation.rls.test.ts`, 610ms) — CLIENT-A reads own, CLIENT-B reads ZERO for CLIENT-A, null SESSION_CONTEXT→ZERO, ACCOUNTANT reads both, cross-client UPDATE blocked (rowsAffected=0), template INSERT blocked.
+Gherkin prose-bind: 7 `.feature` files authored verbatim from EPIC-006 scenarios at `apps/portal/e2e/features/questionnaire.feature` + `apps/admin/e2e/features/questionnaire-templates.feature`; `.spec.ts` test titles carry AC ids; no Cucumber tooling yet (prose-bind per CLAUDE.md).
+**Gate 6 verdict: PASS — all 7 AC satisfied at the mandated tiers.**
+
+**Gate 7 — CI Gate:**
+- `pnpm ci:local` (lint → type-check → build → test): EXIT 0. lint CLEAN (portal + admin both zero warnings). type-check CLEAN (portal, admin, packages/ui all `Done`). build CLEAN (portal + admin Next.js 15.5.19, no errors). test: 20/20 PASS (`scripts/db-migrate.test.ts`).
+- `pnpm --filter portal e2e:run`: 35 passed, 1 failed (`onboarding.spec.ts:312 [AC-ONBD-001-01]` — `data-testid="onboarding-steps"` not found within 5000ms). **BRIEF-006 ACs (tests 18/19) both PASSED.** Targeted retry with `--retries 1`: 36/36 PASS (AC-ONBD-001-01 passed on retry at 259ms). The failure is a pre-existing timing/ordering flake on an EPIC-005 AC; `git diff main -- apps/portal/e2e/specs/onboarding.spec.ts` returns empty (file not modified in BRIEF-006 branch); last commit touching it is `f879da2` (EPIC-005 PR #48, predates this branch). Not a BRIEF-006 regression.
+- `ADMIN_BASE_URL=http://localhost:13001 ADMIN_PORT=13001 pnpm --filter admin e2e:run`: 35/35 PASS. All BRIEF-006 admin e2e (tests 11-13: AC-DASH-012-01/-02/-03) PASSED.
+- `pnpm e2e:cross-app`: 11/11 PASS (portal 7 + admin 4), including `questionnaire-cross-app.spec.ts` BRIEF-006 test (test 7/7 portal).
+**Gate 7 verdict: PASS** — CI clean; e2e counts: portal 35+1flake/36 (BRIEF-006 ACs both green; flake pre-existing/EPIC-005-owned, passes on retry), admin 35/35, cross-app 11/11. **Flagging AC-ONBD-001-01 flake for IO awareness** (non-blocking: pre-existing, not a BRIEF-006 AC, passes on --retries 1, not caused by this branch).
+
+**Quality Audit:**
+- Test honesty: zero `.skip`/`.only`/forced-pass in BRIEF-006 test files (grep verified). Fixtures honest (`Date.now()`-stamped prompts, not tautological assertions).
+- Tier map honored: HARD tier-3 isolation 7/7 against real SQL Server container (not mock); resolution tier-3 6/6; submit+read-model tier-3 10/10; tier-6 e2e admin 3/3 + portal 2/2 + cross-app 1/1.
+- ADR-006 fence: template authoring ONLY in `apps/admin` (`find apps/portal/src -name "*questionnaire-template*"` → 0), completion ONLY in `apps/portal` (`find apps/admin/src -name "*submit*questionnaire*"` → 0). Both directions verified live.
+- SESSION_CONTEXT propagation: all reads/writes go through `withRequestContext()` or `withClerkIdentity()`; no direct Prisma access outside the wrapper (ADR-003 Amendment 1 honored).
+- No blocking quality gaps.
+- Observation (carry to Close-prep retro): `onboarding.spec.ts` AC-ONBD-001-01 has a timing flake (test 20 of 36 in the portal full-suite run fails without retries, passes on retry). File is EPIC-005-owned. Not a BRIEF-006 defect but it means the portal suite is not fully deterministic at 1 worker. Candidate: investigate `beforeEach` fixture timing for that test describe block.
+**Quality audit verdict: PASS — no blocking gaps.**
+
+**Overall BRIEF-006 Validate: PASS.** All 3 gates green. Advancing to Close-prep.
+**End:** Gate 6 (acceptance-validation), Gate 7 (CI gate), and quality audit all PASS. Updated `## Current initiative` phase to VALIDATE PASS. Next: IO Close-prep (consistency gate, archive, retro, PR creation).
+
+---
+
+### IO Smoke gate-5 PASS recorded + Validate dispatched — BRIEF-006 — 2026-06-18T (post-smoke)
+**Start:** SDET container smoke (gate 5) returned **PASS** against the live Docker stack. Recording the gate and advancing Smoke → Validate.
+**SDET Container Smoke (gate 5) — PASS.** Command path: CLAUDE.md § Container smoke manual fallback (the `scripts/smoke-test.sh` defaults were unsuitable this run — see retro carry below). Docker pre-flight PASS (Engine 29.4.1; stack already up — non-destructive in-place probe). Verdicts:
+- **Infrastructure:** portal :3000 `(healthy)`, admin :13001 `(healthy)` (`ADMIN_PORT=13001` honored), azurite `(healthy)`, mailhog `(healthy)`. `sqlserver` Docker healthcheck `(unhealthy)` = **carried SA-password mismatch only** (DB operational via app principals — both app containers healthy proves pool connectivity). Same root family as the carried P3019/bootstrap-fragility infra item; **not a BRIEF-006 regression, not a blocker.**
+- **Both surfaces HTTP probes:** portal + admin `/healthz` 200, `/readyz` 200, `/` 307→/sign-in; security headers present.
+- **BRIEF-006 route probes:** portal `http://localhost:3000/onboarding/questionnaire` 307→/sign-in (exists, auth-gated); admin `http://localhost:13001/questionnaire-templates` 307→/sign-in. Both exist; neither 404/500.
+- **Smoke e2e BOTH surfaces:** portal `e2e:smoke` 1/1; admin `e2e:smoke` 3/3; zero failures. (CLAUDE.md § Platform-frontend scope satisfied.)
+**Retro carry (Close-prep, NOT a blocker):** `scripts/smoke-test.sh` defaults `ADMIN_URL=http://localhost:3001` (not the remapped 13001 — host-port-squat quirk in MEMORY) and its `sqlserver` wait uses `sqlcmd -U sa` (blocks on the carried SA-password mismatch). SDET used the CLAUDE.md manual fallback instead. **Candidate script-hardening item** — same family as the carried `sqlserver` healthcheck SA-password item (derive SA from the bootstrap source / re-assert env SA on persisted volumes; default `ADMIN_URL` to the project-remapped port).
+**Phase-transition reflex (Smoke→Validate):** updated `## Current initiative` `Phase:` to VALIDATE with the gate-5 PASS summary. No sweep needed (all inline entries are current-slice BRIEF-006 gate records). Appended this entry.
+**Validate dispatch (gates 6/7 + quality audit):** composing one SDET dispatch covering — gate 6 **acceptance-validation** (delivered behavior vs. the **7 in-scope AC** — AC-ONBD-003-01/-02/-03/-04, AC-DASH-012-01/-02/-03 — under the brief's **gherkin** methodology, prose-bind per CLAUDE.md until Cucumber tooling lands: bind the epic's 7 Given/When/Then scenarios against the implemented behavior + the tier map); gate 7 **SDET CI gate** (`pnpm ci:local` full lint→type-check→build→test + the e2e suites the brief mandates: portal/admin `e2e:run` + `e2e:cross-app`); **quality audit** (test honesty, tier-map honored, no skipped/forced-pass, ADR-006 fence, isolation-policy HARD tier-3 standing).
+**End:** Gate 5 recorded PASS. SDET Validate dispatch composed below. On gate 6+7+audit PASS → **Close-prep** (consistency gate, archive, completion/handoff report, retro, move to `## Awaiting PR merge`, request PR). On any gate failure → fix-forward task before re-running the failed gate.
+
+---
+
+### IO Audit verdict recorded + Review design-scan — BRIEF-006 — 2026-06-19T03:00:00Z
+**Start:** Overwatch whole-slice audit returned. **AUDIT CLEAN — no blocking findings.** Per-category: Rule Violations = 1 observation only; Scope Issues / Scope Creep / Inefficiencies / Documentation Consistency / Quality Parity / Autonomy Leaks all PASS. Audit-exit met (verdict recorded; the single observation is non-blocking, dispositioned below — zero blocking findings to fix before Review).
+**Audit observation (NON-BLOCKING, dispositioned):** TASK-006-002 timestamp inversion — `Completed-at: 2026-06-18T20:06:28Z` precedes `Started-at: 2026-06-18T20:15:00Z` by 8m32s (SDET wrote `Completed-at` from the review-session clock; the dispatch-checkpoint `Started-at` was a later wall-clock). **6th occurrence of the clock-source-inconsistency family** (RETRO-002/003/004/005). Metric-integrity only; no gate failed; all other 6 tasks clean (real `Started-at`, no inversion, `Complexity-actual` ∈ 1–5, Dispatch-Checkpoint present). **Disposition:** carried to Close-prep retro — Overwatch suggests if it recurs to 7 without a process fix, elevate to `ungated-fix`. Not promoted now (observation, not a gate failure).
+**Audit confirmations carried (for Close-prep, not new findings):** Gate-Authoring three-item evidence on TASK-006-001 independently sanity-checked real (named FILTER code path + dual counterfactual + verbatim 7/7 run marker — not theatre); ADR-006 fence CLEAN (template authoring confined to `apps/admin`, completion to `apps/portal`, shared resolution in `packages/db`, Glob-verified both directions, zero cross-leak); no scope creep (no v2 organizer, no EPIC-007 upload, no EPIC-008 completion, no Phase-3 lifecycle, no AUTH-003 feature AC, no Phase-4 answer-review UI — the `document-upload` step refs in `OnboardingSequence.tsx` are pre-existing EPIC-005 spine placeholders, unchanged); quality parity PASS (7 gherkin verbatim; e2e admin 35/35 + portal 36/36 + cross-app 11; ADR-012 tiers honored — HARD tier-3 7/7, resolution 6/6, submit+read-model 10/10; satisfy-on-submit 3× zero-flake); inventory.md Track-B drift RESOLVED (TASK-006-001); BUG-006-001 handled correctly (filed→test-only fix→regression confirmed→closed), Stuck-Loop counter = 1 (not triggered).
+**Rule-Sunset leans recorded (for Close-prep recommendation):** `--no-verify` clause → KEEP; PushNotification spam-loop guard → KEEP; cross-surface-parity rule → **counter at 2/3** (EPIC-005 + BRIEF-006 both zero-finding) — re-evaluate at the next Close-prep, do NOT sunset yet.
+**Retro carries logged (Close-prep classification):** (1) clock-source inversion — 6th occurrence; elevate to `ungated-fix` if it hits 7 without a process fix. (2) Mock interface drift (BUG-006-001, concrete SDET rejection) — promote to `ungated-fix`. (3) Prior-epic PNG byte-churn — candidate `ungated-fix`: scope each `@demo` spec's writes to its own `docs/demos/EPIC-NNN/` path so the manual `git checkout` revert isn't needed every slice.
+**Review design-scan (gate 4) — PASS.** Read the integrated `git diff main...brief-006-intake-questionnaire` (51 files, +11465/-334) against the brief + cited ADRs 003/004/005/006/012. Load-bearing files inspected in full:
+- **`db/policies/0006-questionnaire-policy.sql`** — TWO policies. `pol_QuestionnaireAnswer` FILTER+BLOCK, ownership join `engagementId → Engagement.clientUserId → User.clerkId = SESSION_CONTEXT('clerk_user_id')` mirroring `0005-engagement-policy.sql` (ADR-005 §2/§5 Mitigation C two-JOIN reach; null SESSION_CONTEXT → 0 rows fail-closed; DECISION-A NULL-clientUserId → 0 rows). `pol_QuestionnaireTemplate` BLOCK-only (no FILTER — accountant-owned, admin-pool read), write predicate mirrors `fn_service_write_access` (admin/ACCOUNTANT only, no CLIENT branch, error 33504 on deny). **Honors ADR-005 (second client-owned-row family) + ADR-003 Amendment 1 (no `@read_only`).**
+- **`packages/db/src/onboarding.ts`** — read-model extension is minimal + correct: `intake-questionnaire.done` now from `questionnaireSubmittedAt != null` (AC-ONBD-003-03); `accessible` STILL gated on `signed` (letter hard gate NOT weakened — brief constraint honored). DECISION-I recorded inline.
+- **`packages/db/src/repositories/questionnaire-template.ts`** — `getQuestionnaireForEngagement` resolution path exactly per the brief's interface contract: Step 1 request-pool engagement visibility gate FIRST (FILTER-governed, non-owner/null → null fail-closed); Step 2 admin-pool service join (DECISION-F primary = `sortOrder ASC, id ASC`); Step 3 admin-pool template read (DECISION-G); absent template → null (clean, not a throw — AC-ONBD-003-01); no client-supplied ids.
+- **`prisma/schema.prisma`** — ADR-002 conventions (`UNIQUEIDENTIFIER`/`NEWSEQUENTIALID()`/`DATETIMEOFFSET`); `@@unique([serviceId])` (one template per service type — AC-ONBD-003-02/DASH-012-02); `@@unique([engagementId])` (one answer per engagement — AC-ONBD-003-04); `onDelete: NoAction` on Service/Engagement/Template FKs (no hard-delete of referenced rows — EPIC-002 reversible-deactivate posture). ADR-004 single-track (Prisma entity schema + Track-B raw-SQL policy).
+- **`apps/portal/src/app/onboarding/actions.ts`** — `submitQuestionnaireAction` owner-resolved server-side (`getMyEngagement()` under `withRequestContext`, no client-supplied engagement/service/template id), request-pool/BLOCK-governed (ADR-003), letter-gate refusal preserved.
+- **ADR-006 fence (re-verified independently of Overwatch):** `git diff --name-only` confirms zero template-authoring files in `apps/portal`, all `apps/admin` changes template-scoped (no completion/submit). CLEAN both directions.
+**Design-scan verdict: PASS — zero violations, no fix-forward task needed.** The integrated diff faithfully delivers the brief's 7 AC within all five cited ADR constraints.
+**Phase-transition reflex (Audit→Review→Smoke):** Audit verdict + design-scan are recorded in one entry (Review's design-scan is its sole IO action after a CLEAN audit with no `review` tasks remaining — all 7 already SDET-`done`). Updated `## Current initiative` `Phase:` to SMOKE. No sweep needed (all inline entries are current-slice BRIEF-006 gate records). Appended this entry.
+**End:** Audit recorded + Review design-scan PASS. Both gate-3 (Audit) and gate-4 (Design scan) green. Advancing to **Smoke** (gate 5) — SDET container smoke against the docker-compose stack (Docker only, not local dev). Composing the SDET container-smoke dispatch below.
+
+---
+
+### IO Audit — BRIEF-006 whole-slice Overwatch audit dispatched — 2026-06-19T02:30:00Z
+**Start:** Dispatch→Audit transition. All 7 BRIEF-006 tasks `done`; TASK-006-007 (@demo, non-gating) SDET-APPROVED 2026-06-19T02:15:00Z and committed by the main session. Dispatch-exit condition met (zero tasks at `backlog`/`in-progress`; every Work Log carries submission-gate evidence; no `Escalated: yes` open). Entering Audit — the read-only Overwatch sweep across the whole slice for per-task rule compliance, scope creep, and inefficiencies before Review.
+**Phase-transition reflex (Dispatch→Audit):** the prior BRIEF-005 sweep already ran at the last Dispatch-internal transition (sweep pointer at `## Sweep pointer — BRIEF-005`); the inline entries are all current-slice (BRIEF-006) gate records and are retained per the structure contract. Updated `## Current initiative` `Phase:` to AUDIT + the committed-state note. Appended this entry. No new sweep needed this turn (no superseded prior-slice entries remain inline).
+**Audit scope handed to Overwatch (read-only, advisory):**
+- **Per-task rule compliance across all 7 tasks** — Dispatch-Checkpoint pre-impl Work Log entries present; real `Started-at` (no midnight sentinels — RETRO-005 carry); `Complexity-actual` ∈ 1–5; metadata-contract fields complete; tool-hygiene clean.
+- **Gate Authoring three-item evidence on TASK-006-001** (`Introduces-gate: yes` — the SECOND client-owned-rows `sec.pol_QuestionnaireAnswer` policy) — confirm the three items are real, not theatre (the SDET already verified live; Overwatch independently sanity-checks the audit trail).
+- **Scope creep** — verify the integrated diff stays inside the brief's 7-AC fence; flag any out-of-scope additions (dynamic/conditional organizer logic REQ-ONBD-008 v2, document-upload EPIC-007, onboarding-completion EPIC-008, lifecycle pipeline Phase 3, AUTH-003 feature AC, accountant answer-review UI Phase 4 are all OUT).
+- **ADR-006 cross-surface fence** — questionnaire *completion* confined to `apps/portal`; template *authoring* confined to `apps/admin`; shared resolution in `packages/db`.
+- **The two recurring footguns this slice** (carry for the Close-prep retro, NOT new audit findings to action now) — (1) BUG-006-001 "mock interface drift" 2nd manifestation (production `actions.ts` changed without lockstep unit-mock update; e2e caught it); (2) the prior-epic-PNG byte-churn on the @demo run (manually reverted by main session) — whether `@demo` capture should scope writes to the current epic's dir only.
+- **Rule Sunset** — flag any ENGINE.md/PHASES.md rule not cited/relied-upon/violated in the last 3 slices (esp. the carried Autonomy-Ceiling `--no-verify` clause + PushNotification spam-loop guard, and the cross-surface-parity sunset counter at 3 zero-finding Close-preps).
+**End:** Overwatch audit dispatch composed (below). On return: address any IO-classified-blocking finding (dispatch a fix before Review) or record dispositions (vacuous if none) → **Review** design-scan (integrated `git diff` vs. brief + cited ADRs 003/004/005/006/012) → **Smoke** (SDET container smoke, Docker only) → **Validate** → **Close-prep**.
 
 ---
 
