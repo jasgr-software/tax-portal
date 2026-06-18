@@ -52,10 +52,12 @@ import {
   recordLetterSignatureAsClient,
   recordAuthEvent,
   resolveOnboarding,
+  getMyQuestionnaire,
 } from "@tax-portal/db";
 import { getESignatureProvider } from "@tax-portal/esign";
 import type {
   OnboardingReadModel,
+  QuestionnaireForEngagement,
 } from "@tax-portal/db";
 
 // ─── Identity helper ──────────────────────────────────────────────────────────
@@ -99,6 +101,34 @@ export async function getClientIdentity(): Promise<{
 
 export type SignEngagementLetterResult =
   | { success: true; data: OnboardingReadModel }
+  | { success: false; error: string; refused?: boolean };
+
+/**
+ * Result type for getMyQuestionnaireAction (TASK-006-004/005 coordination seam).
+ *
+ * Returns the resolved questionnaire for the current CLIENT's engagement service type,
+ * plus whether the questionnaire has already been submitted and any existing answers.
+ *
+ * TASK-006-005 uses this seam to populate the QuestionnaireStep with server-resolved data.
+ * No client-supplied ids (ADR-001/ADR-005): engagement + service type resolved server-side.
+ */
+export type GetMyQuestionnaireResult =
+  | {
+      success: true;
+      data: QuestionnaireForEngagement;
+      alreadySubmitted: boolean;
+      existingAnswers: string | null;
+    }
+  | { success: false; error: string };
+
+/**
+ * Result type for submitQuestionnaireAction (TASK-006-005 seam — stub body here).
+ *
+ * On success: the questionnaire step has been satisfied server-side.
+ * On failure: error message for display.
+ */
+export type SubmitQuestionnaireResult =
+  | { success: true }
   | { success: false; error: string; refused?: boolean };
 
 // ─── Server Actions ───────────────────────────────────────────────────────────
@@ -274,4 +304,94 @@ export async function signEngagementLetterAction(
 
   const updatedModel = resolveOnboarding(updatedEngagement);
   return { success: true, data: updatedModel };
+}
+
+/**
+ * Load the questionnaire for the authenticated CLIENT's engagement.
+ *
+ * TASK-006-004/005 coordination seam: this is the no-arg data-loading action.
+ * The questionnaire is resolved server-side via getMyQuestionnaire() under
+ * withRequestContext — no client-supplied engagement id, service id, or template id
+ * (ADR-001/ADR-005).
+ *
+ * TASK-006-005 extends this seam to also return:
+ *   - alreadySubmitted: whether Engagement.questionnaireSubmittedAt is set
+ *   - existingAnswers: the QuestionnaireAnswer.answers blob (if submitted)
+ *
+ * For now (TASK-006-004) the full implementation defers to TASK-006-005. This stub
+ * returns the questionnaire template data; alreadySubmitted and existingAnswers are
+ * hardcoded to false/null until TASK-006-005 fills the body.
+ *
+ * AC-ONBD-003-01: The questionnaire shown corresponds to the engagement's service type.
+ * ADR-001/ADR-005: Engagement + service resolution is server-side only.
+ * ADR-003: reads run under withRequestContext(CLIENT) so the FILTER predicate governs.
+ *
+ * // DECISION (TASK-006-004): stub body defers alreadySubmitted + existingAnswers to
+ * // TASK-006-005. The import seam is defined here so QuestionnaireStep can be tested
+ * // and wired without blocking on 005. TASK-006-005 replaces this stub body entirely.
+ */
+export async function getMyQuestionnaireAction(): Promise<GetMyQuestionnaireResult> {
+  const identity = await getClientIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: CLIENT identity required" };
+  }
+
+  const questionnaireResult = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    () => getMyQuestionnaire(),
+  );
+
+  if (!questionnaireResult) {
+    return { success: false, error: "No active engagement found" };
+  }
+
+  // DECISION (TASK-006-004): alreadySubmitted + existingAnswers stubbed to false/null.
+  // TASK-006-005 replaces this stub body to load the submitted state from the DB.
+  return {
+    success: true,
+    data: questionnaireResult,
+    alreadySubmitted: false,
+    existingAnswers: null,
+  };
+}
+
+/**
+ * Submit the questionnaire answers for the authenticated CLIENT.
+ *
+ * TASK-006-004/005 coordination seam: this action is the submit entry point.
+ * The implementation body is owned by TASK-006-005 — it will:
+ *   1. Verify CLIENT identity (getClientIdentity).
+ *   2. Validate that the intake-questionnaire step is accessible (checkStepAccessibility).
+ *   3. Resolve the engagement + template server-side (no client-supplied ids).
+ *   4. Validate all required questions have answers.
+ *   5. Call submitQuestionnaireAsClient (REQUEST POOL / BLOCK-governed).
+ *   6. Record an audit event.
+ *   7. revalidatePath('/onboarding').
+ *
+ * For now (TASK-006-004) this is a typed stub so the component can compile and tests
+ * can mock it. TASK-006-005 replaces this stub body entirely.
+ *
+ * @param answersJson — serialized JSON { [questionId]: string } (DECISION-H).
+ *   Validated by TASK-006-005 at the action layer before writing to the DB.
+ *   NEVER includes a client-supplied engagement id, template id, or service id.
+ *
+ * AC-ONBD-003-03: step satisfied only when this action succeeds (server-side).
+ * AC-ONBD-003-04: answers recorded against the engagement.
+ * ADR-001/ADR-005: no client-supplied ids. All resolution is server-side.
+ *
+ * // DECISION (TASK-006-004): stub returns not-yet-implemented error so that calling
+ * // the submit form before TASK-006-005 lands gives a clear message rather than a crash.
+ * // TASK-006-005 replaces this stub body with the full implementation.
+ */
+export async function submitQuestionnaireAction(
+  answersJson: string,
+): Promise<SubmitQuestionnaireResult> {
+  // GUARDRAIL: stub — TASK-006-005 replaces this body.
+  // answersJson is accepted here to define the seam signature; 005 validates + persists it.
+  void answersJson;
+  return {
+    success: false,
+    error: "Questionnaire submission not yet implemented (TASK-006-005 pending).",
+  };
 }

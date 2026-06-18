@@ -1,16 +1,16 @@
 # TASK-006-004: Portal questionnaire step UI (render correct template behind the letter gate)
 
 **Brief**: BRIEF-006
-**Status**: backlog
+**Status**: done
 **Assigned to**: webapp-developer
 **Depends on**: TASK-006-003
 **Impl**: developer
 **E2e-required**: no <!-- portal questionnaire e2e consolidated in TASK-006-006 -->
-**Updated-by**: —
-**Started-at**: —
-**Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Updated-by**: webapp-developer
+**Started-at**: 2026-06-18T20:27:00Z
+**Completed-at**: 2026-06-18T20:38:52Z
+**Complexity-estimate**: 3
+**Complexity-actual**: 3
 
 **Acceptance criteria:** AC-ONBD-003-01 (UI: correct questionnaire shown), AC-ONBD-003-03 (UI: step not satisfied until submit — renders unsatisfied/submitted affordance)
 **Upstream refs:** ADR-006, ADR-001, ADR-005, REQ-ONBD-003
@@ -23,11 +23,11 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
-- [ ] **Submission gate** — lint + type-check + build + brief-mandated tests pass (commands in CLAUDE.md)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Submission gate** — lint + type-check + build + brief-mandated tests pass (commands in CLAUDE.md)
 - [N/A] **Targeted e2e** — N/A (consolidated in TASK-006-006)
-- [ ] **Security review** — gate not weakened; no client-derived gate logic; question content escaped
-- [ ] **SDET Review** — approved
+- [x] **Security review** — gate not weakened; no client-derived gate logic; question content escaped
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -59,10 +59,10 @@ AC-ONBD-003-01 (UI surface) + AC-ONBD-003-03 (UI affordance): within the existin
 
 ## Tests to Write First
 
-- [ ] `[AC-ONBD-003-01] renders the questions of the resolved template` — expected: each QuestionDef rendered
-- [ ] `[AC-ONBD-003-03] step shows unsatisfied before submit` — expected: not-submitted affordance + Submit enabled when complete
-- [ ] `[AC-ONBD-002-01 honored] questionnaire form NOT rendered when letter unsigned (step locked)` — expected: locked affordance, no form
-- [ ] `[edge] absent template → awaiting-questionnaire empty state` — expected: empty state, no crash
+- [x] `[AC-ONBD-003-01] renders the questions of the resolved template` — expected: each QuestionDef rendered
+- [x] `[AC-ONBD-003-03] step shows unsatisfied before submit` — expected: not-submitted affordance + Submit enabled when complete
+- [x] `[AC-ONBD-002-01 honored] questionnaire form NOT rendered when letter unsigned (step locked)` — expected: locked affordance, no form
+- [x] `[edge] absent template → awaiting-questionnaire empty state` — expected: empty state, no crash
 
 ## Implementation Notes
 
@@ -71,14 +71,42 @@ AC-ONBD-003-01 (UI surface) + AC-ONBD-003-03 (UI affordance): within the existin
 
 ## Definition of Done
 
-- [ ] Questionnaire step renders the resolved template behind the letter gate
-- [ ] Locked/empty/submitted states correct
-- [ ] No client-derived gate logic; no client-supplied ids
-- [ ] Component tests pass; `pnpm --filter portal test` green; lint + type-check + build pass
+- [x] Questionnaire step renders the resolved template behind the letter gate
+- [x] Locked/empty/submitted states correct
+- [x] No client-derived gate logic; no client-supplied ids
+- [x] Component tests pass; `pnpm --filter portal test` green; lint + type-check + build pass
 
 ---
 
 ## Work Log
+
+### 2026-06-18 [webapp-developer] Starting implementation — QuestionnaireStep.tsx + OnboardingSequence.tsx wiring + tests
+**What was done:** Dispatch checkpoint recorded. Surveyed LetterSignStep.tsx, OnboardingSequence.tsx, actions.ts, packages/db questionnaire-template.ts and questionnaire-answer.ts. Confirmed QuestionDef, QuestionnaireForEngagement, getMyQuestionnaire all exported from @tax-portal/db. Identified action-seam design: thin wrapper getMyQuestionnaireAction() in actions.ts (calls getMyQuestionnaire() via withRequestContext) + typed stub submitQuestionnaireAction (TASK-006-005 fills body).
+**What's next:** Write tests first (TDD: required), then QuestionnaireStep.tsx, update actions.ts seam, wire OnboardingSequence.tsx.
+**Blockers:** none
+
+### 2026-06-18 [webapp-developer] Implementation complete — marking review
+**What was done:**
+- Created `apps/portal/src/app/onboarding/questionnaire-step.test.tsx` — 27 tests (TDD-first), all pass
+- Created `apps/portal/src/app/onboarding/_components/QuestionnaireStep.tsx` — 4-state component
+- Modified `apps/portal/src/app/onboarding/actions.ts` — added getMyQuestionnaireAction() seam + submitQuestionnaireAction stub + GetMyQuestionnaireResult/SubmitQuestionnaireResult types
+- Modified `apps/portal/src/app/onboarding/_components/OnboardingSequence.tsx` — extended props (questionnaire, alreadySubmitted, existingAnswers), wired QuestionnaireStep in intake-questionnaire slot
+- Modified `apps/portal/src/app/onboarding/page.tsx` — parallel fetch getMyOnboardingAction + getMyQuestionnaireAction; questionnaire data non-blocking
+- Modified `apps/portal/src/app/onboarding/onboarding-sequence.test.tsx` — added new required props to all existing OnboardingSequence renders (questionnaire=null, alreadySubmitted=false, existingAnswers=null)
+
+**TASK-006-005 seam decision:** `submitQuestionnaireAction(answersJson: string)` is the stub; TASK-006-005 replaces the body entirely. `getMyQuestionnaireAction()` is a thin wrapper around `getMyQuestionnaire()` via `withRequestContext`; TASK-006-005 adds alreadySubmitted + existingAnswers from `getMyQuestionnaireAnswer()`.
+
+**Gate results:**
+- `pnpm --filter portal test`: 102 tests passed (8 files), 0 failures
+- `pnpm lint`: 0 errors, 0 warnings
+- `pnpm type-check`: 0 errors
+- `pnpm --filter portal build`: exit 0, /onboarding at 2.63 kB
+
+**What's next:** SDET review. TASK-006-005 implements submitQuestionnaireAction body + extends getMyQuestionnaireAction with alreadySubmitted/existingAnswers.
+**Blockers:** none
+
+### 2026-06-18 [sdet] APPROVED — TASK-006-004
+Independent re-run: `pnpm --filter portal test -- questionnaire-step.test.tsx` → 27/27 PASS; full suite 102/102 PASS. `pnpm lint` → 0 errors/warnings. `pnpm type-check` → 0 errors. All mandatory focus areas verified: EPIC-005 gate not weakened (accessible consumed from read model, not re-derived); no client-supplied ids (no-arg getMyQuestionnaire via withRequestContext); no dangerouslySetInnerHTML; ADR-006 fence clean (zero questionnaire completion code in apps/admin); stub clearly marked with DECISION comments; all 4 states + all data-* hooks present and tested. Status: done. `Completed-at: 2026-06-18T20:38:52Z`.
 
 ## Attempt Log
 
@@ -86,5 +114,9 @@ AC-ONBD-003-01 (UI surface) + AC-ONBD-003-03 (UI affordance): within the existin
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All mandatory rejection checks passed. Pre-implementation dispatch-checkpoint entry present (real clock `Started-at: 2026-06-18T20:27:00Z`). `Complexity-actual: 3` (∈ 1–5). All required task-spec fields present. Gate evidence independently verified: `pnpm --filter portal test` → 27/27 questionnaire-step tests live, 102/102 full suite; `pnpm lint` → 0 errors/warnings; `pnpm type-check` → 0 errors. Tool hygiene: no violations in Work Log.
+
+EPIC-005 gate not weakened: `QuestionnaireStep.tsx` consumes `stepState.accessible` from the `OnboardingReadModel` and never re-derives it. When `accessible: false`, QuestionnaireLockedState is rendered immediately — confirmed by the `[security] gate NOT weakened` test (accessible=false + template present → locked, no form). ADR-001/ADR-005: `getMyQuestionnaireAction()` is a thin no-arg wrapper around `getMyQuestionnaire()` via `withRequestContext`; `submitQuestionnaireAction(answersJson)` takes only the answers blob (no client-supplied ids). No `dangerouslySetInnerHTML` anywhere in the new or modified files — question prompts rendered as auto-escaped JSX text nodes; XSS test confirms `<script>` prompt appears as text. ADR-006 fence: `apps/admin/src` has zero references to `QuestionnaireStep`, `getMyQuestionnaire`, or `submitQuestionnaire`; portal completion files confined to `apps/portal/src/app/onboarding/`. All four required states present and tested: locked (accessible:false), awaiting (template:null), submitted (read-only), active form. All `data-*` hooks verified: `data-step="intake-questionnaire"`, `data-question-id`, `data-questionnaire-submitted`, `data-testid="questionnaire-form"`, `data-testid="questionnaire-submit-button"`. TASK-006-005 seam is clearly documented with `// DECISION (TASK-006-004/005)` coordination comments; stub returns an explicit not-yet-implemented error rather than silently mis-wiring. Gherkin prose-bind: behavior of all 4 states matches the brief's scenario contract for AC-ONBD-003-01 and AC-ONBD-003-03.
+
+Carry-forward note for TASK-006-005 (from TASK-006-001 SDET review): in `submitQuestionnaireAsClient` (`packages/db/src/repositories/questionnaire-answer.ts`), `SELECT @@ROWCOUNT` follows the `UPDATE [Engagement]` so it captures the UPDATE rowcount, not the INSERT's. Functionally correct for v1 (deny-case both 0, success-case both 1; mirrors `recordLetterSignatureAsClient`) — but glance at it when TASK-006-005 wires the production submit action.

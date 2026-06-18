@@ -2,26 +2,29 @@
  * apps/portal/src/app/onboarding/_components/OnboardingSequence.tsx
  *
  * Renders the three-step onboarding sequence with position indicator, locked affordances,
- * and the letter-sign step content.
+ * the letter-sign step, and the questionnaire step.
  *
  * AC-ONBD-001-01: Exactly three ordered steps rendered in fixed order.
  * AC-ONBD-001-03: Current position (step N of 3) + remaining steps shown.
  * AC-ONBD-002-01/-02 UI: Steps 2/3 render locked (lock icon + explanation) when accessible:false.
  * AC-ONBD-002-03 UI: Steps 2/3 render unlocked when accessible:true (after signing).
+ * AC-ONBD-003-01 UI: Questionnaire step renders the resolved template for the service type.
+ * AC-ONBD-003-03 UI: Questionnaire step shows unsatisfied/submitted affordance.
  *
  * GUARDRAIL: This component renders what the server returns — it does NOT compute its own
  * accessibility gate. All accessibility flags come from OnboardingReadModel (TASK-005-005).
  * The UI lock is a PRESENTATION AFFORDANCE ONLY — the real enforcement is the server-side
  * refusal in checkStepAccessibility / signEngagementLetterAction (TASK-005-005).
  *
- * data-* attributes: used by TASK-005-007 e2e for deterministic assertion.
+ * data-* attributes: used by TASK-005-007 + TASK-006-006 e2e for deterministic assertion.
  * Same convention as EPIC-003's data-status on RequestList rows.
  *
  * ADR-006: Portal-only component — not reachable from apps/admin.
  */
 
-import type { OnboardingReadModel } from "@tax-portal/db";
+import type { OnboardingReadModel, QuestionnaireForEngagement } from "@tax-portal/db";
 import { LetterSignStep } from "./LetterSignStep";
+import { QuestionnaireStep } from "./QuestionnaireStep";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +37,26 @@ interface OnboardingSequenceProps {
    * Never rendered via dangerouslySetInnerHTML.
    */
   letterContent: string;
+  /**
+   * The resolved questionnaire for the client's engagement service type (TASK-006-003/004).
+   * null = no engagement found or resolution failed (QuestionnaireStep shows awaiting state).
+   * questionnaire.template = null = no template authored yet (awaiting state).
+   *
+   * ADR-001/ADR-005: server-resolved; never from a client-supplied id.
+   * TASK-006-005 will extend this to carry alreadySubmitted + existingAnswers.
+   */
+  questionnaire: QuestionnaireForEngagement | null;
+  /**
+   * Whether the client has already submitted the questionnaire (AC-ONBD-003-03).
+   * True → QuestionnaireStep renders satisfied/read-only state.
+   * Server-derived (TASK-006-005); never client-asserted.
+   */
+  alreadySubmitted: boolean;
+  /**
+   * Existing answers if previously submitted (DECISION-H: serialized JSON blob).
+   * null when no prior submission exists.
+   */
+  existingAnswers: string | null;
 }
 
 // ─── Step metadata ────────────────────────────────────────────────────────────
@@ -55,17 +78,22 @@ const STEP_DESCRIPTIONS: Record<string, string> = {
 /**
  * OnboardingSequence — three-step onboarding progress + locked/unlocked affordances.
  *
- * This is a server component (no 'use client' directive). The LetterSignStep child
- * is a client component (it owns the sign button + server-action call).
+ * This is a server component (no 'use client' directive). The LetterSignStep and
+ * QuestionnaireStep children are client components (they own button + action calls).
  *
  * AC-ONBD-001-01: Three steps rendered in the fixed order from the model.
  * AC-ONBD-001-03: Position indicator ("Step N of 3") + remaining count.
  * AC-ONBD-002-01/-02 UI: Locked steps display a lock icon + unlock instruction.
  * AC-ONBD-002-03 UI: Accessible steps display their content normally.
+ * AC-ONBD-003-01 UI: Questionnaire step renders the service-type template (TASK-006-004).
+ * AC-ONBD-003-03 UI: Questionnaire step shows not-submitted/submitted affordance.
  */
 export function OnboardingSequence({
   model,
   letterContent,
+  questionnaire,
+  alreadySubmitted,
+  existingAnswers,
 }: OnboardingSequenceProps) {
   const totalSteps = model.steps.length;
   // stepNumber is 1-based index of the current step (first non-done step).
@@ -187,8 +215,8 @@ export function OnboardingSequence({
               </div>
 
               {/* Step body */}
-              {/* Accessible or current step: show content */}
-              {step.accessible && step.key === "engagement-letter" && (
+              {/* Engagement letter step: accessible → LetterSignStep */}
+              {step.key === "engagement-letter" && step.accessible && (
                 <LetterSignStep
                   engagementId={model.engagementId}
                   letterContent={letterContent}
@@ -196,13 +224,45 @@ export function OnboardingSequence({
                 />
               )}
 
-              {/* Accessible non-letter steps: show placeholder content */}
-              {step.accessible && step.key !== "engagement-letter" && (
+              {/* Engagement letter step: not accessible → lock message */}
+              {step.key === "engagement-letter" && !step.accessible && (
+                <p
+                  className="text-sm text-gray-500 mt-1"
+                  data-testid={`lock-message-${step.key}`}
+                >
+                  Sign the engagement letter to unlock this step.
+                </p>
+              )}
+
+              {/*
+               * Intake questionnaire step — TASK-006-004 wiring.
+               *
+               * QuestionnaireStep handles all four states internally:
+               *   1. accessible:false → locked affordance (EPIC-005 gate honored)
+               *   2. accessible:true, template:null → awaiting state
+               *   3. alreadySubmitted:true → satisfied/read-only state
+               *   4. accessible:true, template:present → active form
+               *
+               * GUARDRAIL: We pass the accessible flag from the OnboardingReadModel step.
+               * QuestionnaireStep does NOT re-derive the gate — it consumes what we pass.
+               * AC-ONBD-003-01/-03: questionnaire prop carries the resolved template data.
+               */}
+              {step.key === "intake-questionnaire" && (
+                <QuestionnaireStep
+                  stepState={{ accessible: step.accessible, done: step.done }}
+                  questionnaire={questionnaire}
+                  alreadySubmitted={alreadySubmitted}
+                  existingAnswers={existingAnswers}
+                />
+              )}
+
+              {/* Document upload step: show placeholder content */}
+              {step.key === "document-upload" && step.accessible && (
                 <p className="text-sm text-gray-600">{description}</p>
               )}
 
-              {/* Locked step: lock explanation (AC-ONBD-002-01/-02 UI presentation affordance) */}
-              {!step.accessible && (
+              {/* Document upload step: locked → lock message */}
+              {step.key === "document-upload" && !step.accessible && (
                 <p
                   className="text-sm text-gray-500 mt-1"
                   data-testid={`lock-message-${step.key}`}
