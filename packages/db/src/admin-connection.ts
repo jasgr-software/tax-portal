@@ -19,77 +19,9 @@
  */
 
 import mssqlPkg from "mssql";
+import { parseSqlServerUrl } from "./sql-server-url.js";
 
 const { ConnectionPool } = mssqlPkg;
-
-/**
- * Parse a Prisma-format sqlserver:// URL into mssql ConnectionPool config.
- * Supports both authority form (user:pass@host:port) and semicolon-param form
- * (sqlserver://host;port=N;user=U;password=P;...).
- *
- * This is a copy of parseSqlServerUrl from scripts/db-migrate.ts to avoid
- * a circular dependency between packages/db and scripts/.
- */
-function parseSqlServerUrl(connectionUrl: string): import("mssql").config {
-  const withoutScheme = connectionUrl.replace(/^(?:sqlserver|mssql):\/\//, "");
-  const firstSemi = withoutScheme.indexOf(";");
-  const authority = firstSemi === -1 ? withoutScheme : withoutScheme.slice(0, firstSemi);
-  const paramStr = firstSemi === -1 ? "" : withoutScheme.slice(firstSemi + 1);
-
-  const params: Record<string, string> = {};
-  for (const part of paramStr.split(";")) {
-    const eqIdx = part.indexOf("=");
-    if (eqIdx === -1) continue;
-    const k = part.slice(0, eqIdx).trim();
-    const v = part.slice(eqIdx + 1).trim();
-    if (k) params[k] = v;
-  }
-
-  let user: string | undefined;
-  let password: string | undefined;
-  let hostPort = authority;
-
-  const atIdx = authority.lastIndexOf("@");
-  if (atIdx !== -1) {
-    const credentials = authority.slice(0, atIdx);
-    hostPort = authority.slice(atIdx + 1);
-    const colonIdx = credentials.indexOf(":");
-    if (colonIdx === -1) {
-      user = decodeURIComponent(credentials);
-    } else {
-      user = decodeURIComponent(credentials.slice(0, colonIdx));
-      password = decodeURIComponent(credentials.slice(colonIdx + 1));
-    }
-  }
-
-  let server = hostPort;
-  let port = 1433;
-  const portMatch = hostPort.match(/:(\d+)$/);
-  if (portMatch) {
-    port = parseInt(portMatch[1] ?? "1433", 10);
-    server = hostPort.slice(0, hostPort.length - portMatch[0].length);
-  }
-
-  const resolvedUser = user ?? params["user"];
-  const resolvedPassword = password ?? params["password"];
-  const resolvedPort = port !== 1433 ? port : (params["port"] ? parseInt(params["port"], 10) : 1433);
-
-  const encrypt = (params["encrypt"] ?? "true").toLowerCase() !== "false";
-  const trustServerCertificate =
-    (params["trustServerCertificate"] ?? "false").toLowerCase() === "true";
-
-  return {
-    server: server,
-    port: resolvedPort,
-    user: resolvedUser,
-    password: resolvedPassword,
-    database: params["database"] || "master",
-    options: {
-      encrypt,
-      trustServerCertificate,
-    },
-  };
-}
 
 // ─── Lazy connection pool ────────────────────────────────────────────────────
 

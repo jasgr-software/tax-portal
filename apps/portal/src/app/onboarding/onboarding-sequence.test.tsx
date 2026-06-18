@@ -36,9 +36,7 @@ const { mockSignEngagementLetterAction } = vi.hoisted(() => ({
 vi.mock("./actions", () => ({
   signEngagementLetterAction: mockSignEngagementLetterAction,
   getMyOnboardingAction: vi.fn(),
-  getOnboardingAction: vi.fn(),
   getClientIdentity: vi.fn(),
-  checkStepAccessibilityAction: vi.fn(),
 }));
 
 // Mock @tax-portal/db — only the type imports are needed here; mocked to prevent

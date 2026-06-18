@@ -7,19 +7,14 @@
  *
  * Coverage:
  *   [AC-ONBD-001-01][persistence] accept creates exactly one Engagement with status='New',
- *                                  clientUserId=NULL (DECISION-A).
+ *                                  clientUserId=NULL (DECISION-A deferred).
  *   [AC-ONBD-001-01][persistence] engagementRequestId UNIQUE constraint: a second Engagement
  *                                  for the same EngagementRequest fails (idempotency backstop).
  *   [AC-ONBD-001-01][persistence] rollback leaves no orphan Engagement — if the transaction is
  *                                  rolled back after createEngagement, the row does not exist.
- *   [DECISION-A][persistence]     updateEngagementClientUserId back-fills the FK when a User row
- *                                  exists (proves the back-fill seam works at the DB layer).
- *   [DECISION-A][persistence]     updateEngagementClientUserId is a no-op when the engagement has
- *                                  no matching engagementRequestId (safe for the mock-binding case).
  *
  * Pool strategy:
  *   - createEngagement uses the admin pool (RLS-exempt) — same as accept-time in production.
- *   - updateEngagementClientUserId uses the admin pool (same).
  *   - Verification queries use verifyPool (direct mssql, admin credentials).
  *   - Rollback test uses a direct mssql Transaction on verifyPool to simulate accept transaction.
  *
@@ -30,7 +25,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import mssqlPkg from "mssql";
 import { parseSqlServerUrl } from "../../scripts/db-migrate.js";
-import { createEngagement, updateEngagementClientUserId } from "./repositories/engagement.js";
+import { createEngagement } from "./repositories/engagement.js";
 import { withAuditTransaction } from "./audit.js";
 
 const { ConnectionPool, Transaction } = mssqlPkg;
@@ -43,7 +38,6 @@ let verifyPool: InstanceType<typeof ConnectionPool>;
 // Track IDs for cleanup (FK order: Engagement first)
 const createdEngagementIds: string[] = [];
 const createdRequestIds: string[] = [];
-const createdUserIds: string[] = [];
 
 beforeAll(async () => {
   if (!ADMIN_URL) {
@@ -74,14 +68,6 @@ afterAll(async () => {
         /* ignore */
       });
   }
-  for (const id of createdUserIds) {
-    await verifyPool
-      .request()
-      .query(`DELETE FROM [dbo].[User] WHERE [id] = '${id}'`)
-      .catch(() => {
-        /* ignore */
-      });
-  }
   await verifyPool.close();
 }, 30_000);
 
@@ -97,19 +83,6 @@ async function seedAcceptedRequest(label: string): Promise<string> {
   );
   const id = result.recordset[0]?.id ?? "";
   createdRequestIds.push(id);
-  return id;
-}
-
-/** Seed a User row and return its id */
-async function seedUser(label: string): Promise<string> {
-  const clerkId = `on_accept_test_${label}_${Date.now()}`;
-  const result = await verifyPool.request().query<{ id: string }>(
-    `INSERT INTO [dbo].[User] ([clerkId], [email], [role], [updatedAt])
-     OUTPUT INSERTED.[id]
-     VALUES (N'${clerkId}', N'on-accept-${label}-${Date.now()}@example.com', N'CLIENT', SYSDATETIMEOFFSET())`,
-  );
-  const id = result.recordset[0]?.id ?? "";
-  createdUserIds.push(id);
   return id;
 }
 
@@ -146,7 +119,8 @@ async function countEngagementsForRequest(requestId: string): Promise<number> {
 describe("createEngagement — accept creates one Engagement (AC-ONBD-001-01)", () => {
   /**
    * [AC-ONBD-001-01][persistence] accept creates exactly one Engagement with status='New'
-   * and clientUserId=NULL (DECISION-A: prospect has no User row at accept-time).
+   * and clientUserId=NULL (DECISION-A deferred: prospect has no User row at accept-time;
+   * RLS fails closed on NULL).
    */
   it("[AC-ONBD-001-01][persistence] creates exactly one Engagement with status=New, clientUserId=NULL", async () => {
     const requestId = await seedAcceptedRequest("new-status");
@@ -162,7 +136,7 @@ describe("createEngagement — accept creates one Engagement (AC-ONBD-001-01)", 
     const row = await getEngagementRow(result.id);
     expect(row).not.toBeNull();
     expect(row?.status).toBe("New");
-    expect(row?.clientUserId).toBeNull(); // DECISION-A: NULL at accept-time
+    expect(row?.clientUserId).toBeNull(); // DECISION-A (deferred): NULL at accept-time
     expect(row?.engagementRequestId.toLowerCase()).toBe(requestId.toLowerCase());
 
     // Verify exactly one row exists for this request
@@ -260,91 +234,5 @@ describe("createEngagement — accept creates one Engagement (AC-ONBD-001-01)", 
     expect(row).not.toBeNull();
     expect(row?.status).toBe("New");
     expect(row?.clientUserId).toBeNull();
-  });
-});
-
-// ─── updateEngagementClientUserId — DECISION-A back-fill seam ─────────────────
-
-describe("updateEngagementClientUserId — DECISION-A back-fill seam", () => {
-  /**
-   * [DECISION-A][persistence] Back-fills clientUserId when a User row exists.
-   * This proves the DB-layer seam works: the UPDATE sets clientUserId from NULL → User.id.
-   */
-  it("[DECISION-A][persistence] updateEngagementClientUserId sets clientUserId when it was NULL", async () => {
-    const requestId = await seedAcceptedRequest("backfill-happy");
-    const userId = await seedUser("backfill-user");
-
-    const eng = await createEngagement({ engagementRequestId: requestId });
-    createdEngagementIds.push(eng.id);
-
-    // Back-fill — simulates the sign-up seam resolving the User row
-    const result = await updateEngagementClientUserId(requestId, userId);
-
-    expect(result.rowsAffected).toBe(1);
-
-    // Verify DB row has been updated
-    const row = await getEngagementRow(eng.id);
-    expect(row?.clientUserId?.toLowerCase()).toBe(userId.toLowerCase());
-  });
-
-  /**
-   * [DECISION-A][persistence] updateEngagementClientUserId is a no-op when no engagement exists
-   * for the given engagementRequestId. Returns rowsAffected=0 (safe for mock-binding case).
-   */
-  it("[DECISION-A][persistence] returns rowsAffected=0 when no matching engagement found (mock-binding no-op)", async () => {
-    const nonExistentRequestId = "00000000-0000-0000-0000-000000000099";
-    const userId = await seedUser("no-engagement-user");
-
-    const result = await updateEngagementClientUserId(nonExistentRequestId, userId);
-
-    // No engagement row → rowsAffected=0 (safe no-op)
-    expect(result.rowsAffected).toBe(0);
-  });
-
-  /**
-   * [DECISION-A][persistence] updateEngagementClientUserId is a no-op when clientUserId is
-   * already set (WHERE ... AND clientUserId IS NULL guard). Back-fill is idempotent.
-   */
-  it("[DECISION-A][persistence] no-op when clientUserId is already set (idempotent back-fill)", async () => {
-    const requestId = await seedAcceptedRequest("backfill-idempotent");
-    const userId = await seedUser("backfill-idem-user");
-    const otherUserId = await seedUser("backfill-idem-other");
-
-    // Create engagement with clientUserId already set
-    const eng = await createEngagement({
-      engagementRequestId: requestId,
-      clientUserId: userId,
-    });
-    createdEngagementIds.push(eng.id);
-
-    // Attempt to back-fill with a different userId — must be a no-op
-    const result = await updateEngagementClientUserId(requestId, otherUserId);
-
-    expect(result.rowsAffected).toBe(0);
-
-    // clientUserId must still be the original userId
-    const row = await getEngagementRow(eng.id);
-    expect(row?.clientUserId?.toLowerCase()).toBe(userId.toLowerCase());
-  });
-
-  /**
-   * [DECISION-A][persistence] updateEngagementClientUserId runs inside withAuditTransaction
-   * — back-fill and audit row commit atomically (proves the seam structure at the DB layer).
-   */
-  it("[DECISION-A][persistence] back-fill runs inside withAuditTransaction (atomic commit with audit)", async () => {
-    const requestId = await seedAcceptedRequest("backfill-atomic");
-    const userId = await seedUser("backfill-atomic-user");
-
-    const eng = await createEngagement({ engagementRequestId: requestId });
-    createdEngagementIds.push(eng.id);
-
-    // Run back-fill inside withAuditTransaction — mirrors the sign-up seam
-    await withAuditTransaction(async (txn) => {
-      await updateEngagementClientUserId(requestId, userId, txn);
-    });
-
-    // Verify the back-fill committed
-    const row = await getEngagementRow(eng.id);
-    expect(row?.clientUserId?.toLowerCase()).toBe(userId.toLowerCase());
   });
 });

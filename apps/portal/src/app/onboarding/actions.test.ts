@@ -5,15 +5,11 @@
  * All external seams are mocked — no real DB, no real auth, no real e-sign provider.
  *
  * Tests cover:
- *   [AC-ONBD-001-01] getOnboardingAction returns exactly three steps in order
- *   [AC-ONBD-002-01] questionnaire step refused/inaccessible when letterSignedAt is NULL
- *   [AC-ONBD-002-02] document-upload step refused/inaccessible when letterSignedAt is NULL
- *   [AC-ONBD-001-02] a later step cannot be entered before the letter is signed (server refuses)
  *   [AC-ONBD-002-03] after signEngagementLetterAction, steps 2/3 become accessible
  *   [AC-ONBD-002-04] signature records evidence against the engagement + writes an audit row
  *   [AC-IDNT-007-03] the content presented/snapshotted is the accountant's edited template
  *   [ADR-005] a CLIENT who does not own the engagement is blocked (isolation)
- *   [AC-ONBD-001-03] currentStep + remaining reflect signed/unsigned state
+ *   [AC-ONBD-001-01/-03] step order + currentStep + remaining reflect signed/unsigned state
  *   [ADR-019] non-owner BLOCK denial does NOT write an audit event
  *   [ADR-024] "signed" decision comes from verifyCompletion, not client-supplied argument
  *
@@ -31,7 +27,6 @@ const {
   mockRecordAuthEvent,
   mockWithRequestContext,
   mockResolveOnboarding,
-  mockCheckStepAccessibility,
   mockGetESignatureProvider,
   mockCreateSignatureRequest,
   mockVerifyCompletion,
@@ -50,7 +45,6 @@ const {
     // withRequestContext passes through to the callback
     mockWithRequestContext: vi.fn(),
     mockResolveOnboarding: vi.fn(),
-    mockCheckStepAccessibility: vi.fn(),
     mockGetESignatureProvider: vi.fn().mockReturnValue({
       createSignatureRequest: mockCreateSignatureRequest,
       verifyCompletion: mockVerifyCompletion,
@@ -72,7 +66,6 @@ vi.mock("@tax-portal/db", () => ({
   recordLetterSignatureAsClient: mockRecordLetterSignatureAsClient,
   recordAuthEvent: mockRecordAuthEvent,
   resolveOnboarding: mockResolveOnboarding,
-  checkStepAccessibility: mockCheckStepAccessibility,
 }));
 
 // @tax-portal/esign
@@ -102,9 +95,7 @@ vi.mock("@tax-portal/auth", () => ({
 // ─── Import AFTER mocks ───────────────────────────────────────────────────────
 
 import {
-  getOnboardingAction,
   signEngagementLetterAction,
-  checkStepAccessibilityAction,
 } from "./actions.js";
 import type { OnboardingReadModel } from "@tax-portal/db";
 
@@ -192,9 +183,6 @@ beforeEach(() => {
   // Default: resolveOnboarding returns unsigned model
   mockResolveOnboarding.mockReturnValue(UNSIGNED_READ_MODEL);
 
-  // Default: checkStepAccessibility allows
-  mockCheckStepAccessibility.mockReturnValue(undefined);
-
   // Default: template loaded
   mockGetCurrentLetterTemplate.mockResolvedValue(MOCK_TEMPLATE);
 
@@ -218,148 +206,6 @@ afterEach(() => {
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
-
-describe("getOnboardingAction — onboarding read model", () => {
-
-  it("[AC-ONBD-001-01] returns exactly three steps in fixed order", async () => {
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    expect(result.data.steps).toHaveLength(3);
-    expect(result.data.steps[0]?.key).toBe("engagement-letter");
-    expect(result.data.steps[1]?.key).toBe("intake-questionnaire");
-    expect(result.data.steps[2]?.key).toBe("document-upload");
-  });
-
-  it("[AC-ONBD-002-01] questionnaire step is inaccessible when letterSignedAt is NULL", async () => {
-    mockResolveOnboarding.mockReturnValue(UNSIGNED_READ_MODEL);
-
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    const questionnaireStep = result.data.steps.find(s => s.key === "intake-questionnaire");
-    expect(questionnaireStep?.accessible).toBe(false);
-    expect(questionnaireStep?.done).toBe(false);
-  });
-
-  it("[AC-ONBD-002-02] document-upload step is inaccessible when letterSignedAt is NULL", async () => {
-    mockResolveOnboarding.mockReturnValue(UNSIGNED_READ_MODEL);
-
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    const uploadStep = result.data.steps.find(s => s.key === "document-upload");
-    expect(uploadStep?.accessible).toBe(false);
-    expect(uploadStep?.done).toBe(false);
-  });
-
-  it("[AC-ONBD-001-03] currentStep is engagement-letter and remaining is 2 when unsigned", async () => {
-    mockResolveOnboarding.mockReturnValue(UNSIGNED_READ_MODEL);
-
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    expect(result.data.currentStep).toBe("engagement-letter");
-    expect(result.data.remaining).toBe(2);
-  });
-
-  it("[AC-ONBD-001-03] currentStep is intake-questionnaire and remaining is 1 when letter is signed", async () => {
-    mockGetEngagementForClient.mockResolvedValue(SIGNED_ENGAGEMENT);
-    mockResolveOnboarding.mockReturnValue(SIGNED_READ_MODEL);
-
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    expect(result.data.currentStep).toBe("intake-questionnaire");
-    expect(result.data.remaining).toBe(1);
-  });
-
-  it("[ADR-005] non-owner CLIENT blocked — engagement not found returns error", async () => {
-    // Simulate FILTER predicate: non-owner gets ZERO rows (null returned)
-    mockGetEngagementForClient.mockResolvedValue(null);
-
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(false);
-    if (result.success) return;
-
-    expect(result.error).toContain("not found");
-  });
-
-  it("returns error when CLIENT identity not present (unauthenticated)", async () => {
-    mockGetIdentity.mockResolvedValue(null);
-
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error).toContain("Unauthorized");
-  });
-
-  it("returns error for ACCOUNTANT identity (wrong role)", async () => {
-    mockGetIdentity.mockResolvedValue({ clerkUserId: "acct_id", role: "ACCOUNTANT" as const });
-
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error).toContain("Unauthorized");
-  });
-
-});
-
-describe("checkStepAccessibilityAction — server-side hard gate", () => {
-
-  it("[AC-ONBD-001-02] locked step refused by server — checkStepAccessibilityAction questionnaire locked", async () => {
-    // Simulate locked step
-    mockCheckStepAccessibility.mockReturnValue({
-      refused: true,
-      reason: "step-locked",
-      stepKey: "intake-questionnaire" as const,
-    });
-
-    const result = await checkStepAccessibilityAction(ENGAGEMENT_ID, "intake-questionnaire");
-
-    expect(result.accessible).toBe(false);
-    if (result.accessible) return;
-    expect(result.refusal.reason).toBe("step-locked");
-    expect(result.refusal.stepKey).toBe("intake-questionnaire");
-  });
-
-  it("[AC-ONBD-001-02] locked step refused by server — checkStepAccessibilityAction document-upload locked", async () => {
-    mockCheckStepAccessibility.mockReturnValue({
-      refused: true,
-      reason: "step-locked",
-      stepKey: "document-upload" as const,
-    });
-
-    const result = await checkStepAccessibilityAction(ENGAGEMENT_ID, "document-upload");
-
-    expect(result.accessible).toBe(false);
-    if (result.accessible) return;
-    expect(result.refusal.stepKey).toBe("document-upload");
-  });
-
-  it("[AC-ONBD-002-03] accessible after signing — checkStepAccessibilityAction allows questionnaire", async () => {
-    mockGetEngagementForClient.mockResolvedValue(SIGNED_ENGAGEMENT);
-    mockCheckStepAccessibility.mockReturnValue(undefined); // no refusal
-
-    const result = await checkStepAccessibilityAction(ENGAGEMENT_ID, "intake-questionnaire");
-
-    expect(result.accessible).toBe(true);
-  });
-
-});
 
 describe("signEngagementLetterAction — sign + unlock", () => {
 
@@ -506,27 +352,3 @@ describe("signEngagementLetterAction — sign + unlock", () => {
 
 });
 
-describe("resolveOnboarding — unit tests (pure function, no mocks needed for the logic)", () => {
-
-  // These tests call the real resolveOnboarding from @tax-portal/db to verify the pure logic.
-  // They use the mock for other DB functions but override resolveOnboarding to test the action's
-  // integration with the model. The actual logic is tested in packages/db tests.
-
-  it("[AC-ONBD-001-01] engagement-letter step is always accessible:true", async () => {
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    const letterStep = result.data.steps.find(s => s.key === "engagement-letter");
-    expect(letterStep?.accessible).toBe(true);
-  });
-
-  it("[AC-ONBD-001-01] step order is always engagement-letter first", async () => {
-    const result = await getOnboardingAction(ENGAGEMENT_ID);
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    expect(result.data.steps[0]?.key).toBe("engagement-letter");
-  });
-
-});

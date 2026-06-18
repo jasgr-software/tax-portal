@@ -43,7 +43,7 @@ import {
   getRateLimiter,
   buildRateLimitKey,
 } from "@tax-portal/auth";
-import { recordAuthEvent, withAuditTransaction, updateEngagementClientUserId } from "@tax-portal/db";
+import { recordAuthEvent, withAuditTransaction } from "@tax-portal/db";
 
 // DECISION (TASK-004-010): We import withAuditTransaction from @tax-portal/db so that
 // the audit INSERT and the account-creation DB mutation can share a single mssql Transaction
@@ -114,16 +114,6 @@ function validateInvitationTicket(ticket: string): {
   valid: boolean;
   role?: "ACCOUNTANT" | "CLIENT";
   email?: string;
-  /**
-   * DECISION-A (TASK-005-003): The engagementRequestId resolved from this ticket.
-   * Under the mock binding this is always undefined — MockAuthProvider.createInvitation
-   * produces a deterministic ticket prefix with no ticket→request mapping. Under the real
-   * Clerk binding, the invitation-acceptance API returns the invitation metadata (including
-   * the engagementRequestId stored on the EngagementRequest.invitationTicket FK).
-   * When undefined: the engagement's clientUserId stays NULL (fail-closed default — no CLIENT
-   * principal can read a NULL-linked engagement row, per sec.pol_Engagement).
-   */
-  engagementRequestId?: string;
 } {
   // Guard: empty ticket → no account
   if (!ticket || ticket.trim().length === 0) {
@@ -204,11 +194,11 @@ export async function signUpWithInvitation(formData: FormData): Promise<SignUpRe
   // (OE8 — review finding: drop the dead default to avoid accidentally seeding a fake email.)
   const resolvedEmail = email.trim() || (validation.email ?? "");
 
-  // DECISION-A (TASK-005-003): Capture the engagementRequestId from the ticket validation.
-  // Under the mock binding this is undefined (see validateInvitationTicket DECISION-A comment).
-  // Under the real Clerk binding, this carries the resolved engagementRequestId so the
-  // back-fill UPDATE can run inside the same withAuditTransaction below.
-  const resolvedEngagementRequestId: string | undefined = validation.engagementRequestId;
+  // DECISION-A (deferred): Engagement.clientUserId is intentionally created NULL under the
+  // mock auth binding — the mock invitation cannot resolve an engagementRequestId from a ticket,
+  // so no back-fill runs here. RLS fails closed on NULL (sec.pol_Engagement FILTER). The
+  // back-fill that sets Engagement.clientUserId at sign-up will be (re)introduced with the real
+  // auth-binding enablement slice that makes the ticket→request→engagement linkage reachable.
 
   // Derive a deterministic userId from the email for this session
   // DECISION (TASK-004-005): Under the mock binding, the "user ID" is a deterministic
@@ -254,34 +244,10 @@ export async function signUpWithInvitation(formData: FormData): Promise<SignUpRe
 
       // Future: real Clerk binding inserts User row here in the same txn.
       // Example: await insertUserRow({ clerkUserId, email: resolvedEmail }, txn);
-
-      // DECISION-A (TASK-005-003 / AC-ONBD-001-01): Back-fill Engagement.clientUserId
-      // with the newly-created User.id after the User row is inserted above.
       //
-      // STRUCTURAL SEAM — mock-binding limitation:
-      //   Under AUTH_PROVIDER=mock, validateInvitationTicket cannot resolve an
-      //   engagementRequestId from a ticket (the mock prefix pattern carries no FK).
-      //   resolvedEngagementRequestId is therefore undefined under the mock binding.
-      //   The if-guard below is a no-op: clientUserId stays NULL on the Engagement,
-      //   which is the correct fail-closed default — a NULL-linked Engagement returns
-      //   ZERO rows for any CLIENT principal (sec.pol_Engagement FILTER predicate).
-      //
-      //   Real-binding wiring point:
-      //   When the real Clerk binding lands, the User row is inserted above and
-      //   validateInvitationTicket returns the engagementRequestId (resolved by the
-      //   Clerk invitation-acceptance API from EngagementRequest.invitationTicket FK).
-      //   The if-guard becomes active: updateEngagementClientUserId back-fills the FK
-      //   inside this same transaction — no re-architecture needed.
-      //
-      //   clerkUserId is used here as the User.id surrogate (the User row uses clerkId
-      //   as a natural key; the real binding will pass User.id from the INSERT above).
-      if (resolvedEngagementRequestId) {
-        await updateEngagementClientUserId(
-          resolvedEngagementRequestId,
-          clerkUserId, // surrogate for User.id; real binding passes the real User.id
-          txn,
-        );
-      }
+      // DECISION-A (deferred): the Engagement.clientUserId back-fill (updateEngagementClientUserId)
+      // will be re-introduced here when the real auth-binding enablement slice lands and
+      // validateInvitationTicket can resolve the engagementRequestId from the ticket FK.
     });
   } catch (auditErr) {
     // Fail-closed (ADR-019 §3): audit write failure (transaction rolled back) — session cookie NOT sent.

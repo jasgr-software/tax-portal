@@ -52,12 +52,10 @@ import {
   recordLetterSignatureAsClient,
   recordAuthEvent,
   resolveOnboarding,
-  checkStepAccessibility,
 } from "@tax-portal/db";
 import { getESignatureProvider } from "@tax-portal/esign";
 import type {
   OnboardingReadModel,
-  StepRefusal,
 } from "@tax-portal/db";
 
 // ─── Identity helper ──────────────────────────────────────────────────────────
@@ -99,10 +97,6 @@ export async function getClientIdentity(): Promise<{
 
 // ─── Result Types ─────────────────────────────────────────────────────────────
 
-export type GetOnboardingResult =
-  | { success: true; data: OnboardingReadModel }
-  | { success: false; error: string };
-
 export type SignEngagementLetterResult =
   | { success: true; data: OnboardingReadModel }
   | { success: false; error: string; refused?: boolean };
@@ -119,7 +113,7 @@ export type SignEngagementLetterResult =
  * // getMyEngagement() under withRequestContext — no id from URL param, form data, or body.
  * // sec.pol_Engagement FILTER returns only the caller's own row (fail-closed for non-owners).
  * // In Phase 2 a client owns exactly one engagement (brief's out-of-scope fence on multi-
- * // participant). This is the companion to getOnboardingAction(id) which is kept for -007 e2e.
+ * // participant).
  *
  * Also loads the current LetterTemplate content so the page can render the letter for review
  * (AC-IDNT-007-03 UI surface) without a second round-trip.
@@ -159,87 +153,6 @@ export async function getMyOnboardingAction(): Promise<
   const letterContent = template?.content ?? "";
 
   return { success: true, data: model, letterContent };
-}
-
-/**
- * Return the onboarding read model for the authenticated CLIENT.
- *
- * AC-ONBD-001-01: Returns exactly three ordered steps.
- * AC-ONBD-001-02: Steps 2/3 are accessible: false when letterSignedAt is NULL.
- * AC-ONBD-001-03: currentStep + remaining derived server-side.
- * ADR-003: reads run under withRequestContext(CLIENT) so sec.pol_Engagement FILTER governs.
- *          A non-owning CLIENT → ZERO rows → returns error (consistent fail-closed).
- *
- * @param engagementId — the engagement id to load.
- */
-export async function getOnboardingAction(
-  engagementId: string,
-): Promise<GetOnboardingResult> {
-  const identity = await getClientIdentity();
-  if (!identity) {
-    return { success: false, error: "Unauthorized: CLIENT identity required" };
-  }
-
-  if (!engagementId) {
-    return { success: false, error: "engagementId is required" };
-  }
-
-  // Request pool read — sec.pol_Engagement FILTER: non-owner CLIENT reads ZERO rows.
-  const engagement = await withRequestContext(
-    identity.clerkUserId,
-    identity.role,
-    () => getEngagementForClient(engagementId),
-  );
-
-  if (!engagement) {
-    // Consistent with fail-closed: non-owner or non-existent returns not-found.
-    return { success: false, error: "Engagement not found" };
-  }
-
-  const model = resolveOnboarding(engagement);
-  return { success: true, data: model };
-}
-
-/**
- * Attempt to enter a specific onboarding step (server-side accessibility gate).
- *
- * AC-ONBD-001-02 / AC-ONBD-002-01/-02: returns a StepRefusal when the step is locked.
- * A reviewer bypassing the UI still hits this server-side gate.
- *
- * @param engagementId — the engagement to check.
- * @param stepKey — the step to enter.
- * @returns StepRefusal when locked, undefined when accessible.
- */
-export async function checkStepAccessibilityAction(
-  engagementId: string,
-  stepKey: "engagement-letter" | "intake-questionnaire" | "document-upload",
-): Promise<{ accessible: false; refusal: StepRefusal } | { accessible: true }> {
-  const identity = await getClientIdentity();
-  if (!identity) {
-    return {
-      accessible: false,
-      refusal: { refused: true, reason: "step-locked", stepKey },
-    };
-  }
-
-  const engagement = await withRequestContext(
-    identity.clerkUserId,
-    identity.role,
-    () => getEngagementForClient(engagementId),
-  );
-
-  if (!engagement) {
-    return {
-      accessible: false,
-      refusal: { refused: true, reason: "not-found", stepKey },
-    };
-  }
-
-  const refusal = checkStepAccessibility(engagement, stepKey);
-  if (refusal) {
-    return { accessible: false, refusal };
-  }
-  return { accessible: true };
 }
 
 /**

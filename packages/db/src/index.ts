@@ -80,12 +80,13 @@ export { recordAuthEvent, withAuditTransaction } from "./audit.js";
 export { getAdminPool, closeAdminPool } from "./admin-connection.js";
 
 // Engagement repository (EPIC-005 / TASK-005-001 — first client-owned-rows entity)
-// createEngagement            — admin pool write at accept-time (DECISION-A: clientUserId nullable)
-// getEngagementForClient      — request pool read (sec.pol_Engagement FILTER enforces client isolation)
-// getEngagementByRequestId    — request pool read by engagementRequestId
-// getMyEngagement             — no-arg request pool read (FILTER returns caller's own row; TASK-005-006)
-// recordLetterSignature       — admin-pool signature write (substrate/tests; bypasses BLOCK)
+// createEngagement              — admin pool write at accept-time (DECISION-A: clientUserId nullable)
+// getEngagementForClient        — request pool read (sec.pol_Engagement FILTER enforces client isolation)
+// getMyEngagement               — no-arg request pool read (FILTER returns caller's own row; TASK-005-006)
 // recordLetterSignatureAsClient — REQUEST POOL signature write (BLOCK-governed; production path)
+//
+// NOT on this barrel (substrate/test-only):
+//   recordLetterSignature — admin-pool write that bypasses BLOCK; import from the source module directly.
 export type {
   CreateEngagementInput,
   CreateEngagementResult,
@@ -95,11 +96,8 @@ export type {
 export {
   createEngagement,
   getEngagementForClient,
-  getEngagementByRequestId,
   getMyEngagement,
-  recordLetterSignature,
   recordLetterSignatureAsClient,
-  updateEngagementClientUserId,
 } from "./repositories/engagement.js";
 
 // Onboarding read model (EPIC-005 / TASK-005-005)

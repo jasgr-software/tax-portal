@@ -15,16 +15,21 @@
  *     Engagement is created at accept-time inside withAuditTransaction (TASK-005-003),
  *     before the prospect has a Clerk identity. Using the admin pool is the sanctioned pattern
  *     for identity-less writes (ADR-003 §1/§6). The BLOCK predicate is defence-in-depth.
- *   - getEngagementForClient / getEngagementByRequestId: REQUEST POOL (db / SESSION_CONTEXT).
+ *   - getEngagementForClient: REQUEST POOL (db / SESSION_CONTEXT).
  *     FILTER predicate sec.pol_Engagement enforces client isolation per-row.
  *     Must be called inside withRequestContext() or withClerkIdentity() (ADR-003).
- *   - recordLetterSignature: REQUEST POOL via raw mssql parameterised UPDATE.
+ *   - recordLetterSignature: ADMIN POOL (substrate tests only — bypasses BLOCK).
+ *     Not exported from the package barrel; import directly from this module in tests.
+ *   - recordLetterSignatureAsClient: REQUEST POOL via raw mssql parameterised UPDATE.
  *     Runs under the client's SESSION_CONTEXT; the BLOCK predicate allows the owning client
  *     to sign their own letter (CLIENT branch in fn_engagement_access passes).
  *
- * // DECISION-A: clientUserId is nullable on Engagement — created at accept-time before the
- * // prospect signs up. Back-filled when the User row is created (EPIC-004).
- * // The isolation predicate keys on this column; when NULL, no CLIENT can see the row.
+ * // DECISION-A (deferred): Engagement.clientUserId is intentionally created NULL under the
+ * // mock auth binding (the mock invitation cannot resolve an engagementRequestId from a ticket,
+ * // so no back-fill runs at sign-up). RLS fails closed on NULL — no CLIENT principal can read
+ * // a NULL-linked engagement row (sec.pol_Engagement FILTER predicate). The back-fill that
+ * // resolves Engagement.clientUserId at client sign-up will be (re)introduced with the real
+ * // auth-binding enablement slice that makes the ticket→request→engagement linkage reachable.
  *
  * // DECISION-B: Onboarding state (letterSignedAt, letterSignatureEvidence,
  * // letterTemplateSnapshot) stored as columns on Engagement, not a separate OnboardingState
@@ -36,6 +41,7 @@
 
 import mssqlPkg from "mssql";
 import { getAdminPool } from "../admin-connection.js";
+import { parseSqlServerUrl } from "../sql-server-url.js";
 import { db } from "../client.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
@@ -45,15 +51,15 @@ const { Request: MssqlRequest } = mssqlPkg;
 /**
  * Input for creating a new Engagement at accept-time.
  *
- * DECISION-A: clientUserId is optional (nullable) — created before the prospect signs up.
- * The engagementRequestId is the 1:1 FK linking this engagement to its originating request.
+ * DECISION-A (deferred): clientUserId is optional (nullable) — created before the prospect
+ * signs up. The back-fill that sets this field will be introduced with the real auth-binding
+ * slice that makes the ticket→request→engagement linkage reachable.
  */
 export interface CreateEngagementInput {
   /** The EngagementRequest id this Engagement is linked to (1:1, NOT NULL, UNIQUE). */
   engagementRequestId: string;
   /**
-   * DECISION-A: Optional at creation — the prospect may not have a User row yet.
-   * Back-filled when the User row is created (EPIC-004).
+   * DECISION-A (deferred): Optional at creation — the prospect may not have a User row yet.
    */
   clientUserId?: string | undefined;
 }
@@ -76,7 +82,7 @@ export interface CreateEngagementResult {
 export interface EngagementItem {
   id: string;
   engagementRequestId: string;
-  /** DECISION-A: nullable until back-filled on sign-up. */
+  /** DECISION-A (deferred): nullable until back-filled on sign-up. */
   clientUserId: string | null;
   /** 'New' | 'In Progress' — EPIC-008 owns the status transition. */
   status: string;
@@ -124,18 +130,13 @@ type EngagementRow = {
  * Cast the request-scoped `db` wrapper to a typed client for Engagement model access.
  * Pattern mirrors engagement-request.ts (TASK-002-002 DECISION).
  *
- * Two findUnique overloads: by id and by engagementRequestId (@unique FK).
- * Prisma generates both as valid findUnique where clauses because both fields have
- * @id / @unique constraints in the schema.
+ * Two findUnique overloads: by id.
  * Also exposes findFirst (no-arg) for the getMyEngagement resolver.
  */
 function dbAsEngagementClient() {
   return db as unknown as {
     engagement: {
-      findUnique: {
-        (args: { where: { id: string } }): Promise<EngagementRow | null>;
-        (args: { where: { engagementRequestId: string } }): Promise<EngagementRow | null>;
-      };
+      findUnique: (args: { where: { id: string } }) => Promise<EngagementRow | null>;
       findFirst: (args?: { orderBy?: { createdAt: "asc" | "desc" } }) => Promise<EngagementRow | null>;
     };
   };
@@ -151,14 +152,15 @@ function dbAsEngagementClient() {
  * This is the sanctioned admin-pool write pattern (ADR-003 §1/§6).
  * The BLOCK predicate on sec.pol_Engagement is defence-in-depth only.
  *
- * DECISION-A: clientUserId is optional; when provided it is set immediately; when absent
- * the field is NULL and will be back-filled by EPIC-004.
+ * DECISION-A (deferred): clientUserId is optional; when provided it is set immediately;
+ * when absent the field is NULL (RLS fails closed on NULL — see DECISION-A comment above).
+ * The back-fill will be introduced with the real auth-binding enablement slice.
  *
  * Status defaults to 'New' (DB DEFAULT — not set explicitly here so the DB constraint
  * is the single source of truth for the default value).
  *
  * @param input.engagementRequestId — the 1:1 FK linking to the originating request.
- * @param input.clientUserId — optional, DECISION-A.
+ * @param input.clientUserId — optional, DECISION-A (deferred).
  * @param transaction — optional mssql Transaction for atomic audit-commit (TASK-005-003).
  */
 export async function createEngagement(
@@ -190,63 +192,6 @@ export async function createEngagement(
   }
 
   return { id: newEngagement.id, status: newEngagement.status };
-}
-
-// ─── Write: updateEngagementClientUserId (admin pool — back-fill at sign-up) ─
-
-/**
- * Back-fills the clientUserId on an Engagement that was created at accept-time
- * with clientUserId=NULL (DECISION-A).
- *
- * DECISION-A (TASK-005-003): This is the resolution step for the client-link back-fill seam.
- * Called at sign-up time when the User row exists and the engagementRequestId can be resolved
- * from the invitation ticket. Under the mock binding this function is NOT called (the mock
- * validateInvitationTicket cannot resolve a specific engagementRequestId — see DECISION-A
- * comment in apps/portal/src/app/(public)/sign-up/actions.ts). When the real Clerk binding
- * lands and inserts the User row, the caller provides the correct engagementRequestId and
- * this UPDATE joins the same withAuditTransaction — no re-architecture needed.
- *
- * Uses admin pool (RLS-exempt) because:
- *   - The Engagement BLOCK predicate prevents CLIENT-owned rows from being written under
- *     CLIENT SESSION_CONTEXT at accept-time (before the clientUserId FK is known).
- *   - The sign-up seam runs inside withAuditTransaction (admin pool transaction).
- *   - Once back-filled, subsequent writes go through the normal request-pool path.
- *
- * @param engagementRequestId — the engagementRequestId FK linking the Engagement to back-fill.
- * @param clientUserId — the newly-created User.id to set as the clientUserId FK.
- * @param transaction — optional mssql Transaction for atomic commit with audit row.
- * @returns { rowsAffected: number } — 1 on success, 0 if no matching engagement found.
- */
-export async function updateEngagementClientUserId(
-  engagementRequestId: string,
-  clientUserId: string,
-  transaction?: InstanceType<typeof mssqlPkg.Transaction>,
-): Promise<{ rowsAffected: number }> {
-  let req: InstanceType<typeof MssqlRequest>;
-
-  if (transaction) {
-    req = new MssqlRequest(transaction);
-  } else {
-    const pool = await getAdminPool();
-    req = new MssqlRequest(pool);
-  }
-
-  req.input("engagementRequestId", engagementRequestId);
-  req.input("clientUserId", clientUserId);
-
-  const result = await req.query<{ rowsAffected: number }>(
-    `UPDATE [dbo].[Engagement]
-     SET [clientUserId] = @clientUserId,
-         [updatedAt] = SYSDATETIMEOFFSET()
-     WHERE [engagementRequestId] = @engagementRequestId
-       AND [clientUserId] IS NULL;
-     SELECT @@ROWCOUNT AS rowsAffected;`
-  );
-
-  const rowsAffected =
-    (result.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
-
-  return { rowsAffected };
 }
 
 // ─── Read: getEngagementForClient (request pool — subject to RLS) ─────────────
@@ -281,34 +226,6 @@ export async function getEngagementForClient(id: string): Promise<EngagementItem
   return mapRow(row);
 }
 
-// ─── Read: getEngagementByRequestId (request pool — subject to RLS) ───────────
-
-/**
- * Returns the Engagement linked to a specific EngagementRequest, visible to the current
- * SESSION_CONTEXT identity.
- *
- * Under sec.pol_Engagement:
- *   - CLIENT sees only their own engagement (ownership check).
- *   - ACCOUNTANT sees any engagement.
- *   - Null SESSION_CONTEXT → ZERO rows (fail-closed).
- *
- * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
- *
- * Returns null when no matching engagement exists or the caller cannot see it.
- */
-export async function getEngagementByRequestId(
-  engagementRequestId: string,
-): Promise<EngagementItem | null> {
-  const client = dbAsEngagementClient();
-  const row = await client.engagement.findUnique({
-    where: { engagementRequestId },
-  });
-
-  if (!row) return null;
-
-  return mapRow(row);
-}
-
 // ─── Read: getMyEngagement (request pool — no-arg, FILTER-governed) ──────────
 
 /**
@@ -326,7 +243,7 @@ export async function getEngagementByRequestId(
  * //
  * // This function is the minimal additive read needed by the onboarding page (TASK-005-006)
  * // so the page never receives an id from the client. It mirrors the established FILTER
- * // pattern already used by getEngagementForClient and getEngagementByRequestId.
+ * // pattern already used by getEngagementForClient.
  *
  * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
  *
@@ -347,7 +264,12 @@ export async function getMyEngagement(): Promise<EngagementItem | null> {
   return mapRow(row);
 }
 
-// ─── Write: recordLetterSignature (admin pool — legacy/substrate path) ────────
+// ─── Write: recordLetterSignature (admin pool — substrate/test path only) ────
+//
+// NOT exported from the package barrel (packages/db/src/index.ts).
+// Import directly from this source module in substrate tests that need it:
+//   import { recordLetterSignature } from "@tax-portal/db/src/repositories/engagement.js"
+// For the production signing path use recordLetterSignatureAsClient (request pool, BLOCK-governed).
 
 /**
  * Records the engagement-letter signature evidence against the engagement.
@@ -450,7 +372,6 @@ export async function recordLetterSignatureAsClient(input: RecordLetterSignature
     );
   }
 
-  // Parse URL using the same helper as admin-connection.ts (inlined here to avoid circular dep)
   const mssql = mssqlPkg;
   const { ConnectionPool: MssqlConnectionPool } = mssql;
   const config = parseSqlServerUrl(requestUrl);
@@ -466,32 +387,37 @@ export async function recordLetterSignatureAsClient(input: RecordLetterSignature
   await pool.connect();
 
   try {
-    // Single-quote-escape the identity values (mirror the test helper pattern).
+    // Injection-safety for sp_set_session_context args (cannot be parameterised in a .batch()):
+    //   clerkUserId and role are server-derived from the verified session — never client-supplied.
+    //   Single-quote-escaped before interpolation as string literals (mirror test helper pattern).
+    //   The real authorization fence is sec.pol_Engagement FILTER+BLOCK (ADR-005).
     const escapedClerkId = input.clerkUserId.replace(/'/g, "''");
     const escapedRole = input.role.replace(/'/g, "''");
 
-    // Injection-safety: every interpolated value here is server-derived (clerkUserId/role from
-    // the verified session, engagementId resolved server-side) — never client-supplied — and is
-    // single-quote-escaped before interpolation. This is NOT mssql .input() parameterisation:
-    // sp_set_session_context args are not parameterisable in a .batch(), so the SESSION_CONTEXT
-    // values and the UPDATE literals are escaped string literals. The real authorization fence is
-    // the sec.pol_Engagement FILTER+BLOCK policy (ADR-005), which denies cross-client writes
-    // regardless of the SQL text. Follow the pattern from engagement.client-isolation.rls.test.ts.
+    // SEC-1: the three UPDATE data values (signatureEvidence, templateSnapshot, engagementId)
+    // are bound via mssql .input() parameters and referenced as @-prefixed placeholders in the
+    // batch text. Only the two sp_set_session_context args remain as escaped string literals
+    // (they cannot be parameterised in a .batch()).
+    const req = pool.request();
+    req.input("signatureEvidence", mssql.NVarChar(mssql.MAX), input.signatureEvidence);
+    req.input("templateSnapshot", mssql.NVarChar(mssql.MAX), input.templateSnapshot);
+    req.input("engagementId", mssql.NVarChar(50), input.engagementId);
+
     const sql = `
       EXEC sp_set_session_context @key = N'clerk_user_id', @value = N'${escapedClerkId}', @read_only = 0;
       EXEC sp_set_session_context @key = N'role', @value = N'${escapedRole}', @read_only = 0;
       UPDATE [dbo].[Engagement]
       SET [letterSignedAt] = SYSDATETIMEOFFSET(),
-          [letterSignatureEvidence] = '${input.signatureEvidence.replace(/'/g, "''")}',
-          [letterTemplateSnapshot] = '${input.templateSnapshot.replace(/'/g, "''")}',
+          [letterSignatureEvidence] = @signatureEvidence,
+          [letterTemplateSnapshot] = @templateSnapshot,
           [updatedAt] = SYSDATETIMEOFFSET()
-      WHERE [id] = '${input.engagementId.replace(/'/g, "''")}';
+      WHERE [id] = @engagementId;
       SELECT @@ROWCOUNT AS rowsAffected;
       EXEC sp_set_session_context @key = N'clerk_user_id', @value = NULL, @read_only = 0;
       EXEC sp_set_session_context @key = N'role', @value = NULL, @read_only = 0;
     `;
 
-    const result = await pool.request().batch(sql);
+    const result = await req.batch(sql);
 
     // The UPDATE recordset is in a middle position (between the sp_set calls before and after).
     // When there are N statements, recordsets[2] is the SELECT @@ROWCOUNT (0=sp_set, 1=sp_set,
@@ -513,74 +439,6 @@ export async function recordLetterSignatureAsClient(input: RecordLetterSignature
   } finally {
     await pool.close().catch(() => { /* ignore pool close errors */ });
   }
-}
-
-// ─── Internal: parseSqlServerUrl helper (duplicated from admin-connection.ts) ─
-
-/**
- * Parse a sqlserver:// URL into mssql ConnectionPool config.
- * Duplicated here to avoid circular imports between admin-connection.ts and this module.
- * Mirror of the implementation in admin-connection.ts and scripts/db-migrate.ts.
- */
-function parseSqlServerUrl(connectionUrl: string): import("mssql").config {
-  const withoutScheme = connectionUrl.replace(/^(?:sqlserver|mssql):\/\//, "");
-  const firstSemi = withoutScheme.indexOf(";");
-  const authority = firstSemi === -1 ? withoutScheme : withoutScheme.slice(0, firstSemi);
-  const paramStr = firstSemi === -1 ? "" : withoutScheme.slice(firstSemi + 1);
-
-  const params: Record<string, string> = {};
-  for (const part of paramStr.split(";")) {
-    const eqIdx = part.indexOf("=");
-    if (eqIdx === -1) continue;
-    const k = part.slice(0, eqIdx).trim();
-    const v = part.slice(eqIdx + 1).trim();
-    if (k) params[k] = v;
-  }
-
-  let user: string | undefined;
-  let password: string | undefined;
-  let hostPort = authority;
-
-  const atIdx = authority.lastIndexOf("@");
-  if (atIdx !== -1) {
-    const credentials = authority.slice(0, atIdx);
-    hostPort = authority.slice(atIdx + 1);
-    const colonIdx = credentials.indexOf(":");
-    if (colonIdx === -1) {
-      user = decodeURIComponent(credentials);
-    } else {
-      user = decodeURIComponent(credentials.slice(0, colonIdx));
-      password = decodeURIComponent(credentials.slice(colonIdx + 1));
-    }
-  }
-
-  let server = hostPort;
-  let port = 1433;
-  const portMatch = hostPort.match(/:(\d+)$/);
-  if (portMatch) {
-    port = parseInt(portMatch[1] ?? "1433", 10);
-    server = hostPort.slice(0, hostPort.length - portMatch[0].length);
-  }
-
-  const resolvedUser = user ?? params["user"];
-  const resolvedPassword = password ?? params["password"];
-  const resolvedPort = port !== 1433 ? port : (params["port"] ? parseInt(params["port"], 10) : 1433);
-
-  const encrypt = (params["encrypt"] ?? "true").toLowerCase() !== "false";
-  const trustServerCertificate =
-    (params["trustServerCertificate"] ?? "false").toLowerCase() === "true";
-
-  return {
-    server,
-    port: resolvedPort,
-    user: resolvedUser,
-    password: resolvedPassword,
-    database: params["database"] ?? "master",
-    options: {
-      encrypt,
-      trustServerCertificate,
-    },
-  };
 }
 
 // ─── Internal: row mapper ─────────────────────────────────────────────────────

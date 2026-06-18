@@ -3,27 +3,20 @@
  *
  * Unit tests for signUpWithInvitation server action.
  *
- * Covers (TASK-005-003 additions — AC-ONBD-001-01 DECISION-A back-fill seam):
- *   [DECISION-A] sign-up runs the back-fill seam inside withAuditTransaction.
- *   [DECISION-A] under mock binding, engagementRequestId is unresolvable →
- *                updateEngagementClientUserId is NOT called (clientUserId stays NULL, fail-closed).
- *   [DECISION-A] audit row is still written (seam does not break existing audit invariant).
- *   [DECISION-A] session cookie is set on success (back-fill seam does not block sign-up).
- *
- * Also covers pre-existing AC from TASK-004-005/010 (regression guard):
+ * Covers:
  *   AC-AUTH-006-01/-02: Only a valid invitation ticket creates a session.
  *   ADR-005: CLIENT role is server-set from the invitation, never client-asserted.
  *   ADR-019 §3: Audit INSERT in the same transaction; fail-closed if audit throws.
+ *   [DECISION-A (deferred)]: Under the mock binding the engagement's clientUserId stays NULL;
+ *     no back-fill runs at sign-up. The back-fill is deferred to the real-auth-binding slice.
  *
  * No real DB, no real auth. All external seams are mocked:
- *   - @tax-portal/db: withAuditTransaction passthrough, recordAuthEvent stub,
- *     updateEngagementClientUserId stub (TASK-005-003).
+ *   - @tax-portal/db: withAuditTransaction passthrough, recordAuthEvent stub.
  *   - @tax-portal/auth: FIXTURE_INVITATION, MOCK_SESSION_COOKIE_NAME,
  *     createMockSessionCookie stub, getRateLimiter, buildRateLimitKey.
  *   - next/headers: cookies() + headers() stubs.
  *
- * Methodology: test-after, AC tags in titles. E2e is not required for this task
- * (the accept→engagement path is exercised at e2e in TASK-005-007).
+ * Methodology: test-after, AC tags in titles.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -33,7 +26,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const {
   mockWithAuditTransaction,
   mockRecordAuthEvent,
-  mockUpdateEngagementClientUserId,
   mockGetRateLimiter,
   mockBuildRateLimitKey,
   mockCreateMockSessionCookie,
@@ -46,12 +38,6 @@ const {
     /** Pass-through withAuditTransaction: calls fn(null) directly (no real transaction) */
     mockWithAuditTransaction: vi.fn(),
     mockRecordAuthEvent: vi.fn(),
-    /**
-     * DECISION-A (TASK-005-003): updateEngagementClientUserId mock.
-     * Asserts the back-fill seam is correctly NOT called under the mock binding
-     * (engagementRequestId is unresolvable → fail-closed NULL default).
-     */
-    mockUpdateEngagementClientUserId: vi.fn(),
     mockGetRateLimiter: vi.fn(),
     mockBuildRateLimitKey: vi.fn(),
     mockCreateMockSessionCookie: vi.fn(),
@@ -66,7 +52,6 @@ const {
 vi.mock("@tax-portal/db", () => ({
   withAuditTransaction: mockWithAuditTransaction,
   recordAuthEvent: mockRecordAuthEvent,
-  updateEngagementClientUserId: mockUpdateEngagementClientUserId,
 }));
 
 // @tax-portal/auth — mock auth provider, session cookie helpers, rate limiter
@@ -126,9 +111,6 @@ beforeEach(() => {
   // Default: recordAuthEvent succeeds (no throw)
   mockRecordAuthEvent.mockResolvedValue(undefined);
 
-  // Default: updateEngagementClientUserId succeeds (no throw — back-fill no-op)
-  mockUpdateEngagementClientUserId.mockResolvedValue({ rowsAffected: 0 });
-
   // Default: rate limiter allows
   mockGetRateLimiter.mockReturnValue({
     consume: vi.fn().mockReturnValue({ allowed: true }),
@@ -158,104 +140,52 @@ function makeFormData(ticket: string, email = "client@example.com"): FormData {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("signUpWithInvitation — DECISION-A back-fill seam (TASK-005-003)", () => {
-  // ── DECISION-A: seam runs inside the sign-up audit transaction ───────────
-  describe("[DECISION-A] back-fill seam structure", () => {
-    it("[DECISION-A] withAuditTransaction is called (seam does not bypass the transaction)", async () => {
-      const fd = makeFormData(MOCK_TICKET_CLIENT);
+describe("signUpWithInvitation — audit seam structure", () => {
+  it("withAuditTransaction is called (seam does not bypass the transaction)", async () => {
+    const fd = makeFormData(MOCK_TICKET_CLIENT);
 
-      await signUpWithInvitation(fd);
+    await signUpWithInvitation(fd);
 
-      // The sign-up seam (audit INSERT + back-fill) runs inside withAuditTransaction.
-      // This proves the seam structure: if the audit INSERT fails, the cookie is NOT sent.
-      expect(mockWithAuditTransaction).toHaveBeenCalledOnce();
-    });
-
-    it("[DECISION-A] audit row is written inside the transaction (existing ADR-019 invariant preserved)", async () => {
-      const fd = makeFormData(MOCK_TICKET_CLIENT);
-
-      await signUpWithInvitation(fd);
-
-      expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
-      const auditArg = mockRecordAuthEvent.mock.calls[0]?.[0];
-      expect(auditArg?.action).toBe("auth.account_created");
-      expect(auditArg?.sourceSurface).toBe("portal");
-      expect(auditArg?.actor.role).toBe("CLIENT");
-    });
-
-    it("[DECISION-A] under mock binding, updateEngagementClientUserId is NOT called — engagementRequestId unresolvable, clientUserId stays NULL (fail-closed)", async () => {
-      // Under AUTH_PROVIDER=mock, validateInvitationTicket returns no engagementRequestId
-      // for the mock-ticket-client-* pattern. The if-guard in the seam is a no-op.
-      // clientUserId correctly stays NULL on the Engagement row (fail-closed default).
-      const fd = makeFormData(MOCK_TICKET_CLIENT);
-
-      await signUpWithInvitation(fd);
-
-      // DECISION-A: back-fill is structurally in place but NOT called under mock binding.
-      // This is the correct fail-closed behavior documented in DECISION-A.
-      expect(mockUpdateEngagementClientUserId).not.toHaveBeenCalled();
-    });
-
-    it("[DECISION-A] under mock binding, fixture ticket also does not trigger back-fill (fail-closed)", async () => {
-      // FIXTURE_INVITATION also carries no engagementRequestId under the mock binding.
-      const fd = makeFormData(MOCK_TICKET_FIXTURE);
-
-      await signUpWithInvitation(fd);
-
-      expect(mockUpdateEngagementClientUserId).not.toHaveBeenCalled();
-    });
-
-    it("[DECISION-A] sign-up still succeeds with session cookie set (back-fill no-op does not block sign-up)", async () => {
-      const fd = makeFormData(MOCK_TICKET_CLIENT);
-
-      const result = await signUpWithInvitation(fd);
-
-      // Back-fill seam is a no-op under mock binding; sign-up still completes normally.
-      expect(result.success).toBe(true);
-      expect(result.redirectTo).toBe("/dashboard");
-      expect(mockCookiesSet).toHaveBeenCalledOnce();
-    });
+    // The sign-up seam (audit INSERT) runs inside withAuditTransaction.
+    // This proves: if the audit INSERT fails, the cookie is NOT sent (fail-closed, ADR-019 §3).
+    expect(mockWithAuditTransaction).toHaveBeenCalledOnce();
   });
 
-  // ── DECISION-A: seam would be active under real binding (structural proof) ──
-  describe("[DECISION-A] real-binding wiring point (seam activation contract)", () => {
-    it("[DECISION-A] if validateInvitationTicket DID return an engagementRequestId, updateEngagementClientUserId WOULD be called inside the transaction", async () => {
-      // This test verifies the seam activation contract:
-      // If the future Clerk binding supplies an engagementRequestId via the invitation,
-      // the back-fill runs inside the same withAuditTransaction (no re-architecture needed).
-      //
-      // We prove this by patching withAuditTransaction to capture the txn arg passed to
-      // updateEngagementClientUserId, and by supplying the real seam fixture manually.
-      //
-      // IMPORTANT: this test does NOT exist to test current behavior under the mock binding.
-      // It proves the seam is wired correctly for when the real binding lands.
-      //
-      // Approach: We test this indirectly by verifying the seam's call site is inside the
-      // withAuditTransaction callback. The if-guard's truthiness (resolvedEngagementRequestId)
-      // is the only thing preventing the call under the mock binding — the function call itself
-      // is structurally present in the same callback as recordAuthEvent.
-      //
-      // Since validateInvitationTicket is internal (not exported), we verify the seam's
-      // behavior via the observable output:
-      //   - recordAuthEvent IS called (proves the callback runs)
-      //   - updateEngagementClientUserId is NOT called (proves the if-guard fires on undefined)
-      // → When the real binding sets engagementRequestId, only the if-guard changes; the
-      //   structural wiring (same txn, same callback) is already proven above.
+  it("audit row is written inside the transaction (ADR-019 invariant)", async () => {
+    const fd = makeFormData(MOCK_TICKET_CLIENT);
 
-      const fd = makeFormData(MOCK_TICKET_CLIENT);
-      await signUpWithInvitation(fd);
+    await signUpWithInvitation(fd);
 
-      // Seam proves: the callback containing the back-fill is the SAME as the audit callback.
-      // Both calls are inside withAuditTransaction — confirmed by the single call count.
-      expect(mockWithAuditTransaction).toHaveBeenCalledOnce();
-      expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
-      // Back-fill is structurally present but not activated under mock binding:
-      expect(mockUpdateEngagementClientUserId).not.toHaveBeenCalled();
-    });
+    expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
+    const auditArg = mockRecordAuthEvent.mock.calls[0]?.[0];
+    expect(auditArg?.action).toBe("auth.account_created");
+    expect(auditArg?.sourceSurface).toBe("portal");
+    expect(auditArg?.actor.role).toBe("CLIENT");
+  });
+
+  it("[DECISION-A] fixture ticket also passes through the audit seam without back-fill", async () => {
+    const fd = makeFormData(MOCK_TICKET_FIXTURE);
+
+    const result = await signUpWithInvitation(fd);
+
+    // Under mock binding, no back-fill runs; sign-up still completes normally.
+    expect(result.success).toBe(true);
+    expect(mockWithAuditTransaction).toHaveBeenCalledOnce();
+    expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
+  });
+
+  it("sign-up succeeds with session cookie set", async () => {
+    const fd = makeFormData(MOCK_TICKET_CLIENT);
+
+    const result = await signUpWithInvitation(fd);
+
+    expect(result.success).toBe(true);
+    expect(result.redirectTo).toBe("/dashboard");
+    expect(mockCookiesSet).toHaveBeenCalledOnce();
   });
 });
 
-// ─── Regression guard: pre-existing AC-AUTH-006-01/-02 behavior unchanged ────
+// ─── Regression guard: AC-AUTH-006-01/-02 behavior ────────────────────────────
 
 describe("signUpWithInvitation — regression guard (pre-existing AC)", () => {
   it("[AC-AUTH-006-01/-02] invalid ticket returns { success: false } — no session created", async () => {
