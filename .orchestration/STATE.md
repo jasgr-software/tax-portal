@@ -8,9 +8,21 @@
 ## Current run
 
 ### EPIC-005 — BRIEF-005 (onboarding spine + engagement-letter e-sign gate) — started 2026-06-18
-- **Phase:** **Implement — in progress** (engine mid-Dispatch). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
-  Implement: IO Plan ✓ (8 tasks decomposed; Data-&-Interface-Contract expanded; design-coherence PASS; branch
-  `brief-005-onboarding-spine-engagement-letter` created) → Dispatch **7/8 done + committed (all 7 GATED tasks done)**:
+- **Phase:** **Review — in progress** (`/pr-review 48`). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
+  **Implement ✓ (engine cascade COMPLETE)** → **PR #48 opened** → Review (panel) next.
+  - **Implement cascade (all green):** IO Plan ✓ → Dispatch **8/8 tasks done + SDET-approved + committed**
+    (TASK-005-008 @demo `d144716`; carried EPIC-001..004 PNG re-renders reverted to scope the diff) →
+    **Audit ✓ CLEAN** (Overwatch, 0 blocking) → IO **design-scan ✓ PASS** → **Container Smoke ✓ PASS**
+    (non-destructive, live stack; `sqlserver` SA-healthcheck carried) → **Validate ✓** (Gate-6 acceptance
+    APPROVED 10/10 AC under bound gherkin; Gate-7 CI/local PASS — 423 tests 0 fail; quality audit CLEAN) →
+    **Close-prep ✓** (RETRO-005 + HANDOFF-005; 8 tasks archived; two comment-drift fixes folded — `d51bdec`;
+    cross-surface-parity sunset counter at 3 → surfaced KEEP; `--no-verify` + PushNotification-guard KEEP).
+  - **PR #48** — https://github.com/jasgr-software/tax-portal/pull/48 (base `main`; head `d51bdec`). Branch
+    commits: `59a33cb` plan; tasks `1d64d8b`/`5dac228`/`53f62a5`/`4dec137`/`d637418`/`d9d6dcf`/`7868303`/`d144716`;
+    ledger/close `1390075`/`09d2b0f`/`048c6c0`/`38b5f0e`/`c1989a1`/`d51bdec`. **Resume:** run `/pr-review 48`
+    → `/pr-fix 48` → resolve threads → user-approved merge (Lane B, no protection toggle) → IO Close-finalize
+    → `/planning validate EPIC-005` write-back → Report.
+- **(historical) Implement Dispatch detail — 7/8 → 8/8 all done + committed:**
   - **TASK-005-001** ✓ (schema `Engagement`+`LetterTemplate` + the **first client-owned-rows policy**
     `sec.pol_Engagement`; 65 tier-3 incl. 6 isolation) — SDET-approved, commit `1d64d8b`.
   - **TASK-005-002** ✓ (`packages/esign` `ESignatureProvider` seam — fail-closed selector, mock binding; 24
