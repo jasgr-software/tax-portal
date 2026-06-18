@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** BUG-003-001 (RATE_LIMIT_MAX_ATTEMPTS + RATE_LIMIT_WINDOW_MS added to portal + admin compose services)
+**Last updated:** TASK-005-002 (ESIGN_PROVIDER + ALLOW_MOCK_ESIGN added to portal compose service)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -105,6 +105,8 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `RESEND_API_KEY` | Both | Resend API key (production only — `EMAIL_PROVIDER=resend`). Not required in local/e2e. `packages/email` `ResendEmailProvider` constructor throws `EmailBindingNotAvailableError` if `EMAIL_PROVIDER=resend` and this key is absent (fail-closed). Added TASK-003-002. |
 | `RATE_LIMIT_MAX_ATTEMPTS` | Both | `InMemoryRateLimiter` max attempts per window per rate key. Production default: `10`. **docker-compose.yml defaults to `100`** via `${RATE_LIMIT_MAX_ATTEMPTS:-100}` for e2e/local dev — prevents `InMemoryRateLimiter` exhaustion across 3× sequential `pnpm e2e:run` invocations. Override in `.env.local` only if needed. Added BUG-003-001. |
 | `RATE_LIMIT_WINDOW_MS` | Both | `InMemoryRateLimiter` sliding window duration in milliseconds. Default: `60000` (60 seconds). Set in docker-compose.yml for both portal and admin services. Added BUG-003-001. |
+| `ESIGN_PROVIDER` | portal | E-sign provider selector: `mock` (local/e2e) or `docuseal` (production, deferred). **Default: `docuseal` (real — DECISION-E).** The mock requires `ALLOW_MOCK_ESIGN=true` (fail-closed guard). docker-compose.yml defaults to `mock` via `${ESIGN_PROVIDER:-mock}` for local/e2e containers. **NEVER set `mock` in a real production deploy** — a real deploy uses `docuseal` and leaves `ALLOW_MOCK_ESIGN` unset. Added TASK-005-002. |
+| `ALLOW_MOCK_ESIGN` | portal | **Mock e-sign opt-in** (ADR-023 §4 / DECISION-E). Must be `"true"` for the portal container to serve the mock e-sign binding. Keys on this flag (not `NODE_ENV`) — same pattern as `ALLOW_MOCK_AUTH` (BUG-002-001). Defaults to `"true"` in compose (`${ALLOW_MOCK_ESIGN:-true}`) for e2e/local containers. **NEVER set to `"true"` in a real production deploy** — a real deploy sets `ESIGN_PROVIDER=docuseal` and leaves `ALLOW_MOCK_ESIGN` unset → fail closed. Setting `ESIGN_PROVIDER=docuseal` + `ALLOW_MOCK_ESIGN=true` is a contradiction → throws. Added TASK-005-002. |
 
 ---
 

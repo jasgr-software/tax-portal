@@ -51,6 +51,7 @@ const {
   mockAcceptEngagementRequest,
   mockDeclineEngagementRequest,
   mockRecordAuthEvent,
+  mockCreateEngagement,
   mockRateLimiterConsume,
   mockRevalidatePath,
   mockHeaders,
@@ -64,6 +65,11 @@ const {
   mockAcceptEngagementRequest: vi.fn(),
   mockDeclineEngagementRequest: vi.fn(),
   mockRecordAuthEvent: vi.fn(),
+  /**
+   * TASK-005-003: createEngagement mock — asserts the Engagement is created on accept
+   * (AC-ONBD-001-01). Returns a stub { id, status: 'New' } to match the real signature.
+   */
+  mockCreateEngagement: vi.fn(),
   mockRateLimiterConsume: vi.fn(),
   mockRevalidatePath: vi.fn(),
   /** Represents the `headers()` async function from next/headers */
@@ -127,6 +133,7 @@ vi.mock("@tax-portal/email", () => ({
 
 // @tax-portal/db — mock all DB interactions used by the decision actions.
 // All mocks are hoisted so beforeEach can restore them after vi.clearAllMocks().
+// TASK-005-003: createEngagement added to the mock (AC-ONBD-001-01).
 vi.mock("@tax-portal/db", () => ({
   withRequestContext: mockWithRequestContext,
   withAuditTransaction: mockWithAuditTransaction,
@@ -134,6 +141,7 @@ vi.mock("@tax-portal/db", () => ({
   acceptEngagementRequest: mockAcceptEngagementRequest,
   declineEngagementRequest: mockDeclineEngagementRequest,
   recordAuthEvent: mockRecordAuthEvent,
+  createEngagement: mockCreateEngagement,
   AlreadyDecidedError: MockAlreadyDecidedError,
 }));
 
@@ -211,6 +219,12 @@ beforeEach(() => {
   // Default: accept/decline repo fns succeed (no throw = success)
   mockAcceptEngagementRequest.mockResolvedValue(undefined);
   mockDeclineEngagementRequest.mockResolvedValue(undefined);
+
+  // Default: createEngagement succeeds with a stub New engagement (TASK-005-003)
+  mockCreateEngagement.mockResolvedValue({
+    id: "engagement-aaaabbbb-cccc-dddd-eeee-000000000001",
+    status: "New",
+  });
 
   // Default: audit row written without error
   mockRecordAuthEvent.mockResolvedValue(undefined);
@@ -460,6 +474,74 @@ describe("acceptRequest", () => {
       if (result.success) {
         expect(result.emailSent).toBe(true);
       }
+    });
+  });
+
+  // ── AC-ONBD-001-01 (TASK-005-003): Engagement created on accept ───────────
+  describe("[AC-ONBD-001-01] engagement substrate created on accept", () => {
+    it("[AC-ONBD-001-01] createEngagement is called inside the accept transaction with the requestId", async () => {
+      await acceptRequest(REQUEST_ID);
+
+      // createEngagement must be called exactly once inside withAuditTransaction (same txn)
+      expect(mockCreateEngagement).toHaveBeenCalledOnce();
+      expect(mockCreateEngagement).toHaveBeenCalledWith(
+        { engagementRequestId: REQUEST_ID },
+        null, // mock txn value (withAuditTransaction passthrough passes null)
+      );
+    });
+
+    it("[AC-ONBD-001-01] createEngagement is called with clientUserId omitted (NULL at accept-time — DECISION-A)", async () => {
+      await acceptRequest(REQUEST_ID);
+
+      const callArgs = mockCreateEngagement.mock.calls[0]?.[0];
+      // DECISION-A: clientUserId must NOT be set at accept-time (prospect has no User row yet)
+      expect(callArgs?.clientUserId).toBeUndefined();
+    });
+
+    it("[AC-ONBD-001-01] engagement is NOT created when the request is already decided (rollback — no orphan)", async () => {
+      // AlreadyDecidedError is thrown by acceptEngagementRequest BEFORE createEngagement is called.
+      // The transaction rolls back → no Engagement row is created (correct: no orphan engagement).
+      mockAcceptEngagementRequest.mockRejectedValue(new MockAlreadyDecidedError(REQUEST_ID));
+
+      const result = await acceptRequest(REQUEST_ID);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("already_decided");
+      }
+      // createEngagement must NOT have been called — it follows acceptEngagementRequest in the
+      // transaction callback, so when acceptEngagementRequest throws, the callback exits early.
+      expect(mockCreateEngagement).not.toHaveBeenCalled();
+    });
+
+    it("[AC-ONBD-001-01] engagement is NOT created when the identity guard rejects (no unauthorized create)", async () => {
+      mockGetIdentity.mockResolvedValue(null);
+
+      await acceptRequest(REQUEST_ID);
+
+      // No transaction is ever opened — the action returns early at the identity guard.
+      expect(mockCreateEngagement).not.toHaveBeenCalled();
+    });
+
+    it("[AC-ONBD-001-01] EPIC-003 accept behavior is unchanged (status transition + ticket + audit + email)", async () => {
+      // This test verifies the additive constraint: EPIC-003 behavior is preserved.
+      // All prior side effects remain in place after TASK-005-003 adds createEngagement.
+      const result = await acceptRequest(REQUEST_ID);
+
+      // EPIC-003 invariants — all unchanged:
+      expect(mockAcceptEngagementRequest).toHaveBeenCalledOnce();           // status→accepted
+      expect(mockAcceptEngagementRequest).toHaveBeenCalledWith(REQUEST_ID, MOCK_TICKET, null);
+      expect(mockRecordAuthEvent).toHaveBeenCalledOnce();                   // audit row
+      expect(mockEmailSend).toHaveBeenCalledOnce();                         // invitation email
+      const sentMessage = mockEmailSend.mock.calls[0]?.[0];
+      expect(sentMessage?.to).toBe(PROSPECT_EMAIL);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.emailSent).toBe(true);
+      }
+
+      // TASK-005-003 addition — createEngagement also called:
+      expect(mockCreateEngagement).toHaveBeenCalledOnce();
     });
   });
 });

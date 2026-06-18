@@ -90,6 +90,8 @@ model EngagementRequest {
   services    EngagementRequestService[]
   // Reverse relation: notifications generated when this request is submitted (EPIC-003)
   notifications Notification[]
+  // Reverse relation: the Engagement created when this request is accepted (EPIC-005, 1:1)
+  engagement  Engagement?
 
   @@map("EngagementRequest")
 }
@@ -127,7 +129,78 @@ model User {
   createdAt DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt DateTime @updatedAt @db.DateTimeOffset
 
+  // EPIC-005: Reverse relation — a User may own zero or one Engagement (after sign-up back-fill)
+  // DECISION-A: clientUserId is nullable on Engagement — created before the prospect signs up;
+  //             back-filled at sign-up time. See Engagement.clientUserId.
+  engagements Engagement[]
+
   @@map("User")
+}
+
+// ─── Engagement ───────────────────────────────────────────────────────────────
+// The active engagement for a client, created when the accountant accepts the request (EPIC-003).
+// RLS (ADR-005 § Tables-in-scope): CLIENT sees only their own engagement (clientUserId match);
+//   ACCOUNTANT sees all; admin pool is always RLS-exempt.
+//   Security policy: sec.pol_Engagement (Track B: db/policies/0005-engagement-policy.sql).
+//
+// ADR-002: UNIQUEIDENTIFIER PK with NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// DECISION-A: clientUserId is nullable — Engagement is created at accept-time before the prospect
+//             signs up. The clientUserId FK is back-filled when the User row is created (EPIC-004).
+//             The isolation predicate keys on this column.
+// DECISION-B: Onboarding state is stored as columns on Engagement (letterSignedAt, etc.) rather
+//             than a separate OnboardingState table — simpler for the single-step Phase 2 slice;
+//             the EPIC-005 scope note confirms this is the correct shape for this phase.
+// DECISION-C: letterTemplateSnapshot captures the template content at sign time so later template
+//             edits never retroactively change a signed letter.
+
+model Engagement {
+  id                    String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // 1:1 FK → EngagementRequest — NOT NULL, UNIQUE. One request → at most one Engagement.
+  engagementRequestId   String    @unique @db.UniqueIdentifier
+  engagementRequest     EngagementRequest @relation(fields: [engagementRequestId], references: [id], onDelete: NoAction)
+  // DECISION-A: nullable until the prospect signs up (EPIC-004 back-fills this)
+  clientUserId          String?   @db.UniqueIdentifier
+  clientUser            User?     @relation(fields: [clientUserId], references: [id], onDelete: NoAction)
+  // Status: 'New' (default) | 'In Progress' — full transitions deferred to EPIC-008
+  // Valid values: 'New' | 'In Progress'
+  status                String    @default("New") @db.NVarChar(20)
+  // ─── Onboarding state columns (DECISION-B) ───────────────────────────────
+  // letterSignedAt: NULL = unsigned (gate closed); non-null = gate open (AC-ONBD-002-01/-02/-03)
+  letterSignedAt        DateTime? @db.DateTimeOffset
+  // letterSignatureEvidence: mock provider's deterministic signed-evidence JSON (AC-ONBD-002-04)
+  letterSignatureEvidence String?  @db.NVarChar(Max)
+  // letterTemplateSnapshot: template content captured at sign time (DECISION-C)
+  letterTemplateSnapshot  String?  @db.NVarChar(Max)
+  // ─── Timestamps ───────────────────────────────────────────────────────────
+  createdAt             DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt             DateTime  @updatedAt @db.DateTimeOffset
+
+  @@map("Engagement")
+}
+
+// ─── LetterTemplate ───────────────────────────────────────────────────────────
+// The accountant-managed engagement letter template.
+// Accountant-owned — NOT client-readable; no RLS policy needed (the accountant + admin see it).
+// DECISION-D: Single-current-row pattern — there is always exactly one active template; the
+//             accountant replaces it in place. The system seeds one default row on first deploy.
+//
+// isSystemDefault: the seeded row has this set to 1. After the accountant edits, the system
+//                  default flag is preserved on the original row for reference; a new row with
+//                  isSystemDefault = 0 is NOT created — the accountant overwrites the existing
+//                  template (updateLetterTemplate targets the single row). DECISION-D.
+// updatedBy: accountant's clerkId recorded on edit for the audit trail (AC-IDNT-007-02).
+
+model LetterTemplate {
+  id              String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  content         String   @db.NVarChar(Max)
+  // isSystemDefault: 1 = seeded system default, 0 = accountant-edited
+  isSystemDefault Boolean  @default(false)
+  // updatedBy: accountant clerkId on edit (AC-IDNT-007-02)
+  updatedBy       String?  @db.NVarChar(64)
+  createdAt       DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt       DateTime @updatedAt @db.DateTimeOffset
+
+  @@map("LetterTemplate")
 }
 
 // ─── Notification ─────────────────────────────────────────────────────────────

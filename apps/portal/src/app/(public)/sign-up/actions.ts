@@ -194,6 +194,12 @@ export async function signUpWithInvitation(formData: FormData): Promise<SignUpRe
   // (OE8 — review finding: drop the dead default to avoid accidentally seeding a fake email.)
   const resolvedEmail = email.trim() || (validation.email ?? "");
 
+  // DECISION-A (deferred): Engagement.clientUserId is intentionally created NULL under the
+  // mock auth binding — the mock invitation cannot resolve an engagementRequestId from a ticket,
+  // so no back-fill runs here. RLS fails closed on NULL (sec.pol_Engagement FILTER). The
+  // back-fill that sets Engagement.clientUserId at sign-up will be (re)introduced with the real
+  // auth-binding enablement slice that makes the ticket→request→engagement linkage reachable.
+
   // Derive a deterministic userId from the email for this session
   // DECISION (TASK-004-005): Under the mock binding, the "user ID" is a deterministic
   // slug (not a real Clerk user ID). In the Clerk binding, Clerk assigns the real user ID
@@ -238,6 +244,10 @@ export async function signUpWithInvitation(formData: FormData): Promise<SignUpRe
 
       // Future: real Clerk binding inserts User row here in the same txn.
       // Example: await insertUserRow({ clerkUserId, email: resolvedEmail }, txn);
+      //
+      // DECISION-A (deferred): the Engagement.clientUserId back-fill (updateEngagementClientUserId)
+      // will be re-introduced here when the real auth-binding enablement slice lands and
+      // validateInvitationTicket can resolve the engagementRequestId from the ticket FK.
     });
   } catch (auditErr) {
     // Fail-closed (ADR-019 §3): audit write failure (transaction rolled back) — session cookie NOT sent.

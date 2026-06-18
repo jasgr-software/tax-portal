@@ -314,7 +314,9 @@ export async function countAllRequests(): Promise<number> {
  * Deletes in FK order:
  *   1. EngagementRequestService join rows
  *   2. Notification rows (have FK to EngagementRequest)
- *   3. EngagementRequest itself
+ *   3. Engagement rows (added in TASK-005-003 — created when a request is accepted;
+ *      Engagement has FK to EngagementRequest; must be deleted before the parent)
+ *   4. EngagementRequest itself
  *
  * NOTE: AuditEvent rows are NOT deleted. AuditEvent is an APPEND_ONLY ledger table
  * (ADR-019) — DELETE is blocked by SQL Server. Audit rows for test requests are left
@@ -336,7 +338,13 @@ export async function deleteRequestById(id: string): Promise<void> {
     .input("id", id)
     .query(`DELETE FROM [dbo].[Notification] WHERE [engagementRequestId] = @id`);
 
-  // 3. EngagementRequest itself
+  // 3. Engagement rows (TASK-005-003: acceptRequest creates Engagement with FK to EngagementRequest)
+  await pool
+    .request()
+    .input("id", id)
+    .query(`DELETE FROM [dbo].[Engagement] WHERE [engagementRequestId] = @id`);
+
+  // 4. EngagementRequest itself
   await pool
     .request()
     .input("id", id)

@@ -132,6 +132,9 @@ importers:
       '@tax-portal/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@tax-portal/esign':
+        specifier: workspace:*
+        version: link:../../packages/esign
       '@tax-portal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -270,8 +273,8 @@ importers:
   packages/email:
     dependencies:
       nodemailer:
-        specifier: ^8.0.9
-        version: 8.0.11
+        specifier: ^9.0.1
+        version: 9.0.1
     devDependencies:
       '@tax-portal/eslint-config':
         specifier: workspace:*
@@ -285,6 +288,33 @@ importers:
       '@types/nodemailer':
         specifier: ^6.4.0
         version: 6.4.24
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.0.0
+        version: 8.61.0(@typescript-eslint/parser@8.61.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.0.0
+        version: 8.61.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.0.0
+        version: 9.39.4(jiti@1.21.7)
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@20.19.43)(jiti@1.21.7)(jsdom@26.1.0)(tsx@4.22.4)
+
+  packages/esign:
+    devDependencies:
+      '@tax-portal/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@tax-portal/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.0.0
         version: 8.61.0(@typescript-eslint/parser@8.61.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
@@ -2046,8 +2076,8 @@ packages:
     resolution: {integrity: sha512-Uzmd6LXpouKo8EUK68IjH4+E01w/hXyV3R3g/geCJo+rXLNfh1xucB+LOzYEOQPSiUK3h/xZf0cQGcSsmyL2Og==}
     engines: {node: '>=18'}
 
-  nodemailer@8.0.11:
-    resolution: {integrity: sha512-nrO/pDAUKl+wXX+lx16tDLbnm0fW6sK/x8mgohaCpg+CdCEl482bD4tCuAZk2DyliruiNTIZxRCoWkDqJEnAiA==}
+  nodemailer@9.0.1:
+    resolution: {integrity: sha512-Gwv8SQewT616ZM/URn0H54b8PWo/Wum7md3EW2aWy1lO27+WZCX+Xyak3J+NlmHUjDh5ME+uesJUDRbR3Ye8Bw==}
     engines: {node: '>=6.0.0'}
 
   normalize-path@3.0.0:
@@ -4376,7 +4406,7 @@ snapshots:
 
   node-releases@2.0.47: {}
 
-  nodemailer@8.0.11: {}
+  nodemailer@9.0.1: {}
 
   normalize-path@3.0.0: {}
 

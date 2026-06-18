@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** BUG-003-001 (rate limiter env vars — RATE_LIMIT_MAX_ATTEMPTS/RATE_LIMIT_WINDOW_MS added to portal + admin compose services)
+**Last updated:** TASK-005-002 (e-sign env vars — ESIGN_PROVIDER/ALLOW_MOCK_ESIGN added to portal compose service)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -63,6 +63,18 @@ services — no `.env.local` entry is needed for local dev.
 **NEVER set `ALLOW_MOCK_AUTH=true` in a real production deployment.** A real deploy sets
 `AUTH_PROVIDER=clerk` and leaves `ALLOW_MOCK_AUTH` unset. Without the flag, any request that
 hits the mock/unset auth path throws at process startup → fail closed (F1/F6 intent preserved).
+
+**Mock e-sign opt-in (TASK-005-002 — `ALLOW_MOCK_ESIGN`):** The `portal` compose service requires
+`ALLOW_MOCK_ESIGN=true` when `ESIGN_PROVIDER=mock` (the local/e2e default). The fail-closed guard
+in `packages/esign` (DECISION-E / ADR-023 §4) keys on this flag (not `NODE_ENV`) — same pattern
+as `ALLOW_MOCK_AUTH`. The compose file defaults both to `mock`/`true` for the portal service.
+**NEVER set `ALLOW_MOCK_ESIGN=true` in a real production deployment.** A real deploy sets
+`ESIGN_PROVIDER=docuseal` and leaves `ALLOW_MOCK_ESIGN` unset → fail closed. Setting
+`ESIGN_PROVIDER=docuseal` alongside `ALLOW_MOCK_ESIGN=true` is a contradiction → throws.
+
+Note: `ESIGN_PROVIDER` and `ALLOW_MOCK_ESIGN` are wired only on the **portal** service (the
+client-facing onboarding surface). The **admin** service does not invoke e-sign directly and does
+not carry these vars yet. Add them to admin when admin-surface e-sign is introduced.
 
 **Seed/migrate principal:** `pnpm db:migrate` and `pnpm db:seed` run under `DATABASE_URL_ADMIN`
 (`taxportal_admin` login, `app_admin_role` member). Do NOT use `sa` — the Service table has an RLS

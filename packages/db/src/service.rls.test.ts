@@ -67,8 +67,9 @@ const seededServiceIds: string[] = [];
 
 /**
  * Set SESSION_CONTEXT on the request pool for a given role.
- * Uses @read_only = 0 so tests can set/clear context freely
- * (real app uses @read_only = 1 — tests require mutation for setup/teardown).
+ * Uses @read_only = 0 — matching the application, which also uses @read_only = 0 per
+ * ADR-003 Amendment 1 (BUG-002-003 dropped @read_only = 1 as incompatible with Prisma's
+ * connection pooling — error 15664 on cross-request reuse). Tests set/clear context freely.
  */
 async function setSessionContext(
   pool: InstanceType<typeof ConnectionPool>,
@@ -85,7 +86,9 @@ async function setSessionContext(
 }
 
 /**
- * Clear SESSION_CONTEXT on the request pool (pool hygiene — ADR-003 §4).
+ * Clear SESSION_CONTEXT on the request pool between cases so a stale identity never
+ * leaks into the next test (test-isolation hygiene). NB: ADR-003's reset-on-release
+ * pool hygiene was retired in Amendment 1 (BUG-002-003) — this clear is test-side only.
  */
 async function clearSessionContext(
   pool: InstanceType<typeof ConnectionPool>,
