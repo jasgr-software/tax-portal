@@ -15,10 +15,17 @@
  * AC-ONBD-001-01: Renders exactly three ordered steps.
  * AC-ONBD-001-03: Current position + remaining steps visible.
  * AC-IDNT-007-03 UI: Letter content (accountant's edited template) displayed in the letter step.
+ * AC-ONBD-003-01 UI: Questionnaire shown for the engagement's service type (TASK-006-004).
+ * AC-ONBD-003-03 UI: Questionnaire step shows unsatisfied/submitted affordance.
  *
  * // DECISION (TASK-005-006): The page uses getMyOnboardingAction() (no-arg) rather than
  * // getOnboardingAction(id). The engagement id is resolved server-side via FILTER predicate.
  * // No id from URL param, form data, or any client-supplied source (ADR-001/ADR-005).
+ *
+ * // DECISION (TASK-006-004): Both getMyOnboardingAction() and getMyQuestionnaireAction()
+ * // are called in parallel via Promise.all to minimize latency. The questionnaire result
+ * // is non-blocking — a questionnaire failure shows the awaiting state, not an error page.
+ * // TASK-006-005 extends getMyQuestionnaireAction to carry alreadySubmitted + existingAnswers.
  *
  * Note: This page is a server component — it calls the server action directly at render time.
  * (Server components can call server-side functions directly; they do not need to invoke
@@ -26,7 +33,7 @@
  */
 
 import type { Metadata } from "next";
-import { getMyOnboardingAction } from "./actions";
+import { getMyOnboardingAction, getMyQuestionnaireAction } from "./actions";
 import { OnboardingSequence } from "./_components/OnboardingSequence";
 
 export const metadata: Metadata = {
@@ -35,13 +42,17 @@ export const metadata: Metadata = {
 };
 
 export default async function OnboardingPage() {
-  // Resolve the client's onboarding state server-side — no id from the client.
-  // DECISION (TASK-005-006): uses no-arg path; engagement id never from URL/form/body.
-  const result = await getMyOnboardingAction();
+  // Resolve the client's onboarding state + questionnaire in parallel.
+  // DECISION (TASK-006-004): parallel fetch; questionnaire failure is non-blocking.
+  // getMyQuestionnaireAction defers alreadySubmitted + existingAnswers to TASK-006-005.
+  const [onboardingResult, questionnaireResult] = await Promise.all([
+    getMyOnboardingAction(),
+    getMyQuestionnaireAction(),
+  ]);
 
   // Error state — no engagement found (not yet set up, or non-CLIENT identity).
   // Middleware ensures only CLIENT sessions reach this page; this is a belt-and-suspenders guard.
-  if (!result.success) {
+  if (!onboardingResult.success) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div
@@ -52,7 +63,7 @@ export default async function OnboardingPage() {
             Onboarding Not Available
           </h1>
           <p className="text-sm text-amber-700">
-            {result.error === "No active engagement found"
+            {onboardingResult.error === "No active engagement found"
               ? "Your onboarding materials are being prepared. Please check back shortly."
               : "Something went wrong. Please sign in and try again."}
           </p>
@@ -61,10 +72,16 @@ export default async function OnboardingPage() {
     );
   }
 
+  // Extract questionnaire data (non-blocking — null on failure shows awaiting state in step).
+  const questionnaire = questionnaireResult.success ? questionnaireResult.data : null;
+  const alreadySubmitted = questionnaireResult.success ? questionnaireResult.alreadySubmitted : false;
+
   return (
     <OnboardingSequence
-      model={result.data}
-      letterContent={result.letterContent}
+      model={onboardingResult.data}
+      letterContent={onboardingResult.letterContent}
+      questionnaire={questionnaire}
+      alreadySubmitted={alreadySubmitted}
     />
   );
 }

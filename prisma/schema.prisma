@@ -48,6 +48,8 @@ model Service {
 
   // Reverse relation for the join table
   engagementRequestServices EngagementRequestService[]
+  // EPIC-006: Reverse relation — at most one QuestionnaireTemplate per Service type (AC-ONBD-003-02)
+  questionnaireTemplate     QuestionnaireTemplate?
 
   @@map("Service")
 }
@@ -171,9 +173,15 @@ model Engagement {
   letterSignatureEvidence String?  @db.NVarChar(Max)
   // letterTemplateSnapshot: template content captured at sign time (DECISION-C)
   letterTemplateSnapshot  String?  @db.NVarChar(Max)
+  // DECISION-I (EPIC-006): questionnaire-step satisfaction marker (DECISION-B family)
+  // NULL = step-2 not satisfied; non-null = questionnaire submitted (AC-ONBD-003-03/-04)
+  questionnaireSubmittedAt DateTime? @db.DateTimeOffset
   // ─── Timestamps ───────────────────────────────────────────────────────────
   createdAt             DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt             DateTime  @updatedAt @db.DateTimeOffset
+
+  // EPIC-006: Reverse relation — at most one QuestionnaireAnswer per Engagement (AC-ONBD-003-04)
+  questionnaireAnswer   QuestionnaireAnswer?
 
   @@map("Engagement")
 }
@@ -201,6 +209,67 @@ model LetterTemplate {
   updatedAt       DateTime @updatedAt @db.DateTimeOffset
 
   @@map("LetterTemplate")
+}
+
+// ─── QuestionnaireTemplate ────────────────────────────────────────────────────
+// The accountant-managed intake questionnaire template, keyed per Service type.
+// Accountant-owned — NOT client-owned; no client-isolation FILTER needed.
+// Clients read template content via the admin pool at step 2 (like LetterTemplate).
+// RLS (ADR-005): accountant/admin write only. Write policy: sec.pol_QuestionnaireTemplate (Track B:
+//   db/policies/0006-questionnaire-policy.sql) using fn_questionnaire_template_write_access.
+//
+// DECISION-G (EPIC-006): serialized-JSON `questions` blob over structured rows — v1 questionnaires
+//   are static (no per-question querying), mirroring LetterTemplate.content.
+// @@unique([serviceId]): at most one current template per service type (AC-ONBD-003-02 / AC-DASH-012-02).
+// onDelete: NoAction — never hard-delete a Service a template references (EPIC-002 reversible-deactivate posture).
+
+model QuestionnaireTemplate {
+  id         String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Service — at most one template per service type (UNIQUE)
+  serviceId  String   @unique @db.UniqueIdentifier
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: NoAction)
+  // Serialized JSON array of question definitions (DECISION-G):
+  // [{ id: string, prompt: string, type: 'text' | 'textarea', required: boolean }, ...]
+  // JSON shape validated at the action layer (TASK-006-002), not by a DB constraint.
+  questions  String   @db.NVarChar(Max)
+  // Accountant clerkId on create/edit (mirrors LetterTemplate.updatedBy)
+  updatedBy  String?  @db.NVarChar(64)
+  createdAt  DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt  DateTime @updatedAt @db.DateTimeOffset
+
+  // Reverse relation
+  questionnaireAnswers QuestionnaireAnswer[]
+
+  @@map("QuestionnaireTemplate")
+}
+
+// ─── QuestionnaireAnswer ──────────────────────────────────────────────────────
+// The client's submitted questionnaire answers, recorded against the engagement (AC-ONBD-003-04).
+// CLIENT-OWNED AND CLIENT-ISOLATED — the SECOND client-owned-row family (after Engagement, EPIC-005).
+// RLS (ADR-005): FILTER + BLOCK via sec.pol_QuestionnaireAnswer (Track B:
+//   db/policies/0006-questionnaire-policy.sql). Ownership: engagementId → Engagement.clientUserId
+//   → User.clerkId = SESSION_CONTEXT('clerk_user_id').
+//
+// DECISION-H (EPIC-006): answers serialized as JSON blob keyed by question id:
+//   { [questionId]: string } — v1 is static (no per-answer querying).
+// @@unique([engagementId]): one submission per engagement in v1 (AC-ONBD-003-04).
+// FK onDelete: NoAction — never hard-delete an Engagement or template a QuestionnaireAnswer references.
+
+model QuestionnaireAnswer {
+  id           String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Engagement — one answer row per engagement in v1 (UNIQUE)
+  engagementId String   @unique @db.UniqueIdentifier
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: NoAction)
+  // FK → QuestionnaireTemplate — captures which template version was answered (DECISION-H)
+  templateId   String   @db.UniqueIdentifier
+  template     QuestionnaireTemplate @relation(fields: [templateId], references: [id], onDelete: NoAction)
+  // Serialized JSON: { [questionId: string]: string }
+  answers      String   @db.NVarChar(Max)
+  submittedAt  DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  createdAt    DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt    DateTime @updatedAt @db.DateTimeOffset
+
+  @@map("QuestionnaireAnswer")
 }
 
 // ─── Notification ─────────────────────────────────────────────────────────────
