@@ -18,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "nodemailer": "^8.0.9"
+    "nodemailer": "^9.0.1"
   },
   "devDependencies": {
     "@tax-portal/eslint-config": "workspace:*",
