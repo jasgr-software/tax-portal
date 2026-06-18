@@ -7,6 +7,56 @@
 
 ## Current run
 
+### EPIC-005 — BRIEF-005 (onboarding spine + engagement-letter e-sign gate) — started 2026-06-18
+- **Phase:** **Implement** (entering). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → **Implement (invoke `/io`)**.
+- **Slice:** Phase-2 opener. A newly accepted client signs in to `apps/portal`, sees the three-step onboarding
+  sequence for their engagement, and e-signs the engagement letter — the hard gate that unlocks the later
+  steps. Introduces the **minimal `Engagement`** substrate (created on accept, status `New`) and the **first
+  client-owned rows** + their ADR-005 isolation policy. E-sign is **mocked** behind the ADR-023/024 seam.
+- **In-scope AC (10):** AC-ONBD-001-01/-02/-03, AC-ONBD-002-01/-02/-03/-04, AC-IDNT-007-01/-02/-03.
+- **Base branch:** main @ `ad35123` · **Feature branch:** _(engine-created at Plan; no `*005*` branch yet)_
+- **PR:** _(none yet — engine opens at Dispatch/Close-prep)_
+- **Select — GO.** Fresh run (EPIC-003 delivered; Phase 1 complete; no mid-flight run). EPIC-005 pinned via
+  `/orchestrate EPIC-005`; it is the next ready Phase-2 epic (no Phase-2 dep).
+- **Gate — GO on all 7 criteria.** Mechanical 1–4,7 + engine-clear 6 evaluated by
+  `bin/orchestrate-gates.sh` (both gates `RESULT: all evaluated gates PASS`, exit 0; run_id
+  `EPIC-005-20260618T122334Z`): (1) `status: planned` ✓ (2) `open_questions: []` ✓ (3) `depends_on:
+  [EPIC-003, EPIC-004]` both delivered ✓ (4) COVERAGE has the 10 EPIC-005 rows ✓ (7) tree clean on `main`, no
+  `*005*` branch ✓ (6) engine clear — `## Awaiting PR merge` empty, no active bugs ✓. **Criterion 5 (semantic,
+  Conductor-owned):** all 10 AC resolve **verbatim** to the cited REQ sources (AC-ONBD-001-* → REQ-ONBD-001;
+  AC-ONBD-002-* → REQ-ONBD-002; AC-IDNT-007-* → REQ-IDNT-007 — all `status: accepted`, observable/testable),
+  and all 10 have gherkin scenarios in the epic ✓.
+- **Compose — DONE.** Wrote `.implementation/briefs/BRIEF-005-onboarding-spine-engagement-letter.md`: 10 AC
+  (verbatim) + gherkin bound to the epic's scenarios; methodology gherkin / e2e-required (`apps/portal` +
+  `apps/admin`); extra_gates = **client-data isolation (ADR-005, HARD tier-3 — first client-owned rows)**,
+  server-side gate enforcement (tier-3), signed-letter evidence recorded + audited (ADR-019/024), **e-sign
+  provider seam mock-first + fail-closed (ADR-023/024)**, SESSION_CONTEXT on client reads/writes + accountant
+  template write (ADR-003), cross-surface (portal + admin), container smoke. demo: yes · apps [portal, admin] ·
+  personas [tom-prospective-client, jane-accountant] · flows [flow-onboarding, flow-first-sign-in].
+  **First brief to carry a `## Data & Interface Contract`** (source-traced `Engagement`/onboarding-state/
+  letter-template/signature-evidence entities + `New`/`In Progress` status + `unsigned→signed` letter
+  transition + `ESignatureProvider` port; field-level expansion left to IO Design per the altitude rule).
+- **Compose carries (concrete obligations from sources + live repo state):**
+  - **New `Engagement` substrate** — created on **acceptance** by **extending the delivered EPIC-003
+    `acceptRequest` flow** (`apps/admin/src/app/requests/actions.ts`); status `New`; linked 1:1 to the accepted
+    `EngagementRequest` and to the client `User`. **First client-owned row.**
+  - **First client-isolation security policy (ADR-005)** — new `sec` predicate + FILTER/BLOCK policy joining
+    row ownership to `SESSION_CONTEXT('clerk_user_id')`; reuse the `db/policies/0004-notification-policy.sql`
+    "future client-ownership join" comment as the seam shape. **Mandatory tier-3 CLIENT-A-cannot-read-CLIENT-B
+    test** (anonymous reads ZERO; ACCOUNTANT can).
+  - **E-sign `ESignatureProvider` seam** — port + `bindings/mock.ts` (deterministic "signed") + fail-closed
+    `select.ts` (`ALLOW_MOCK_ESIGN`); onboarding depends on the port, never Docuseal. Real Docuseal = deferred
+    enablement slice (ADR-024 §5). ONBD-002 AC verified against the mock.
+  - **Cross-surface seam:** onboarding in `apps/portal`; letter-template editing in `apps/admin` — validate
+    both per CLAUDE.md § Platform-frontend scope.
+  - **Reuse** `packages/db` `withRequestContext` + `$extends` SET (ADR-003 Amendment 1: no `@read_only`); the
+    audit seam `recordAuthEvent`/`withAuditTransaction` (ADR-019); `packages/auth` client identity/role gate.
+- **Plan-phase note for the IO:** the e-sign seam is governed (ADR-023 + ADR-024 both Accepted) — **no
+  architecture consult needed** to dispatch (contrast EPIC-003's email-ADR gap). Ship the mock binding only.
+
+<!-- ARCHIVED — EPIC-003 run DELIVERED 2026-06-17 (PR #42 → ec151cb). Superseded as the active run by EPIC-005
+     above. Detail retained below + in Outcome/History, PROGRESS-ARCHIVE.md. -->
+
 ### EPIC-003 — BRIEF-003 (accountant request inbox) — started 2026-06-17 — ✅ DELIVERED 2026-06-17
 - **Phase:** **DELIVERED.** Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → Implement ✓ → Review ✓ (`/pr-review 42`
   advisory APPROVE; 0 blocker/major; 6 minor + 2 nit) → Fix ✓ (`/pr-fix 42`: 6 fixed, 3 dispositioned, threads
@@ -574,6 +624,52 @@ _Empty_, no active bugs ✓ (7) tree clean on `main` @ `cf94c7e`, no `*003*` bra
 - demo: applicable yes · apps [admin] · personas [jane-accountant, tom-prospective-client] · flows
   [flow-engagement-request, flow-first-sign-in].
 **End:** BRIEF-003 written with every required field from real epic/source content → Implement.
+
+### Select — EPIC-005 — 2026-06-18
+**Start:** New run (EPIC-003 delivered, Phase 1 complete; no mid-flight run). Pin `/orchestrate EPIC-005`. Read
+ROADMAP + EPIC-005 + COVERAGE.
+**Actions:** EPIC-005 = Phase-2 opener (onboarding spine + engagement-letter e-sign gate), `status: planned`,
+`depends_on: [EPIC-003, EPIC-004]` (both delivered), 10 AC placed (all `planned`). No Phase-2 dependency — the
+ready root of Phase 2.
+**End:** Candidate = EPIC-005 → Gate.
+
+### Gate — EPIC-005 — 2026-06-18
+**Start:** Apply the 7-criterion readiness predicate (mechanical 1–4,7 + engine-clear 6 via the gate harness;
+criterion 5 the Conductor-owned semantic judgment).
+**Actions:**
+- Ran `bin/orchestrate-gates.sh --gate readiness --epic EPIC-005` and `--gate engine-clear` — both
+  `RESULT: all evaluated gates PASS`, exit 0 (run_id `EPIC-005-20260618T122334Z`; appended to
+  `runs/gate-log.jsonl`). Covers (1) status-planned, (2) open-questions-empty, (3) deps-delivered,
+  (4) coverage-rows, (7) git-clean-branch-free, (6) awaiting-empty + no-active-bugs.
+- **Criterion 5 (semantic):** read REQ-ONBD-001 / REQ-ONBD-002 / REQ-IDNT-007 — all 10 AC resolve **verbatim**
+  to those `accepted` REQ sources, all observable/testable, and all 10 carry gherkin scenarios in the epic.
+**End:** GO on all 7 → Compose.
+
+### Compose — EPIC-005 — 2026-06-18
+**Start:** Map GO EPIC-005 → a build brief honoring the engine's contract.
+**Actions:**
+- Read EPIC-005 + REQ-ONBD-001/-002 + REQ-IDNT-007 (verbatim AC) + ADR-005/019/006/003/001/012 obligations +
+  ADR-023 (provider-seam mock-first) + ADR-024 (Docuseal e-sign seam) + build-brief template (now with the new
+  `## Data & Interface Contract` section) + BRIEF-003 exemplar + the **live repo** (no `Engagement` entity yet;
+  `packages/db` `withRequestContext`/`$extends` SET; `sec` predicate pattern incl.
+  `0004-notification-policy.sql` "future client-ownership join" seam; EPIC-003 `acceptRequest` flow; audit
+  seam).
+- Wrote `.implementation/briefs/BRIEF-005-onboarding-spine-engagement-letter.md`: 10 AC (verbatim) + gherkin
+  bound to the epic's 10 scenarios; methodology gherkin / e2e-required (portal + admin); extra_gates =
+  client-data isolation (ADR-005, HARD tier-3, first client-owned rows), server-side gate enforcement (tier-3),
+  signed-letter evidence recorded + audited (ADR-019/024), e-sign seam mock-first + fail-closed (ADR-023/024),
+  SESSION_CONTEXT (ADR-003), cross-surface, container smoke.
+- **First brief to populate `## Data & Interface Contract`** — source-traced entities (`Engagement`,
+  onboarding state, letter template, signature evidence), `New`/`In Progress` status, `unsigned→signed` letter
+  transition, the three-step sequence, the `ESignatureProvider` port; field-level minutiae explicitly deferred
+  to IO Design per the altitude rule (no invention).
+- Carried obligations: create `Engagement` on accept (extend EPIC-003 flow); first client-isolation policy +
+  mandatory CLIENT-A-vs-CLIENT-B tier-3 test; mock e-sign seam (real Docuseal deferred per ADR-024 §5); reuse
+  the db/auth/audit seams. Noted **no architecture consult needed** (e-sign ADRs already Accepted, unlike the
+  EPIC-003 email-ADR gap).
+- demo: applicable yes · apps [portal, admin] · personas [tom-prospective-client, jane-accountant] · flows
+  [flow-onboarding, flow-first-sign-in].
+**End:** BRIEF-005 written with every required field from real epic/source content → Implement.
 
 ## Outcome
 
