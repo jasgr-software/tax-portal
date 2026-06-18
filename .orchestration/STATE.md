@@ -8,7 +8,19 @@
 ## Current run
 
 ### EPIC-005 — BRIEF-005 (onboarding spine + engagement-letter e-sign gate) — started 2026-06-18
-- **Phase:** **Merge — AWAITING USER APPROVAL** (PR #48 CLEAN). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
+- **Phase:** **✅ DELIVERED** (2026-06-18). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → **Implement ✓** →
+  **PR #48 opened** → **Review ✓** → **Fix ✓** → **Merge ✓ (user-approved, Lane B)** → **Close-finalize ✓
+  (9/9 gates)** → **Validate write-back ✓ (`/planning`)** → Report. **PR #48 squash-merged → `main` @
+  `f879da2`** (`--delete-branch`, no protection toggle); post-merge CI green (CI + CodeQL). **/planning:** 10
+  EPIC-005 AC flipped `verified` (overall 51→61); EPIC-005 rolled `delivered`; EPIC-006/007 unblocked
+  (next-ready), EPIC-008 capstone. **🎉 First Phase-2 slice delivered.** Net-new platform capabilities: the
+  **first client-owned rows** + the **first client-isolation RLS policy** (`sec.pol_Engagement`), the
+  `packages/esign` provider seam (mock-first fail-closed), and the **first request-pool BLOCK-governed client
+  write**. Carried follow-ups: SEC-3 (per-connection SESSION_CONTEXT hardening), inventory.md Track-B drift,
+  synthetic `Completed-at` inversion (Obs 1); cross-surface-parity sunset counter at 3 → surfaced KEEP.
+  **Docs-lane close-out:** `chore/epic-005-close` (IO Close-finalize + /planning write-back + this STATE
+  update) → Lane A merge. **Next:** `/orchestrate EPIC-006` or `/orchestrate EPIC-007`.
+- **(superseded) Merge-gate phase line:** Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
   **Implement ✓** → **PR #48 opened** → **Review ✓ (panel)** → **Fix ✓** → **PR CLEAN** → Merge (user gate).
   - **Review ✓ (`/pr-review 48`):** 3-lens panel posted ONE advisory COMMENT review
     (pullrequestreview-4527515408); verdict request-changes — 1 major / 6 minor / 2 nit (9 deduped). Lead

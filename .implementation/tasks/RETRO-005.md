@@ -114,3 +114,82 @@ recorded as an explicit `ungated-fix` because they are now being applied at this
   callback + reconciliation + encrypted signed-document storage; re-validate ONBD-002 against the live provider.
 - EPIC-001 `fn_service_access` CLIENT read-branch tightening (carried); `personas/jane-accountant.md` v2
   "solo, no staff" update when multi-accountant is phased; AC-AUTH-010-02 demo `ADMIN_APP_URL` env mismatch.
+
+## Post-Merge Addendum (Close-finalize — 2026-06-18)
+
+**PR #48 squash-merged to `main` @ `f879da2`** (`gh pr merge 48 --squash --delete-branch`, Lane B reviewed
+lane, no branch-protection toggle — `enforce_admins` untouched). Branch
+`brief-005-onboarding-spine-engagement-letter` deleted on merge. **EPIC-005 DELIVERED. Phase 2 (the onboarding
+gate) is open.**
+
+### Reviewed-lane outcome (Close-prep → merge)
+
+The slice took the reviewed lane (application code → `/pr-review` panel → `/pr-fix` → resolve threads → merge on
+green required CI). Two pre-merge CI hurdles were cleared on the PR head before merge:
+
+1. **nodemailer security bump (GHSA-p6gq-j5cr-w38f).** `security-scan` flagged the bundled `nodemailer` version
+   used by `packages/email`; bumped to **nodemailer 9.0.1** to clear the advisory. Required CI went green after
+   the bump.
+2. **3 `github-code-quality` bot threads.** The Code Quality bot opened 3 review threads on the PR; all 3 were
+   triaged and resolved (cleanup) so the reviewed-lane thread-resolution precondition was met before merge.
+
+The two comment-text-only doc-drift fixes folded at Close-prep (`ungated-fix` 1+2 above —
+`engagement.ts` ~L473 "parameterised inputs" comment + `service.rls.test.ts` ~L71/~L88 stale `@read_only`/`ADR-003
+§4` comments) rode the PR through the panel as planned and merged. **The 4th-carry `service.rls.test.ts`
+comment-drift and the `engagement.ts` comment-drift are now RESOLVED** (landed in `f879da2`) — no longer carried.
+
+### Final 9-gate scorecard (post-merge)
+
+1. **Per-task submission gates** — ✅ 8/8.
+2. **SDET Review** — ✅ 8/8 approved (0 rejections).
+3. **Overwatch Audit** — ✅ CLEAN, 0 blocking.
+4. **IO Design scan** — ✅ 0 violations → 0 fix-forward tasks.
+5. **Container Smoke** — ✅ PASS (esign selector binds in prod-built container; sign→unlock live 33/33).
+6. **SDET Acceptance-validation** — ✅ APPROVED (10/10 in-scope AC under bound gherkin prose-bind).
+7. **SDET CI gate** — ✅ PASS (423 tests, 0 fail, 0 lint, 0 type errors) + Quality Audit CLEAN.
+8. **Post-merge CI** — ✅ **PASS.** `main` @ **`f879da2`** — workflow **`CI` = success** AND **`Code Quality:
+   Push on main` (CodeQL) = success** (verified GREEN by the main session). Required checks
+   (`lint-and-typecheck`, `security-scan`) green post-merge.
+9. **Post-merge staging smoke** — **N/A** (`Brief-deploys: no`; production platform deferred per ADR-007, no
+   staging environment).
+
+**9/9 applicable gates satisfied (gate 9 N/A). EPIC-005 fully validated and merged.**
+
+### Post-merge bugs
+
+**None.** No `BUG-005-POST-*` files exist. No post-merge defects surfaced.
+
+### Carried follow-ups (open at slice close)
+
+- **[security — defense-in-depth] SEC-3: per-connection `SESSION_CONTEXT` / `sp_reset_connection`.** Tracked
+  follow-up — a defense-in-depth hardening so a pooled connection cannot leak a prior request's
+  `SESSION_CONTEXT` across `sp_reset_connection` boundaries. Not a defect in EPIC-005 (every request-scoped query
+  sets `SESSION_CONTEXT` in-batch before the first real query per ADR-003 Amendment 1; the BLOCK/FILTER policy is
+  the authorization fence). Carried as a hardening item, not slice-blocking.
+- **[doc-drift] `inventory.md` Track-B drift** — the operations Track-B table omits
+  `db/policies/0004-notification-policy.sql` (EPIC-003) + `0005-engagement-policy.sql` (EPIC-005) and does not
+  enumerate the `Engagement`/`LetterTemplate` entities. Enumerate all policy files + the new entities at the next
+  infra/`packages/db` task that touches `inventory.md` (Obs 4). Carried, non-blocking.
+- **[metric-integrity — Audit Obs 1] Synthetic `Completed-at` timestamp inversion** — TASK-005-001..-004 carry
+  `Completed-at` before `Started-at` (synthetic/sentinel values); 5th occurrence of the clock-source family. No
+  gate failed. Capture real, consistent clock values at the Dispatch-Checkpoint `Started-at` / SDET
+  `Completed-at`. Observation, carried.
+- **[RESOLVED this slice] comment-drift (`service.rls.test.ts` + `engagement.ts`)** — folded at Close-prep, rode
+  PR #48, merged in `f879da2`. **No longer carried.**
+- **[RESOLVED this slice] nodemailer GHSA-p6gq-j5cr-w38f** — bumped to nodemailer 9.0.1 on the PR head;
+  `security-scan` green. **No longer carried.**
+
+### Rule sunset — final disposition
+
+- **Cross-surface-parity rule (CLAUDE.md § Platform-frontend scope)** — sunset counter reached **3 consecutive
+  zero-finding Close-preps** (EPIC-003 / -004 / -005). Surfaced for keep/remove per the CLAUDE.md trigger. **IO
+  recommendation: KEEP** — the rule produces its own zero findings (the cross-app edit→sign loop is a direct
+  product of it); cost is low; the platform is still growing two-surface features (EPIC-006/007/008 ahead). The
+  user/Overwatch makes the final keep/remove call.
+- `--no-verify` clause + `PushNotification` spam-loop guard — **KEEP** (prophylactic, cheap; not triggered).
+
+### Next-ready
+
+EPIC-005's delivery **unblocks EPIC-006 (intake questionnaire) and EPIC-007 (initial document upload)** — both
+depend on the onboarding spine and are now ready for `/orchestrate`. **EPIC-008 (onboarding completion +
+transition)** is the Phase-2 capstone and needs all three (005/006/007) before it can start.

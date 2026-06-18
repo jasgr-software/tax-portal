@@ -10,18 +10,35 @@
 
 ## Current initiative
 
-**BRIEF-005 / EPIC-005 — Client onboarding spine + engagement-letter e-sign gate.** Phase: **CLOSE-PREP →
-slice moved to `## Awaiting PR merge` (PR limbo).** All 8/8 BRIEF-005 tasks `done`/SDET-approved and
-**archived to `tasks/done/`**. **All pre-merge gates 1–7 cleared:** submission 8/8 ✅ · SDET Review 8/8 ✅ ·
-Overwatch Audit CLEAN (0 blocking) ✅ · IO design-scan PASS ✅ · Container Smoke PASS ✅ · SDET
-Acceptance-validation APPROVED (10/10 AC) ✅ · SDET CI gate PASS (423 tests, 0 fail) + quality audit CLEAN ✅.
-**Consistency gate PASS** (all 8 task metadata fields populated + valid). `RETRO-005.md` + `HANDOFF-005.md`
-written. Two comment-text-only doc-drift fixes (Audit Obs 2+3) folded — handed to the main session to apply +
-commit on-branch (gated-path edits + git are main-session-owned). **PR composed; awaiting main session to open
-it + the user's merge approval.** Docker 29.4.1 up; branch `brief-005-onboarding-spine-engagement-letter` @
-`d144716`.
-**Branch:** `brief-005-onboarding-spine-engagement-letter` (created from `main` @ `97330ab`).
-**Gated:** yes. **Brief-type:** feature · **Brief-deploys:** no. **Opens Phase 2 (the onboarding gate).**
+**EPIC-005 — DELIVERED.** BRIEF-005 (client onboarding spine + engagement-letter e-sign gate) is **complete and
+merged**: **PR #48 → squash-merged to `main` @ `f879da2`** (Lane B reviewed lane, `--delete-branch`, no
+protection toggle). **All 9 applicable gates satisfied:** gates 1–7 green pre-merge (submission 8/8, SDET Review
+8/8, Overwatch Audit CLEAN, IO design-scan PASS, Container Smoke PASS, SDET Acceptance-validation APPROVED 10/10
+AC, SDET CI gate PASS 423 tests + quality audit CLEAN); **gate 8 (post-merge CI) PASS** — `main` @ `f879da2`,
+workflow `CI` = success AND `Code Quality: Push on main` (CodeQL) = success; **gate 9 N/A** (`Brief-deploys: no`,
+no staging per ADR-007). Reviewed lane cleared two CI hurdles before merge: **nodemailer 9.0.1** security bump
+(GHSA-p6gq-j5cr-w38f) + **3 github-code-quality bot-thread cleanups**. No `BUG-005-POST-*`. RETRO-005 Post-Merge
+Addendum + final scorecard written. **No active slice** — IO eligible to Plan the next slice.
+
+**Phase 2 status — onboarding gate now open.** EPIC-005 unblocks **EPIC-006 (intake questionnaire)** and
+**EPIC-007 (initial document upload)** — both depend on the onboarding spine and are now next-ready for
+`/orchestrate`. **EPIC-008 (onboarding completion + transition)** is the Phase-2 capstone and needs all three
+(005/006/007). Phase 1 (EPIC-001/004/002/003) all delivered.
+
+**Carried follow-ups (open at EPIC-005 close):** **SEC-3** (per-connection `SESSION_CONTEXT` /
+`sp_reset_connection` defense-in-depth — tracked hardening, not a defect); **`inventory.md` Track-B drift**
+(missing `0004`/`0005` policy rows + `Engagement`/`LetterTemplate` entities — enumerate at the next infra/
+`packages/db` task); **synthetic `Completed-at` inversion** (Audit Obs 1 — 5th occurrence, capture real clock
+values). **RESOLVED this slice:** the `service.rls.test.ts` + `engagement.ts` comment-drift (rode PR #48) and the
+nodemailer advisory (9.0.1). **Rule sunset:** cross-surface-parity sunset counter reached **3 consecutive
+zero-finding Close-preps** → surfaced for keep/remove; **IO recommendation KEEP**.
+
+---
+
+<details><summary><strong>EPIC-005 delivery detail (archived in place — collapse)</strong></summary>
+
+**Branch:** `brief-005-onboarding-spine-engagement-letter` (created from `main` @ `97330ab`, deleted on merge).
+**Gated:** yes. **Brief-type:** feature · **Brief-deploys:** no. **Opened Phase 2 (the onboarding gate).**
 
 **Goal:** stand up the onboarding spine + its first hard gate. On request acceptance (EPIC-003), a minimal
 **`Engagement`** is created in status `New`, linked 1:1 to the accepted `EngagementRequest` and resolved to the
@@ -74,19 +91,15 @@ grep-guard; comment-only `service.rls.test.ts` `@read_only`/§4 drift (rides the
 TASK-005-001 touches `packages/db`, so it is the natural carrier). These also live in `## Open retro action
 items` below.
 
+</details>
+
 ## Awaiting PR merge
 
-**BRIEF-005 / EPIC-005 — client onboarding spine + engagement-letter e-sign gate.** Branch
-`brief-005-onboarding-spine-engagement-letter` @ `d144716` (+ one pending main-session commit for the two
-comment-drift fixes). **Pre-merge gates 1–7 all green** (submission 8/8, SDET Review 8/8, Overwatch Audit
-CLEAN, IO design-scan PASS, Container Smoke PASS, SDET Acceptance-validation APPROVED 10/10 AC, SDET CI gate
-PASS + quality audit CLEAN). `RETRO-005.md` + `HANDOFF-005.md` written; 8 task files archived to `tasks/done/`.
-**Awaiting:** main session opens the PR (push + `gh pr create`) → reviewed lane (`/pr-review` panel → `/pr-fix`
-→ resolve threads) → user merge approval → IO Close-finalize (gate 8 post-merge CI; gate 9 N/A,
-`Brief-deploys: no`). **Opens Phase 2** on merge.
+_None — no slice in PR limbo._
 
-Prior delivered: PR #42 `ec151cb` (EPIC-003), PR #40 `70ea10e` (EPIC-002), PR #38 `0444551` (EPIC-004), PR #35
-`f7f6c9d` (EPIC-001) — all merged. **Phase 1 (MVP) complete.**
+Prior delivered: PR #48 `f879da2` (EPIC-005 — opens Phase 2), PR #42 `ec151cb` (EPIC-003), PR #40 `70ea10e`
+(EPIC-002), PR #38 `0444551` (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) — all merged. **Phase 1 (MVP) complete;
+Phase 2 (onboarding gate) open with EPIC-005 delivered.**
 
 ## Active bugs
 
@@ -393,3 +406,15 @@ Running 33 tests using 1 worker
 **Comment-drift fixes (Audit Obs 2+3) — disposition recorded:** both are **comment-text-only edits in gated-path `packages/db` files** (engagement.ts ~L473 misleading "parameterised inputs" comment; service.rls.test.ts ~L71/~L88 stale `@read_only`/`ADR-003 §4` comments — the 4th carry). **Micro-dispatch judged disproportionate** for three comment lines (per the prior RETRO-002-Obs-3 disposition); the SDET-reviews-all-IO-code spirit is satisfied because the edits ride the slice PR and pass under the `/pr-review` panel at the reviewed lane. **Exact old→new edits handed to the main session** (gated-path edits + git are main-session-owned) — see the `## Next` block. I did not edit the gated-path source myself.
 **Completion/handoff report:** `HANDOFF-005.md` written — 10/10 in-scope AC satisfied (evidence basis: SDET acceptance-validation + SDET CI gate + container smoke; required-CI confirmed at gate 8); net-new capabilities (first client-owned rows + first client-isolation policy, the `packages/esign` seam, the request-pool BLOCK-governed client write, the server-side gate, the editable template); out-of-scope honored; zero upstream items raised; the comment-drift carry resolved.
 **End:** Close-prep exit condition met — RETRO + HANDOFF written, 8 task files archived, slice moved to `## Awaiting PR merge`, PR composed (title + body in the `## Next` block). **IO ends the invocation.** PR merge is the user-in-loop checkpoint (Autonomy Ceiling item 3 — reviewed lane). On merge → re-invoke the IO for Close-finalize (gate 8 post-merge CI; gate 9 N/A, `Brief-deploys: no`).
+
+### IO Close-finalize — BRIEF-005 / EPIC-005 — 2026-06-18
+**Start:** Resumed from PR limbo. **PR #48 squash-merged to `main` @ `f879da2`** (`gh pr merge 48 --squash --delete-branch`, Lane B reviewed lane, no protection toggle). Ran Close-finalize.
+**Phase-transition reflex (Close-prep → Close-finalize):** swept the IO Close-prep session entry to `PROGRESS-ARCHIVE.md` (Close-prep→Close-finalize sweep marker; IO Plan Design record + Smoke gate-record + the three SDET Validate gate-records retained inline per the canonical-gate-record rationale); rewrote `## Current initiative` to **EPIC-005 DELIVERED / no active slice** (+ Phase-2 next-ready map + carried follow-ups); emptied `## Awaiting PR merge` (BRIEF-005 removed; PR #48 → `f879da2` added to the prior-delivered history); appended this entry.
+**Gate 8 (post-merge CI) — PASS.** `main` @ `f879da2` — workflow `CI` = success AND `Code Quality: Push on main` (CodeQL) = success (verified GREEN by the main session). Required checks (`lint-and-typecheck`, `security-scan`) green post-merge.
+**Gate 9 (post-merge staging smoke) — N/A.** `Brief-deploys: no`; production platform deferred per ADR-007, no staging environment.
+**Reviewed-lane outcome:** PR #48 cleared two pre-merge CI hurdles — **nodemailer 9.0.1** security bump (GHSA-p6gq-j5cr-w38f) + **3 github-code-quality bot-thread cleanups**. The two comment-text-only doc-drift fixes (Audit Obs 2+3 — `engagement.ts` + `service.rls.test.ts`) rode the PR through the panel and merged → now **RESOLVED** (4th-carry retired).
+**Post-merge bugs:** none — no `BUG-005-POST-*` files exist; no post-merge defects.
+**RETRO-005 Post-Merge Addendum + final 9-gate scorecard detail written.** Carried follow-ups recorded: SEC-3 (per-connection SESSION_CONTEXT / `sp_reset_connection` defense-in-depth — tracked hardening); `inventory.md` Track-B drift (missing `0004`/`0005` policy rows + `Engagement`/`LetterTemplate` entities); synthetic `Completed-at` inversion (Obs 1, 5th occurrence). Marked RESOLVED: comment-drift + nodemailer. Cross-surface-parity sunset counter at 3 consecutive zero-finding Close-preps → surfaced for keep/remove; **IO recommendation KEEP**.
+**Next-ready:** EPIC-006 (intake questionnaire) + EPIC-007 (initial document upload) now unblocked (both depend on the onboarding spine); EPIC-008 is the capstone (needs 005/006/007).
+**Git boundary:** the IO did **not** commit. File edits made this invocation: `.implementation/tasks/PROGRESS.md`, `.implementation/tasks/RETRO-005.md`, `.implementation/tasks/PROGRESS-ARCHIVE.md`. The main session stages + commits these (docs-lane branch `chore/epic-005-close`) together with the Conductor's `/planning` validate COVERAGE/ROADMAP write-back into one docs-only close-out PR (Lane A — skips the panel, merges on green required CI).
+**End:** Close-finalize exit condition met — gate 8 PASS recorded, gate 9 N/A, zero `BUG-005-POST-*`, Post-Merge Addendum written, slice removed from `## Awaiting PR merge`. **EPIC-005 finalized. `## Current initiative` has no active slice — IO eligible to Plan the next slice.** **IO ends the invocation.** (The Conductor handles the COVERAGE/ROADMAP write-back + the docs-only close-out PR + the run report.)

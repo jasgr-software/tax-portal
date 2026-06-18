@@ -19,6 +19,22 @@ policy/entity drift — both recorded in RETRO-005 as observations (not promoted
 
 ---
 
+<!-- Swept at BRIEF-005 Close-prep→Close-finalize transition (2026-06-18) -->
+
+### BRIEF-005 IO Close-prep session entry — swept
+
+The BRIEF-005 **IO Close-prep** entry (consistency gate PASS; 8 task files archived to `tasks/done/`;
+`RETRO-005.md` + `HANDOFF-005.md` written; the comment-drift Obs 2+3 disposition handed to the main session; slice
+moved to `## Awaiting PR merge`; PR composed) was swept here at the Close-prep→Close-finalize transition.
+**Headline:** gates 1–7 all green pre-merge; slice entered PR limbo; PR #48 subsequently opened, took the reviewed
+lane (panel → fix → resolve), cleared two CI hurdles (nodemailer 9.0.1 for GHSA-p6gq-j5cr-w38f + 3
+github-code-quality bot-thread cleanups), and **squash-merged to `main` @ `f879da2`**. The IO Plan (Design
+record), the Smoke gate-record, and the three SDET Validate gate-records remain **retained** inline in the live
+PROGRESS.md per the established canonical-gate-record rationale. Close-finalize gate detail + the Post-Merge
+Addendum are recorded in `RETRO-005.md`.
+
+---
+
 ### BRIEF-005 IO Audit (phase entry) session entry — swept
 
 The BRIEF-005 **IO Audit (phase entry)** entry (Dispatch-exit verification + the Overwatch audit dispatch
