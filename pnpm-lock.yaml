@@ -301,6 +301,33 @@ importers:
         specifier: ^3.0.0
         version: 3.2.6(@types/node@20.19.43)(jiti@1.21.7)(jsdom@26.1.0)(tsx@4.22.4)
 
+  packages/esign:
+    devDependencies:
+      '@tax-portal/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@tax-portal/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.0.0
+        version: 8.61.0(@typescript-eslint/parser@8.61.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.0.0
+        version: 8.61.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.0.0
+        version: 9.39.4(jiti@1.21.7)
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@20.19.43)(jiti@1.21.7)(jsdom@26.1.0)(tsx@4.22.4)
+
   packages/eslint-config:
     dependencies:
       '@typescript-eslint/eslint-plugin':

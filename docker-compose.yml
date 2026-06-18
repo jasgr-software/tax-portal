@@ -139,6 +139,13 @@ services:
       # Override via .env.local if needed; "100" safely covers the worst-case sequential test load.
       RATE_LIMIT_MAX_ATTEMPTS: "${RATE_LIMIT_MAX_ATTEMPTS:-100}"
       RATE_LIMIT_WINDOW_MS: "${RATE_LIMIT_WINDOW_MS:-60000}"
+      # E-sign provider binding — "mock" for e2e/local dev (no real Docuseal API needed).
+      # Set to "docuseal" in production once the real Docuseal enablement slice lands (ADR-024 §5).
+      # ADR-023 §4 / DECISION-E: default = docuseal (real); mock requires ALLOW_MOCK_ESIGN=true.
+      # NEVER set ALLOW_MOCK_ESIGN=true in a real production deploy — a real deploy uses
+      # ESIGN_PROVIDER=docuseal and leaves ALLOW_MOCK_ESIGN unset → fail closed (throws on mock).
+      ESIGN_PROVIDER: "${ESIGN_PROVIDER:-mock}"
+      ALLOW_MOCK_ESIGN: "${ALLOW_MOCK_ESIGN:-true}"
     ports:
       - "${PORTAL_PORT:-3000}:3000"
     depends_on:

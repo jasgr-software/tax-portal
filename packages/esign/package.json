@@ -1,0 +1,30 @@
+{
+  "name": "@tax-portal/esign",
+  "version": "0.0.1",
+  "private": true,
+  "description": "E-signature abstraction — provider port (mock + Docuseal bindings) + fail-closed selector (ADR-023/ADR-024)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "sh -c 'tsc -p tsconfig.json'",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@tax-portal/eslint-config": "workspace:*",
+    "@tax-portal/tsconfig": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}
