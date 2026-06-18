@@ -286,7 +286,9 @@ describe("getEngagementForClient — request pool read via withClerkIdentity", (
     const ownerClerkId = `get_owner_${Date.now()}`;
     const nonOwnerClerkId = `get_nonowner_${Date.now()}`;
     const ownerId = await seedUser(ownerClerkId, `eng-get-owner-${Date.now()}@example.com`);
-    const nonOwnerId = await seedUser(nonOwnerClerkId, `eng-get-non-${Date.now()}@example.com`);
+    // Seed the non-owner User row so withClerkIdentity(nonOwnerClerkId) resolves to a real CLIENT
+    // principal; the returned User.id is intentionally unused (the test keys on the clerk id).
+    await seedUser(nonOwnerClerkId, `eng-get-non-${Date.now()}@example.com`);
 
     const eng = await createEngagement({
       engagementRequestId: requestId,
@@ -349,7 +351,6 @@ describe("LetterTemplate — persistence integration", () => {
     // Save current template to restore after test
     const originalTemplate = await getCurrentLetterTemplate();
     const originalContent = originalTemplate?.content ?? "";
-    const originalIsSystemDefault = originalTemplate?.isSystemDefault ?? true;
 
     const newContent = `Dear [Client Name],\n\nThis is an edited engagement letter for testing.\n\nTest content at ${Date.now()}.`;
     const accountantClerkId = "test_accountant_persistence_clerk_id";

@@ -90,42 +90,6 @@ let clientBRequestId: string;
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Count Engagement rows visible to the given identity via the request pool.
- * SESSION_CONTEXT is set in the same batch as the SELECT (ADR-003 Amendment 1: no @read_only).
- * After the query, SESSION_CONTEXT is cleared for pool hygiene.
- */
-async function countVisibleEngagements(
-  clerkUserId: string | null,
-  role: string | null,
-): Promise<number> {
-  const contextSql =
-    clerkUserId !== null && role !== null
-      ? `EXEC sp_set_session_context @key = N'clerk_user_id', @value = N'${clerkUserId.replace(/'/g, "''")}', @read_only = 0;
-         EXEC sp_set_session_context @key = N'role', @value = N'${role.replace(/'/g, "''")}', @read_only = 0;`
-      : "";
-
-  const result = await requestPool.request().batch(
-    `${contextSql}
-     SELECT COUNT(*) AS cnt FROM [dbo].[Engagement]`
-  );
-
-  // @@ROWCOUNT is in the last recordset; COUNT(*) is in the recordset from the SELECT
-  const recordsets = result.recordsets as Array<Array<{ cnt?: number }>>;
-  // When context is set: recordsets[0] is from the two sp_set calls (empty), recordsets[1] is SELECT
-  // When no context: recordsets[0] is from SELECT
-  const selectRecordset = recordsets[recordsets.length - 1];
-  const cnt = selectRecordset?.[0]?.cnt ?? 0;
-
-  // Clear SESSION_CONTEXT for pool hygiene (ADR-003 §4 spirit — re-settability not reset)
-  await requestPool.request().batch(
-    `EXEC sp_set_session_context @key = N'clerk_user_id', @value = NULL, @read_only = 0;
-     EXEC sp_set_session_context @key = N'role', @value = NULL, @read_only = 0;`
-  );
-
-  return cnt;
-}
-
-/**
  * Attempt to UPDATE an Engagement's status via the request pool with a given identity.
  * Returns { rowsAffected, currentStatus } — used to verify BLOCK predicate behavior.
  *
