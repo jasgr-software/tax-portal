@@ -7,6 +7,23 @@
 
 ## Status / amendment history
 
+- **2026-06-18 (EPIC-005 delivered — first Phase-2 slice ships)** — the client onboarding spine +
+  engagement-letter e-sign gate shipped (PR #48, squash merge `f879da2`). All **10 in-scope AC** signed off
+  `verified` in `COVERAGE.md`: AC-ONBD-001-01/-02/-03 (three-step onboarding sequence + letter hard gate),
+  AC-ONBD-002-01/-02/-03/-04 (engagement-letter e-sign served/signed/recorded/gate-satisfied), and
+  AC-IDNT-007-01/-02/-03 (accountant-editable letter template). EPIC-005 → `delivered`. Net-new platform
+  capabilities: the **minimal Engagement entity** (created on accept → status New — the first client-owned
+  rows) and the **first client-isolation RLS policy** (CLIENT-A ≠ CLIENT-B, null=ZERO, ACCOUNTANT=all + a
+  cross-client BLOCK write proof), plus the **mocked e-sign provider seam** (real Docuseal deferred per the
+  standing mock-integration directive — same pattern as EPIC-004's mocked auth). Sign-off basis [A]: green
+  required CI (`lint-and-typecheck` + `security-scan`) on the PR head + post-merge `main` `f879da2` (`CI` +
+  CodeQL), plus the implementation engine's SDET acceptance-validation under the mandated gherkin methodology
+  (tier-3 integration against the real SQL Server container incl. the first client-isolation RLS policy; e2e
+  portal 33/33, admin 32/32, cross-app 10/10). **EPIC-006 (intake questionnaire) and EPIC-007 (initial
+  document upload) are now unblocked** — their `depends_on: EPIC-005` is satisfied; both are next-ready and
+  parallelizable. EPIC-008 remains the capstone (still needs EPIC-006 + EPIC-007). **Phase-2 progress: 1/4
+  epics, 10/44 AC verified.** **Next:** `/orchestrate EPIC-006` (or EPIC-007).
+
 - **2026-06-17 (Phase 2 decomposed — onboarding gate sliced into 4 epics)** — Authored **EPIC-005**
   (onboarding spine + engagement-letter e-sign gate), **EPIC-006** (intake questionnaire — per-service-type
   templates), **EPIC-007** (initial document upload — checklist + first secure file-storage path + malware
@@ -150,14 +167,19 @@ checklist + secure upload (FILE, NFR malware scan). Depends on Phase 1's accept�
 
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
-| **EPIC-005** | Onboarding spine + engagement-letter e-sign gate — minimal Engagement entity (created on accept, status New), three-step sequence, the letter hard gate, editable letter template (10 AC) | `planned` | EPIC-003 ✅, EPIC-004 ✅ |
-| **EPIC-006** | Intake questionnaire — accountant authors per-service-type templates; client completes the matching questionnaire (7 AC) | `planned` | EPIC-005, EPIC-002 ✅ |
-| **EPIC-007** | Initial document upload — accountant defines the checklist; client uploads against it via the first secure, malware-scanned, non-public file-storage path (19 AC) | `planned` | EPIC-005 |
-| **EPIC-008** | Onboarding completion — all-three-steps gate, automatic New → In Progress transition, accountant in-portal notification (8 AC, incl. AC-MSG-013-04) | `planned` | EPIC-005, EPIC-006, EPIC-007 |
+| **EPIC-005** | Onboarding spine + engagement-letter e-sign gate — minimal Engagement entity (created on accept, status New), three-step sequence, the letter hard gate, editable letter template (10 AC) | `delivered` (PR #48, `f879da2`, 2026-06-18) — 10/10 in-scope AC | EPIC-003 ✅, EPIC-004 ✅ |
+| **EPIC-006** | Intake questionnaire — accountant authors per-service-type templates; client completes the matching questionnaire (7 AC) | `planned` — **unblocked** (EPIC-005 ✅) | EPIC-005 ✅, EPIC-002 ✅ |
+| **EPIC-007** | Initial document upload — accountant defines the checklist; client uploads against it via the first secure, malware-scanned, non-public file-storage path (19 AC) | `planned` — **unblocked** (EPIC-005 ✅) | EPIC-005 ✅ |
+| **EPIC-008** | Onboarding completion — all-three-steps gate, automatic New → In Progress transition, accountant in-portal notification (8 AC, incl. AC-MSG-013-04) | `planned` — capstone (still needs EPIC-006, EPIC-007) | EPIC-005 ✅, EPIC-006, EPIC-007 |
 
-> **Build order:** EPIC-005 first (no Phase-2 predecessor). EPIC-006 and EPIC-007 both build on EPIC-005's
-> onboarding sequence and gate and are independent of each other (parallelizable). EPIC-008 is the capstone
-> — it depends on all three step-epics because onboarding completion is defined over their outputs.
+> **Build order:** EPIC-005 first (no Phase-2 predecessor) — **delivered 2026-06-18** (PR #48, `f879da2`).
+> EPIC-006 and EPIC-007 both build on EPIC-005's onboarding sequence and gate and are independent of each
+> other (parallelizable); both are now **unblocked and next-ready** (their `depends_on: EPIC-005` is
+> satisfied). EPIC-008 is the capstone — it depends on all three step-epics because onboarding completion is
+> defined over their outputs (still needs EPIC-006 + EPIC-007).
+>
+> **Phase-2 progress (2026-06-18):** 1 of 4 epics delivered (EPIC-005) — **10 of 44 Phase-2 AC `verified`**;
+> 34 remain `planned` (EPIC-006 7, EPIC-007 19, EPIC-008 8). **Next:** EPIC-006 or EPIC-007 (parallelizable).
 >
 > **Scope boundaries (this phase):** Phase 2 introduces only the *minimal* Engagement substrate (New /
 > In Progress) the gate needs — the **full four-stage lifecycle pipeline, manual transitions, and

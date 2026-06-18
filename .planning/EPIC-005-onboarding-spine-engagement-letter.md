@@ -2,7 +2,7 @@
 id: EPIC-005
 title: Client onboarding spine + engagement-letter e-sign gate
 phase: 2
-status: planned
+status: delivered   # PR #48, squash merge f879da2, 2026-06-18 — all 10 in-scope AC verified (see COVERAGE.md)
 slice: A newly accepted client signs in, sees the three-step onboarding sequence for their engagement, and e-signs the engagement letter — the hard gate that unlocks the remaining steps.
 requirements:
   - REQ-ONBD-001: [AC-ONBD-001-01, AC-ONBD-001-02, AC-ONBD-001-03]
