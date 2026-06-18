@@ -10,22 +10,26 @@
 ### EPIC-005 — BRIEF-005 (onboarding spine + engagement-letter e-sign gate) — started 2026-06-18
 - **Phase:** **Implement — in progress** (engine mid-Dispatch). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
   Implement: IO Plan ✓ (8 tasks decomposed; Data-&-Interface-Contract expanded; design-coherence PASS; branch
-  `brief-005-onboarding-spine-engagement-letter` created) → Dispatch **3/8 done + committed**:
+  `brief-005-onboarding-spine-engagement-letter` created) → Dispatch **4/8 done + committed**:
   - **TASK-005-001** ✓ (schema `Engagement`+`LetterTemplate` + the **first client-owned-rows policy**
     `sec.pol_Engagement`; 65 tier-3 incl. 6 isolation) — SDET-approved, commit `1d64d8b`.
   - **TASK-005-002** ✓ (`packages/esign` `ESignatureProvider` seam — fail-closed selector, mock binding; 24
     unit) — SDET-approved, commit `5dac228`.
   - **TASK-005-003** ✓ (create `Engagement` on accept, additive in the EPIC-003 audit txn; DECISION-A back-fill
     fail-closed seam; +8 tier-3) — SDET-approved, commit `53f62a5`.
-  - **Remaining 5:** TASK-005-004 (letter-template admin UI), -005 (onboarding gate + sign action — carries the
-    SDET note: wire `recordLetterSignature` to the request pool), -006 (onboarding sequence UI portal), -007
-    (e2e + gherkin + cross-app — the e2e gate), -008 (@demo gallery). Then engine Audit → design-scan → Smoke →
-    Validate → Close-prep (→ `## Awaiting PR merge` + PR opened).
-- **Checkpoint (2026-06-18, session boundary — NOT an inner stop):** the engine is healthy mid-Dispatch; no
-  guardrail fired. Branch has 4 commits (`59a33cb` plan, `1d64d8b`, `5dac228`, `53f62a5`); tree clean; PR not
-  yet opened (engine opens it at Close-prep). **Resume:** re-invoke `/orchestrate EPIC-005` → resumes at
-  Implement; the IO reads PROGRESS.md and continues at **TASK-005-004**. All slice state is durable in
-  PROGRESS.md + the task files + the commits.
+  - **TASK-005-004** ✓ (admin letter-template setting — page + actions + editor; consumes the delivered
+    admin-pool repo as-is; accountant-guarded; XSS-safe; +23 tier-2/-5, admin suite 142) — SDET-approved,
+    commit `4dec137`.
+  - **Remaining 4:** **TASK-005-005** (onboarding read model + server-side step-accessibility gate + sign
+    action via the `ESignatureProvider` port — the core gate; carries the -001 SDET note: wire
+    `recordLetterSignature` to the **request pool** so the BLOCK predicate governs the signature write), -006
+    (onboarding sequence UI portal), -007 (e2e + gherkin + cross-app — the e2e gate), -008 (@demo gallery).
+    Then engine Audit → design-scan → Smoke → Validate → Close-prep (→ `## Awaiting PR merge` + PR opened).
+- **Checkpoint (2026-06-18, second session boundary — NOT an inner stop):** the engine is healthy mid-Dispatch;
+  no guardrail fired. Branch has 6 commits (`59a33cb` plan, `1d64d8b`, `5dac228`, `53f62a5`, `4dec137`,
+  `1390075` ledger); tree clean; PR not yet opened (engine opens it at Close-prep). **Resume:** re-invoke
+  `/orchestrate EPIC-005` → resumes at Implement; the IO reads PROGRESS.md and continues at **TASK-005-005**.
+  All slice state is durable in PROGRESS.md + the task files + the commits.
 - **Slice:** Phase-2 opener. A newly accepted client signs in to `apps/portal`, sees the three-step onboarding
   sequence for their engagement, and e-signs the engagement letter — the hard gate that unlocks the later
   steps. Introduces the **minimal `Engagement`** substrate (created on accept, status `New`) and the **first
