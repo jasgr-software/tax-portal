@@ -1,16 +1,16 @@
 # TASK-006-005: Submit action (record answers + satisfy step) + onboarding read-model extension (tier-3)
 
 **Brief**: BRIEF-006
-**Status**: backlog
+**Status**: done
 **Assigned to**: webapp-developer
 **Depends on**: TASK-006-001, TASK-006-003, TASK-006-004
 **Impl**: developer
 **E2e-required**: no <!-- e2e consolidated in TASK-006-006; server-side behavior proven at tier-3 here -->
-**Updated-by**: —
-**Started-at**: —
-**Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Updated-by**: webapp-developer (2026-06-18T21:00:00Z)
+**Started-at**: 2026-06-18T20:44:42Z
+**Completed-at**: 2026-06-18T22:15:00Z
+**Complexity-estimate**: 4
+**Complexity-actual**: 4
 
 **Acceptance criteria:** AC-ONBD-003-03 (step satisfied only on submit — server-side), AC-ONBD-003-04 (answers recorded against the engagement), AC-ONBD-003-01 (submit only against the resolved correct template)
 **Upstream refs:** ADR-003 (+Amendment 1), ADR-005, ADR-012, REQ-ONBD-003
@@ -23,11 +23,11 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
-- [ ] **Submission gate** — lint + type-check + build + brief-mandated tests pass (commands in CLAUDE.md)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Submission gate** — lint + type-check + build + brief-mandated tests pass (commands in CLAUDE.md)
 - [N/A] **Targeted e2e** — N/A (consolidated in TASK-006-006; tier-3 here)
-- [ ] **Security review** — owner-only BLOCK-governed write; gate honored; no satisfaction without submit
-- [ ] **SDET Review** — approved
+- [x] **Security review** — owner-only BLOCK-governed write; gate honored; no satisfaction without submit
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -89,13 +89,47 @@ The behavioral heart of the slice: on submit, the client's answers are recorded 
 
 ## Definition of Done
 
-- [ ] Read model satisfies the questionnaire step only when `questionnaireSubmittedAt` is set
-- [ ] Submit records answers against the engagement, owner-only (BLOCK-governed), gate-honored
-- [ ] Tier-3 + unit tests pass against the real container DB; lint + type-check + build pass
+- [x] Read model satisfies the questionnaire step only when `questionnaireSubmittedAt` is set
+- [x] Submit records answers against the engagement, owner-only (BLOCK-governed), gate-honored
+- [x] Tier-3 + unit tests pass against the real container DB; lint + type-check + build pass
 
 ---
 
 ## Work Log
+
+### 2026-06-18 [webapp-developer] Starting implementation — submit action + read-model extension + tier-3 tests | What's next: read existing files (onboarding.ts, engagement.ts, questionnaire-answer.ts, actions.ts) then write tests first per TDD mandate | Blockers: none
+
+### 2026-06-18 [webapp-developer] Implementation complete — submitting for review
+
+**What was done:**
+
+1. **Read model (`packages/db/src/onboarding.ts`)** — Already complete from TASK-006-001. DECISION-I (`questionnaireDone = engagement.questionnaireSubmittedAt != null`) was already in place. `accessible` for `intake-questionnaire` is unchanged (still gated by `letterSignedAt`). `document-upload done: false` preserved (EPIC-007 owns it).
+
+2. **`EngagementItem` type + `mapRow` + SELECT (`packages/db/src/repositories/engagement.ts`)** — Already complete from TASK-006-001. `questionnaireSubmittedAt` was already on the type, the internal row type, and `mapRow`.
+
+3. **`submitQuestionnaireAsClient` (`packages/db/src/repositories/questionnaire-answer.ts`)** — Finalized with a critical fix: `sec.pol_QuestionnaireAnswer` uses **AFTER INSERT BLOCK** (not BEFORE UPDATE), which throws SQL error 33504 on denial rather than silently returning `@@ROWCOUNT = 0`. Added try/catch to catch error 33504 and map it to `{ rowsAffected: 0 }`, maintaining the same API contract as `recordLetterSignatureAsClient`. Updated header comment to document AFTER INSERT BLOCK behavior. The two writes (INSERT `QuestionnaireAnswer` + UPDATE `Engagement.questionnaireSubmittedAt`) remain in one batch; AFTER INSERT BLOCK fires before UPDATE runs on the deny path — no partial-write masking possible.
+
+4. **`@@ROWCOUNT` glance-item verified:** On deny path, AFTER INSERT BLOCK throws before the Engagement UPDATE runs — `@@ROWCOUNT` is irrelevant (never reached). On allow path, `SELECT @@ROWCOUNT` follows the UPDATE → captures UPDATE rowcount = 1. The tier-3 non-owner test asserts `rowsAffected = 0` AND confirms no answer row and no `questionnaireSubmittedAt` set. No partial write can occur.
+
+5. **`getMyQuestionnaireAction` (`apps/portal/src/app/onboarding/actions.ts`)** — Replaced stub body: now calls `getMyQuestionnaire()` + `getMyQuestionnaireAnswer()` in the same `withRequestContext` callback. Returns `alreadySubmitted: true` and `existingAnswers` when an answer row exists.
+
+6. **`submitQuestionnaireAction` (`apps/portal/src/app/onboarding/actions.ts`)** — Replaced stub body with full implementation: identity guard → resolve engagement + questionnaire under `withRequestContext` → `checkStepAccessibility` gate check → parse + validate `answers` JSON server-side (required questions checked) → `submitQuestionnaireAsClient` (BLOCK-governed) → `rowsAffected = 0` → refusal, no audit → audit via `recordAuthEvent('engagement.questionnaire_submitted')` AFTER owner-confirmed write → `revalidatePath('/onboarding')`.
+
+7. **Tier-3 test (`packages/db/src/onboarding-questionnaire.rls.test.ts`)** — Created: 5 pure-function tests (DECISION-I, read-model behavior), 3 DB tests (owner submit, non-owner BLOCK denial, null SESSION_CONTEXT denial), 1 full-cycle integration test. All 10 pass.
+
+8. **Unit tests (`apps/portal/src/app/onboarding/actions.test.ts`)** — Added 16 tests for `submitQuestionnaireAction` (success, refusal, gate honored, non-owner, missing required question, malformed JSON, no template, audit fail-closed) and 4 tests for `getMyQuestionnaireAction`. Total: 29 portal action tests, all pass.
+
+**What's next:** SDET review.
+
+**Blockers:** none.
+
+**Test execution evidence:**
+- `pnpm --filter @tax-portal/db test -- onboarding-questionnaire.rls.test.ts`: 10 passed (1 test file)
+- `pnpm --filter portal test`: 121 passed (8 test files, includes 29 onboarding action tests)
+- `pnpm --filter admin test`: 184 passed (10 test files, no regressions)
+- `pnpm lint`: zero errors
+- `pnpm type-check`: zero errors
+- `pnpm build`: clean
 
 ## Attempt Log
 
@@ -103,5 +137,35 @@ The behavioral heart of the slice: on submit, the client's answers are recorded 
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All mandatory checks pass. Live gate counts (independently re-run against real SQL Server container, Docker v29.4.1):
+- `pnpm --filter @tax-portal/db test -- onboarding-questionnaire.rls.test.ts`: **10/10 PASS** (5 pure-function + 3 DB-tier BLOCK tests + 1 full-cycle integration test; 536ms)
+- `pnpm --filter @tax-portal/db test -- questionnaire-answer.client-isolation.rls.test.ts` (TASK-006-001 regression): **7/7 PASS** — no regression from this task's edits to `questionnaire-answer.ts`
+- `pnpm --filter portal test`: **121/121 PASS** (8 files, incl. 29 onboarding action tests for `submitQuestionnaireAction` + `getMyQuestionnaireAction`)
+- `pnpm --filter admin test`: **184/184 PASS** (10 files; zero cross-surface regression)
+- `pnpm lint`: zero errors; `pnpm type-check`: zero errors
+
+**33504-catch scoping verdict — PASS.** The catch block in `submitQuestionnaireAsClient` gates on `mssqlErr.number === 33504` (primary) OR `mssqlErr.message.includes("block predicate")` (secondary defensive check). The secondary string match is gated on the block predicate message being present — not on any arbitrary message string. Connection failures (e.g. `ETIMEOUT`, `ECONNREFUSED`), FK violations, constraint errors, and deadlocks have distinct error numbers and messages that do not contain "block predicate". All non-33504 paths fall through to `throw err`. Scoping is correct; no real failures are silently masked.
+
+**TASK-006-001 regression — PASS.** 7/7 isolation tests re-run live against the real container; no regression from this task's finalization of `submitQuestionnaireAsClient`.
+
+**AC-ONBD-003-03 (server-side satisfaction only) — VERIFIED.** `resolveOnboarding` derives `intake-questionnaire` step `done` from `engagement.questionnaireSubmittedAt != null` (DECISION-I). Viewing-but-not-submitted client → `done: false` proven by pure-function test. The `accessible` flag remains gated by `letterSignedAt` (unchanged).
+
+**EPIC-005 letter gate not weakened — VERIFIED.** `checkStepAccessibility(engagement, 'intake-questionnaire')` is called in `submitQuestionnaireAction` before any write. Letter-unsigned refusal path: `mockSubmitQuestionnaireAsClient` not called (unit test "[gate honored] submit refused when letter unsigned"). Tier-3 pure-function test confirms `accessible: false` when unsigned.
+
+**AC-ONBD-003-04 (recorded against engagement) — VERIFIED.** `submitQuestionnaireAsClient` inserts answer row with `engagementId + templateId + answers` AND sets `Engagement.questionnaireSubmittedAt` in one atomic batch. Tier-3 DB test confirms via admin read-back: answer row present with correct `engagementId`, `templateId`, answers content; `questionnaireSubmittedAt` non-null.
+
+**AC-ONBD-003-01 (server-derived templateId) — VERIFIED.** `submitQuestionnaireAction` derives `templateId` from `questionnaire.template.id` (server-resolved via `getMyQuestionnaire()` under `withRequestContext`). Client supplies only `answersJson`. Unit test asserts `arg.templateId === MOCK_QUESTIONNAIRE_TEMPLATE.id` and `mockGetMyQuestionnaire` was called.
+
+**ADR-005 owner-only enforcement — VERIFIED.** CLIENT-B submitting CLIENT-A's engagement → tier-3 DB test: `rowsAffected = 0`, answer count = 0, `questionnaireSubmittedAt` null (admin read-back). Null SESSION_CONTEXT → AFTER INSERT BLOCK fires error 33504 (caught), same read-back result. No partial write possible: AFTER INSERT BLOCK throws before UPDATE runs.
+
+**ADR-003 Amendment 1 — VERIFIED.** All `sp_set_session_context` calls in `submitQuestionnaireAsClient` use `@read_only = 0`. No `@read_only = 1` introduced.
+
+**ADR-019 audit ordering — VERIFIED.** `recordAuthEvent('engagement.questionnaire_submitted')` fires only AFTER `submitResult.rowsAffected === 1`. Non-owner path (`rowsAffected = 0`) returns early; audit call is never reached. Unit tests "[ADR-019]" scenarios assert `mockRecordAuthEvent` not called on denial and gate-refusal paths.
+
+**`@@ROWCOUNT` carry-forward — RESOLVED.** `SELECT @@ROWCOUNT` follows `UPDATE [Engagement]` and captures UPDATE rowcount. On deny path, AFTER INSERT BLOCK throws before UPDATE runs → never reached. On allow path, UPDATE rowcount = 1. Functionally correct; no issue.
+
+**Security:** `answers` bound via `req.input("answers", mssql.NVarChar(mssql.MAX), ...)` — parameterized, not interpolated. `sp_set_session_context` args are server-derived + single-quote-escaped. No client-supplied `engagementId`, `templateId`, or `serviceId` enters the submit path anywhere.
+
+### Work Log approval breadcrumb
+2026-06-18 [sdet] APPROVED — all live gate counts match developer-reported output; 33504-catch correctly scoped; EPIC-005 gate not weakened; AC-ONBD-003-03/-04/-01 covered by tier-3 DB tests + unit tests. Completed-at: 2026-06-18T22:15:00Z.

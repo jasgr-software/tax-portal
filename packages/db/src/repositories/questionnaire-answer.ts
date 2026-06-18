@@ -18,6 +18,8 @@
  *     BATCH as the INSERT, so the BLOCK predicate governs the write. Returns rowsAffected = 0
  *     when denied (non-owner CLIENT, null SESSION_CONTEXT, or engagement not found).
  *     Also sets Engagement.questionnaireSubmittedAt atomically (same batch).
+ *     NOTE: sec.pol_QuestionnaireAnswer uses AFTER INSERT BLOCK (unlike Engagement's BEFORE UPDATE).
+ *     AFTER INSERT BLOCK throws SQL error 33504 — this is caught and mapped to rowsAffected = 0.
  *
  * ADR-003: SESSION_CONTEXT (clerk_user_id + role) set in-batch with the mutation.
  * ADR-003 Amendment 1: no @read_only on any sp_set_session_context SET.
@@ -278,10 +280,26 @@ export async function submitQuestionnaireAsClient(input: SubmitQuestionnaireInpu
     req.input("engagementId", mssql.NVarChar(50), input.engagementId);
     req.input("templateId", mssql.NVarChar(50), input.templateId);
 
-    // Batch: set SESSION_CONTEXT → INSERT answer row → set questionnaireSubmittedAt
+    // Batch: set SESSION_CONTEXT → INSERT answer row → UPDATE Engagement.questionnaireSubmittedAt
     // → SELECT @@ROWCOUNT → clear SESSION_CONTEXT.
-    // If the BLOCK predicate denies the INSERT, @@ROWCOUNT = 0 (no error thrown by SQL Server
-    // for BLOCK predicates that suppress the operation — same behavior as BEFORE UPDATE).
+    //
+    // DECISION (TASK-006-005): The sec.pol_QuestionnaireAnswer BLOCK predicate is AFTER INSERT
+    // (not BEFORE INSERT — SQL Server enforces AFTER INSERT BLOCK predicates differently).
+    // An AFTER INSERT BLOCK predicate fires AFTER the row is inserted and then RAISES SQL error
+    // 33504 if the predicate returns empty (denying the operation). This is unlike a BEFORE UPDATE
+    // predicate (which silently suppresses and returns @@ROWCOUNT = 0 without an error).
+    //
+    // Consequence: a non-owner CLIENT INSERT attempt throws a RequestError with number 33504.
+    // We CATCH that error and return { rowsAffected: 0 } — the caller treats 0 as a refusal.
+    // This keeps the API contract identical to recordLetterSignatureAsClient (rowsAffected = 0
+    // → denied) regardless of whether the underlying mechanism is silent suppression or an error.
+    //
+    // The Engagement UPDATE (BEFORE UPDATE BLOCK predicate) fires AFTER the QuestionnaireAnswer
+    // INSERT. On the non-owner path the INSERT throws before the UPDATE runs, so
+    // questionnaireSubmittedAt is never set. @@ROWCOUNT glance-item: on the owner path,
+    // SELECT @@ROWCOUNT follows the UPDATE → captures the UPDATE rowcount (1).
+    // On the deny path, the INSERT error is caught here → we return 0 (never reaches @@ROWCOUNT).
+    // No partial-write masking is possible: INSERT throws → UPDATE never runs.
     const sql = `
       EXEC sp_set_session_context @key = N'clerk_user_id', @value = N'${escapedClerkId}', @read_only = 0;
       EXEC sp_set_session_context @key = N'role', @value = N'${escapedRole}', @read_only = 0;
@@ -297,11 +315,30 @@ export async function submitQuestionnaireAsClient(input: SubmitQuestionnaireInpu
       EXEC sp_set_session_context @key = N'role', @value = NULL, @read_only = 0;
     `;
 
-    const result = await req.batch(sql);
+    let result;
+    try {
+      result = await req.batch(sql);
+    } catch (err) {
+      // BLOCK predicate AFTER INSERT fires as SQL error 33504.
+      // Treat as rowsAffected = 0 (denied) — mirrors the BEFORE UPDATE silent suppression API.
+      const mssqlErr = err as { number?: number; message?: string };
+      if (mssqlErr.number === 33504 || (mssqlErr.message ?? "").includes("block predicate")) {
+        // Denied by BLOCK predicate — clear SESSION_CONTEXT for pool hygiene, then return denied.
+        try {
+          await pool.request().batch(
+            `EXEC sp_set_session_context @key = N'clerk_user_id', @value = NULL, @read_only = 0;
+             EXEC sp_set_session_context @key = N'role', @value = NULL, @read_only = 0;`
+          );
+        } catch { /* ignore pool hygiene cleanup errors */ }
+        return { rowsAffected: 0 };
+      }
+      // Re-throw unexpected errors (connection issues, constraint violations, etc.)
+      throw err;
+    }
 
     // The SELECT @@ROWCOUNT returns a single-row recordset. Find it among the recordsets
     // (sp_set calls produce no rows; INSERT/UPDATE produce no rows by default; SELECT does).
-    // We capture the rowsAffected from the SELECT (last DML before clear context).
+    // We capture the rowsAffected from the SELECT (last DML before context clear).
     const recordsets = result.recordsets as Array<Array<{ rowsAffected?: number }>>;
     let rowsAffected = 0;
     for (const rs of recordsets) {

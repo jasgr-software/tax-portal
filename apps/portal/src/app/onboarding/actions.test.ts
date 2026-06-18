@@ -27,6 +27,11 @@ const {
   mockRecordAuthEvent,
   mockWithRequestContext,
   mockResolveOnboarding,
+  mockCheckStepAccessibility,
+  mockGetMyEngagement,
+  mockGetMyQuestionnaire,
+  mockGetMyQuestionnaireAnswer,
+  mockSubmitQuestionnaireAsClient,
   mockGetESignatureProvider,
   mockCreateSignatureRequest,
   mockVerifyCompletion,
@@ -45,6 +50,11 @@ const {
     // withRequestContext passes through to the callback
     mockWithRequestContext: vi.fn(),
     mockResolveOnboarding: vi.fn(),
+    mockCheckStepAccessibility: vi.fn(),
+    mockGetMyEngagement: vi.fn(),
+    mockGetMyQuestionnaire: vi.fn(),
+    mockGetMyQuestionnaireAnswer: vi.fn(),
+    mockSubmitQuestionnaireAsClient: vi.fn(),
     mockGetESignatureProvider: vi.fn().mockReturnValue({
       createSignatureRequest: mockCreateSignatureRequest,
       verifyCompletion: mockVerifyCompletion,
@@ -62,10 +72,15 @@ const {
 vi.mock("@tax-portal/db", () => ({
   withRequestContext: mockWithRequestContext,
   getEngagementForClient: mockGetEngagementForClient,
+  getMyEngagement: mockGetMyEngagement,
   getCurrentLetterTemplate: mockGetCurrentLetterTemplate,
   recordLetterSignatureAsClient: mockRecordLetterSignatureAsClient,
   recordAuthEvent: mockRecordAuthEvent,
   resolveOnboarding: mockResolveOnboarding,
+  checkStepAccessibility: mockCheckStepAccessibility,
+  getMyQuestionnaire: mockGetMyQuestionnaire,
+  getMyQuestionnaireAnswer: mockGetMyQuestionnaireAnswer,
+  submitQuestionnaireAsClient: mockSubmitQuestionnaireAsClient,
 }));
 
 // @tax-portal/esign
@@ -96,6 +111,8 @@ vi.mock("@tax-portal/auth", () => ({
 
 import {
   signEngagementLetterAction,
+  submitQuestionnaireAction,
+  getMyQuestionnaireAction,
 } from "./actions.js";
 import type { OnboardingReadModel } from "@tax-portal/db";
 
@@ -116,6 +133,7 @@ const UNSIGNED_ENGAGEMENT = {
   letterSignedAt: null,
   letterSignatureEvidence: null,
   letterTemplateSnapshot: null,
+  questionnaireSubmittedAt: null,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),
 };
@@ -126,6 +144,7 @@ const SIGNED_ENGAGEMENT = {
   letterSignatureEvidence: JSON.stringify({ provider: "mock", signed: true }),
   letterTemplateSnapshot: "Dear Client, This is the engagement letter.",
 };
+
 
 const UNSIGNED_READ_MODEL: OnboardingReadModel = {
   engagementId: ENGAGEMENT_ID,
@@ -164,6 +183,31 @@ const MOCK_COMPLETION = {
   evidence: JSON.stringify({ provider: "mock", engagementId: ENGAGEMENT_ID, ref: "mock-ref", signedAt: "2026-06-18T12:00:00Z" }),
 };
 
+const TEMPLATE_ID = "template-uuid-001";
+const SERVICE_ID = "service-uuid-001";
+
+const MOCK_QUESTIONNAIRE_TEMPLATE = {
+  id: TEMPLATE_ID,
+  serviceId: SERVICE_ID,
+  questions: JSON.stringify([
+    { id: "q1", prompt: "Full name", type: "text", required: true },
+    { id: "q2", prompt: "Notes", type: "textarea", required: false },
+  ]),
+  updatedBy: "accountant_clerk_id",
+  createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-06-01"),
+};
+
+const MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT = {
+  engagementId: ENGAGEMENT_ID,
+  serviceId: SERVICE_ID,
+  serviceName: "Tax Return",
+  template: MOCK_QUESTIONNAIRE_TEMPLATE,
+};
+
+const VALID_ANSWERS_JSON = JSON.stringify({ q1: "Alice Smith", q2: "No notes" });
+const MISSING_REQUIRED_ANSWERS_JSON = JSON.stringify({ q2: "Notes only" });
+
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -179,9 +223,20 @@ beforeEach(() => {
 
   // Default: unsigned engagement
   mockGetEngagementForClient.mockResolvedValue(UNSIGNED_ENGAGEMENT);
+  mockGetMyEngagement.mockResolvedValue(SIGNED_ENGAGEMENT);
 
   // Default: resolveOnboarding returns unsigned model
   mockResolveOnboarding.mockReturnValue(UNSIGNED_READ_MODEL);
+
+  // Default: checkStepAccessibility returns undefined (step accessible)
+  mockCheckStepAccessibility.mockReturnValue(undefined);
+
+  // Default: questionnaire resolution
+  mockGetMyQuestionnaire.mockResolvedValue(MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT);
+  mockGetMyQuestionnaireAnswer.mockResolvedValue(null); // not yet submitted
+
+  // Default: submit write succeeds
+  mockSubmitQuestionnaireAsClient.mockResolvedValue({ rowsAffected: 1 });
 
   // Default: template loaded
   mockGetCurrentLetterTemplate.mockResolvedValue(MOCK_TEMPLATE);
@@ -206,6 +261,20 @@ afterEach(() => {
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
+
+// ─── Supplemental fixtures (referenced by submitQuestionnaireAction tests) ─────
+
+/** A signed read model with intake-questionnaire done (after submit). */
+const QUESTIONNAIRE_DONE_READ_MODEL: OnboardingReadModel = {
+  engagementId: ENGAGEMENT_ID,
+  steps: [
+    { key: "engagement-letter", accessible: true, done: true },
+    { key: "intake-questionnaire", accessible: true, done: true },
+    { key: "document-upload", accessible: true, done: false },
+  ],
+  currentStep: "document-upload",
+  remaining: 0,
+};
 
 describe("signEngagementLetterAction — sign + unlock", () => {
 
@@ -348,6 +417,244 @@ describe("signEngagementLetterAction — sign + unlock", () => {
     await signEngagementLetterAction(ENGAGEMENT_ID);
 
     expect(mockRevalidatePath).toHaveBeenCalledWith("/onboarding");
+  });
+
+});
+
+// ─── submitQuestionnaireAction tests ─────────────────────────────────────────
+
+describe("submitQuestionnaireAction — submit + step satisfaction", () => {
+
+  it("[AC-ONBD-003-03] successful submit returns success: true (step satisfied server-side)", async () => {
+    const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("[AC-ONBD-003-04] successful submit calls submitQuestionnaireAsClient with correct args", async () => {
+    await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(mockSubmitQuestionnaireAsClient).toHaveBeenCalledOnce();
+    const arg = mockSubmitQuestionnaireAsClient.mock.calls[0]?.[0];
+    // templateId must be server-derived (from MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT.template.id)
+    expect(arg?.templateId).toBe(TEMPLATE_ID);
+    expect(arg?.engagementId).toBe(ENGAGEMENT_ID);
+    expect(arg?.answers).toBe(VALID_ANSWERS_JSON);
+    expect(arg?.clerkUserId).toBe(CLIENT_IDENTITY.clerkUserId);
+    expect(arg?.role).toBe("CLIENT");
+  });
+
+  it("[AC-ONBD-003-01] templateId is server-derived — not client-supplied (comes from resolved template)", async () => {
+    // The client passes only answers JSON; the templateId is resolved from the questionnaire
+    // The test confirms that the templateId in the submit call matches the server-resolved template
+    await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    const arg = mockSubmitQuestionnaireAsClient.mock.calls[0]?.[0];
+    // Server-derived templateId from MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT.template.id
+    expect(arg?.templateId).toBe(MOCK_QUESTIONNAIRE_TEMPLATE.id);
+    // Critically: the client did NOT supply this — it came from getMyQuestionnaire()
+    expect(mockGetMyQuestionnaire).toHaveBeenCalled();
+  });
+
+  it("[AC-ONBD-003-03] audit event written after successful submit (engagement.questionnaire_submitted)", async () => {
+    await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
+    const auditArg = mockRecordAuthEvent.mock.calls[0]?.[0];
+    expect(auditArg?.action).toBe("engagement.questionnaire_submitted");
+    expect(auditArg?.targetType).toBe("Engagement");
+    expect(auditArg?.targetId).toBe(ENGAGEMENT_ID);
+    expect(auditArg?.sourceSurface).toBe("portal");
+    expect(auditArg?.actor.role).toBe("CLIENT");
+    expect(auditArg?.actor.clerkUserId).toBe(CLIENT_IDENTITY.clerkUserId);
+  });
+
+  it("[AC-ONBD-003-03] revalidatePath called on successful submit", async () => {
+    await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/onboarding");
+  });
+
+  it("[ADR-005] non-owner BLOCK denial — rowsAffected = 0 → refused, no audit event", async () => {
+    // BLOCK predicate denies the write — rowsAffected = 0
+    mockSubmitQuestionnaireAsClient.mockResolvedValue({ rowsAffected: 0 });
+
+    const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.refused).toBe(true);
+    // CRITICAL: no audit event for a non-event (ADR-019)
+    expect(mockRecordAuthEvent).not.toHaveBeenCalled();
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("[gate honored] submit refused when letter unsigned — checkStepAccessibility returns refusal, no write", async () => {
+    // Letter is unsigned — step is locked
+    const stepRefusal = { refused: true as const, reason: "step-locked" as const, stepKey: "intake-questionnaire" as const };
+    mockCheckStepAccessibility.mockReturnValue(stepRefusal);
+
+    const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.refused).toBe(true);
+    // Gate check must prevent any write
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+    expect(mockRecordAuthEvent).not.toHaveBeenCalled();
+  });
+
+  it("[gate honored] submit refused does NOT weaken EPIC-005 letter gate", async () => {
+    // Confirm that checkStepAccessibility is always called before submit
+    mockCheckStepAccessibility.mockReturnValue({ refused: true as const, reason: "step-locked" as const, stepKey: "intake-questionnaire" as const });
+
+    await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    // checkStepAccessibility was consulted
+    expect(mockCheckStepAccessibility).toHaveBeenCalledWith(
+      expect.objectContaining({ id: ENGAGEMENT_ID }),
+      "intake-questionnaire",
+    );
+    // Write never happened
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
+  it("returns error when no CLIENT identity present", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Unauthorized");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
+  it("returns error when no engagement found (FILTER returns null)", async () => {
+    // withRequestContext callback returns null (no engagement visible)
+    mockWithRequestContext.mockImplementation(
+      (_clerkUserId: string, _role: string, _fn: () => Promise<unknown>) => {
+        // Simulate getMyEngagement returning null — withRequestContext resolves to null
+        return Promise.resolve(null);
+      },
+    );
+
+    const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("No active engagement found");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
+  it("returns validation error when required question is missing from answers", async () => {
+    const result = await submitQuestionnaireAction(MISSING_REQUIRED_ANSWERS_JSON);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    // Should mention the missing required question id
+    expect(result.error).toContain("q1");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
+  it("returns error when answers JSON is malformed", async () => {
+    const result = await submitQuestionnaireAction("not-valid-json{{{");
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Invalid answers format");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
+  it("returns error when answers is a JSON array instead of an object", async () => {
+    const result = await submitQuestionnaireAction(JSON.stringify(["q1", "answer"]));
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Invalid answers format");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
+  it("returns error when no questionnaire template is configured", async () => {
+    mockGetMyQuestionnaire.mockResolvedValue({
+      ...MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT,
+      template: null,
+    });
+
+    const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("No questionnaire template");
+    expect(mockSubmitQuestionnaireAsClient).not.toHaveBeenCalled();
+  });
+
+  it("[ADR-019] no audit event written on gate refusal (fail-closed)", async () => {
+    mockCheckStepAccessibility.mockReturnValue({ refused: true as const, reason: "step-locked" as const, stepKey: "intake-questionnaire" as const });
+
+    await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+    expect(mockRecordAuthEvent).not.toHaveBeenCalled();
+  });
+
+  void QUESTIONNAIRE_DONE_READ_MODEL; // reference to avoid lint warning
+
+});
+
+// ─── getMyQuestionnaireAction tests ──────────────────────────────────────────
+
+describe("getMyQuestionnaireAction — load questionnaire + submitted state", () => {
+
+  it("returns success with questionnaire and alreadySubmitted: false when not yet submitted", async () => {
+    mockGetMyQuestionnaireAnswer.mockResolvedValue(null);
+
+    const result = await getMyQuestionnaireAction();
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toEqual(MOCK_QUESTIONNAIRE_FOR_ENGAGEMENT);
+    expect(result.alreadySubmitted).toBe(false);
+    expect(result.existingAnswers).toBeNull();
+  });
+
+  it("returns alreadySubmitted: true and existingAnswers when questionnaire was submitted", async () => {
+    const existingAnswersJson = JSON.stringify({ q1: "Alice Smith" });
+    mockGetMyQuestionnaireAnswer.mockResolvedValue({
+      id: "answer-uuid-001",
+      engagementId: ENGAGEMENT_ID,
+      templateId: TEMPLATE_ID,
+      answers: existingAnswersJson,
+      submittedAt: new Date("2026-06-18T14:00:00Z"),
+      createdAt: new Date("2026-06-18T14:00:00Z"),
+      updatedAt: new Date("2026-06-18T14:00:00Z"),
+    });
+
+    const result = await getMyQuestionnaireAction();
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.alreadySubmitted).toBe(true);
+    expect(result.existingAnswers).toBe(existingAnswersJson);
+  });
+
+  it("returns error when no CLIENT identity", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await getMyQuestionnaireAction();
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Unauthorized");
+  });
+
+  it("returns error when no engagement found", async () => {
+    mockWithRequestContext.mockResolvedValue(null);
+
+    const result = await getMyQuestionnaireAction();
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("No active engagement found");
   });
 
 });

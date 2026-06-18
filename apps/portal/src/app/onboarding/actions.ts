@@ -52,12 +52,16 @@ import {
   recordLetterSignatureAsClient,
   recordAuthEvent,
   resolveOnboarding,
+  checkStepAccessibility,
   getMyQuestionnaire,
+  getMyQuestionnaireAnswer,
+  submitQuestionnaireAsClient,
 } from "@tax-portal/db";
 import { getESignatureProvider } from "@tax-portal/esign";
 import type {
   OnboardingReadModel,
   QuestionnaireForEngagement,
+  QuestionDef,
 } from "@tax-portal/db";
 
 // ─── Identity helper ──────────────────────────────────────────────────────────
@@ -336,62 +340,212 @@ export async function getMyQuestionnaireAction(): Promise<GetMyQuestionnaireResu
     return { success: false, error: "Unauthorized: CLIENT identity required" };
   }
 
+  // Resolve questionnaire + existing answer state in a single withRequestContext call.
+  // Both reads run under the same SESSION_CONTEXT so the FILTER predicate governs both.
+  // DECISION (TASK-006-005): We call getMyQuestionnaire() (which internally resolves the
+  // engagement id via FILTER) and then getMyQuestionnaireAnswer() with that engagement id.
+  // The questionnaire result carries the engagementId so we can load the answer without
+  // a second withRequestContext wrapper.
   const questionnaireResult = await withRequestContext(
     identity.clerkUserId,
     identity.role,
-    () => getMyQuestionnaire(),
+    async () => {
+      const questionnaire = await getMyQuestionnaire();
+      if (!questionnaire) return null;
+
+      // Also load existing answers (null = not yet submitted) — FILTER-governed.
+      // getMyQuestionnaireAnswer is a Prisma request-pool read; SESSION_CONTEXT is set
+      // by withRequestContext wrapping this async callback.
+      const existingAnswer = await getMyQuestionnaireAnswer(questionnaire.engagementId);
+
+      return {
+        questionnaire,
+        existingAnswer,
+      };
+    },
   );
 
   if (!questionnaireResult) {
     return { success: false, error: "No active engagement found" };
   }
 
-  // DECISION (TASK-006-004): alreadySubmitted + existingAnswers stubbed to false/null.
-  // TASK-006-005 replaces this stub body to load the submitted state from the DB.
+  const { questionnaire, existingAnswer } = questionnaireResult;
+
   return {
     success: true,
-    data: questionnaireResult,
-    alreadySubmitted: false,
-    existingAnswers: null,
+    data: questionnaire,
+    alreadySubmitted: existingAnswer !== null,
+    existingAnswers: existingAnswer?.answers ?? null,
   };
 }
 
 /**
  * Submit the questionnaire answers for the authenticated CLIENT.
  *
- * TASK-006-004/005 coordination seam: this action is the submit entry point.
- * The implementation body is owned by TASK-006-005 — it will:
- *   1. Verify CLIENT identity (getClientIdentity).
- *   2. Validate that the intake-questionnaire step is accessible (checkStepAccessibility).
- *   3. Resolve the engagement + template server-side (no client-supplied ids).
- *   4. Validate all required questions have answers.
- *   5. Call submitQuestionnaireAsClient (REQUEST POOL / BLOCK-governed).
- *   6. Record an audit event.
- *   7. revalidatePath('/onboarding').
- *
- * For now (TASK-006-004) this is a typed stub so the component can compile and tests
- * can mock it. TASK-006-005 replaces this stub body entirely.
+ * Flow (AC-ONBD-003-03/-04, ADR-001/ADR-005, ADR-003, ADR-019):
+ *   1. getClientIdentity() → must be CLIENT (role from verified session, never client-supplied).
+ *   2. Resolve engagement + template server-side (getMyQuestionnaire under withRequestContext).
+ *      The client NEVER supplies an engagementId, serviceId, or templateId.
+ *   3. Gate check: checkStepAccessibility(engagement, 'intake-questionnaire').
+ *      If the letter is unsigned → step locked → return refusal, no write.
+ *   4. Validate answers against the resolved template's required questions (server-side).
+ *      Missing required answers → return validation error, no write.
+ *   5. submitQuestionnaireAsClient (REQUEST POOL, BLOCK-governed) — writes the answer row
+ *      AND sets Engagement.questionnaireSubmittedAt in one batch.
+ *      rowsAffected = 0 → BLOCK denied (not the owner) → refusal, no satisfaction.
+ *   6. Audit the submission via recordAuthEvent (ADMIN POOL) — AFTER the owner-confirmed write.
+ *      Fail-closed: no audit event for a non-event (ADR-019).
+ *   7. revalidatePath('/onboarding') so the step reads as done.
  *
  * @param answersJson — serialized JSON { [questionId]: string } (DECISION-H).
- *   Validated by TASK-006-005 at the action layer before writing to the DB.
+ *   The client submits answers by question id; the templateId is server-derived only.
  *   NEVER includes a client-supplied engagement id, template id, or service id.
  *
- * AC-ONBD-003-03: step satisfied only when this action succeeds (server-side).
- * AC-ONBD-003-04: answers recorded against the engagement.
- * ADR-001/ADR-005: no client-supplied ids. All resolution is server-side.
+ * AC-ONBD-003-01: templateId is server-derived via getMyQuestionnaire() — never client-supplied.
+ * AC-ONBD-003-03: step satisfied only when this action succeeds (server-side, read model).
+ * AC-ONBD-003-04: answers recorded against the engagement + questionnaireSubmittedAt set.
+ * ADR-001/ADR-005: no client-supplied ids; BLOCK predicate enforces owner-only write.
+ * ADR-003: reads run under withRequestContext(CLIENT) so the FILTER predicate governs.
+ * ADR-019: audit event written only after a confirmed owner write.
  *
- * // DECISION (TASK-006-004): stub returns not-yet-implemented error so that calling
- * // the submit form before TASK-006-005 lands gives a clear message rather than a crash.
- * // TASK-006-005 replaces this stub body with the full implementation.
+ * // DECISION (TASK-006-005): Two-pool coordination for the submission path mirrors
+ * // signEngagementLetterAction (TASK-005-005):
+ * //   1. submitQuestionnaireAsClient (REQUEST POOL, BLOCK-governed) runs FIRST.
+ * //      rowsAffected = 0 → not the owner → STOP, return refusal, NO audit for a non-event.
+ * //   2. Only after rowsAffected = 1, record the audit event (ADMIN POOL via recordAuthEvent).
+ * //      The submission is idempotent at the DB layer once written (questionnaireSubmittedAt
+ * //      is set once and stays set), so a failed audit write is the only non-atomic edge.
+ * //
+ * // DECISION (TASK-006-005): Answers JSON parse + required-question validation runs at the
+ * //   action layer, not the DB layer (DECISION-H carries: JSON validated here, not by a DB
+ * //   constraint). We parse answersJson as { [questionId]: string } and confirm all required
+ * //   questions have non-empty answers before writing.
  */
 export async function submitQuestionnaireAction(
   answersJson: string,
 ): Promise<SubmitQuestionnaireResult> {
-  // GUARDRAIL: stub — TASK-006-005 replaces this body.
-  // answersJson is accepted here to define the seam signature; 005 validates + persists it.
-  void answersJson;
-  return {
-    success: false,
-    error: "Questionnaire submission not yet implemented (TASK-006-005 pending).",
-  };
+  // Step 1: identity guard — CLIENT only (role from verified session)
+  const identity = await getClientIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: CLIENT identity required" };
+  }
+
+  // Step 2: resolve engagement + template server-side (no client-supplied ids).
+  // DECISION (TASK-006-005): resolve engagement + questionnaire together under one
+  // withRequestContext call. We need the full EngagementItem for the gate check, so
+  // we call getMyEngagement() AND getMyQuestionnaire() in the same session context.
+  // getMyQuestionnaire internally re-reads the engagement (belt-and-suspenders), but
+  // the FILTER is exercised both times under the same SESSION_CONTEXT.
+  const resolved = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    async () => {
+      const engagement = await getMyEngagement();
+      if (!engagement) return null;
+      const questionnaire = await getMyQuestionnaire();
+      if (!questionnaire) return null;
+      return { engagement, questionnaire };
+    },
+  );
+
+  if (!resolved) {
+    return { success: false, error: "No active engagement found" };
+  }
+
+  const { engagement, questionnaire } = resolved;
+
+  // Step 3: gate check — letter must be signed before questionnaire is accessible.
+  // checkStepAccessibility returns undefined if accessible, or a StepRefusal if locked.
+  const refusal = checkStepAccessibility(engagement, "intake-questionnaire");
+  if (refusal) {
+    return {
+      success: false,
+      error: "Questionnaire is not yet accessible: engagement letter must be signed first",
+      refused: true,
+    };
+  }
+
+  // Step 4: validate answers against the template's required questions (server-side).
+  // DECISION (TASK-006-005): Parse answersJson here — the templateId is server-derived from
+  // questionnaire.template; the client cannot supply a different template.
+  if (!questionnaire.template) {
+    return {
+      success: false,
+      error: "No questionnaire template configured for this service type",
+    };
+  }
+
+  let parsedAnswers: Record<string, string>;
+  try {
+    const raw: unknown = JSON.parse(answersJson);
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      throw new TypeError("answers must be a JSON object");
+    }
+    parsedAnswers = raw as Record<string, string>;
+  } catch {
+    return { success: false, error: "Invalid answers format: expected JSON object { [questionId]: string }" };
+  }
+
+  // Validate all required questions have non-empty answers.
+  let questions: QuestionDef[];
+  try {
+    const rawQuestions: unknown = JSON.parse(questionnaire.template.questions);
+    if (!Array.isArray(rawQuestions)) {
+      throw new TypeError("questions must be a JSON array");
+    }
+    questions = rawQuestions as QuestionDef[];
+  } catch {
+    return { success: false, error: "Template questions configuration is invalid" };
+  }
+
+  const missingRequired = questions
+    .filter((q) => q.required && !parsedAnswers[q.id]?.trim())
+    .map((q) => q.id);
+
+  if (missingRequired.length > 0) {
+    return {
+      success: false,
+      error: `Missing required answers for questions: ${missingRequired.join(", ")}`,
+    };
+  }
+
+  // Step 5: owner-only BLOCK-governed write (REQUEST POOL).
+  // submitQuestionnaireAsClient inserts the QuestionnaireAnswer row AND sets
+  // Engagement.questionnaireSubmittedAt in one batch (DECISION in questionnaire-answer.ts).
+  // rowsAffected = 0 → BLOCK denied (not the owner or null SESSION_CONTEXT) → refusal.
+  // templateId is server-derived from questionnaire.template.id — never client-supplied.
+  const submitResult = await submitQuestionnaireAsClient({
+    engagementId: engagement.id,
+    templateId: questionnaire.template.id,
+    answers: answersJson,
+    clerkUserId: identity.clerkUserId,
+    role: "CLIENT",
+  });
+
+  if (submitResult.rowsAffected === 0) {
+    // BLOCK predicate denied the write — not the owner or SESSION_CONTEXT was null.
+    // Do NOT record an audit event for a non-event (ADR-019).
+    return {
+      success: false,
+      error: "Submission denied: not the owner of this engagement",
+      refused: true,
+    };
+  }
+
+  // Step 6: audit the submission event (ADMIN POOL, fail-closed — ADR-019).
+  // DECISION (TASK-006-005): audit runs AFTER the request-pool write (two-pool coordination,
+  // mirrors signEngagementLetterAction). The submission is idempotent at the DB layer once
+  // questionnaireSubmittedAt is set.
+  await recordAuthEvent({
+    actor: { clerkUserId: identity.clerkUserId, role: "CLIENT" },
+    action: "engagement.questionnaire_submitted",
+    targetType: "Engagement",
+    targetId: engagement.id,
+    sourceSurface: "portal",
+  });
+
+  // Step 7: revalidate so the read model re-computes the step as done.
+  revalidatePath("/onboarding");
+
+  return { success: true };
 }
