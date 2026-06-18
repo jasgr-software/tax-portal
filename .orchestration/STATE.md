@@ -10,7 +10,7 @@
 ### EPIC-005 — BRIEF-005 (onboarding spine + engagement-letter e-sign gate) — started 2026-06-18
 - **Phase:** **Implement — in progress** (engine mid-Dispatch). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
   Implement: IO Plan ✓ (8 tasks decomposed; Data-&-Interface-Contract expanded; design-coherence PASS; branch
-  `brief-005-onboarding-spine-engagement-letter` created) → Dispatch **6/8 done + committed**:
+  `brief-005-onboarding-spine-engagement-letter` created) → Dispatch **7/8 done + committed (all 7 GATED tasks done)**:
   - **TASK-005-001** ✓ (schema `Engagement`+`LetterTemplate` + the **first client-owned-rows policy**
     `sec.pol_Engagement`; 65 tier-3 incl. 6 isolation) — SDET-approved, commit `1d64d8b`.
   - **TASK-005-002** ✓ (`packages/esign` `ESignatureProvider` seam — fail-closed selector, mock binding; 24
@@ -28,25 +28,27 @@
   - **TASK-005-006** ✓ (portal onboarding sequence UI — renders the -005 read model, server-authoritative gate
     reflected only / no client-side gate logic, no client-supplied id via new FILTER-governed `getMyEngagement()`,
     XSS-safe; +27 tier-5, portal 90) — SDET-approved, commit `d9d6dcf`.
-  - **Remaining 2:** **TASK-005-007** (e2e + gherkin binding + cross-app — the **e2e gate**: binds the epic's 10
-    gherkin scenarios, runs the sign→unlock + admin-edit→client-sees-edited flows against the full
-    docker-compose stack — the last gated task), -008 (@demo gallery). Then engine Audit → design-scan → Smoke
-    → Validate → Close-prep (→ `## Awaiting PR merge` + PR opened).
+  - **TASK-005-007** ✓ (**the e2e gate** — binds the epic's 10 gherkin scenarios verbatim; sign→unlock +
+    cross-app admin-edit→client-sees-edited flows green on the full docker-compose stack; honest owning-client
+    fixture via the request-pool FILTER; rewired `e2e:cross-app`. SDET independent re-run: portal 33 / admin 32
+    / cross-app 10 / sign→unlock 3× zero-flake) — SDET-approved, commit `7868303`.
+  - **Remaining 1 (non-gating):** **TASK-005-008** (@demo gallery — `docs/demos/EPIC-005/`; non-gating per
+    DEMO-POLICY). Then engine **Audit → design-scan → Smoke → Validate → Close-prep** (→ `## Awaiting PR merge`
+    + PR opened) → Conductor **Review (`/pr-review`) → Fix → Merge → Validate write-back (`/planning`)**.
   - **Carry to Close-prep (SDET note-only from -005):** correct the misleading "parameterised inputs" comment
     at `packages/db/src/repositories/engagement.ts` ~L433 (the signing UPDATE string-interpolates
     server-derived + FILTER/BLOCK-guarded values, single-quote-escaped — sound, but the comment is wrong).
-    None of -007/-008 touch `engagement.ts`, so this is an **ungated/retro follow-up** for the IO at Close-prep
+    None of -008 touches `engagement.ts`, so this is an **ungated/retro follow-up** for the IO at Close-prep
     (or a dedicated micro-fix), not a blocker.
-- **Checkpoint (2026-06-18, fourth session boundary — NOT an inner stop):** all six build tasks are done; only
-  the e2e gate (-007) + the @demo (-008) remain before the validation cascade. The engine is healthy
-  mid-Dispatch; no guardrail fired. Branch has 11 commits (`59a33cb` plan;
-  `1d64d8b`/`5dac228`/`53f62a5`/`4dec137`/`d637418`/`d9d6dcf` tasks; `1390075`/`09d2b0f`/`048c6c0` ledgers + this
-  one); tree clean; PR not yet opened (engine opens it at Close-prep). **Resume:** re-invoke
-  `/orchestrate EPIC-005` → resumes at Implement; the IO reads PROGRESS.md and continues at **TASK-005-007**.
-  **Heads-up for -007/Smoke:** the e2e gate runs the full container stack — the carried `prisma migrate deploy`
-  / clean-volume-bootstrap infra item (sqlcmd workaround in use) is most likely to surface here; the developer
-  may need to seed an `Engagement` + signed/unsigned fixtures and may hit the SA-healthcheck `(unhealthy)`
-  non-blocker. All slice state is durable in PROGRESS.md + the task files + the commits.
+- **Checkpoint (2026-06-18, fifth session boundary — NOT an inner stop):** **all 7 GATED tasks are done +
+  committed** (every correctness/security-bearing task delivered + independently SDET-verified, incl. the e2e
+  gate on the real container stack). Only the non-gating @demo (-008) + the packaging cascade remain. The
+  engine is healthy mid-Dispatch; no guardrail fired. Branch has 13 commits (`59a33cb` plan;
+  `1d64d8b`/`5dac228`/`53f62a5`/`4dec137`/`d637418`/`d9d6dcf`/`7868303` tasks; `1390075`/`09d2b0f`/`048c6c0`/`38b5f0e`
+  ledgers + this one); tree clean; PR not yet opened (engine opens it at Close-prep). **Resume:** re-invoke
+  `/orchestrate EPIC-005` → resumes at Implement; the IO reads PROGRESS.md and continues at **TASK-005-008**,
+  then runs the Audit→Smoke→Validate→Close-prep cascade. All slice state is durable in PROGRESS.md + the task
+  files + the commits.
 - **Slice:** Phase-2 opener. A newly accepted client signs in to `apps/portal`, sees the three-step onboarding
   sequence for their engagement, and e-signs the engagement letter — the hard gate that unlocks the later
   steps. Introduces the **minimal `Engagement`** substrate (created on accept, status `New`) and the **first
