@@ -8,8 +8,32 @@
 ## Current run
 
 ### EPIC-005 — BRIEF-005 (onboarding spine + engagement-letter e-sign gate) — started 2026-06-18
-- **Phase:** **Review — in progress** (`/pr-review 48`). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
-  **Implement ✓ (engine cascade COMPLETE)** → **PR #48 opened** → Review (panel) next.
+- **Phase:** **Merge — AWAITING USER APPROVAL** (PR #48 CLEAN). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ →
+  **Implement ✓** → **PR #48 opened** → **Review ✓ (panel)** → **Fix ✓** → **PR CLEAN** → Merge (user gate).
+  - **Review ✓ (`/pr-review 48`):** 3-lens panel posted ONE advisory COMMENT review
+    (pullrequestreview-4527515408); verdict request-changes — 1 major / 6 minor / 2 nit (9 deduped). Lead
+    confirmed tests non-vacuous + resource handling sound. The major = OE-1 (the DECISION-A back-fill seam
+    read as shipped-but-dead by the project-agnostic panel).
+  - **Fix ✓ (`/pr-fix 48`):** all 9 addressed. FIXED — OE-1 (removed the unreachable
+    `updateEngagementClientUserId` wiring; DECISION-A preserved as a deferred breadcrumb), SEC-1 (`.input()`-bound
+    the 3 UPDATE values), SEC-2/OE-5 (admin-pool writer off the public barrel), OE-2 (dead export deleted),
+    OE-3 (test-only id-bearing actions removed), OE-4 (`parseSqlServerUrl` extracted to a leaf module).
+    DISPOSITIONED+resolved — SEC-3 (pre-existing per-request SESSION_CONTEXT → tracked follow-up), OE-6 +
+    seed-idempotency nits. Fixer commit `d3fe294`.
+  - **Pre-merge CI saga (cleared):** (a) `security-scan` RED on a NEWLY-PUBLISHED advisory GHSA-p6gq-j5cr-w38f
+    (`nodemailer <=9.0.0` high) — bumped `packages/email` nodemailer 8.0.11→9.0.1 (`e5afb6b`; we use no `raw`
+    option so the 9.0.0 breaking change is inert; live Mailhog send verified). (b) 3 `github-code-quality` bot
+    threads (unused symbols in the isolation/persistence tests) blocked the conversation-resolution gate —
+    cleaned up, **preserving the `seedUser` side-effect** in the non-owner case (`0425855`; isolation 6/6 +
+    persistence 9/9 still green).
+  - **PR #48 — CLEAN/MERGEABLE on head `0425855`.** All required CI green (lint-and-typecheck, security-scan,
+    test-admin, test-portal, CodeQL); all review threads resolved. Branch commits add: `d51bdec` (comment-drift
+    + Close-prep), `67afce9` (STATE), `e5afb6b` (nodemailer), `d3fe294` (pr-fix), `0425855` (bot cleanups).
+  - **⏸ AWAITING USER MERGE APPROVAL** (Lane B: `gh pr merge 48 --squash --delete-branch` on green required CI,
+    **no `--admin`/protection toggle**). **On approval:** merge → IO Close-finalize (gate 8 post-merge CI; gate
+    9 N/A `Brief-deploys: no`) → `/planning validate EPIC-005` write-back (flip 10 COVERAGE rows verified; roll
+    EPIC-005 delivered) → final Report.
+- **(superseded) Review-entry phase line:**
   - **Implement cascade (all green):** IO Plan ✓ → Dispatch **8/8 tasks done + SDET-approved + committed**
     (TASK-005-008 @demo `d144716`; carried EPIC-001..004 PNG re-renders reverted to scope the diff) →
     **Audit ✓ CLEAN** (Overwatch, 0 blocking) → IO **design-scan ✓ PASS** → **Container Smoke ✓ PASS**
