@@ -69,6 +69,31 @@ gherkin or TDD on its own.>
 not break, technology it must use or avoid. Cite upstream refs (`source:`) where a constraint originates
 from an ADR or requirement.>
 
+## Data & Interface Contract
+
+<OPTIONAL — include only when the slice introduces or changes data shapes or interface contracts; omit
+entirely for slices with no net-new shapes (degrades exactly like an absent `acceptance_scenarios`). When
+absent, the team derives shapes from the acceptance criteria + cited ADRs as it does today.
+
+When present, this is the binding reference for the slice's data and interface shape — captured to the
+**altitude that traces to the epic + cited ADRs**, not invented here:
+
+- **Entities & relationships** — the net-new/changed entities this slice persists and how they relate.
+- **Status enums & state transitions** — the named states and the allowed transitions implied by the
+  acceptance scenarios (e.g. e-sign: `unsigned → sent → signed`; engagement status set + legal moves).
+- **Field-shape obligations from ADRs** — conventions the cited ADRs dictate (e.g. ADR-002 PK/timestamp
+  conventions, identity columns), carried as concrete obligations.
+- **Validation & error semantics** — required/optional fields, uniqueness/normalization rules, and the
+  observable error behavior for invalid input, *to the extent the epic's behavior fixes them*.
+- **Interface contracts** — the shape of any cross-module boundary the slice introduces (inputs the
+  caller supplies, what comes back, status/error outcomes).
+
+**Altitude rule (who pins what):** the brief author (Conductor) carries only what **traces** to the epic's
+behavior + cited ADRs — it does **not** fabricate field-level minutiae (exact column types, regexes, error
+codes). The implementation team (IO) **expands** this into the full field-level contract during **Design**;
+a genuinely upstream shape question (a product or architecture decision, not an implementation detail) is
+**escalated** via `OPEN-QUESTIONS.md`, never invented. Cite the originating `source:` ref for each obligation.>
+
 ## References
 
 <Optional. Upstream IDs this brief leans on (REQ-/ADR-/EPIC- ids). The team reads them if the corresponding

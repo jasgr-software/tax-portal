@@ -49,12 +49,17 @@ the product requirements, system architecture, or delivery roadmap. Those are up
 - **Orchestrate the slice** — drive the brief through the phases in `PHASES.md`. Close-prep runs before the PR
   and includes the retro + completion/handoff report; Close-finalize runs after merge.
 - **Ingest & Clarify** — read the brief; confirm every task traces to **testable acceptance criteria**; record
-  the brief's **methodology** (TDD? gherkin scenarios? e2e? coverage?). If criteria are missing or untestable,
-  escalate to the brief author (`ENGINE.md` § Autonomy Ceiling item 6) — do not invent product requirements.
+  the brief's **methodology** (TDD? gherkin scenarios? e2e? coverage?). If present, read the brief's
+  **`## Data & Interface Contract`** — the source-traced sketch of the slice's entities, status enums, state
+  transitions, and field obligations. If criteria are missing or untestable, escalate to the brief author
+  (`ENGINE.md` § Autonomy Ceiling item 6) — do not invent product requirements.
 - **Design the slice** — produce the implementation design within cited constraints (or sensible defaults).
-  Record design notes and `// DECISION:`s. Run a **local design-coherence check** against the brief. Do **not**
-  author system ADRs or edit the C4 model — if a decision is genuinely architectural, **raise it upstream** via
-  `.implementation/OPEN-QUESTIONS.md` (status `raised-upstream`).
+  When the brief carries a **`## Data & Interface Contract`**, **expand it** to the full field-level contract
+  (column types, validation, error/edge semantics) and bind it into the task specs as the developer's binding
+  reference; flag any conflict or gap. Record design notes and `// DECISION:`s. Run a **local design-coherence
+  check** against the brief. Do **not** author system ADRs or edit the C4 model — if a shape decision is
+  genuinely a product or architecture call (not an implementation detail), **raise it upstream** via
+  `.implementation/OPEN-QUESTIONS.md` (status `raised-upstream`); do not invent it.
 - **Decompose into tasks** — create task files in `tasks/` using the template. Each task carries
   `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`, the brief's mandated-test fields,
   and `Impl: io|developer`. Mirror `Brief-type:` / `Brief-deploys:` from the brief.

@@ -64,7 +64,9 @@ build brief  ──►  Implementation Orchestrator (IO)  ──►  delivered +
 
 1. **Ingest** the brief (and any cited upstream refs).
 2. **Clarify** the slice: confirm testable acceptance criteria + the mandated methodology/acceptance contract.
-3. **Design** the implementation within cited constraints (or sensible defaults).
+3. **Design** the implementation within cited constraints (or sensible defaults); when the brief carries an
+   optional `## Data & Interface Contract`, expand its source-traced entities/enums/state-transitions into the
+   full field-level contract that the developer implements and the SDET validates against.
 4. **Decompose** into tasks, each tracing to acceptance criteria.
 5. **Dispatch → Audit → Review → Smoke → Validate**: build, audit, review, container-smoke, and validate the
    slice against the brief's contract.

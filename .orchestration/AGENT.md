@@ -73,6 +73,7 @@ Map the GO epic into a brief honoring the engine's `brief contract` (`seed/sourc
 | `requirements: [REQ-X: [AC-X-NN,…]]` | `acceptance_criteria: [{id: AC-X-NN, text}]` — pull each AC's **text from the cited `REQ-*` file**; also expand under `## Acceptance criteria` |
 | body **Acceptance scenarios** (Given/When/Then), *if present* | `acceptance_scenarios:` (inline or path) + `methodology.acceptance_format: gherkin` |
 | `architecture: [ADR-…, REQ-…]` + body **Architecture adherence** | `## Constraints` — cite each ADR as a non-negotiable; carry the concrete obligation |
+| epic **entity/status model** + acceptance-scenario **state transitions** + cited-ADR **shape conventions** (e.g. ADR-002), *when the slice introduces/changes data shapes* | `## Data & Interface Contract` — carry only the entities, status enums, transitions, and field obligations that **trace** to the epic + ADRs; **omit the section** for slices with no net-new shapes |
 | testing strategy (`.architecture/strategy/TESTING.md`) + epic **Traceability & sign-off contract** | `methodology` block — `tdd`, `e2e`, `coverage_target`, `extra_gates` per the strategy + contract |
 | `source:` + the epic path | `source: [planning: EPIC-…, requirements: REQ-…, architecture: ADR-…]` |
 | UI surface (`architecture: ADR-006` + `apps/portal`/`apps/admin`) + linked persona(s) + flow(s) + e2e/component AC | `demo:` block — `applicable` (yes if all hold, else no), `apps`, `personas`, `flows` (see `DEMO-POLICY.md`) |
@@ -84,6 +85,10 @@ Map the GO epic into a brief honoring the engine's `brief contract` (`seed/sourc
   `none`) and carry the AC + the test-tag contract. Do **not** fabricate scenarios.
 - **Never invent AC, constraints, or methodology.** Everything traces to the epic or its cited sources. If a
   required input is missing, STOP at Gate (you should not have reached Compose).
+- **The `## Data & Interface Contract` is altitude-bounded.** Carry only the data/interface shape that
+  **traces** to the epic's behavior + cited ADRs (entities, status enums, transitions, ADR-dictated field
+  obligations). Do **not** fabricate field-level minutiae (column types, regexes, error codes) — that is the
+  engine's (IO's) Design output. Omit the section entirely when the slice introduces no net-new shapes.
 - Carry the **AC-id test-tag contract** through to the brief (each AC's test must be tagged with its AC id) —
   this is what makes the Validate write-back possible.
 
