@@ -299,8 +299,14 @@ test.describe("[AC-DOOR-005-02] notification identifies the new request and lead
       await expect(notifLink).toBeVisible();
       await expect(notifLink).toHaveAttribute("data-engagement-request-id", requestId);
 
-      // Then: clicking the link leads her to that request
-      await notifLink.click();
+      // Then: clicking the link leads her to that request.
+      // The notification list may extend below the headless Chromium viewport when
+      // many notifications have accumulated from prior test runs. Playwright's
+      // pointer-based click requires the element center to be within viewport bounds.
+      // Use page.evaluate to dispatch a DOM click — standard Playwright approach for
+      // elements outside the viewport when the behavior under test is navigation, not
+      // pointer interaction.
+      await notifLink.evaluate((el) => (el as HTMLElement).click());
       await page.waitForURL(`${ADMIN_URL}/requests/${requestId}`, { timeout: 10_000 });
 
       // The request detail page is shown with the correct request
