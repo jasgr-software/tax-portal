@@ -14,7 +14,8 @@
  *   - No real DB connection — all repository calls are mocked.
  *   - Identity guard tested with null identity, CLIENT role, and valid ACCOUNTANT.
  *   - Mirrors apps/admin/src/app/settings/letter-template/actions.test.ts pattern.
- *   - withRequestContext is NOT in this module (admin-pool actions don't use it).
+ *   - withRequestContext is mocked with a pass-through (listServicesForTemplatesAction wraps
+ *     listAllServices() in withRequestContext per ADR-003 SESSION_CONTEXT requirement).
  *
  * ADR-006: Template management is apps/admin ONLY — no portal surface.
  * ADR-005: accountantClerkId sourced exclusively from verified session.
@@ -33,12 +34,14 @@ const {
   mockUpsertTemplateForService,
   mockListAllServices,
   mockRevalidatePath,
+  mockWithRequestContext,
 } = vi.hoisted(() => ({
   mockGetIdentity: vi.fn(),
   mockGetTemplateForService: vi.fn(),
   mockUpsertTemplateForService: vi.fn(),
   mockListAllServices: vi.fn(),
   mockRevalidatePath: vi.fn(),
+  mockWithRequestContext: vi.fn(),
 }));
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -65,6 +68,7 @@ vi.mock("@tax-portal/db", () => ({
   getTemplateForService: mockGetTemplateForService,
   upsertTemplateForService: mockUpsertTemplateForService,
   listAllServices: mockListAllServices,
+  withRequestContext: mockWithRequestContext,
 }));
 
 // ─── Import after mocks are set up ────────────────────────────────────────────
@@ -133,6 +137,10 @@ describe("listServicesForTemplatesAction", () => {
     vi.clearAllMocks();
     mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY);
     mockListAllServices.mockResolvedValue([SERVICE_INDIVIDUAL_TAX, SERVICE_BUSINESS_TAX]);
+    // withRequestContext pass-through — invoke the callback directly so listAllServices is still called
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, fn: () => Promise<unknown>) => fn(),
+    );
   });
 
   it("returns success + service list when ACCOUNTANT", async () => {

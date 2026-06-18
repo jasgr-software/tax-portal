@@ -17,9 +17,10 @@
  * BINDING CONTRACT (TASK-006-001):
  *   getTemplateForService(serviceId)  — admin pool read; returns QuestionnaireTemplateItem | null
  *   upsertTemplateForService(input)   — admin pool write; returns { rowsAffected, action }
- *   listAllServices()                 — admin pool read; returns ServiceListItem[]
- *   BOTH run on the admin pool by design (QuestionnaireTemplate is accountant-owned, no RLS FILTER).
- *   Do NOT wrap in withRequestContext — the admin-pool path is correct per DECISION-G.
+ *   listAllServices()                 — request-pool read; returns ServiceItem[] (MUST be inside withRequestContext)
+ *   getTemplateForService + upsertTemplateForService run on the admin pool by design
+ *   (QuestionnaireTemplate has no RLS FILTER — admin pool is the correct path per DECISION-G).
+ *   listAllServices uses the SESSION_CONTEXT-aware `db` wrapper — wrap in withRequestContext.
  *   The DB BLOCK predicate (TASK-006-001) is defence-in-depth, not the primary guard.
  *
  * // DECISION (TASK-006-002): mirrors letter-template/actions.ts exactly for the identity helper,
@@ -33,6 +34,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { getAuthProvider } from "@tax-portal/auth";
 import {
+  withRequestContext,
   getTemplateForService,
   upsertTemplateForService,
   listAllServices,
@@ -127,7 +129,15 @@ function validateQuestionDef(q: unknown, idx: number): string | null {
  * List all catalog services for the template-picker.
  *
  * Reuses listAllServices from @tax-portal/db (already barrel-exported).
- * ACCOUNTANT-only; uses the admin-pool path (no withRequestContext needed).
+ * ACCOUNTANT-only; listAllServices uses the request-scoped `db` wrapper
+ * (SESSION_CONTEXT-aware) so it MUST be called inside withRequestContext.
+ *
+ * // DECISION (TASK-006-006 bugfix): The TASK-006-002 action comment incorrectly stated
+ * // "no withRequestContext needed — admin-pool path per DECISION-G". That note applied
+ * // to getTemplateForService + upsertTemplateForService (which use getAdminPool()). But
+ * // listAllServices() uses the request-scoped `db` Prisma wrapper and explicitly documents
+ * // "MUST be called inside withRequestContext" (service.ts line 152). Without the wrapper
+ * // the ADR-003 middleware throws "No identity in request context for Service.findMany".
  *
  * @returns ServiceListResult — success + service list, or failure + error string
  */
@@ -138,7 +148,13 @@ export async function listServicesForTemplatesAction(): Promise<ServiceListResul
     return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
   }
 
-  const data = await listAllServices();
+  // listAllServices uses the request-scoped `db` wrapper (SESSION_CONTEXT-aware).
+  // Wrap in withRequestContext so SESSION_CONTEXT is set before the Prisma query executes.
+  const data = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    () => listAllServices(),
+  );
   return { success: true, data };
 }
 
