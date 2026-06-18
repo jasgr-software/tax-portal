@@ -10,88 +10,74 @@
 
 ## Current initiative
 
-**EPIC-005 — DELIVERED.** BRIEF-005 (client onboarding spine + engagement-letter e-sign gate) is **complete and
-merged**: **PR #48 → squash-merged to `main` @ `f879da2`** (Lane B reviewed lane, `--delete-branch`, no
-protection toggle). **All 9 applicable gates satisfied:** gates 1–7 green pre-merge (submission 8/8, SDET Review
-8/8, Overwatch Audit CLEAN, IO design-scan PASS, Container Smoke PASS, SDET Acceptance-validation APPROVED 10/10
-AC, SDET CI gate PASS 423 tests + quality audit CLEAN); **gate 8 (post-merge CI) PASS** — `main` @ `f879da2`,
-workflow `CI` = success AND `Code Quality: Push on main` (CodeQL) = success; **gate 9 N/A** (`Brief-deploys: no`,
-no staging per ADR-007). Reviewed lane cleared two CI hurdles before merge: **nodemailer 9.0.1** security bump
-(GHSA-p6gq-j5cr-w38f) + **3 github-code-quality bot-thread cleanups**. No `BUG-005-POST-*`. RETRO-005 Post-Merge
-Addendum + final scorecard written. **No active slice** — IO eligible to Plan the next slice.
+**EPIC-006 — Intake questionnaire (per-service-type templates + client completion).** BRIEF-006 — **step 2 of
+the onboarding sequence**, on top of the delivered EPIC-005 onboarding spine + letter gate. **Branch:**
+`brief-006-intake-questionnaire` (from `main` @ `3dee2f1`). **Gated:** yes. **Brief-type:** feature ·
+**Brief-deploys:** no. **Phase:** DISPATCH. **7 in-scope AC.**
 
-**Phase 2 status — onboarding gate now open.** EPIC-005 unblocks **EPIC-006 (intake questionnaire)** and
-**EPIC-007 (initial document upload)** — both depend on the onboarding spine and are now next-ready for
-`/orchestrate`. **EPIC-008 (onboarding completion + transition)** is the Phase-2 capstone and needs all three
-(005/006/007). Phase 1 (EPIC-001/004/002/003) all delivered.
+**Dispatch progress (2026-06-18):** TASK-006-001 **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:00:00Z`). HARD tier-3 isolation test independently re-run live: 7/7 PASS. Gate Authoring three-item evidence verified real. Substrate proven — schema, repos, `0006` policy, inventory.md Track-B drift resolved. **Next: dispatch TASK-006-002 (admin template UI) and TASK-006-003 (engagement→service-type resolution) on the proven substrate.** Nothing committed yet (main session owns git; changes in the working tree).
 
-**Carried follow-ups (open at EPIC-005 close):** **SEC-3** (per-connection `SESSION_CONTEXT` /
-`sp_reset_connection` defense-in-depth — tracked hardening, not a defect); **`inventory.md` Track-B drift**
-(missing `0004`/`0005` policy rows + `Engagement`/`LetterTemplate` entities — enumerate at the next infra/
-`packages/db` task); **synthetic `Completed-at` inversion** (Audit Obs 1 — 5th occurrence, capture real clock
-values). **RESOLVED this slice:** the `service.rls.test.ts` + `engagement.ts` comment-drift (rode PR #48) and the
-nodemailer advisory (9.0.1). **Rule sunset:** cross-surface-parity sunset counter reached **3 consecutive
-zero-finding Close-preps** → surfaced for keep/remove; **IO recommendation KEEP**.
+**Goal:** the accountant authors/maintains a **per-service-type** intake-questionnaire template in `apps/admin`
+(the **first per-service-type template** — contrast EPIC-005's single global `LetterTemplate`); the client —
+having passed the EPIC-005 letter gate — reaches step 2 in `apps/portal`, is shown the questionnaire **for their
+engagement's service type** (resolved server-side), completes + submits, and their answers are **recorded against
+the engagement** (the **second client-owned-row family**, with its own ADR-005 isolation policy
+`db/policies/0006-*`). The questionnaire step is satisfied **only on submit**, evaluated server-side in the
+EPIC-005 read model — and stays behind the letter hard gate (not weakened).
 
----
-
-<details><summary><strong>EPIC-005 delivery detail (archived in place — collapse)</strong></summary>
-
-**Branch:** `brief-005-onboarding-spine-engagement-letter` (created from `main` @ `97330ab`, deleted on merge).
-**Gated:** yes. **Brief-type:** feature · **Brief-deploys:** no. **Opened Phase 2 (the onboarding gate).**
-
-**Goal:** stand up the onboarding spine + its first hard gate. On request acceptance (EPIC-003), a minimal
-**`Engagement`** is created in status `New`, linked 1:1 to the accepted `EngagementRequest` and resolved to the
-client `User` (the **first client-owned rows**). The signed-up client opens their engagement in `apps/portal`,
-sees a **three-step onboarding sequence** (letter e-sign → questionnaire → document upload) with steps 2+3
-**server-side-locked** until the engagement letter is **e-signed** (through a **mock `ESignatureProvider`
-seam**, ADR-023/024). On signature the letter is recorded against the engagement + audited and the later steps
-unlock. The accountant edits the engagement-letter template (from a system default) in `apps/admin`; her edited
-content is what the client signs. **10 in-scope AC.**
-
-**Methodology:** gherkin (bind the epic's 10 scenarios) · **e2e-required** (`apps/portal` + `apps/admin`, +
-`e2e:cross-app` for the edit→sign cross-surface path) · tier mapping per ADR-012 (tier-6 e2e / tier-3 service
-integration / tier-2/5 unit-component) · **first client-owned-rows ADR-005 client-isolation policy (HARD
-tier-3)** · container smoke before Validate.
+**Methodology:** gherkin (bind the epic's 7 scenarios; prose-bind until Cucumber tooling lands, per CLAUDE.md) ·
+**e2e-required** both surfaces + `e2e:cross-app` (author→complete loop) · tier map per ADR-012 · **second
+client-owned-rows ADR-005 isolation policy (HARD tier-3)** on the answer rows · correct-template-for-service-type
+(tier-3) · step-satisfied-only-on-submit (tier-3, server-side) · SESSION_CONTEXT on all reads/writes
+(ADR-003 Amendment 1) · cross-surface validate · container smoke before Validate.
 
 **Tier map (from brief / epic sign-off contract):**
-- **e2e (tier 6):** AC-ONBD-001-01/-03, AC-ONBD-002-03, AC-IDNT-007-03.
-- **service integration (tier 3):** AC-ONBD-001-02, AC-ONBD-002-01/-02, AC-ONBD-002-04, + the new
-  client-isolation policy test (ADR-005).
-- **unit/component (tier 2/5):** AC-IDNT-007-01/-02, AC-ONBD-001-03 (progress rendering).
+- **e2e (tier 6):** AC-DASH-012-01/-03 (admin authoring/editing), AC-ONBD-003-01 (correct questionnaire shown),
+  AC-ONBD-003-03 (submit satisfies the step).
+- **service integration (tier 3):** AC-ONBD-003-01 (service-type match server-side), AC-ONBD-003-04 (answers
+  recorded), AC-DASH-012-02 (template↔service-type binding), + the **new client-isolation policy test** (ADR-005)
+  on the answer rows.
+- **unit/component (tier 2/5):** questionnaire rendering + the submit-state transition (not-satisfied→satisfied).
 
-**Task list (8, dependency-ordered):**
+**Task list (7, dependency-ordered):**
 | Task | Status | Impl | AC | Notes |
 | ---- | ------ | ---- | -- | ----- |
-| TASK-005-001 schema (Engagement + onboarding-state + LetterTemplate) + client-isolation RLS policy + tier-3 isolation tests | done | developer | ONBD-001-02/002-01/002-02/002-04 (DB layer) | **Introduces-gate: yes** (FIRST client-owned-rows `sec.pol_Engagement` — three-item evidence: CLIENT-A≠CLIENT-B, anon=ZERO, ACCOUNTANT=all) — SDET APPROVED 2026-06-18T08:15:00Z |
-| TASK-005-002 `packages/esign` provider seam (port + mock binding + fail-closed selector) | done | developer | none (infra) | **Introduces-gate: advisory**; ADR-023/024 §1 — default real, `ALLOW_MOCK_ESIGN` non-prod opt-in; mirror auth `select.ts` (inverted default) — SDET APPROVED 2026-06-18T08:35:00Z |
-| TASK-005-003 engagement creation on accept (extend EPIC-003 `acceptRequest`) + client-link resolution | done | developer | ONBD-001-01 (substrate) | additive to EPIC-003 accept; create Engagement(New) + onboarding-state in the existing audit transaction — SDET APPROVED 2026-06-18T08:52:00Z, committed `53f62a5` |
-| TASK-005-004 letter-template setting UI + actions (admin) — default present, edit persists | done | developer | IDNT-007-01/-02 | `apps/admin` ONLY; consumes delivered -001 `getCurrentLetterTemplate`/`updateLetterTemplate` (admin pool — LetterTemplate has no RLS policy); ACCOUNTANT guard via `getAccountantIdentity()`; default seeded — SDET APPROVED 2026-06-18T09:16:00Z |
-| TASK-005-005 onboarding read model + server-side step-accessibility gate + sign action (portal) | done | developer | ONBD-001-01/-02/-03, ONBD-002-01/-02/-03/-04, IDNT-007-03 | `apps/portal`; client-principal; sign via `ESignatureProvider` port; record evidence + audit; locked step **refused** not hidden — SDET APPROVED 2026-06-18T15:12:00Z, committed `d637418`. Open note-only carry: engagement.ts L433 misleading "parameterised inputs" comment — correct alongside next task touching that fn |
-| TASK-005-006 onboarding sequence UI (portal) — three steps, locked affordances, position/remaining | done | developer | ONBD-001-01/-03 (+ IDNT-007-03 UI, ONBD-002-01/-02/-03 UI) | `apps/portal`; renders the delivered -005 `OnboardingReadModel` + invokes `signEngagementLetterAction`; presents edited template at letter step; **does NOT re-derive gate logic in the client**. Adds no-arg `getMyEngagement()` (FILTER-governed request-pool `findFirst`) + `getMyOnboardingAction()` — no client-supplied id. SDET APPROVED 2026-06-18T17:45:00Z; `data-*` hooks present for -007 |
-| TASK-005-007 e2e + gherkin binding + cross-app (both surfaces) | done | developer | ONBD-001-01/-03, ONBD-002-03, IDNT-007-03 (+ cross-app edit→sign) | **E2e-required; Introduces-gate: advisory** (e-sign mock e2e); bind epic's 10 gherkin scenarios. SDET independently re-ran: portal 33/33, admin 32/32, cross-app 10/10; sign→unlock 3× zero-flake (397/403/409ms); gherkin verbatim, fixture honest, no bypass leak, cross-app loop genuine assertion — SDET APPROVED 2026-06-18T19:47:00Z |
-| TASK-005-008 @demo gallery (admin edit + portal sign→unlock) | done | developer | none (non-gating) | docs/demos/EPIC-005/ — SDET APPROVED 2026-06-18T18:45:00Z. Independent re-run: admin 12/14 (2 new PASS, 2 pre-existing failures confirmed non-regression); portal 10/10 PASS (5 new PASS). 7 distinct PNGs independently verified. IO action required: revert EPIC-001..004 `M` PNGs before commit (`git checkout HEAD -- docs/demos/EPIC-001/ docs/demos/EPIC-002/ docs/demos/EPIC-003/ docs/demos/EPIC-004/`). |
+| TASK-006-001 schema (QuestionnaireTemplate per-service + QuestionnaireAnswer + `Engagement.questionnaireSubmittedAt`) + SECOND client-isolation policy (`0006`) + tier-3 isolation tests | **done** | webapp-developer | ONBD-003-04 / DASH-012-02 / ONBD-003-02 (DB substrate) | **Introduces-gate: yes** (SECOND client-owned-rows `sec.pol_QuestionnaireAnswer` — three-item evidence + HARD tier-3 CLIENT-A≠CLIENT-B). Template write-predicate mirrors `fn_service_write_access` (accountant-only, no FILTER). SDET-APPROVED 2026-06-18T20:00:00Z |
+| TASK-006-002 admin template-management UI + actions (create / bind-to-service / edit) | backlog | webapp-developer | DASH-012-01/-02/-03, ONBD-003-02 (dual-tagged) | `apps/admin` ONLY (ADR-006 fence); mirror EPIC-005 `letter-template/` (admin-pool, `getAccountantIdentity()` guard); per-service-type set, not single row |
+| TASK-006-003 engagement→service-type resolution + correct-template read (tier-3) | backlog | webapp-developer | ONBD-003-01 (server-side match) | DECISION-F: primary service type = first selected by `sortOrder`,`id`; FILTER-governed engagement gate first; absent template → null |
+| TASK-006-004 portal questionnaire step UI (render correct template behind the letter gate) | backlog | webapp-developer | ONBD-003-01 (UI), ONBD-003-03 (UI affordance) | `apps/portal`; consumes EPIC-005 read model `accessible`/`done`; **does NOT re-derive gate logic**; no client-supplied ids; locked/empty/submitted states |
+| TASK-006-005 submit action (record answers + satisfy step) + read-model extension (tier-3) | backlog | webapp-developer | ONBD-003-03 (server-side satisfaction), ONBD-003-04 (recorded), ONBD-003-01 | extends `packages/db/src/onboarding.ts` (`done` from `questionnaireSubmittedAt`, DECISION-I); owner-only BLOCK-governed submit (mirror `recordLetterSignatureAsClient`); gate-checked refusal when unsigned |
+| TASK-006-006 e2e + gherkin binding + cross-app (both surfaces) | backlog | webapp-developer | DASH-012-01/-03, ONBD-003-01/-03 (+ cross-app author→complete) | **E2e-required; Introduces-gate: advisory**; bind epic's 7 scenarios; real letter gate exercised; satisfy-on-submit 3× zero-flake |
+| TASK-006-007 @demo gallery (admin authoring + portal completion) | backlog | webapp-developer | none (non-gating) | docs/demos/EPIC-006/; mirror TASK-005-008; write ONLY EPIC-006 PNGs (prior-epic PNG footgun) |
 
-**Plan artifacts:** design-coherence check **PASS**; full field-level expansion of the brief's `## Data &
-Interface Contract` recorded in the Plan session entry below + bound into the task specs. **No new
-OPEN-QUESTION raised** — the e-sign seam is fully governed by ADR-023 + ADR-024 (both **Accepted**); the
-REQ-AUTH-003 *feature*-AC boundary is already a planning-flagged note in the brief/epic (Phase-3-owned), not an
-IO decision. Reuse surveyed in-repo: `packages/db` `withRequestContext` + `$extends` SET hook + `sec`
-predicate/FILTER-BLOCK policy pattern (`db/policies/0001`/`0004`); the audit seam
-(`recordAuthEvent`/`withAuditTransaction`); the EPIC-003 `acceptRequest` action; `packages/auth` `select.ts`
-fail-closed selector (the e-sign selector mirrors it with the **inverted** default — real-first); `packages/email`
-seam shape; the portal `getAccountantIdentity()` pattern (new portal `getClientIdentity()` mirror).
+**Plan artifacts:** design-coherence check **PASS** (see Plan session entry below). Full field-level expansion of
+the brief's `## Data & Interface Contract` recorded below + bound into TASK-006-001/-002/-003/-005. IO Design
+DECISIONs: **F** (primary service-type resolution = first selected by `sortOrder`,`id`), **G** (template as
+per-`Service` row, `questions` serialized JSON; accountant-owned, no FILTER), **H** (answers as second
+client-owned-row family, one-per-engagement, `0006` isolation policy), **I** (`Engagement.questionnaireSubmittedAt`
+column — onboarding state on `Engagement`, DECISION-B family). **No new OPEN-QUESTION raised** — ADR-005 already
+names `IntakeTemplate` as a planned accountant-managed/client-readable catalog table; the isolation *mechanism*
++ its per-policy test land here, the AUTH-003 *feature* AC remain Phase-3-owned (planning-flagged in brief/epic,
+not an IO invention). All five cited ADRs (003/004/005/006/012) are Accepted and govern the slice end-to-end.
 
-**Phase-2 epic status:** EPIC-005 (this slice) opens Phase 2; EPIC-006/007/008 planned, decomposed. Phase 1
-(EPIC-001/004/002/003) all delivered.
+**Reuse (surveyed live):** `db/policies/0005-engagement-policy.sql` (the ownership-join seam to mirror for the
+answer-row policy); `db/policies/0002-service-readable.sql` `fn_service_write_access` (the accountant-only
+write predicate to mirror for the template); `packages/db/src/repositories/engagement.ts`
+`recordLetterSignatureAsClient` (request-pool, in-batch SESSION_CONTEXT, BLOCK-governed client write — the
+submit primitive's template) + `getMyEngagement` (no-arg FILTER-governed read); `packages/db/src/onboarding.ts`
+(the read model — `intake-questionnaire` step `done` is the documented EPIC-006 extension point); `letter-template.ts`
++ `apps/admin/.../settings/letter-template/` (the accountant template-editor + actions to mirror for
+per-service-type templates); `apps/portal/.../onboarding/` `LetterSignStep.tsx`/`OnboardingSequence.tsx` (the
+step-component + sequence-slot pattern); `packages/db` `withRequestContext` + `$extends` SET hook (ADR-003);
+`engagement.client-isolation.rls.test.ts` (the HARD tier-3 isolation-test harness to mirror).
 
-**Carried infra follow-ups (from prior retros / STATE — may resurface at Smoke, not slice-blocking):**
-clean-volume DB bootstrap; the `sqlserver` healthcheck SA-password mismatch; the `sp_set_session_context` CI
-grep-guard; comment-only `service.rls.test.ts` `@read_only`/§4 drift (rides the next `packages/db` task — and
-TASK-005-001 touches `packages/db`, so it is the natural carrier). These also live in `## Open retro action
-items` below.
-
-</details>
+**Carried follow-ups (from EPIC-005 close / prior retros / STATE — may resurface, not slice-blocking):**
+**`inventory.md` Track-B drift** (missing `0004`/`0005` policy rows + Engagement/LetterTemplate entities —
+**enumerate at TASK-006-001**, which adds `0006` + new entities; natural carrier); **SEC-3** per-connection
+SESSION_CONTEXT/`sp_reset_connection` hardening (tracked, not a defect); **synthetic `Completed-at` inversion**
+(capture real clock values this slice); the `sqlserver` healthcheck SA-password mismatch + clean-volume
+bootstrap/P3019 (infra, surfaces at Smoke). Cross-surface-parity sunset counter at 3 zero-finding Close-preps
+(EPIC-005 IO recommendation KEEP — re-evaluate at this slice's Close-prep).
 
 ## Awaiting PR merge
 
@@ -127,6 +113,15 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 > Carried observations below (RESOLVED items pruned at BRIEF-005 Plan-start: TASK-004-007 `$extends`
 > propagation test + BUG-003-001 RATE_LIMIT `.env.example` vars — both landed in delivered slices).
+>
+> **BRIEF-006 Plan-start triage (2026-06-18):** items below remain observation/`deferred` with explicit reasons
+> (no bare `deferred`). **Actioned this slice:** the **`inventory.md` Track-B drift** (missing `0004`/`0005`
+> policy rows + Engagement/LetterTemplate entities) is assigned to **TASK-006-001**, which adds
+> `db/policies/0006-*` + new entities — the natural carrier; its SDET review enumerates the full Track-B table.
+> **Carried forward (not slice-blocking):** SEC-3 per-connection SESSION_CONTEXT hardening (tracked, not a
+> defect); synthetic `Completed-at` inversion (capture real clock values this slice); the `sqlserver`
+> healthcheck SA-password mismatch + clean-volume bootstrap/P3019 (infra — surfaces at Smoke if a `down -v`
+> rebuild is taken). **Backlog-triage gate: PASS** (`## Awaiting PR merge` empty; `## Active bugs` none).
 
 - **[CI — carried, now actionable] `test-portal` job lacks a `packages/**` build step** — graduate
   `test-portal` to required only after adding `pnpm -r --filter './packages/**' build --if-present` (HANDOFF-004
@@ -418,3 +413,60 @@ Running 33 tests using 1 worker
 **Next-ready:** EPIC-006 (intake questionnaire) + EPIC-007 (initial document upload) now unblocked (both depend on the onboarding spine); EPIC-008 is the capstone (needs 005/006/007).
 **Git boundary:** the IO did **not** commit. File edits made this invocation: `.implementation/tasks/PROGRESS.md`, `.implementation/tasks/RETRO-005.md`, `.implementation/tasks/PROGRESS-ARCHIVE.md`. The main session stages + commits these (docs-lane branch `chore/epic-005-close`) together with the Conductor's `/planning` validate COVERAGE/ROADMAP write-back into one docs-only close-out PR (Lane A — skips the panel, merges on green required CI).
 **End:** Close-finalize exit condition met — gate 8 PASS recorded, gate 9 N/A, zero `BUG-005-POST-*`, Post-Merge Addendum written, slice removed from `## Awaiting PR merge`. **EPIC-005 finalized. `## Current initiative` has no active slice — IO eligible to Plan the next slice.** **IO ends the invocation.** (The Conductor handles the COVERAGE/ROADMAP write-back + the docs-only close-out PR + the run report.)
+
+---
+
+### IO Plan — BRIEF-006 / EPIC-006 — 2026-06-18
+**Start:** New slice (EPIC-005 delivered + finalized; `## Awaiting PR merge` empty — slice-start gate clear; active bugs none; retro items all dispositioned observations). Conductor handed `.implementation/briefs/BRIEF-006-intake-questionnaire.md` (7 AC, gherkin, e2e-required both surfaces, carries a `## Data & Interface Contract`). Ran Plan: Ingest → Clarify → Design (full field-level contract expansion + DECISIONs F–I) → Docker pre-flight → branch → Decompose.
+**Phase-transition reflex (slice-start):** appended a BRIEF-005-close→BRIEF-006-Plan sweep marker to `PROGRESS-ARCHIVE.md` (EPIC-005 delivery detail + all gate-records retained in git history + archived task files + RETRO-005/HANDOFF-005); rewrote `## Current initiative` for BRIEF-006 (7 tasks, tier map, DECISIONs, reuse survey); `## Awaiting PR merge` already empty; carried EPIC-005 follow-ups forward; appended this entry.
+**Docker pre-flight:** PASS — `docker info` → daemon up (main session pre-verified; IO re-confirmed).
+**Context pre-flight:** `/compact` — the Conductor handed this invocation fresh; the IO requests the user run `/compact` before the first Dispatch turn if context pressure appears.
+**Branch:** `brief-006-intake-questionnaire` created from `main` @ `3dee2f1`. (The two uncommitted non-gated files — `.orchestration/STATE.md`, `.planning/EPIC-002-*.md` — are Conductor/planning artifacts; NOT part of this slice; will NOT be committed to the feature branch.)
+
+**Ingest / Clarify — 7 AC all testable, traced to scenarios + tiers:**
+- REQ-ONBD-003 (templated per service type): AC-ONBD-003-01 (tier-6 e2e + tier-3 server-side match), -02 (tier-3 distinct-per-service + dual-tagged admin), -03 (tier-6 e2e + tier-3 server-side satisfaction + tier-2 submit-state), -04 (tier-3 recorded against engagement).
+- REQ-DASH-012 (admin template mgmt): AC-DASH-012-01 (tier-6 e2e create), -02 (tier-3 service-type binding), -03 (tier-6 e2e edit). Dual-tag note honored (AC-ONBD-003-02 ≡ DASH-012 admin capability — a single admin test may carry both tags).
+- Methodology recorded: gherkin (bind epic's 7 scenarios, prose-bind) · e2e both surfaces + cross-app · extra gates: ADR-005 second client-isolation (HARD tier-3) on answer rows, correct-template-for-service-type (tier-3), step-satisfied-only-on-submit (tier-3 server-side), behind-the-letter-gate (not weakened), SESSION_CONTEXT both principals, cross-surface validate, container smoke.
+
+**Design — full field-level expansion of the brief's `## Data & Interface Contract` (binding ref; bound into TASK-006-001/-002/-003/-005):**
+- **`QuestionnaireTemplate` (NEW, dbo, accountant-owned, per `Service`) — DECISION-G:** `id UNIQUEIDENTIFIER PK NEWSEQUENTIALID()`; `serviceId UNIQUEIDENTIFIER NOT NULL UNIQUE` FK→`Service` (`NoAction`; at-most-one-template-per-service-type = AC-ONBD-003-02/DASH-012-02); `questions NVARCHAR(MAX) NOT NULL` = serialized JSON array `[{id,prompt,type:'text'|'textarea',required}]` (serialized over structured rows — v1 static, mirrors `LetterTemplate.content`); `updatedBy NVARCHAR(64) NULL` (accountant clerkId); `createdAt/updatedAt DATETIMEOFFSET`. **No seeded default** (brief: absent template is acceptable starting state — unlike EPIC-005 letter AC-IDNT-007-01). Write boundary: accountant-only `sec.fn_questionnaire_template_write_access` (mirror `fn_service_write_access`); **no client FILTER** (clients read template *content* at step 2 via admin pool, like `getCurrentLetterTemplate`).
+- **`QuestionnaireAnswer` (NEW, dbo, SECOND client-owned-row family) — DECISION-H:** `id PK`; `engagementId UNIQUEIDENTIFIER NOT NULL UNIQUE` FK→`Engagement` (`NoAction`; one submission per engagement v1; AC-ONBD-003-04 "recorded against the engagement"); `templateId UNIQUEIDENTIFIER NOT NULL` FK→`QuestionnaireTemplate` (captures the answered template); `answers NVARCHAR(MAX) NOT NULL` = serialized JSON `{[questionId]:string}`; `submittedAt/createdAt/updatedAt`. Client-owned + isolated under `0006`.
+- **`Engagement.questionnaireSubmittedAt DATETIMEOFFSET NULL` (NEW column) — DECISION-I:** NULL = step-2 unsatisfied; non-null = satisfied. Single source of truth for the read-model `intake-questionnaire` step `done`. Set in the same submit write as the answer row. DECISION-B family (onboarding state as columns on `Engagement`).
+- **`db/policies/0006-questionnaire-policy.sql` (NEW — SECOND client-isolation policy):** mirror `0005`. `sec.fn_questionnaire_answer_access(@answerEngagementId)` ITVF+SCHEMABINDING, three branches (admin / ACCOUNTANT all / **CLIENT-ownership** via `clerk_user_id`→`User`→`Engagement.clientUserId`, keyed on the answer row's `engagementId`); null SESSION_CONTEXT / null clientUserId → ZERO (fail-closed). `sec.pol_QuestionnaireAnswer` = FILTER([engagementId]) + 4 BLOCK. `sec.pol_QuestionnaireTemplate` = 4 BLOCK only (no FILTER; accountant-managed) using `fn_questionnaire_template_write_access([serviceId])`. **HARD tier-3 three-item gate** on the answer rows: CLIENT-A≠CLIENT-B; anonymous=ZERO; ACCOUNTANT=all (+ CLIENT cannot write another's answers; CLIENT cannot write a template).
+- **Service-type resolution — DECISION-F:** `Engagement → EngagementRequest → EngagementRequestService → Service` (request may select MULTIPLE services). v1 keys one questionnaire to one type → primary service type = **first selected ordered by `Service.sortOrder` ASC, then `id` ASC** (deterministic, documented as `// DECISION-F`). Resolution server-side; engagement-ownership FILTER runs FIRST (client must own the engagement before any template resolves); absent template → `template:null` (no throw). No client-supplied serviceId/templateId/engagementId.
+- **Submit contract:** owner-only, request-pool, BLOCK-governed (mirror `recordLetterSignatureAsClient`): one logical op writes the `QuestionnaireAnswer` row + sets `Engagement.questionnaireSubmittedAt`; `rowsAffected=0` → refusal (no satisfaction, no audit for a non-event). Gate-checked: `checkStepAccessibility(engagement,'intake-questionnaire')` refuses when letter unsigned (EPIC-005 gate not weakened).
+- **Read-model extension (`packages/db/src/onboarding.ts`):** `intake-questionnaire` step `done` ← `engagement.questionnaireSubmittedAt != null` (replaces the EPIC-005 `done:false` placeholder + comment "EPIC-006 owns the done flag"). `accessible` UNCHANGED (still `letterSignedAt`-gated). `document-upload` `done` stays false (EPIC-007 owns).
+- **`// DECISION:`s for developers (recorded, to appear in code):** **F** primary service-type resolution; **G** per-service template + serialized-JSON questions, accountant-owned no-FILTER; **H** answers as second client-owned-row family, one-per-engagement, `0006` policy; **I** `Engagement.questionnaireSubmittedAt` onboarding-state column.
+
+**Architecture posture:** **No new OPEN-QUESTION.** ADR-005 already enumerates `IntakeTemplate` (the questionnaire template) as a planned accountant-managed/client-readable catalog table and the answer rows as client-owned — the isolation *mechanism* (the `0006` policy + its per-policy test) lands here; the AUTH-003 *feature* AC remain Phase-3-owned (already planning-flagged in brief + epic, not an IO invention). The shape decisions (F–I) are slice-local implementation calls within the cited ADRs — recorded as `// DECISION:`s, not raised.
+
+**Design-coherence check vs. brief: PASS.** All 7 in-scope AC map to a task + tier; the per-service-type template (first of its kind), the second client-isolation policy + its HARD three-item test on the answer rows, server-side correct-template-for-service-type resolution, server-side step-satisfied-only-on-submit, behind-the-letter-gate honor, SESSION_CONTEXT on both principals, and the two-surface split (admin authoring / portal completion) are all bound into task specs. Out-of-scope fenced (dynamic/conditional organizer logic REQ-ONBD-008 v2, the document-upload step EPIC-007, onboarding completion EPIC-008, lifecycle pipeline Phase 3, AUTH-003 feature AC, accountant answer-review UI Phase 4).
+
+**Decompose:** 7 tasks, dependency-ordered (see task table above). 001 introduces the gate (`yes` — SECOND client-owned-rows policy, three-item evidence + HARD isolation test); 006 advisory (questionnaire e2e suite); 007 non-gating demo. All `Impl: developer` (each touches multiple files / real debugging / cross-pool writes — none qualifies for `Impl: io`). All carry `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`, `E2e-required`, `Brief-deploys: no`.
+**End:** Plan exit condition met — branch created, 7 task files at `backlog` with all required fields, methodology + tier map recorded, full Data-&-Interface-Contract expansion + DECISIONs F–I bound into specs, design-coherence PASS, PROGRESS.md `## Current initiative` populated. → **Dispatch** (TASK-006-001 first; dependency-free root: schema + second client-isolation policy + tier-3 isolation tests).
+
+
+### SDET Review — TASK-006-001 — BRIEF-006 — 2026-06-18T20:00:00Z
+**Start:** Review of TASK-006-001 (gate-introducing root: `QuestionnaireTemplate` per-service + SECOND client-owned-rows `QuestionnaireAnswer` + `Engagement.questionnaireSubmittedAt` + `db/policies/0006-*` + tier-3 isolation/persistence tests). `Introduces-gate: yes`.
+**Actions:**
+- Docker pre-flight: PASS — `docker info` → 29.4.1, `tax-portal-sqlserver` up (unhealthy SA-password carried per precedent; app principals operational via port 14330).
+- Mandatory rejection checks: all PASS (pre-implementation Work Log entry present; `Started-at: 2026-06-18T19:22:11Z` real timestamp; `Complexity-estimate: 4` / `Complexity-actual: 4` both ∈ 1–5; all required task-spec fields present; no tool-hygiene violations; submission gate evidence recorded).
+- Gate Authoring three-item evidence (ENGINE.md § Gate Authoring Rules — `Introduces-gate: yes`): VERIFIED. (1) Run marker + exact test names + "7 passed (7)" real output. (2) Named code path = CLIENT-ownership EXISTS branch in `sec.fn_questionnaire_answer_access` (`db/policies/0006-questionnaire-policy.sql` lines 105–110). (3) Dual counterfactual (removing EXISTS branch fails positive; removing FILTER fails isolation). All three real and specific.
+- HARD tier-3 isolation test re-run independently against live `tax-portal-sqlserver`: `pnpm --filter @tax-portal/db test -- src/questionnaire-answer.client-isolation.rls.test.ts` → **7/7 PASS (226ms)**. All ADR-005 §6 required cases present and passing: CLIENT-A reads own (1 row); CLIENT-B sees ZERO for CLIENT-A; null SESSION_CONTEXT = ZERO; ACCOUNTANT reads both; CLIENT cannot UPDATE another client's answers (rowsAffected=0, admin read-back unchanged); CLIENT cannot INSERT QuestionnaireTemplate (no CLIENT branch → blocked); admin pool reads both (RLS-exempt).
+- Ownership-join correctness: `fn_questionnaire_answer_access` joins `User.clerkId → Engagement.clientUserId → Engagement.id = @answerEngagementId`. NULL SESSION_CONTEXT → fail-closed (CAST(NULL) matches no clerkId). NULL clientUserId → fail-closed (DECISION-A — unassigned engagement invisible). Both confirmed by tests 2/3.
+- Template write-boundary: `fn_questionnaire_template_write_access` mirrors `fn_service_write_access` (admin + ACCOUNTANT, NO CLIENT branch, fail-closed). `pol_QuestionnaireTemplate` BLOCK only, NO FILTER. Test 6 confirms CLIENT INSERT is blocked.
+- ADR-003 Amendment 1: all `sp_set_session_context` calls use `@read_only = 0`. No `@read_only = 1` anywhere in new files.
+- Schema conventions (ADR-002): `NEWSEQUENTIALID()` PKs; `DATETIMEOFFSET` timestamps; `@unique` on `QuestionnaireTemplate.serviceId` + `QuestionnaireAnswer.engagementId`; `onDelete: NoAction` on all FKs. All correct.
+- Persistence tests re-run independently: `pnpm --filter @tax-portal/db test -- src/questionnaire.persistence.test.ts` → **6/6 PASS**. Template upsert create/update/distinct/null-missing verified; `submitQuestionnaireAnswer` records answer row + sets `questionnaireSubmittedAt`; uniqueness constraint enforced.
+- Full suite: `pnpm --filter @tax-portal/db test` → **101/101 PASS (16 test files, 3.19s)**. All EPIC-005 tests regression-clean.
+- `inventory.md` Track-B enumeration: `0004`/`0005`/`0006` all listed; Track-A entity table complete (`Engagement`, `LetterTemplate`, `QuestionnaireTemplate`, `QuestionnaireAnswer` + all prior). RETRO-005 carry actioned.
+- AC coverage: AC-ONBD-003-04 (isolation + persistence), AC-DASH-012-02 (template upsert + serviceId binding), AC-ONBD-003-02 (one-per-service uniqueness), AC-ONBD-003-03 (questionnaireSubmittedAt = step satisfied) — all covered by tagged tests.
+- Non-blocking semantic note: `submitQuestionnaireAsClient` `SELECT @@ROWCOUNT` captures UPDATE rowcount, not INSERT rowcount — functionally correct for v1 (deny case: both INSERT+UPDATE blocked → 0; success case: both succeed → 1). Consistent with `recordLetterSignatureAsClient` precedent. Not a defect.
+- Atomic close: tick SDET Review box; SDET Review prose filled; approval breadcrumb appended to Work Log; `Status: review → done`; `Completed-at: 2026-06-18T20:00:00Z` (≥ `Started-at: 2026-06-18T19:22:11Z` — RETRO-005 carry honored).
+**End:** TASK-006-001 **APPROVED**. The SECOND client-owned-rows isolation policy (`sec.pol_QuestionnaireAnswer`) is gate-introduced with full three-item evidence, independently HARD-tested live. Schema/repos/policy substrate proven. IO may dispatch TASK-006-002 (admin template UI) and TASK-006-003 (resolution) on this substrate.
+
+### IO Dispatch — TASK-006-001 returned → SDET review — BRIEF-006 — 2026-06-18
+**Start:** Resumed mid-Dispatch. TASK-006-001 (the gate-introducing root: `QuestionnaireTemplate` per-service + second client-owned-rows `QuestionnaireAnswer` + `Engagement.questionnaireSubmittedAt` + `db/policies/0006-*` + tier-3 isolation/persistence tests) returned at `Status: review` from webapp-developer.
+**Actions:** Read core docs (ENGINE/PHASES/PROGRESS) + the full TASK-006-001 file. Confirmed: submission gate evidence present (lint/type-check/build PASS; 101/16 db tests incl. 7 HARD isolation + 6 persistence); Dispatch-Checkpoint pre-impl Work Log entry present with real `Started-at` (2026-06-18T19:22:11Z, no midnight sentinel — RETRO-005 carry actioned); `Complexity-actual: 4` in range; three-item Gate Authoring evidence present (run marker + named CLIENT-ownership EXISTS branch + dual counterfactual). Flipped TASK-006-001 `backlog`→`review` in the task table; recorded dispatch-progress note in `## Current initiative`.
+**Dispatch ordering decision:** review TASK-006-001 **before** dispatching any of 002–005. It is the dependency-free root *and* the gate-introducer; tasks 002–005 all build on its schema/repos/policy. A policy or schema defect must be caught before three tasks layer on it. One-dispatch-per-turn honored.
+**End:** Composed the single SDET review dispatch for TASK-006-001 (gate-intro focus: three-item evidence verification + HARD tier-3 isolation re-run against the real container + ownership-join fail-closed + template write-boundary + inventory.md Track-B enumeration). On return: if APPROVED → dispatch TASK-006-002 (admin template UI) and TASK-006-003 (resolution) can both follow on the now-proven substrate; if REJECTED → fix-forward dispatch to webapp-developer.

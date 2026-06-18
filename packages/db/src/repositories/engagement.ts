@@ -10,6 +10,9 @@
  * AC-ONBD-002-04: The signed engagement letter is recorded against the engagement.
  *   → recordLetterSignature sets letterSignedAt + evidence + snapshot.
  *
+ * EPIC-006 (TASK-006-001): Added questionnaireSubmittedAt field to EngagementItem.
+ *   The questionnaire step's done flag is derived from this field in the onboarding read model.
+ *
  * Pool strategy:
  *   - createEngagement: ADMIN POOL (app_admin_role, RLS-exempt).
  *     Engagement is created at accept-time inside withAuditTransaction (TASK-005-003),
@@ -92,6 +95,8 @@ export interface EngagementItem {
   letterSignatureEvidence: string | null;
   /** Template content snapshot at sign time (DECISION-C). NULL until signed. */
   letterTemplateSnapshot: string | null;
+  /** DECISION-I (EPIC-006): NULL = questionnaire step not satisfied; non-null = satisfied (AC-ONBD-003-03/-04). */
+  questionnaireSubmittedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -122,6 +127,8 @@ type EngagementRow = {
   letterSignedAt: Date | null;
   letterSignatureEvidence: string | null;
   letterTemplateSnapshot: string | null;
+  /** DECISION-I (EPIC-006): questionnaire-step satisfaction marker. */
+  questionnaireSubmittedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -451,6 +458,7 @@ function mapRow(row: {
   letterSignedAt: Date | null;
   letterSignatureEvidence: string | null;
   letterTemplateSnapshot: string | null;
+  questionnaireSubmittedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): EngagementItem {
@@ -462,6 +470,7 @@ function mapRow(row: {
     letterSignedAt: row.letterSignedAt,
     letterSignatureEvidence: row.letterSignatureEvidence,
     letterTemplateSnapshot: row.letterTemplateSnapshot,
+    questionnaireSubmittedAt: row.questionnaireSubmittedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

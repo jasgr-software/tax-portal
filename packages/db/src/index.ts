@@ -17,8 +17,8 @@ export { db, adminDb } from "./client.js";
 export { withClerkIdentity, withRequestContext, currentRequestContext } from "./context.js";
 
 // Re-export Prisma types so consumers don't need to import @prisma/client directly.
-// This includes EngagementRequest, Notification, Service, User, Engagement, LetterTemplate
-// model types, and Prisma namespace.
+// This includes EngagementRequest, Notification, Service, User, Engagement, LetterTemplate,
+// QuestionnaireTemplate, QuestionnaireAnswer model types, and Prisma namespace.
 export type {
   EngagementRequest,
   Notification,
@@ -27,6 +27,8 @@ export type {
   User,
   Engagement,
   LetterTemplate,
+  QuestionnaireTemplate,
+  QuestionnaireAnswer,
   Prisma,
 } from "@prisma/client";
 
@@ -119,3 +121,37 @@ export type {
   UpdateLetterTemplateInput,
 } from "./repositories/letter-template.js";
 export { getCurrentLetterTemplate, updateLetterTemplate } from "./repositories/letter-template.js";
+
+// QuestionnaireTemplate repository (EPIC-006 / TASK-006-001)
+// getTemplateForService    — admin pool read (accountant-managed; clients read via admin pool at step 2)
+// upsertTemplateForService — admin pool write (accountant-only; AC-DASH-012-01/-02/-03)
+// listTemplates            — admin pool read (admin UI listing; AC-DASH-012-01/-03)
+//
+// NOT on this barrel (substrate/test-only):
+//   submitQuestionnaireAnswer — admin-pool write that bypasses BLOCK; import from source module.
+export type {
+  QuestionDef,
+  QuestionnaireTemplateItem,
+  UpsertTemplateInput,
+} from "./repositories/questionnaire-template.js";
+export {
+  getTemplateForService,
+  upsertTemplateForService,
+  listTemplates,
+} from "./repositories/questionnaire-template.js";
+
+// QuestionnaireAnswer repository (EPIC-006 / TASK-006-001)
+// getMyQuestionnaireAnswer      — request pool read (sec.pol_QuestionnaireAnswer FILTER enforces isolation)
+// submitQuestionnaireAsClient   — REQUEST POOL submit write (BLOCK-governed; production path)
+//                                 Sets QuestionnaireAnswer row + Engagement.questionnaireSubmittedAt.
+//
+// NOT on this barrel (substrate/test-only):
+//   submitQuestionnaireAnswer — admin-pool write that bypasses BLOCK; import from source module.
+export type {
+  QuestionnaireAnswerItem,
+  SubmitQuestionnaireInput,
+} from "./repositories/questionnaire-answer.js";
+export {
+  getMyQuestionnaireAnswer,
+  submitQuestionnaireAsClient,
+} from "./repositories/questionnaire-answer.js";

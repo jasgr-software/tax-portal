@@ -10,14 +10,15 @@
  * AC-ONBD-002-01: questionnaire step is inaccessible (refused, not hidden) while letterSignedAt is NULL.
  * AC-ONBD-002-02: document-upload step is inaccessible (refused, not hidden) while letterSignedAt is NULL.
  * AC-ONBD-002-03: sign → steps 2/3 become accessible.
+ * AC-ONBD-003-03: questionnaire step is done only when questionnaireSubmittedAt is non-null (EPIC-006).
  *
  * DECISION (TASK-005-005): Step accessibility is derived server-side from letterSignedAt + the
  * fixed step order — it is NEVER stored as a separate column. This is drift-free (no two sources
  * of truth) and means a sign action atomically unlocks steps 2/3 at the DB layer.
  *
- * DECISION (TASK-005-005): Steps 2/3 are gated by `letterSignedAt != null`. Future steps
- * (EPIC-006 questionnaire, EPIC-007 document-upload) may add their own `done` fields —
- * this module will be updated when those slices land.
+ * DECISION (TASK-005-005): Steps 2/3 are gated by `letterSignedAt != null`. EPIC-006 adds
+ * the questionnaire step's `done` flag via `questionnaireSubmittedAt` (DECISION-I / TASK-006-001).
+ * EPIC-007 will add the document-upload step's `done` flag when that slice lands.
  */
 
 import type { EngagementItem } from "./repositories/engagement.js";
@@ -85,11 +86,14 @@ export interface StepRefusal {
  * AC-ONBD-001-03: currentStep + remaining derived from state.
  * AC-ONBD-002-01/-02: steps 2/3 are accessible: false until letterSignedAt is set.
  * AC-ONBD-002-03: once letterSignedAt is non-null, steps 2/3 become accessible: true.
+ * AC-ONBD-003-03: intake-questionnaire step is done when questionnaireSubmittedAt is non-null (EPIC-006).
  *
  * @param engagement — the EngagementItem (already fetched under client's SESSION_CONTEXT / FILTER).
  */
 export function resolveOnboarding(engagement: EngagementItem): OnboardingReadModel {
   const signed = engagement.letterSignedAt != null;
+  // DECISION-I (EPIC-006): questionnaire step done flag from questionnaireSubmittedAt (AC-ONBD-003-03)
+  const questionnaireDone = engagement.questionnaireSubmittedAt != null;
 
   const steps: [OnboardingStep, OnboardingStep, OnboardingStep] = [
     {
@@ -100,7 +104,7 @@ export function resolveOnboarding(engagement: EngagementItem): OnboardingReadMod
     {
       key: "intake-questionnaire",
       accessible: signed,        // AC-ONBD-002-01: locked until signed
-      done: false,               // EPIC-006 owns the done flag for this step
+      done: questionnaireDone,   // AC-ONBD-003-03: done once questionnaireSubmittedAt is set (EPIC-006)
     },
     {
       key: "document-upload",

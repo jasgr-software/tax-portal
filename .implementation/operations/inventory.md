@@ -169,7 +169,7 @@ dev operations. See `.env.example` for the full URL form.
 Bookkeeping table: `dbo.__db_migrations` — stores applied filenames with timestamps. Created on first
 run by the migration runner. Not managed by Prisma.
 
-### Track B file inventory (post-TASK-004-010)
+### Track B file inventory (post-TASK-006-001)
 
 | File | Contents | Added by |
 |------|----------|----------|
@@ -178,6 +178,23 @@ run by the migration runner. Not managed by Prisma.
 | `db/policies/0001-engagement-request-policy.sql` | `sec.pol_EngagementRequest` — accountant/admin read, no CLIENT (early Epic-001 state) | TASK-003 |
 | `db/policies/0002-service-readable.sql` | `sec.pol_Service` — accountant/admin/CLIENT read, admin/accountant mutate | TASK-003 |
 | `db/policies/0003-audit-event-policy.sql` | `sec.pol_AuditEvent` — **accountant/admin read ONLY, CLIENT denied entirely** (ADR-019 §4) | TASK-004-010 |
+| `db/policies/0004-notification-policy.sql` | `sec.pol_Notification` — accountant/admin read, no CLIENT branch (accountant-only inbox) | TASK-003 |
+| `db/policies/0005-engagement-policy.sql` | `sec.pol_Engagement` — FIRST client-owned-rows policy; FILTER+BLOCK; CLIENT-ownership via User.clerkId → Engagement.clientUserId | TASK-005-001 |
+| `db/policies/0006-questionnaire-policy.sql` | SECOND client-owned-rows policy; `sec.pol_QuestionnaireAnswer` (FILTER+BLOCK, CLIENT ownership via Engagement → User.clerkId) + `sec.pol_QuestionnaireTemplate` (BLOCK only, accountant-write, no CLIENT branch — mirrors fn_service_write_access) | TASK-006-001 |
+
+### Track A (Prisma) entity inventory (post-TASK-006-001)
+
+| Entity | Table | RLS coverage | Added by |
+|--------|-------|-------------|----------|
+| `Service` | `dbo.Service` | `sec.pol_Service` (FILTER+BLOCK) | EPIC-002 |
+| `EngagementRequest` | `dbo.EngagementRequest` | `sec.pol_EngagementRequest` (FILTER) | EPIC-001 |
+| `EngagementRequestService` | `dbo.EngagementRequestService` | Via EngagementRequest policy | EPIC-001 |
+| `User` | `dbo.User` | `sec.pol_User` (tracked in 0001) | EPIC-004 |
+| `Engagement` | `dbo.Engagement` | `sec.pol_Engagement` (FIRST client-owned-rows — FILTER+BLOCK) | TASK-005-001 |
+| `LetterTemplate` | `dbo.LetterTemplate` | None (accountant-managed; not client-readable) | TASK-005-001 |
+| `Notification` | `dbo.Notification` | `sec.pol_Notification` (accountant-only read) | TASK-003 |
+| `QuestionnaireTemplate` | `dbo.QuestionnaireTemplate` | `sec.pol_QuestionnaireTemplate` (BLOCK only, accountant-write, no CLIENT branch) | TASK-006-001 |
+| `QuestionnaireAnswer` | `dbo.QuestionnaireAnswer` | `sec.pol_QuestionnaireAnswer` (SECOND client-owned-rows — FILTER+BLOCK) | TASK-006-001 |
 
 ---
 
