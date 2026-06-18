@@ -190,6 +190,63 @@ export async function createEngagement(
   return { id: newEngagement.id, status: newEngagement.status };
 }
 
+// ─── Write: updateEngagementClientUserId (admin pool — back-fill at sign-up) ─
+
+/**
+ * Back-fills the clientUserId on an Engagement that was created at accept-time
+ * with clientUserId=NULL (DECISION-A).
+ *
+ * DECISION-A (TASK-005-003): This is the resolution step for the client-link back-fill seam.
+ * Called at sign-up time when the User row exists and the engagementRequestId can be resolved
+ * from the invitation ticket. Under the mock binding this function is NOT called (the mock
+ * validateInvitationTicket cannot resolve a specific engagementRequestId — see DECISION-A
+ * comment in apps/portal/src/app/(public)/sign-up/actions.ts). When the real Clerk binding
+ * lands and inserts the User row, the caller provides the correct engagementRequestId and
+ * this UPDATE joins the same withAuditTransaction — no re-architecture needed.
+ *
+ * Uses admin pool (RLS-exempt) because:
+ *   - The Engagement BLOCK predicate prevents CLIENT-owned rows from being written under
+ *     CLIENT SESSION_CONTEXT at accept-time (before the clientUserId FK is known).
+ *   - The sign-up seam runs inside withAuditTransaction (admin pool transaction).
+ *   - Once back-filled, subsequent writes go through the normal request-pool path.
+ *
+ * @param engagementRequestId — the engagementRequestId FK linking the Engagement to back-fill.
+ * @param clientUserId — the newly-created User.id to set as the clientUserId FK.
+ * @param transaction — optional mssql Transaction for atomic commit with audit row.
+ * @returns { rowsAffected: number } — 1 on success, 0 if no matching engagement found.
+ */
+export async function updateEngagementClientUserId(
+  engagementRequestId: string,
+  clientUserId: string,
+  transaction?: InstanceType<typeof mssqlPkg.Transaction>,
+): Promise<{ rowsAffected: number }> {
+  let req: InstanceType<typeof MssqlRequest>;
+
+  if (transaction) {
+    req = new MssqlRequest(transaction);
+  } else {
+    const pool = await getAdminPool();
+    req = new MssqlRequest(pool);
+  }
+
+  req.input("engagementRequestId", engagementRequestId);
+  req.input("clientUserId", clientUserId);
+
+  const result = await req.query<{ rowsAffected: number }>(
+    `UPDATE [dbo].[Engagement]
+     SET [clientUserId] = @clientUserId,
+         [updatedAt] = SYSDATETIMEOFFSET()
+     WHERE [engagementRequestId] = @engagementRequestId
+       AND [clientUserId] IS NULL;
+     SELECT @@ROWCOUNT AS rowsAffected;`
+  );
+
+  const rowsAffected =
+    (result.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+  return { rowsAffected };
+}
+
 // ─── Read: getEngagementForClient (request pool — subject to RLS) ─────────────
 
 /**

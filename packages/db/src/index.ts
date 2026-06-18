@@ -95,6 +95,7 @@ export {
   getEngagementForClient,
   getEngagementByRequestId,
   recordLetterSignature,
+  updateEngagementClientUserId,
 } from "./repositories/engagement.js";
 
 // LetterTemplate repository (EPIC-005 / TASK-005-001)

@@ -77,6 +77,7 @@ import {
   AlreadyDecidedError,
   recordAuthEvent,
   withAuditTransaction,
+  createEngagement,
 } from "@tax-portal/db";
 import type { NotificationItem } from "@tax-portal/db";
 
@@ -293,7 +294,19 @@ export async function acceptRequest(requestId: string): Promise<DecisionResult> 
       // Throws AlreadyDecidedError if status is not pending/awaiting_review (AC-DOOR-006-05)
       await acceptEngagementRequest(requestId, ticket, txn);
 
+      // DECISION-A (TASK-005-003 / AC-ONBD-001-01): Create the minimal Engagement in status 'New'
+      // co-committed with the accept + audit row. clientUserId is NULL at accept-time — the
+      // prospect has not signed up yet. The back-fill happens at sign-up (portal/sign-up/actions.ts).
+      // Under the mock binding: clientUserId stays NULL (the isolation policy keys on it;
+      // NULL → zero rows for any CLIENT principal → fail-closed default per DECISION-A).
+      // When the real Clerk binding lands, the sign-up seam resolves and back-fills clientUserId
+      // in the same sign-up withAuditTransaction — no re-architecture needed.
+      // Do NOT set status explicitly — 'New' comes from the DB DEFAULT (single source of truth).
+      await createEngagement({ engagementRequestId: requestId }, txn);
+
       // Audit row (ADR-019): accept is a security-significant action
+      // ADR-019 additive: no second audit row for engagement creation — the
+      // engagement_request.accepted event above already covers the accept.
       await recordAuthEvent({
         actor: { clerkUserId: identity.clerkUserId, role: identity.role },
         action: "engagement_request.accepted",
