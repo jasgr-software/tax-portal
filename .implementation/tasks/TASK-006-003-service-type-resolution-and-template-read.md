@@ -1,16 +1,16 @@
 # TASK-006-003: Engagement → service-type resolution + correct-questionnaire-for-service-type read (tier-3)
 
 **Brief**: BRIEF-006
-**Status**: backlog
+**Status**: done
 **Assigned to**: webapp-developer
 **Depends on**: TASK-006-001
 **Impl**: developer
 **E2e-required**: no <!-- correctness proven at tier-3; e2e in TASK-006-006 -->
-**Updated-by**: —
-**Started-at**: —
-**Completed-at**: —
-**Complexity-estimate**: —
-**Complexity-actual**: —
+**Updated-by**: sdet
+**Started-at**: 2026-06-18T20:10:28Z
+**Completed-at**: 2026-06-18T20:23:09Z
+**Complexity-estimate**: 3
+**Complexity-actual**: 3
 
 **Acceptance criteria:** AC-ONBD-003-01 (service-type match resolved server-side)
 **Upstream refs:** ADR-003, ADR-005, ADR-012, REQ-ONBD-003
@@ -23,11 +23,11 @@
 
 ## Quality Gates
 
-- [ ] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
-- [ ] **Submission gate** — lint + type-check + build + brief-mandated tests pass (commands in CLAUDE.md)
+- [x] **Work Log complete** — every status change has breadcrumbs (what done · what next · blockers)
+- [x] **Submission gate** — lint + type-check + build + brief-mandated tests pass (commands in CLAUDE.md)
 - [N/A] **Targeted e2e** — N/A (tier-3 correctness here; e2e in TASK-006-006)
-- [ ] **Security review** — no client-supplied serviceId/templateId; resolution server-side under FILTER
-- [ ] **SDET Review** — approved
+- [x] **Security review** — no client-supplied serviceId/templateId; resolution server-side under FILTER
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -61,10 +61,10 @@ AC-ONBD-003-01 — "the intake questionnaire a client completes corresponds to t
 
 ## Tests to Write First
 
-- [ ] `[AC-ONBD-003-01] resolves the template bound to the engagement's primary service type` — expected: the right template
-- [ ] `[AC-ONBD-003-01] multi-service request resolves a deterministic primary service type (sortOrder, then id)` — expected: stable choice
-- [ ] `[AC-ONBD-003-01] engagement whose service type has no template → template: null (no throw)` — expected: clean null
-- [ ] `[ADR-005] a non-owning CLIENT resolving another's engagement → null (FILTER fail-closed)` — expected: null
+- [x] `[AC-ONBD-003-01] resolves the template bound to the engagement's primary service type` — expected: the right template
+- [x] `[AC-ONBD-003-01] multi-service request resolves a deterministic primary service type (sortOrder, then id)` — expected: stable choice
+- [x] `[AC-ONBD-003-01] engagement whose service type has no template → template: null (no throw)` — expected: clean null
+- [x] `[ADR-005] a non-owning CLIENT resolving another's engagement → null (FILTER fail-closed)` — expected: null
 
 ## Implementation Notes
 
@@ -74,14 +74,32 @@ AC-ONBD-003-01 — "the intake questionnaire a client completes corresponds to t
 
 ## Definition of Done
 
-- [ ] `getQuestionnaireForEngagement` + `getMyQuestionnaire` resolve correctly and fail-closed for non-owners
-- [ ] Multi-service tiebreak deterministic + documented as `// DECISION-F`
-- [ ] Absent-template returns null cleanly
-- [ ] Tier-3 test passes against the real container DB; lint + type-check + build pass
+- [x] `getQuestionnaireForEngagement` + `getMyQuestionnaire` resolve correctly and fail-closed for non-owners
+- [x] Multi-service tiebreak deterministic + documented as `// DECISION-F`
+- [x] Absent-template returns null cleanly
+- [x] Tier-3 test passes against the real container DB; lint + type-check + build pass
 
 ---
 
 ## Work Log
+
+### 2026-06-18 [webapp-developer] Starting implementation — getQuestionnaireForEngagement + getMyQuestionnaire resolver + tier-3 test | What's next: write test file first (TDD), then implement resolver in questionnaire-template.ts, barrel-export in index.ts | Blockers: none
+
+### 2026-06-18 [webapp-developer] Implementation complete — submission gate passed | What was done: (1) Wrote tier-3 test file `packages/db/src/questionnaire-resolution.rls.test.ts` first (6 tests covering all 4 spec cases: correct-template, multi-service tiebreak, absent-template null, non-owner null). (2) Implemented `getQuestionnaireForEngagement(engagementId)` + `getMyQuestionnaire()` in `packages/db/src/repositories/questionnaire-template.ts` — request-pool engagement visibility gate first, then admin-pool service join (DECISION-F ORDER BY sortOrder ASC, id ASC), then admin-pool template read. (3) Added `QuestionnaireForEngagement` type. (4) Barrel-exported new type + functions from `packages/db/src/index.ts`. | Gate results: `pnpm lint` PASS (0 warnings), `pnpm type-check` PASS (0 errors), `pnpm build` PASS (all apps + packages), `pnpm --filter @tax-portal/db test -- questionnaire-resolution.rls.test.ts`: 6/6 passed (including FILTER fail-closed for non-owner, absent-template null, DECISION-F tiebreak), full DB suite: 107/107 passed (17 test files), portal: 75/75, admin: 184/184. | What's next: SDET review | Blockers: none
+
+**Tier-3 test output (questionnaire-resolution.rls.test.ts):**
+```
+ ✓ src/questionnaire-resolution.rls.test.ts (6 tests) 346ms
+   ✓ getQuestionnaireForEngagement — service-type resolution (tier-3 integration) > [AC-ONBD-003-01] resolves the template bound to the engagement's primary service type 62ms
+   ✓ getQuestionnaireForEngagement — service-type resolution (tier-3 integration) > [AC-ONBD-003-01] multi-service request resolves a deterministic primary service type (DECISION-F: sortOrder ASC, then id ASC) 6ms
+   ✓ getQuestionnaireForEngagement — service-type resolution (tier-3 integration) > [AC-ONBD-003-01] engagement whose service type has no template → template: null (no throw) 6ms
+   ✓ getQuestionnaireForEngagement — service-type resolution (tier-3 integration) > [ADR-005] non-owning CLIENT resolving another's engagement → null (FILTER fail-closed) 2ms
+   ✓ getMyQuestionnaire — no-arg FILTER-governed resolver (tier-3 integration) > [AC-ONBD-003-01] getMyQuestionnaire resolves the caller's engagement questionnaire (no client-supplied id) 15ms
+   ✓ getMyQuestionnaire — no-arg FILTER-governed resolver (tier-3 integration) > [ADR-005] client with no visible engagement → getMyQuestionnaire returns null (fail-closed) 2ms
+ Test Files  1 passed (1) | Tests  6 passed (6)
+```
+
+### 2026-06-18 [sdet] APPROVED — all gates pass | What was done: Independent tier-3 run 6/6 PASS (live SQL Server); lint PASS; type-check PASS; security gate order verified (FILTER first, admin pool after); DECISION-F determinism verified live; absent-template null verified live; ADR-006 fence clean; barrel exports complete; metadata contract complete | What's next: IO dispatches TASK-006-004 | Blockers: none
 
 ## Attempt Log
 
@@ -89,5 +107,21 @@ AC-ONBD-003-01 — "the intake questionnaire a client completes corresponds to t
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All mandatory checks passed. Docker pre-flight: PASS (v29.4.1). Independent gate run: `pnpm --filter @tax-portal/db test -- questionnaire-resolution.rls.test.ts` → 6/6 PASS (confirmed live against real SQL Server container; results identical to developer-reported output). `pnpm lint` → zero warnings/errors. `pnpm type-check` → zero errors.
+
+Security gate order verified in code: Step 1 is the request-pool `findUnique` under `sec.pol_Engagement` FILTER (fail-closed before any admin-pool call); only after the engagement is confirmed visible does the resolver proceed to Step 2 (admin-pool service join) and Step 3 (admin-pool template read). Non-owner case (`clientBClerkId` resolving `clientAEngagementId`) returns `null` — FILTER fail-closed proven live.
+
+DECISION-F tiebreak (`sortOrder ASC, id ASC`) present as both a `// DECISION:` comment in the JSDoc and inline in the SQL `ORDER BY` clause. Multi-service test seeds two services with sortOrder 5 and 10, asserts lower-sortOrder wins — determinism verified live.
+
+Absent-template case: `serviceSameSortLowerId` has no `QuestionnaireTemplate` row; resolver returns `{ ..., template: null }` without throwing — live test confirms.
+
+ADR-006 fence: no portal-only or admin-only coupling in `packages/db`; `dbAsEngagementClientForQuestionnaire` and all resolver logic are shared-package concerns only.
+
+Barrel exports: `QuestionnaireForEngagement` (type), `getQuestionnaireForEngagement`, `getMyQuestionnaire` all exported from `packages/db/src/index.ts`; `dbAsEngagementClientForQuestionnaire` (internal cast helper) correctly NOT exported.
+
+Metadata contract: `Started-at: 2026-06-18T20:10:28Z` (real clock, not midnight sentinel), `Complexity-estimate: 3`, `Complexity-actual: 3` — all present. Pre-implementation dispatch-checkpoint Work Log entry present and precedes all other file edits. `Introduces-gate: no` — Gate Authoring Rules three-item check N/A.
+
+`getMyQuestionnaire` double-FILTER behavior (`findFirst` then `getQuestionnaireForEngagement` → `findUnique`) is labeled belt-and-suspenders in code comments; both run under the same `SESSION_CONTEXT` / `withClerkIdentity` scope — safe redundancy, not a security gap.
+
+No `$()`, no `cd &&`, no `sudo`, no `| tail`, no heredoc-over-Write, no `claude -p` in Work Log. Tool hygiene clean.

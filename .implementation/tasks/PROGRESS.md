@@ -15,7 +15,7 @@ the onboarding sequence**, on top of the delivered EPIC-005 onboarding spine + l
 `brief-006-intake-questionnaire` (from `main` @ `3dee2f1`). **Gated:** yes. **Brief-type:** feature ·
 **Brief-deploys:** no. **Phase:** DISPATCH. **7 in-scope AC.**
 
-**Dispatch progress (2026-06-18):** TASK-006-001 **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:00:00Z`). HARD tier-3 isolation test independently re-run live: 7/7 PASS. Gate Authoring three-item evidence verified real. Substrate proven — schema, repos, `0006` policy, inventory.md Track-B drift resolved. **TASK-006-002 (admin template UI) returned `Status: review`** (`Started-at: 2026-06-18T20:15:00Z`; `Complexity-actual: 3`) — 42 new tests, `pnpm --filter admin test` 184 pass, lint/type-check clean, ADR-006 fence asserted (`find apps/portal/src -name "*questionnaire*"` → 0). Mirrors EPIC-005 `letter-template/`, accountant-owned (no FILTER), `apps/admin` ONLY. **Dispatching SDET review of TASK-006-002** now (one-dispatch-per-turn). TASK-006-003 (engagement→service-type resolution) is the next dispatch after approval. Substrate (schema + repos + `0006`) committed to `brief-006-intake-questionnaire`; TASK-006-002 code in working tree, uncommitted until SDET-approved (per-task commit cadence).
+**Dispatch progress (2026-06-18):** TASK-006-001 **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:00:00Z`). HARD tier-3 isolation test independently re-run live: 7/7 PASS. Gate Authoring three-item evidence verified real. Substrate proven — schema, repos, `0006` policy, inventory.md Track-B drift resolved. TASK-006-002 (admin template UI) **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:06:28Z`; `Complexity-actual: 3`) — 42 new tests, `pnpm --filter admin test` 184 pass, lint/type-check clean, ADR-006 fence VERIFIED live (`find apps/portal/src -name "*questionnaire*"` → 0), all 4 AC behaviorally tested, committed to `brief-006-intake-questionnaire`. TASK-006-003 (engagement→service-type resolution + correct-template read, tier-3) **SDET-APPROVED** (Status: done; `Completed-at: 2026-06-18T20:23:09Z`; `Complexity-actual: 3`) — `getQuestionnaireForEngagement(engagementId)` + no-arg `getMyQuestionnaire()` resolver in `questionnaire-template.ts`; request-pool FILTER engagement gate FIRST verified in code and live, then admin-pool service join DECISION-F `sortOrder ASC, id ASC` (tiebreak live-proven), then admin-pool template read; absent-template → null (live-proven); non-owner → null FILTER fail-closed (live-proven). Independent SDET run: 6/6 tier-3 PASS; lint/type-check clean. On IO direction: commit 003, then TASK-006-004 (portal questionnaire step UI).
 
 **Carried semantic note for TASK-006-005 (from TASK-006-001 SDET review):** in `submitQuestionnaireAsClient` (`packages/db/src/repositories/questionnaire-answer.ts`), `SELECT @@ROWCOUNT` follows the `UPDATE [Engagement]` so it captures the UPDATE's rowcount, not the INSERT's. Functionally correct for v1 (deny-case both 0, success-case both 1; mirrors `recordLetterSignatureAsClient`), but glance at it when TASK-006-005 wires the production submit action.
 
@@ -46,7 +46,7 @@ client-owned-rows ADR-005 isolation policy (HARD tier-3)** on the answer rows ·
 | ---- | ------ | ---- | -- | ----- |
 | TASK-006-001 schema (QuestionnaireTemplate per-service + QuestionnaireAnswer + `Engagement.questionnaireSubmittedAt`) + SECOND client-isolation policy (`0006`) + tier-3 isolation tests | **done** | webapp-developer | ONBD-003-04 / DASH-012-02 / ONBD-003-02 (DB substrate) | **Introduces-gate: yes** (SECOND client-owned-rows `sec.pol_QuestionnaireAnswer` — three-item evidence + HARD tier-3 CLIENT-A≠CLIENT-B). Template write-predicate mirrors `fn_service_write_access` (accountant-only, no FILTER). SDET-APPROVED 2026-06-18T20:00:00Z |
 | TASK-006-002 admin template-management UI + actions (create / bind-to-service / edit) | **done** | webapp-developer | DASH-012-01/-02/-03, ONBD-003-02 (dual-tagged) | `apps/admin` ONLY (ADR-006 fence); mirror EPIC-005 `letter-template/` (admin-pool, `getAccountantIdentity()` guard); per-service-type set, not single row. **SDET-APPROVED 2026-06-18T20:06:28Z** |
-| TASK-006-003 engagement→service-type resolution + correct-template read (tier-3) | backlog | webapp-developer | ONBD-003-01 (server-side match) | DECISION-F: primary service type = first selected by `sortOrder`,`id`; FILTER-governed engagement gate first; absent template → null |
+| TASK-006-003 engagement→service-type resolution + correct-template read (tier-3) | **done** | webapp-developer | ONBD-003-01 (server-side match) | DECISION-F: primary service type = first selected by `sortOrder`,`id`; FILTER-governed engagement gate first; absent template → null. **SDET-APPROVED 2026-06-18T20:23:09Z** |
 | TASK-006-004 portal questionnaire step UI (render correct template behind the letter gate) | backlog | webapp-developer | ONBD-003-01 (UI), ONBD-003-03 (UI affordance) | `apps/portal`; consumes EPIC-005 read model `accessible`/`done`; **does NOT re-derive gate logic**; no client-supplied ids; locked/empty/submitted states |
 | TASK-006-005 submit action (record answers + satisfy step) + read-model extension (tier-3) | backlog | webapp-developer | ONBD-003-03 (server-side satisfaction), ONBD-003-04 (recorded), ONBD-003-01 | extends `packages/db/src/onboarding.ts` (`done` from `questionnaireSubmittedAt`, DECISION-I); owner-only BLOCK-governed submit (mirror `recordLetterSignatureAsClient`); gate-checked refusal when unsigned |
 | TASK-006-006 e2e + gherkin binding + cross-app (both surfaces) | backlog | webapp-developer | DASH-012-01/-03, ONBD-003-01/-03 (+ cross-app author→complete) | **E2e-required; Introduces-gate: advisory**; bind epic's 7 scenarios; real letter gate exercised; satisfy-on-submit 3× zero-flake |
@@ -166,6 +166,26 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   the healthcheck should derive its SA password from the same source the volume was bootstrapped with (or the
   bootstrap should re-assert the env SA password on persisted volumes). Same root family as the carried
   P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.
+
+---
+
+### SDET Review — TASK-006-003 — 2026-06-18T20:23:09Z
+**Start:** Review TASK-006-003 (engagement → service-type resolution + correct-questionnaire-for-service-type read, tier-3) against BRIEF-006 acceptance criteria (AC-ONBD-003-01) and all mandatory focus areas.
+**Actions:**
+- Read ENGINE.md, sdet.md, PROGRESS.md, TASK-006-003 task file.
+- Read delivered files: `packages/db/src/repositories/questionnaire-template.ts` (resolver implementation), `packages/db/src/questionnaire-resolution.rls.test.ts` (6 tier-3 tests), `packages/db/src/index.ts` (barrel exports). Read upstream refs ADR-003, ADR-005, ADR-012.
+- Docker pre-flight: PASS (docker info → v29.4.1, daemon up).
+- Independently ran `pnpm --filter @tax-portal/db test -- questionnaire-resolution.rls.test.ts` → **6/6 PASS** (live against real SQL Server container; results match developer-reported output verbatim).
+- Independently ran `pnpm lint` → zero warnings/errors. `pnpm type-check` → zero errors.
+- Security gate ordering verified in code: Step 1 = request-pool `findUnique` (FILTER-governed, fail-closed before any admin pool access); Step 2 = admin-pool service join; Step 3 = admin-pool template read. Non-owner returns null before any template is touched.
+- DECISION-F determinism: `ORDER BY s.[sortOrder] ASC, s.[id] ASC` in the SQL + `// DECISION-F` comment in JSDoc. Multi-service live test confirms lower sortOrder wins.
+- Absent-template: `getTemplateForService` returns null when no row exists; caller returns `{ ..., template: null }` without throwing — live test confirms.
+- ADR-006 fence: no portal-only or admin-only coupling in `packages/db/src/repositories/questionnaire-template.ts` or the test file. Resolver is shared-package scope only.
+- Barrel exports: `QuestionnaireForEngagement`, `getQuestionnaireForEngagement`, `getMyQuestionnaire` all present in `packages/db/src/index.ts`. Internal `dbAsEngagementClientForQuestionnaire` correctly not exported.
+- Metadata: `Started-at: 2026-06-18T20:10:28Z` (real clock value, not midnight sentinel), `Complexity-estimate: 3`, `Complexity-actual: 3`. Pre-implementation dispatch-checkpoint entry present.
+- `Introduces-gate: no` — Gate Authoring Rules three-item check N/A.
+- Tool hygiene: no violations in Work Log.
+**End:** **APPROVED**. Status: done. `Completed-at: 2026-06-18T20:23:09Z`. TASK-006-004 (portal questionnaire step UI) is next dispatch.
 
 ---
 

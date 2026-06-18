@@ -33,6 +33,7 @@
 
 import mssqlPkg from "mssql";
 import { getAdminPool } from "../admin-connection.js";
+import { db } from "../client.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
 
@@ -75,6 +76,33 @@ export interface QuestionnaireTemplateItem {
   updatedAt: Date;
 }
 
+/**
+ * The resolved questionnaire for a given engagement.
+ *
+ * AC-ONBD-003-01: The questionnaire shown corresponds to the engagement's service type —
+ *   resolved SERVER-SIDE from the engagement's EngagementRequest → Service join,
+ *   never from a client-supplied serviceId or templateId.
+ *
+ * DECISION-F (EPIC-006): primary service type = first by Service.sortOrder ASC, then Service.id ASC.
+ *   Multi-service-type questionnaires are a later concern; v1 uses one service type.
+ *
+ * template: null = no template authored for this service type yet — acceptable starting state;
+ *   the portal page gates on this before rendering the questionnaire form.
+ */
+export interface QuestionnaireForEngagement {
+  /** The engagement id used for the resolution (server-resolved, never client-supplied). */
+  engagementId: string;
+  /** The primary service type id resolved from the engagement (DECISION-F). */
+  serviceId: string;
+  /** The human-readable name of the primary service type. */
+  serviceName: string;
+  /**
+   * The questionnaire template for this service type.
+   * null = no template authored yet (resolution succeeds cleanly — AC-ONBD-003-01).
+   */
+  template: QuestionnaireTemplateItem | null;
+}
+
 /** Input for creating or updating a questionnaire template for a service type. */
 export interface UpsertTemplateInput {
   /**
@@ -89,6 +117,32 @@ export interface UpsertTemplateInput {
   questions: string;
   /** Accountant's Clerk user ID — recorded for the audit trail (mirrors LetterTemplate.updatedBy). */
   accountantClerkId: string;
+}
+
+// ─── Internal cast helper for request-pool Engagement read ───────────────────
+
+/**
+ * Cast the request-scoped `db` wrapper to a typed client for Engagement model access.
+ * Mirrors the cast helper in engagement.ts (TASK-005-006 pattern).
+ *
+ * Used ONLY for the engagement visibility gate in getQuestionnaireForEngagement —
+ * the engagement read runs under the request pool so sec.pol_Engagement FILTER governs
+ * (ADR-003 / ADR-005). Only after the engagement is confirmed visible do we proceed to
+ * resolve the service type and template via the admin pool.
+ */
+function dbAsEngagementClientForQuestionnaire() {
+  return db as unknown as {
+    engagement: {
+      findUnique: (args: {
+        where: { id: string };
+        select: { engagementRequestId: true };
+      }) => Promise<{ engagementRequestId: string } | null>;
+      findFirst: (args?: {
+        select: { id: true; engagementRequestId: true };
+        orderBy?: { createdAt: "asc" | "desc" };
+      }) => Promise<{ id: string; engagementRequestId: string } | null>;
+    };
+  };
 }
 
 // ─── Read: getTemplateForService (admin pool) ─────────────────────────────────
@@ -174,6 +228,153 @@ export async function listTemplates(): Promise<QuestionnaireTemplateItem[]> {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }));
+}
+
+// ─── Read: getQuestionnaireForEngagement (request pool gate → admin pool template) ─
+
+/**
+ * Resolves the questionnaire template for a given engagement, governed by the
+ * sec.pol_Engagement FILTER predicate.
+ *
+ * Resolution path (AC-ONBD-003-01, TASK-006-003 design contract):
+ *   Step 1: Load the engagement under the REQUEST POOL (db, SESSION_CONTEXT-governed).
+ *           sec.pol_Engagement FILTER is the security boundary — if the engagement is
+ *           not visible to the caller, returns null fail-closed (non-owner sees nothing).
+ *   Step 2: Resolve the primary serviceId via admin-pool JOIN:
+ *           Engagement.engagementRequestId → EngagementRequest →
+ *           EngagementRequestService → Service
+ *           Primary = first by Service.sortOrder ASC, then Service.id ASC (DECISION-F).
+ *   Step 3: getTemplateForService(primaryServiceId) via admin pool (DECISION-G: template
+ *           is accountant-owned; no client RLS FILTER on QuestionnaireTemplate).
+ *   Step 4: Return { engagementId, serviceId, serviceName, template } or null.
+ *           template: null = no template authored yet (clean, not a throw — AC-ONBD-003-01).
+ *
+ * // DECISION-F (EPIC-006): primary service type = first selected service ordered by
+ * //   Service.sortOrder ASC, then Service.id ASC. Multi-service-type questionnaires
+ * //   are fenced out of v1 — one questionnaire, one primary service type.
+ *
+ * Security:
+ *   - engagementId is server-resolved (portal page calls getMyEngagement() or uses the
+ *     server-resolved engagement id — never a client-supplied URL param or body value).
+ *   - The engagement visibility gate (REQUEST POOL / FILTER) is the load-bearing boundary.
+ *   - serviceId and templateId are NEVER client-supplied; they are derived server-side only.
+ *   - A non-owning CLIENT (or null SESSION_CONTEXT) receives null — not an error, not a leak.
+ *
+ * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+ *
+ * @param engagementId — the engagement to resolve. Must be server-resolved (see security note).
+ *
+ * Returns:
+ *   { engagementId, serviceId, serviceName, template }   on success
+ *   null   when the engagement is not visible to the caller (FILTER fail-closed)
+ *   { ..., template: null }   when engagement is visible but the service has no template yet
+ */
+export async function getQuestionnaireForEngagement(
+  engagementId: string,
+): Promise<QuestionnaireForEngagement | null> {
+  // ── Step 1: Engagement visibility gate (REQUEST POOL — FILTER-governed) ──────
+  // DECISION: Use db (Prisma request pool) so SESSION_CONTEXT is set and
+  // sec.pol_Engagement FILTER predicate is exercised (fail-closed for null/wrong identity).
+  // We only need engagementRequestId to proceed with the service join — select only that.
+  const client = dbAsEngagementClientForQuestionnaire();
+  const engagementRow = await client.engagement.findUnique({
+    where: { id: engagementId },
+    select: { engagementRequestId: true },
+  });
+
+  if (!engagementRow) {
+    // Engagement not visible to this caller — FILTER fail-closed (ADR-003 §5, ADR-005).
+    // Non-owning CLIENT or null SESSION_CONTEXT: return null, never throw, never leak.
+    return null;
+  }
+
+  // ── Step 2: Resolve primary serviceId (ADMIN POOL — service catalog is not client-owned) ─
+  // DECISION-F (EPIC-006): primary service type = first by Service.sortOrder ASC, then id ASC.
+  // Admin pool is used here because the service resolution is a catalog read — no client
+  // ownership concept on Service rows. The engagement visibility gate (Step 1) already ran
+  // under the FILTER, so we have confirmed the caller owns this engagement.
+  const pool = await getAdminPool();
+  const primaryServiceReq = new MssqlRequest(pool);
+  primaryServiceReq.input("engagementRequestId", engagementRow.engagementRequestId);
+
+  const primaryServiceResult = await primaryServiceReq.query<{
+    serviceId: string;
+    serviceName: string;
+  }>(
+    // DECISION-F: ORDER BY Service.sortOrder ASC, Service.id ASC — deterministic tiebreak.
+    // TOP 1 captures only the primary (one questionnaire per engagement in v1).
+    `SELECT TOP 1
+       ers.[serviceId],
+       s.[name] AS serviceName
+     FROM [dbo].[EngagementRequestService] ers
+     JOIN [dbo].[Service] s ON s.[id] = ers.[serviceId]
+     WHERE ers.[engagementRequestId] = @engagementRequestId
+     ORDER BY s.[sortOrder] ASC, s.[id] ASC`,
+  );
+
+  const primaryServiceRow = primaryServiceResult.recordset[0];
+  if (!primaryServiceRow) {
+    // The engagement request has no services selected — unexpected but handle gracefully.
+    // Return null so the portal page shows a "no service configured" state cleanly.
+    return null;
+  }
+
+  // ── Step 3: Template read (ADMIN POOL — DECISION-G) ─────────────────────────
+  // getTemplateForService uses the admin pool (template is accountant-managed, like LetterTemplate).
+  // Returns null if no template has been authored for this service type yet — that is a valid
+  // starting state (template: null in the returned shape — AC-ONBD-003-01 clean null).
+  const template = await getTemplateForService(primaryServiceRow.serviceId);
+
+  // ── Step 4: Return the resolved shape ────────────────────────────────────────
+  return {
+    engagementId,
+    serviceId: primaryServiceRow.serviceId,
+    serviceName: primaryServiceRow.serviceName,
+    template,  // null = no template authored yet (clean, not a throw)
+  };
+}
+
+// ─── Read: getMyQuestionnaire (no-arg, FILTER-governed) ──────────────────────
+
+/**
+ * Returns the questionnaire for the current SESSION_CONTEXT identity's engagement,
+ * with no caller-supplied engagement id (mirrors getMyEngagement).
+ *
+ * The engagement id is resolved SERVER-SIDE by the FILTER predicate on the request pool.
+ * In Phase 2 a CLIENT owns exactly one engagement; findFirst returns that single visible row.
+ *
+ * // DECISION (TASK-006-003): The no-arg variant mirrors getMyEngagement() (TASK-005-006):
+ * //   the FILTER-governed findFirst resolves the caller's own engagement — the portal page
+ * //   never supplies an engagement id from client input. If the CLIENT has no visible
+ * //   engagement (DECISION-A: clientUserId not yet back-filled, or SESSION_CONTEXT null),
+ * //   the FILTER returns ZERO rows → null (fail-closed, ADR-003 §5).
+ *
+ * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+ *
+ * Returns:
+ *   QuestionnaireForEngagement — when the caller has a visible engagement
+ *   null — when no engagement is visible (fail-closed, no engagement yet, wrong SESSION_CONTEXT)
+ */
+export async function getMyQuestionnaire(): Promise<QuestionnaireForEngagement | null> {
+  // Resolve the engagement server-side under the FILTER predicate (request pool).
+  // findFirst under FILTER-governed request pool: returns the caller's own row.
+  // Phase 2: at most one Engagement is visible per client (one-per-client).
+  const client = dbAsEngagementClientForQuestionnaire();
+  const engagementRow = await client.engagement.findFirst({
+    select: { id: true, engagementRequestId: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!engagementRow) {
+    // No engagement visible to this caller (DECISION-A, ADR-003 §5 fail-closed).
+    return null;
+  }
+
+  // Delegate to getQuestionnaireForEngagement with the server-resolved id.
+  // The engagement visibility gate was already exercised by findFirst above;
+  // getQuestionnaireForEngagement will re-confirm via findUnique (belt-and-suspenders,
+  // both under the same SESSION_CONTEXT / request pool).
+  return getQuestionnaireForEngagement(engagementRow.id);
 }
 
 // ─── Write: upsertTemplateForService (admin pool — accountant-guarded) ────────

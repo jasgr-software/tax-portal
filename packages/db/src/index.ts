@@ -122,10 +122,16 @@ export type {
 } from "./repositories/letter-template.js";
 export { getCurrentLetterTemplate, updateLetterTemplate } from "./repositories/letter-template.js";
 
-// QuestionnaireTemplate repository (EPIC-006 / TASK-006-001)
-// getTemplateForService    — admin pool read (accountant-managed; clients read via admin pool at step 2)
-// upsertTemplateForService — admin pool write (accountant-only; AC-DASH-012-01/-02/-03)
-// listTemplates            — admin pool read (admin UI listing; AC-DASH-012-01/-03)
+// QuestionnaireTemplate repository (EPIC-006 / TASK-006-001 / TASK-006-003)
+// getTemplateForService         — admin pool read (accountant-managed; clients read via admin pool at step 2)
+// upsertTemplateForService      — admin pool write (accountant-only; AC-DASH-012-01/-02/-03)
+// listTemplates                 — admin pool read (admin UI listing; AC-DASH-012-01/-03)
+// getQuestionnaireForEngagement — engagement → primary service type → template (TASK-006-003)
+//   Request pool engagement gate (sec.pol_Engagement FILTER) then admin pool template read.
+//   engagementId must be server-resolved — never client-supplied (AC-ONBD-003-01).
+//   Non-owner → null (FILTER fail-closed, ADR-005). Absent template → { ..., template: null }.
+// getMyQuestionnaire            — no-arg FILTER-governed entry for the portal page (TASK-006-003)
+//   Mirrors getMyEngagement (TASK-005-006): engagement id resolved server-side under FILTER.
 //
 // NOT on this barrel (substrate/test-only):
 //   submitQuestionnaireAnswer — admin-pool write that bypasses BLOCK; import from source module.
@@ -133,11 +139,14 @@ export type {
   QuestionDef,
   QuestionnaireTemplateItem,
   UpsertTemplateInput,
+  QuestionnaireForEngagement,
 } from "./repositories/questionnaire-template.js";
 export {
   getTemplateForService,
   upsertTemplateForService,
   listTemplates,
+  getQuestionnaireForEngagement,
+  getMyQuestionnaire,
 } from "./repositories/questionnaire-template.js";
 
 // QuestionnaireAnswer repository (EPIC-006 / TASK-006-001)
