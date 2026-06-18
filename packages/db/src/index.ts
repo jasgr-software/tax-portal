@@ -80,10 +80,11 @@ export { recordAuthEvent, withAuditTransaction } from "./audit.js";
 export { getAdminPool, closeAdminPool } from "./admin-connection.js";
 
 // Engagement repository (EPIC-005 / TASK-005-001 — first client-owned-rows entity)
-// createEngagement     — admin pool write at accept-time (DECISION-A: clientUserId nullable)
-// getEngagementForClient  — request pool read (sec.pol_Engagement FILTER enforces client isolation)
-// getEngagementByRequestId — request pool read by engagementRequestId
-// recordLetterSignature — signature evidence recorded against the engagement (AC-ONBD-002-04)
+// createEngagement            — admin pool write at accept-time (DECISION-A: clientUserId nullable)
+// getEngagementForClient      — request pool read (sec.pol_Engagement FILTER enforces client isolation)
+// getEngagementByRequestId    — request pool read by engagementRequestId
+// recordLetterSignature       — admin-pool signature write (substrate/tests; bypasses BLOCK)
+// recordLetterSignatureAsClient — REQUEST POOL signature write (BLOCK-governed; production path)
 export type {
   CreateEngagementInput,
   CreateEngagementResult,
@@ -95,8 +96,20 @@ export {
   getEngagementForClient,
   getEngagementByRequestId,
   recordLetterSignature,
+  recordLetterSignatureAsClient,
   updateEngagementClientUserId,
 } from "./repositories/engagement.js";
+
+// Onboarding read model (EPIC-005 / TASK-005-005)
+// resolveOnboarding      — derives ordered steps + accessibility + position from EngagementItem
+// checkStepAccessibility — server-side hard gate: refuses locked steps (AC-ONBD-001-02/-002-01/-02)
+export type {
+  OnboardingStepKey,
+  OnboardingStep,
+  OnboardingReadModel,
+  StepRefusal,
+} from "./onboarding.js";
+export { resolveOnboarding, checkStepAccessibility } from "./onboarding.js";
 
 // LetterTemplate repository (EPIC-005 / TASK-005-001)
 // getCurrentLetterTemplate — admin pool read (accountant + system; not client-readable)

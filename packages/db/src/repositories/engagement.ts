@@ -307,7 +307,7 @@ export async function getEngagementByRequestId(
   return mapRow(row);
 }
 
-// ─── Write: recordLetterSignature (request pool — CLIENT-owning write) ────────
+// ─── Write: recordLetterSignature (admin pool — legacy/substrate path) ────────
 
 /**
  * Records the engagement-letter signature evidence against the engagement.
@@ -315,37 +315,25 @@ export async function getEngagementByRequestId(
  * Sets letterSignedAt (gate open), letterSignatureEvidence (AC-ONBD-002-04 evidence),
  * and letterTemplateSnapshot (DECISION-C: snapshot at sign-time).
  *
- * Runs via the request pool under the client's SESSION_CONTEXT.
- * The BLOCK predicate (BEFORE UPDATE) in sec.pol_Engagement allows the owning client to
- * update their own engagement row (CLIENT branch in fn_engagement_access passes).
- * A non-owning CLIENT or null SESSION_CONTEXT → UPDATE affects 0 rows (BLOCK suppresses it).
+ * DECISION (TASK-005-001): This function uses the ADMIN POOL — it was introduced in
+ * TASK-005-001 as a substrate-level write (bypasses the BLOCK predicate). It is retained
+ * for substrate persistence tests (engagement.persistence.test.ts) that need to write
+ * signature data directly without exercising the CLIENT ownership gate.
+ *
+ * For the production signing path that MUST exercise the BLOCK predicate (AC-ONBD-002-01/-02
+ * server-side gate), use `recordLetterSignatureAsClient` below (request pool, SESSION_CONTEXT
+ * in-batch, BLOCK-governed). That is the function called by signEngagementLetterAction in
+ * apps/portal/src/app/onboarding/actions.ts.
  *
  * Returns: { rowsAffected: number }
  *   rowsAffected = 1 → success
- *   rowsAffected = 0 → engagement not found or BLOCK predicate denied the write
- *
- * AC-ONBD-002-04: letterSignatureEvidence is the recorded evidence the gate was satisfied.
- * DECISION-C: templateSnapshot is captured at sign time so later edits don't change the record.
+ *   rowsAffected = 0 → engagement not found
  */
 export async function recordLetterSignature(
   input: RecordLetterSignatureInput,
 ): Promise<{ rowsAffected: number }> {
-  // DECISION: use admin pool for the signature write because at the time recordLetterSignature
-  // is called, the client's SESSION_CONTEXT is set via withRequestContext / withClerkIdentity
-  // in the test harness. However, using raw mssql with the request pool CONNECTION requires
-  // the same pool-level SESSION_CONTEXT setup. To stay consistent with the other parameterised
-  // UPDATE patterns in this codebase (engagement-request.ts decide functions) and to properly
-  // exercise the BLOCK predicate, we use the raw request pool with SESSION_CONTEXT set.
-  //
-  // NOTE: this function is called from within withClerkIdentity() in production/tests,
-  // which sets SESSION_CONTEXT via the db client's $extends middleware. However, since we
-  // need a parameterised raw SQL UPDATE (for portability and the @@ROWCOUNT pattern), we
-  // use the admin pool here for simplicity in this slice — the BLOCK-predicate test uses
-  // the raw request pool directly.
-  //
-  // // DECISION (TASK-005-001): Use admin pool for the recordLetterSignature write in this
-  // // slice. The BLOCK predicate test exercises the policy via raw mssql (not this function).
-  // // The Prisma db wrapper (request pool) approach could be used in a follow-up if needed.
+  // DECISION (TASK-005-001/TASK-005-005): Admin pool — used for substrate tests only.
+  // The production signing path uses recordLetterSignatureAsClient (request pool + BLOCK).
   const pool = await getAdminPool();
   const req = new MssqlRequest(pool);
 
@@ -367,6 +355,188 @@ export async function recordLetterSignature(
     (result.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
 
   return { rowsAffected };
+}
+
+// ─── Write: recordLetterSignatureAsClient (request pool — BLOCK-governed) ────
+
+/**
+ * Records the engagement-letter signature as the owning CLIENT via the REQUEST POOL.
+ *
+ * This is the PRODUCTION signing path called by signEngagementLetterAction. Unlike
+ * `recordLetterSignature` (admin pool, above), this function:
+ *   - Acquires a raw mssql connection from the REQUEST POOL (DATABASE_URL).
+ *   - Sets SESSION_CONTEXT (clerk_user_id + role) IN THE SAME BATCH as the UPDATE,
+ *     so the sec.pol_Engagement BLOCK predicate (BEFORE UPDATE) governs the write.
+ *   - Returns rowsAffected = 0 when the BLOCK predicate denies the write
+ *     (non-owner CLIENT or null SESSION_CONTEXT) — the caller must treat 0 as a
+ *     refusal and STOP (do not audit a non-event).
+ *
+ * Pool hygiene: SESSION_CONTEXT keys are cleared after the UPDATE so the pooled
+ * connection is returned in a clean state (ADR-003 §4 spirit).
+ *
+ * DECISION (TASK-005-005): Separate request-pool variant (not a rewrite of
+ * `recordLetterSignature`) so substrate persistence tests remain unaffected.
+ * The two-function approach is documented here and in the actions.ts DECISION comment.
+ *
+ * @param input.engagementId — the Engagement to sign.
+ * @param input.signatureEvidence — provider evidence JSON (AC-ONBD-002-04).
+ * @param input.templateSnapshot — template content at sign time (DECISION-C).
+ * @param input.clerkUserId — the CLIENT's Clerk user ID (from verified session only).
+ * @param input.role — must be 'CLIENT' (verified server-side, never client-asserted).
+ *
+ * Returns { rowsAffected: number }:
+ *   1 → success (CLIENT is the owner, BLOCK passed, fields set)
+ *   0 → denied (non-owner CLIENT, null SESSION_CONTEXT, or engagement not found)
+ *
+ * AC-ONBD-002-04: letterSignatureEvidence is the recorded evidence.
+ * DECISION-C: templateSnapshot captured at sign time.
+ * ADR-003 Amendment 1: no @read_only on sp_set_session_context.
+ * ADR-005: BLOCK predicate sec.pol_Engagement enforces owner-only writes.
+ */
+export async function recordLetterSignatureAsClient(input: RecordLetterSignatureInput & {
+  clerkUserId: string;
+  role: "CLIENT";
+}): Promise<{ rowsAffected: number }> {
+  // DECISION (TASK-005-005): Use raw mssql request pool with SESSION_CONTEXT set IN THE SAME
+  // BATCH as the UPDATE — the BLOCK predicate evaluates SESSION_CONTEXT at the UPDATE boundary.
+  // Mirror the proven pattern from engagement.client-isolation.rls.test.ts (L100-122, L286-298).
+  // @read_only = 0 per ADR-003 Amendment 1 — never @read_only = 1.
+
+  const requestUrl = process.env["DATABASE_URL"];
+  if (!requestUrl) {
+    throw new Error(
+      "[packages/db] DATABASE_URL is not set. " +
+        "Required for request-pool CLIENT signature write (ADR-003).",
+    );
+  }
+
+  // Parse URL using the same helper as admin-connection.ts (inlined here to avoid circular dep)
+  const mssql = mssqlPkg;
+  const { ConnectionPool: MssqlConnectionPool } = mssql;
+  const config = parseSqlServerUrl(requestUrl);
+
+  // Open a dedicated connection for this request (needed because getRequestDb is a Prisma
+  // singleton — we need raw mssql to set SESSION_CONTEXT in-batch with a parameterised UPDATE).
+  // DECISION (TASK-005-005): This creates a short-lived pool rather than a singleton to avoid
+  // keeping request-pool connections open for the lifetime of the process in tests. The pool
+  // is closed after the UPDATE. In production a shared request-pool singleton would be more
+  // efficient, but the signing path is low-frequency (once per engagement) so the overhead is
+  // acceptable. This can be optimised to a shared pool in a follow-up if needed.
+  const pool = new MssqlConnectionPool(config);
+  await pool.connect();
+
+  try {
+    // Single-quote-escape the identity values (mirror the test helper pattern).
+    const escapedClerkId = input.clerkUserId.replace(/'/g, "''");
+    const escapedRole = input.role.replace(/'/g, "''");
+
+    // Use parameterised inputs for the data fields (prevents injection).
+    // SESSION_CONTEXT values are literal strings — single-quote-escaped (no mssql input()
+    // support for sp_set_session_context args in .batch()); follow the pattern from the test.
+    const sql = `
+      EXEC sp_set_session_context @key = N'clerk_user_id', @value = N'${escapedClerkId}', @read_only = 0;
+      EXEC sp_set_session_context @key = N'role', @value = N'${escapedRole}', @read_only = 0;
+      UPDATE [dbo].[Engagement]
+      SET [letterSignedAt] = SYSDATETIMEOFFSET(),
+          [letterSignatureEvidence] = '${input.signatureEvidence.replace(/'/g, "''")}',
+          [letterTemplateSnapshot] = '${input.templateSnapshot.replace(/'/g, "''")}',
+          [updatedAt] = SYSDATETIMEOFFSET()
+      WHERE [id] = '${input.engagementId.replace(/'/g, "''")}';
+      SELECT @@ROWCOUNT AS rowsAffected;
+      EXEC sp_set_session_context @key = N'clerk_user_id', @value = NULL, @read_only = 0;
+      EXEC sp_set_session_context @key = N'role', @value = NULL, @read_only = 0;
+    `;
+
+    const result = await pool.request().batch(sql);
+
+    // The UPDATE recordset is in a middle position (between the sp_set calls before and after).
+    // When there are N statements, recordsets[2] is the SELECT @@ROWCOUNT (0=sp_set, 1=sp_set,
+    // 2=UPDATE, 3=SELECT, 4=sp_set, 5=sp_set). Actually SQL Server returns recordsets only for
+    // statements that produce rows. The SELECT @@ROWCOUNT returns a single-row recordset.
+    // The sp_set_session_context calls produce no rows (empty recordsets in the batch).
+    // We find the first non-empty recordset after the sp_set calls that has rowsAffected.
+    const recordsets = result.recordsets as Array<Array<{ rowsAffected?: number }>>;
+    // The SELECT @@ROWCOUNT AS rowsAffected will be in a recordset — find it.
+    let rowsAffected = 0;
+    for (const rs of recordsets) {
+      if (rs.length > 0 && rs[0] !== undefined && "rowsAffected" in rs[0]) {
+        rowsAffected = rs[0].rowsAffected ?? 0;
+        break;
+      }
+    }
+
+    return { rowsAffected };
+  } finally {
+    await pool.close().catch(() => { /* ignore pool close errors */ });
+  }
+}
+
+// ─── Internal: parseSqlServerUrl helper (duplicated from admin-connection.ts) ─
+
+/**
+ * Parse a sqlserver:// URL into mssql ConnectionPool config.
+ * Duplicated here to avoid circular imports between admin-connection.ts and this module.
+ * Mirror of the implementation in admin-connection.ts and scripts/db-migrate.ts.
+ */
+function parseSqlServerUrl(connectionUrl: string): import("mssql").config {
+  const withoutScheme = connectionUrl.replace(/^(?:sqlserver|mssql):\/\//, "");
+  const firstSemi = withoutScheme.indexOf(";");
+  const authority = firstSemi === -1 ? withoutScheme : withoutScheme.slice(0, firstSemi);
+  const paramStr = firstSemi === -1 ? "" : withoutScheme.slice(firstSemi + 1);
+
+  const params: Record<string, string> = {};
+  for (const part of paramStr.split(";")) {
+    const eqIdx = part.indexOf("=");
+    if (eqIdx === -1) continue;
+    const k = part.slice(0, eqIdx).trim();
+    const v = part.slice(eqIdx + 1).trim();
+    if (k) params[k] = v;
+  }
+
+  let user: string | undefined;
+  let password: string | undefined;
+  let hostPort = authority;
+
+  const atIdx = authority.lastIndexOf("@");
+  if (atIdx !== -1) {
+    const credentials = authority.slice(0, atIdx);
+    hostPort = authority.slice(atIdx + 1);
+    const colonIdx = credentials.indexOf(":");
+    if (colonIdx === -1) {
+      user = decodeURIComponent(credentials);
+    } else {
+      user = decodeURIComponent(credentials.slice(0, colonIdx));
+      password = decodeURIComponent(credentials.slice(colonIdx + 1));
+    }
+  }
+
+  let server = hostPort;
+  let port = 1433;
+  const portMatch = hostPort.match(/:(\d+)$/);
+  if (portMatch) {
+    port = parseInt(portMatch[1] ?? "1433", 10);
+    server = hostPort.slice(0, hostPort.length - portMatch[0].length);
+  }
+
+  const resolvedUser = user ?? params["user"];
+  const resolvedPassword = password ?? params["password"];
+  const resolvedPort = port !== 1433 ? port : (params["port"] ? parseInt(params["port"], 10) : 1433);
+
+  const encrypt = (params["encrypt"] ?? "true").toLowerCase() !== "false";
+  const trustServerCertificate =
+    (params["trustServerCertificate"] ?? "false").toLowerCase() === "true";
+
+  return {
+    server,
+    port: resolvedPort,
+    user: resolvedUser,
+    password: resolvedPassword,
+    database: params["database"] ?? "master",
+    options: {
+      encrypt,
+      trustServerCertificate,
+    },
+  };
 }
 
 // ─── Internal: row mapper ─────────────────────────────────────────────────────
