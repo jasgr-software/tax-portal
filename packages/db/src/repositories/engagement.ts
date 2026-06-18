@@ -470,9 +470,13 @@ export async function recordLetterSignatureAsClient(input: RecordLetterSignature
     const escapedClerkId = input.clerkUserId.replace(/'/g, "''");
     const escapedRole = input.role.replace(/'/g, "''");
 
-    // Use parameterised inputs for the data fields (prevents injection).
-    // SESSION_CONTEXT values are literal strings — single-quote-escaped (no mssql input()
-    // support for sp_set_session_context args in .batch()); follow the pattern from the test.
+    // Injection-safety: every interpolated value here is server-derived (clerkUserId/role from
+    // the verified session, engagementId resolved server-side) — never client-supplied — and is
+    // single-quote-escaped before interpolation. This is NOT mssql .input() parameterisation:
+    // sp_set_session_context args are not parameterisable in a .batch(), so the SESSION_CONTEXT
+    // values and the UPDATE literals are escaped string literals. The real authorization fence is
+    // the sec.pol_Engagement FILTER+BLOCK policy (ADR-005), which denies cross-client writes
+    // regardless of the SQL text. Follow the pattern from engagement.client-isolation.rls.test.ts.
     const sql = `
       EXEC sp_set_session_context @key = N'clerk_user_id', @value = N'${escapedClerkId}', @read_only = 0;
       EXEC sp_set_session_context @key = N'role', @value = N'${escapedRole}', @read_only = 0;

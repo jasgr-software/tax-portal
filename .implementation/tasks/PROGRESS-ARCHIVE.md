@@ -4,6 +4,34 @@
 
 ---
 
+<!-- Swept at BRIEF-005 Validate→Close-prep transition (2026-06-18) -->
+
+### BRIEF-005 IO Smoke→Validate transition session entry — swept
+
+The BRIEF-005 **IO Smoke→Validate transition** entry (Smoke-PASS pickup + the Validate CI-gate-ordering
+rationale recording the EPIC-002/003/004 precedent + the gate-6/7/quality-audit dispatch composition) was swept
+here at the Validate→Close-prep transition. **Headline:** gates 1–5 cleared → the single SDET Validate dispatch
+returned **Gate 6 APPROVED (10/10 AC)**, **Gate 7 PASS (423 tests, 0 fail)**, **Quality Audit CLEAN**. The
+three SDET Validate gate-record entries are **retained** inline in the live PROGRESS.md as the canonical gate
+records (same rationale as the retained Smoke gate-record + the IO Plan Design record). Validate Quality-Audit
+observations carried to Close-prep: synthetic `Completed-at` inversion (Obs 1) and the `inventory.md` Track-B
+policy/entity drift — both recorded in RETRO-005 as observations (not promoted; no gate failure).
+
+---
+
+### BRIEF-005 IO Audit (phase entry) session entry — swept
+
+The BRIEF-005 **IO Audit (phase entry)** entry (Dispatch-exit verification + the Overwatch audit dispatch
+composition) was swept here at the Review→Smoke transition. **Headline:** Dispatch gate met (8 tasks all
+`done`/SDET-approved); the Overwatch whole-slice audit dispatch was composed and subsequently returned **CLEAN
+(0 blocking)**; the IO design-scan then ran **PASS**. (The **IO Plan** entry — holding the full field-level
+Data-&-Interface-Contract expansion + DECISIONs A–E + the reuse survey + design-coherence PASS — is **retained**
+in the live PROGRESS.md as the canonical Design record, same rationale as the Dispatch→Audit sweep.) Audit
+Observations 1 (synthetic `Completed-at` timestamps), 2 (`service.rls.test.ts` comment drift), and 3
+(`engagement.ts` L433 comment) carry forward to Close-prep per the live retro-item list.
+
+---
+
 <!-- Swept at BRIEF-005 Plan-start (slice-start) transition (2026-06-18) -->
 
 ### BRIEF-003 / EPIC-003 session entries — swept (delivered 2026-06-17, PR #42 → `ec151cb`)
@@ -2523,3 +2551,39 @@ Branch: `brief-002-services-catalog-management`. No PR open yet — GitHub requi
 **Delivery record:** PR #40 → `70ea10e`. 7/7 in-scope AC verified. 4 bugs ridden (BUG-002-001..004). ADR-003 Amendment 1 raised. Evidence basis [A] CI.
 **End:** Close-finalize exit met. BRIEF-002 / EPIC-002 DELIVERED 2026-06-16. (Full detail retained in `RETRO-002.md` § Post-Merge Addendum.)
 
+
+---
+
+<!-- Swept from PROGRESS.md at the BRIEF-005 Dispatch → Audit phase transition (2026-06-18). -->
+
+### BRIEF-005 / EPIC-005 Dispatch session entries — swept (Dispatch complete, all 8 tasks done)
+
+The full BRIEF-005 Dispatch/Review session log (IO Plan; SDET Reviews + IO Review-returns for
+TASK-005-001 through -008) was swept here at the Dispatch → Audit transition. **Headline:** all 8 tasks
+`done`/SDET-approved on branch `brief-005-onboarding-spine-engagement-letter`:
+- **TASK-005-001** Engagement schema + onboarding-state columns + LetterTemplate + FIRST client-owned-rows
+  `sec.pol_Engagement` policy + tier-3 isolation tests — `Introduces-gate: yes`; SDET re-ran isolation 6/6 +
+  persistence 9/9 against real container; three-item evidence (CLIENT-A≠CLIENT-B, anon=ZERO, ACCOUNTANT=all).
+- **TASK-005-002** `packages/esign` provider seam (port + mock binding + fail-closed real-default selector,
+  inverts auth `select.ts`); ADR-023/024 §1. Advisory gate.
+- **TASK-005-003** engagement-creation-on-accept (additive to EPIC-003 `acceptRequest`) + fail-closed
+  back-fill structural seam (DECISION-A) — committed `53f62a5`.
+- **TASK-005-004** letter-template setting UI + actions (`apps/admin` only) — default seeded, edit persists.
+- **TASK-005-005** onboarding read model + server-side step-accessibility gate + sign action (`apps/portal`,
+  client principal; two-pool sign coordination; record evidence + audit; locked step refused not hidden) —
+  committed `d637418`. Carries the engagement.ts L433 comment micro-fix to Close-prep.
+- **TASK-005-006** onboarding sequence UI (`apps/portal`) — three steps, locked affordances, position/remaining;
+  consumes the -005 read model, does not re-derive gate logic client-side.
+- **TASK-005-007** e2e + gherkin binding + cross-app — SDET independently re-ran portal 33/33, admin 32/32,
+  cross-app 10/10; sign→unlock 3× zero-flake (397/403/409ms); gherkin verbatim, no bypass leak. `7868303`.
+- **TASK-005-008** @demo gallery (`docs/demos/EPIC-005/`, non-gating) — SDET-approved; main session reverted
+  out-of-scope EPIC-001..004 re-rendered PNGs before committing `d144716` (slice diff scoped to EPIC-005).
+
+Full per-entry session text is preserved in git history at the BRIEF-005 build commits and in the task files
+(`tasks/TASK-005-*.md`, archived to `tasks/done/` at Close-prep). Plan-design detail + the full field-level
+Data-&-Interface-Contract expansion remain in the IO Plan entry retained in the live PROGRESS.md.
+
+---
+
+### Sweep marker — BRIEF-005 Smoke → Validate transition — 2026-06-18
+Phase-transition sweep at Smoke→Validate. The gate-5 SDET Container-Smoke entry is **retained inline** in the live `PROGRESS.md` as the smoke-gate record (consistent with the retained Plan/Audit gate records), alongside the new IO Smoke→Validate transition entry. No session entries removed at this transition beyond this marker; full per-entry session text is preserved in git history at the BRIEF-005 build commits and in the task files (`tasks/TASK-005-*.md`).
