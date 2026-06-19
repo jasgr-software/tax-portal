@@ -290,6 +290,20 @@ slice. Cross-surface default (CLAUDE.md § Platform-frontend scope) applies from
 
 ---
 
+### SDET Review — TASK-008-001 — 2026-06-19T22:11:00Z
+**Start:** TASK-008-001 at `review`; SDET spawned to review the onboarding-completion engine.
+**Actions:**
+- Docker pre-flight: Docker 29.4.1 available; `tax-portal-sqlserver` healthy (Up 4 hours).
+- Independently re-ran tier-2 predicate (10/10 PASS), tier-3 integration (14/14 PASS, real SQL Server), portal (168/168 PASS), admin (223/223 PASS), lint (clean), type-check (clean).
+- Walked all mandatory focus areas: fire-once (two calls → 1 notification + 1 audit row — PASS), atomicity (ONE `withAuditTransaction` — PASS), accountant-only read (ACCOUNTANT reads ≥1; CLIENT reads 0; null-SESSION_CONTEXT reads 0 — PASS), server-authoritative re-evaluation (no caller boolean — PASS), no re-derivation (delegates to `resolveOnboarding` — PASS), no migration artifacts (git diff confirms — PASS).
+- ADR-003 Amendment 1 honored (`@read_only = 0`). ADR-005 reuses `0004` policy (no new policy). ADR-019 uses `recordAuthEvent`/`withAuditTransaction`. ADR-012 tier map honored.
+- Task spec required fields all present. Metadata contract: `Complexity-actual: 4` valid; `Completed-at` was correctly blank.
+- Pre-existing 2 failures in `document.upload-pipeline.rls.test.ts` confirmed pre-existing on `origin/main`.
+- Atomic close edit performed: SDET Review box ticked, Decision: approved, `Completed-at: 2026-06-19T22:11:00Z`, `Status: done`.
+**End:** **TASK-008-001 APPROVED.** TASK-008-002 and TASK-008-003 are now UNBLOCKED for dispatch.
+
+---
+
 ### IO Dispatch (checkpoint — user-requested pause) — BRIEF-008 / EPIC-008 — 2026-06-19
 **Start:** Dispatch phase. TASK-008-001 (completion engine) dispatched to a `[webapp-developer]`.
 **Actions:** TASK-008-001 is **implemented and at `review`** — `packages/db/src/onboarding-completion.ts`

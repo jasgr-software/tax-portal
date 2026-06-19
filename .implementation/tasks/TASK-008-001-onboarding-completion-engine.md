@@ -1,14 +1,14 @@
 # TASK-008-001: Onboarding-completion engine (predicate + privileged fire-once transition/notification/audit seam)
 
 **Brief**: BRIEF-008
-**Status**: review
+**Status**: done
 **Assigned to**: webapp-developer
 **Updated-by**: webapp-developer
 **Depends on**: none
 **Impl**: developer
 **E2e-required**: no
 **Started-at**: 2026-06-19T20:51:28Z
-**Completed-at**: —
+**Completed-at**: 2026-06-19T22:11:00Z
 **Complexity-estimate**: 4
 **Complexity-actual**: 4
 
@@ -26,7 +26,7 @@
 - [x] **Submission gate** — lint + type-check + build + brief-mandated tests pass (commands in CLAUDE.md)
 - [N/A] **Targeted e2e** — this is a `packages/db` engine task; e2e for the full path is TASK-008-004
 - [x] **Security review** — fire-once guard, accountant-only notification read, server-authoritative re-evaluation (no caller-trusted completeness), no client-supplied identity
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -167,5 +167,28 @@ What's next: SDET review | Blockers: none
 
 ## SDET Review
 
-**Decision**: pending
+**Decision**: approved
 **Notes**:
+
+All mandatory focus areas verified. Gates independently re-run (not rubber-stamped from Work Log):
+
+- **Tier-2 predicate (10/10):** INDEPENDENTLY RUN — all 10 truth-table tests pass. `isOnboardingComplete` is a pure one-liner (`model.steps.every(step => step.done)`); it does NOT re-derive per-step logic; it delegates entirely to the `OnboardingReadModel` produced by `resolveOnboarding`.
+- **Tier-3 integration (14/14):** INDEPENDENTLY RUN against real SQL Server container (Docker 29.4.1, `tax-portal-sqlserver` healthy). All 14 tests pass, including all mandatory focus areas:
+  - Fire-once (HARD): two calls → exactly 1 notification + 1 audit row — asserted via count queries. PASS.
+  - Accountant-only read (HARD, ADR-005 §6): ACCOUNTANT reads ≥1; CLIENT reads 0; null-SESSION_CONTEXT reads 0. All three run against the request pool (RLS-subject). PASS.
+  - Transition + notification + audit in ONE `withAuditTransaction`. PASS.
+  - Audit row fields (action, targetType, targetId, sourceSurface, outcome, actorRole) verified. PASS.
+- **Portal 168/168 + Admin 223/223:** INDEPENDENTLY RUN — no regressions.
+- **lint / type-check:** INDEPENDENTLY RUN — clean (0 errors/warnings).
+- **No schema migration (D1):** git diff confirms zero Prisma migrations, zero `db/migrations/*`, zero `db/policies/*`. Only 4 files created/modified in `packages/db`. PASS.
+- **ADR-003 Amendment 1:** `@read_only = 0` on all `sp_set_session_context` calls in implementation and tests. PASS.
+- **ADR-005:** Reuses `0004-notification-policy.sql` (unchanged); no new policy. Admin pool bypasses BLOCK on INSERT — mirrors EPIC-003 pattern. PASS.
+- **ADR-019:** Transition recorded via `recordAuthEvent` + `withAuditTransaction`; no parallel audit path. DECISION comment on system actor is present and adequate. PASS.
+- **ADR-012:** Tier-2 truth table (10) + tier-3 integration (14) — ADR-12 tier map honored. PASS.
+- **Task metadata contract:** `Complexity-actual: 4` (integer 1–5); `Started-at` present; `Completed-at` was correctly blank before this close edit; pre-implementation Work Log entry present. PASS.
+- **Task spec required fields:** `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:** no` all present. PASS.
+- **Pre-existing failures (2 in `document.upload-pipeline.rls.test.ts`):** verified against `origin/main` — the file exists there unchanged; the failures are scan-pipeline status transitions requiring the mock scanner pipeline; unrelated to this task and not introduced here.
+
+One advisory observation: the `afterAll` cleanup uses string interpolation with server-generated UUID IDs (`'${engReqId}'`). This is test-teardown-only code (not production), the IDs are server-generated UUIDs (not user-supplied), and the `.catch(() => {})` swallows errors silently. Not a production security concern; no gate trip.
+
+### 2026-06-19T22:11:00Z [sdet] APPROVED — TASK-008-001 closes. SDET review box ticked, Decision: approved, Completed-at: 2026-06-19T22:11:00Z, Status: done. Gate evidence: predicate 10/10, integration 14/14 (real container, independently re-run), portal 168/168, admin 223/223, lint clean, type-check clean, no migration artifacts. Fire-once + accountant-only-read + atomicity all independently verified. Unblocks TASK-008-002 and TASK-008-003.
