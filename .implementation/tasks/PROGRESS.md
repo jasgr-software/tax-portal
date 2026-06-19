@@ -27,7 +27,7 @@ malicious files withheld + uploader informed (scan-before-available, ADR-021); f
 the document-upload step's satisfaction wired into the EPIC-005 read model (AC-ONBD-004-04). EPIC-005 letter
 hard gate must NOT be weakened.
 
-**Tasks (7) — TASK-007-001 `done` (SDET-approved, committed `0a84977`); TASK-007-002 dispatched; remainder `backlog`:**
+**Tasks (7) — 001/002/003/004 `done` (SDET-approved; 004 committed `ee8232e`); TASK-007-005 dispatched; 006/007 `backlog`:**
 | Task | Impl | E2e | Introduces-gate | AC covered |
 | ---- | ---- | --- | --------------- | ---------- |
 | TASK-007-001 `FileStorage` port + Azurite/Memory adapters + fail-closed select + compose/env | developer | no | no | AC-FILE-003-01 (adapter contract) |
@@ -162,6 +162,32 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   (RETRO-002/003/004/005). The other 6 tasks were forward-ordered with real `Started-at` (the RETRO-005 carry was
   actioned). Observation — not promoted; **Overwatch: elevate to `ungated-fix` if it recurs to a 7th** without a
   dispatch-checkpoint/SDET clock-domain convention fix.
+
+---
+
+### SDET Review — TASK-007-005 — 2026-06-19
+**Start:** Review TASK-007-005 (accountant document-request authoring UI, `apps/admin`). Task at `Status: review`. `Introduces-gate: no`. `E2e-required: yes` (admin half of AC-FILE-007-01). `Complexity-actual: 3`. Reading ENGINE.md, sdet.md, PROGRESS.md, TASK-007-005 task file (full), all delivered source + test files, EPIC-007 acceptance scenarios.
+**Actions:**
+- Read startup checklist: ENGINE.md (§§ Acceptance, Tool Hygiene, Gate Authoring), sdet.md, PROGRESS.md, task file in full, EPIC-007 planning file (verbatim scenario check).
+- Read all delivered source: `page.tsx`, `actions.ts`, `validation.ts`, `_components/DocumentRequestEditor.tsx`, `actions.test.ts`, `document-request-editor.test.tsx`, `e2e/specs/document-requests.spec.ts`, `e2e/features/document-requests.feature`, `packages/db/package.json` (subpath export).
+- Read `apps/admin/src/app/requests/_components/RequestList.tsx` and `requests/[id]/page.tsx` to check for upstream navigation links.
+- Mandatory rejection checks: all PASS (Work Log Starting-implementation entry present; `Complexity-actual: 3`; `Started-at`/`Complexity-estimate` present; required spec fields present; no tool-hygiene violations; `Introduces-gate: no` so gate-authoring evidence not required).
+- FA-1 (IA / navigability): Grepped all `apps/admin/src` for `href`, `Link`, `document-requests`, `engagements/` — zero hits outside the route's own directory. `RequestList` links to `/requests/${request.id}` (EngagementRequest detail) with no forward link to the new engagement surface. Route is an **orphan reachable only by direct URL**. `// DECISION:` present in both task spec table and inline comments in `page.tsx` + `actions.ts`. Surfaced explicitly; does not auto-red per dispatch instructions — IO decides fix-forward.
+- FA-2 (Trust fence ADR-005/003): `createdByClerkId` from `identity.clerkUserId` (session-derived) only; no action argument or form data contributes identity. `listDocumentRequestsAction` wrapped in `withRequestContext`. Grepped `apps/portal/src` for `createDocumentRequestAsAccountant`, `document-request.js`, `repositories/document-request` — zero hits. Write seam not reachable from portal. PASS.
+- FA-3 (Server-side label validation): `validateLabel` called in step 3 of `createDocumentRequestAction` before step 4 write. Empty/whitespace/over-500 all return early `{ success: false }` without touching `createDocumentRequestAsAccountant`. `LABEL_MAX_LENGTH = 500` matches NVARCHAR(500). PASS.
+- Docker pre-flight: Docker 29.4.1; `tax-portal-sqlserver` Up 3 days (unhealthy — known SA/volume mismatch; non-blocking); `tax-portal-admin` Up 20 minutes (healthy). PASS.
+- FA-4 (e2e independent re-run): `pnpm --filter admin e2e:run -- --grep 'document.request'` → log `/tmp/task-007-005-e2e.log` → **38 passed (16.1s)**. All 3 document-request specs confirmed (happy-path L257, empty-label L321, CLIENT-redirect L354). `.feature` file verbatim against EPIC-007 L152-154. PASS.
+- FA-5 (unit/component independent re-run): `pnpm --filter admin test` → log `/tmp/task-007-005-unit.log` → **223 passed (12 files)**; 24 action tests + 15 component tests present. `pnpm lint` + `pnpm type-check` clean. PASS.
+- AC coverage map: AC-FILE-007-01 → `createDocumentRequestAction` happy-path test + e2e spec L257 (create + persistence) + component test (action called with correct args + new item in list). Guard rejection (null/CLIENT) → action tests. Label validation → `validateLabel` unit tests (6 cases) + action tests (3 cases) + component tests (empty/whitespace). ADR-003 `withRequestContext` → `listDocumentRequestsAction` unit test `[ADR-003]`. ADR-006 surface boundary → portal grep zero hits + e2e CLIENT-redirect test. PASS.
+- Atomic close: ticked SDET Review box, wrote Review prose (FA-1 through FA-5), appended Work Log breadcrumb, set `Completed-at: 2026-06-19T14:22:00Z` (real clock, forward of `Started-at: 2026-06-19T13:36:00Z`), flipped `Status: done`.
+**End:** TASK-007-005 **approved and done**. 38/38 e2e tests confirmed (3 document-request specs). 223/223 unit tests confirmed. Lint + type-check clean. **Design-coherence finding (FA-1):** `/engagements/[engagementId]/document-requests` is an orphan route with no navigation link from any existing admin page. IO must decide fix-forward before or during TASK-007-006 dispatch (a follow-up navigation task, or a scope add to 007-006).
+
+---
+
+### IO Dispatch — TASK-007-005 (accountant document-request authoring UI, `apps/admin`) — 2026-06-19
+**Start:** Dispatch phase. TASK-007-004 SDET-APPROVED + committed (`ee8232e`; db suite 168/168, pipeline 19/19 vs live SQL Server + Azurite). Per the dependency chain (001/002/003 → 004 → 005 → 006 → 007), TASK-007-005 is next — the accountant `apps/admin` authoring UI (AC-FILE-007-01). Carrying the SDET-flagged IO action: TASK-007-006 dispatch MUST name the deferred ADR-019 audit (`withAuditTransaction`/`recordAuthEvent`) + ADR-022 rate-limit (`RateLimiter.consume()`) seam calls (recorded here so it is not lost; bind at 006 dispatch).
+**Actions:** Read PROGRESS.md (startup) + TASK-007-005 task file in full. Resolved the SDET-flagged write-path ambiguity by reading `packages/db/src/repositories/document-request.ts`: `createDocumentRequestAsAccountant` is the **admin-pool, RLS-exempt** write, **NOT barrel-exported** — imported directly from the source module (`@tax-portal/db/src/repositories/document-request.js`), with the **server action's `getAccountantIdentity` session guard** as the trust fence and the `0007` DocumentRequest BLOCK as defence-in-depth. This is the delivered `createEngagement`/`submitQuestionnaireAnswer` precedent exactly. **IA correction bound into the dispatch:** there is **no `apps/admin/src/app/engagements/` route** in the delivered admin IA (top-level: `requests`, `services`, `settings`; engagement *requests* live at `requests/[id]`). The task spec's assumed `engagements/[engagementId]/document-requests/` path does not exist — flagged the developer to locate where engagements are actually surfaced in the admin IA before inventing a route (fall back to the questionnaire-templates settings-list shape if no engagement-detail surface exists). Confirmed the `settings/questionnaire-templates/` precedent: `getAccountantIdentity` → admin-pool write → `revalidatePath`, identity from verified session only (never form data). **E2e decision:** per the cross-surface default (CLAUDE.md), the admin-authoring e2e (`apps/admin/e2e/specs/document-requests.spec.ts`) lands **here** as the `apps/admin` half (AC-FILE-007-01); the `apps/portal` half + the author→fulfill **cross-app** flow is consolidated into TASK-007-006. Kept `E2e-required: yes` on this task. No git, no commit (main-session-owned). Composed ONE `webapp-developer` dispatch with the IA correction, the confirmed admin-pool write seam, the gherkin/e2e methodology, AC↔test mapping, and the no-git reminder.
+**End:** TASK-007-005 dispatched (status stays `backlog` until the developer's checkpoint flips it to `in-progress`). Awaiting developer result; on completion the IO re-enters Dispatch for SDET review of 005, then dispatches TASK-007-006 (binding the deferred ADR-019/ADR-022 seam calls).
 
 ---
 
