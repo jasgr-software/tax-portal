@@ -19,6 +19,7 @@
     "@tax-portal/auth": "workspace:*",
     "@tax-portal/db": "workspace:*",
     "@tax-portal/esign": "workspace:*",
+    "@tax-portal/storage": "workspace:*",
     "@tax-portal/ui": "workspace:*",
     "next": "15.5.19",
     "react": "^18.3.0",

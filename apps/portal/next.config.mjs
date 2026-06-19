@@ -30,6 +30,39 @@ const nextConfig = {
   // CSP is intentionally permissive on script-src/style-src for Next.js + Tailwind
   // inline styles; tighten nonce-based CSP in a subsequent hardening pass.
   async headers() {
+    // DECISION (TASK-007-006): The ADR-009 signed-URL pipeline has the browser PUT bytes
+    // directly to the storage endpoint (never proxied through the portal). This requires
+    // the storage endpoint's origin to be allowed in connect-src.
+    //
+    // The connect-src directive must allow:
+    //   - 'self'                            — same-origin requests (portal server actions, APIs)
+    //   - http://localhost:10000            — Azurite emulator (local dev / e2e docker-compose)
+    //   - https://*.blob.core.windows.net   — Azure Blob Storage (production)
+    //
+    // BLOB_PUBLIC_ENDPOINT (optional env var): when set at build time, its origin is also
+    // included. This covers cases where the local dev endpoint differs from localhost:10000.
+    //
+    // Note: `routes-manifest.json` is compiled at `next build` time. `headers()` is called
+    // during the build to produce the static manifest. Therefore BLOB_PUBLIC_ENDPOINT must
+    // be available at build time to appear in the manifest. The docker-compose Dockerfile
+    // build stage does not set BLOB_PUBLIC_ENDPOINT, so we include localhost:10000 directly
+    // in the base set (safe because HTTP-only connections to localhost are already blocked
+    // by mixed-content policy when the portal itself is served over HTTPS in production).
+    const blobPublicEndpoint = process.env["BLOB_PUBLIC_ENDPOINT"];
+    let extraConnectSrc = "";
+    if (blobPublicEndpoint) {
+      try {
+        const { origin } = new URL(blobPublicEndpoint);
+        // Only add if not already 'self' or already in the base set
+        if (origin !== "http://localhost:10000") {
+          extraConnectSrc = ` ${origin}`;
+        }
+      } catch {
+        // Malformed BLOB_PUBLIC_ENDPOINT — ignore
+      }
+    }
+    const connectSrcOrigins = `'self' http://localhost:10000 https://*.blob.core.windows.net${extraConnectSrc}`;
+
     return [
       {
         source: "/(.*)",
@@ -58,7 +91,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data:",
               "font-src 'self'",
-              "connect-src 'self'",
+              `connect-src ${connectSrcOrigins}`,
               "frame-ancestors 'none'",
             ].join("; "),
           },

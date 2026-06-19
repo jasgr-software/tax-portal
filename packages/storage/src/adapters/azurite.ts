@@ -152,6 +152,12 @@ export class AzuriteAdapter implements FileStorage {
     key: string,
     opts: SignedUploadOptions,
   ): Promise<SignedUrl> {
+    // Ensure the container exists before minting the signed upload URL.
+    // If the container doesn't exist and the client PUTs to the signed URL,
+    // Azurite returns 404 (BlobContainerNotFound) — the PUT silently fails.
+    // ensureContainer is idempotent (createIfNotExists) so this is safe on every call.
+    await this.#ensureContainer();
+
     const ttlSeconds = resolveUploadTtl(opts.ttlSeconds);
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     const startsOn = new Date();

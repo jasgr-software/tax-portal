@@ -47,6 +47,10 @@ vi.mock("./actions", () => ({
   signEngagementLetterAction: mockSignEngagementLetterAction,
   getMyOnboardingAction: vi.fn(),
   getClientIdentity: vi.fn(),
+  // TASK-007-006: DocumentUploadStep imports these
+  requestUploadUrlAction: vi.fn(),
+  completeUploadAction: vi.fn(),
+  getChecklistAction: vi.fn(),
 }));
 
 // Mock @tax-portal/db — only type imports are needed in tests; mocked to prevent
@@ -549,6 +553,7 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={false}
+        checklist={null}
       />,
     );
 
@@ -563,6 +568,7 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={null}
         alreadySubmitted={false}
+        checklist={null}
       />,
     );
 
@@ -578,6 +584,7 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={SAMPLE_TEMPLATE}
         alreadySubmitted={true}
+        checklist={null}
       />,
     );
 
@@ -591,6 +598,7 @@ describe("OnboardingSequence — questionnaire step wired into intake-questionna
         letterContent={LETTER_CONTENT}
         questionnaire={TEMPLATE_NULL_QUESTIONNAIRE}
         alreadySubmitted={false}
+        checklist={null}
       />,
     );
 

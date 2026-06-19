@@ -15,10 +15,10 @@
  *
  * data-* hooks for e2e / demo:
  *   - data-testid="document-request-editor" — root container
- *   - data-testid="label-input" — the label text input
- *   - data-testid="add-request" — the submit button
+ *   - data-testid="document-request-label-input" — the label text input (cross-app e2e)
+ *   - data-testid="add-document-request-button" — the submit button (cross-app e2e)
  *   - data-testid="request-list" — the list of existing requests
- *   - data-testid="request-item" — each request row in the list
+ *   - data-testid="document-request-item-{id}" — each request row, with data-request-id={id}
  *
  * ADR-006: Admin-only component. No portal surface imports it.
  *
@@ -156,13 +156,13 @@ export function DocumentRequestEditor({
             disabled={isSaving}
             maxLength={LABEL_MAX_LENGTH}
             placeholder="Describe what the client should upload…"
-            data-testid="label-input"
+            data-testid="document-request-label-input"
             className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
           />
 
           <button
             type="button"
-            data-testid="add-request"
+            data-testid="add-document-request-button"
             onClick={handleAdd}
             disabled={isSaving}
             className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
@@ -200,7 +200,8 @@ export function DocumentRequestEditor({
             {requests.map((req, idx) => (
               <li
                 key={req.id}
-                data-testid="request-item"
+                data-testid={`document-request-item-${req.id}`}
+                data-request-id={req.id}
                 className="flex items-center gap-3 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800"
               >
                 <span className="text-gray-400 text-xs font-mono w-6 shrink-0">

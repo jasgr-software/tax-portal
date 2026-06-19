@@ -14,6 +14,10 @@
     "./src/repositories/document-request.js": {
       "types": "./dist/repositories/document-request.d.ts",
       "default": "./dist/repositories/document-request.js"
+    },
+    "./src/repositories/document.js": {
+      "types": "./dist/repositories/document.d.ts",
+      "default": "./dist/repositories/document.js"
     }
   },
   "scripts": {

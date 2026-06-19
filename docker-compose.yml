@@ -153,6 +153,22 @@ services:
       STORAGE_ADAPTER: "${STORAGE_ADAPTER:-azurite}"
       STORAGE_CONNECTION_STRING: "${PORTAL_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1}"
       STORAGE_CONTAINER: "${STORAGE_CONTAINER:-tax-portal-documents}"
+      # BLOB_PUBLIC_ENDPOINT — rewrites the Azurite signed upload URL's origin before
+      # returning it to the client browser. The portal server generates SAS URLs using the
+      # Docker-internal hostname "azurite:10000" (PORTAL_STORAGE_CONNECTION_STRING). The
+      # browser (running on the host machine) cannot resolve "azurite" — it must use
+      # localhost with the mapped port. This variable tells requestUploadUrlAction to swap
+      # the origin so the browser can PUT bytes directly to Azurite (ADR-009).
+      # Set to the host-accessible Azurite base URL. Leave unset in production (real Azure
+      # has a single public URL; no rewrite needed).
+      BLOB_PUBLIC_ENDPOINT: "${BLOB_PUBLIC_ENDPOINT:-http://localhost:10000}"
+      # File scanner binding — "mock" for e2e/local dev (no real AV engine needed).
+      # MockFileScanner returns 'clean' for all files (unless EICAR test content triggers
+      # the infected path). ALLOW_MOCK_SCANNER=true opts into the mock binding.
+      # Set FILE_SCANNER=cloud and leave ALLOW_MOCK_SCANNER unset for real production.
+      # ADR-021 §4: fail-closed default is cloud (deferred stub); mock requires explicit opt-in.
+      FILE_SCANNER: "${FILE_SCANNER:-mock}"
+      ALLOW_MOCK_SCANNER: "${ALLOW_MOCK_SCANNER:-true}"
     ports:
       - "${PORTAL_PORT:-3000}:3000"
     depends_on:

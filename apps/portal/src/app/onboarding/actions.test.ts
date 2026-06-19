@@ -37,10 +37,34 @@ const {
   mockVerifyCompletion,
   mockHeadersGet,
   mockRevalidatePath,
+  // EPIC-007 upload mocks
+  mockAuthorizeEngagementForUpload,
+  mockResolveChecklist,
+  mockInsertPendingDocument,
+  mockCompleteUpload,
+  mockGetSignedUploadUrl,
+  mockGetStorage,
+  mockGetRateLimiter,
+  mockRateLimiterConsume,
 } = vi.hoisted(() => {
   const mockCreateSignatureRequest = vi.fn();
   const mockVerifyCompletion = vi.fn();
   const mockHeadersGet = vi.fn().mockReturnValue("mock-cookie=value");
+
+  // Rate limiter mock — consume allows by default
+  const mockRateLimiterConsume = vi.fn().mockReturnValue({ allowed: true });
+  const mockGetRateLimiter = vi.fn().mockReturnValue({
+    consume: mockRateLimiterConsume,
+  });
+
+  // Storage mock
+  const mockGetSignedUploadUrl = vi.fn().mockResolvedValue({
+    url: "https://storage.example.com/upload-url?sig=test",
+    expiresAt: new Date(Date.now() + 300_000),
+  });
+  const mockGetStorage = vi.fn().mockReturnValue({
+    getSignedUploadUrl: mockGetSignedUploadUrl,
+  });
 
   return {
     mockGetEngagementForClient: vi.fn(),
@@ -63,6 +87,15 @@ const {
     mockVerifyCompletion,
     mockHeadersGet,
     mockRevalidatePath: vi.fn(),
+    // EPIC-007 upload mocks
+    mockAuthorizeEngagementForUpload: vi.fn(),
+    mockResolveChecklist: vi.fn(),
+    mockInsertPendingDocument: vi.fn(),
+    mockCompleteUpload: vi.fn(),
+    mockGetSignedUploadUrl,
+    mockGetStorage,
+    mockGetRateLimiter,
+    mockRateLimiterConsume,
   };
 });
 
@@ -81,6 +114,20 @@ vi.mock("@tax-portal/db", () => ({
   getMyQuestionnaire: mockGetMyQuestionnaire,
   getMyQuestionnaireAnswer: mockGetMyQuestionnaireAnswer,
   submitQuestionnaireAsClient: mockSubmitQuestionnaireAsClient,
+  // EPIC-007 upload mocks
+  authorizeEngagementForUpload: mockAuthorizeEngagementForUpload,
+  resolveChecklist: mockResolveChecklist,
+}));
+
+// @tax-portal/db/src/repositories/document.js — NOT on the barrel (TASK-007-004)
+vi.mock("@tax-portal/db/src/repositories/document.js", () => ({
+  insertPendingDocument: mockInsertPendingDocument,
+  completeUpload: mockCompleteUpload,
+}));
+
+// @tax-portal/storage — mock the storage adapter
+vi.mock("@tax-portal/storage", () => ({
+  getStorage: mockGetStorage,
 }));
 
 // @tax-portal/esign
@@ -101,10 +148,12 @@ vi.mock("next/cache", () => ({
   revalidatePath: mockRevalidatePath,
 }));
 
-// @tax-portal/auth — mock getAuthProvider with getIdentity
+// @tax-portal/auth — mock getAuthProvider with getIdentity + rate limiter
 const mockGetIdentity = vi.fn();
 vi.mock("@tax-portal/auth", () => ({
   getAuthProvider: () => ({ getIdentity: mockGetIdentity }),
+  getRateLimiter: mockGetRateLimiter,
+  buildRateLimitKey: (ip: string, endpoint: string) => `${ip}:${endpoint}`,
 }));
 
 // ─── Import AFTER mocks ───────────────────────────────────────────────────────
@@ -113,6 +162,9 @@ import {
   signEngagementLetterAction,
   submitQuestionnaireAction,
   getMyQuestionnaireAction,
+  requestUploadUrlAction,
+  completeUploadAction,
+  getChecklistAction,
 } from "./actions.js";
 import type { OnboardingReadModel } from "@tax-portal/db";
 
@@ -254,6 +306,31 @@ beforeEach(() => {
 
   // Default: audit write succeeds
   mockRecordAuthEvent.mockResolvedValue(undefined);
+
+  // Default: EPIC-007 upload mocks
+  mockRateLimiterConsume.mockReturnValue({ allowed: true });
+  mockGetRateLimiter.mockReturnValue({ consume: mockRateLimiterConsume });
+  mockAuthorizeEngagementForUpload.mockResolvedValue(SIGNED_ENGAGEMENT);
+  mockResolveChecklist.mockResolvedValue({
+    engagementId: ENGAGEMENT_ID,
+    items: [
+      { requestId: "req-001", label: "Tax Return W-2", status: "outstanding" as const },
+    ],
+    allRequiredProvided: false,
+  });
+  mockInsertPendingDocument.mockResolvedValue({
+    documentId: "doc-uuid-001",
+    storageKey: `engagements/${ENGAGEMENT_ID}/documents/doc-uuid-001/v1/test.pdf`,
+  });
+  mockCompleteUpload.mockResolvedValue({
+    outcome: "active",
+    documentId: "doc-uuid-001",
+  });
+  mockGetSignedUploadUrl.mockResolvedValue({
+    url: "https://storage.example.com/upload-url?sig=test",
+    expiresAt: new Date(Date.now() + 300_000),
+  });
+  mockGetStorage.mockReturnValue({ getSignedUploadUrl: mockGetSignedUploadUrl });
 });
 
 afterEach(() => {
@@ -676,6 +753,300 @@ describe("getMyQuestionnaireAction — load questionnaire + submitted state", ()
     mockWithRequestContext.mockResolvedValue(null);
 
     const result = await getMyQuestionnaireAction();
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("No active engagement found");
+  });
+
+});
+
+// ─── requestUploadUrlAction tests ─────────────────────────────────────────────
+
+describe("requestUploadUrlAction — authorize + pending insert + signed URL", () => {
+
+  const UPLOAD_INPUT = {
+    requestId: "req-001",
+    filename: "test-doc.pdf",
+    contentType: "application/pdf",
+    sizeBytes: 1024,
+  };
+
+  it("[ADR-009] returns signed upload URL on success", async () => {
+    const result = await requestUploadUrlAction(UPLOAD_INPUT);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.documentId).toBe("doc-uuid-001");
+    expect(result.data.uploadUrl).toContain("upload-url");
+    expect(result.data.storageKey).toContain("engagements");
+  });
+
+  it("[ADR-022] rate-limit checked BEFORE authorize — refuses when throttled", async () => {
+    mockRateLimiterConsume.mockReturnValue({ allowed: false, retryAfterMs: 30_000 });
+
+    const result = await requestUploadUrlAction(UPLOAD_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Too many");
+    // authorizeEngagementForUpload must NOT be called when rate-limited
+    expect(mockAuthorizeEngagementForUpload).not.toHaveBeenCalled();
+    expect(mockInsertPendingDocument).not.toHaveBeenCalled();
+  });
+
+  it("[EPIC-005 gate] upload refused when letter unsigned (checkStepAccessibility blocks)", async () => {
+    // checkStepAccessibility returns a refusal when letter is unsigned
+    mockCheckStepAccessibility.mockReturnValue({
+      refused: true as const,
+      reason: "step-locked" as const,
+      stepKey: "document-upload" as const,
+    });
+
+    const result = await requestUploadUrlAction(UPLOAD_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.refused).toBe(true);
+    expect(result.error).toContain("not yet accessible");
+    // No pending insert when gate blocked
+    expect(mockInsertPendingDocument).not.toHaveBeenCalled();
+  });
+
+  it("[EPIC-005 gate] unsigned engagement → upload action refused (letter gate not weakened)", async () => {
+    // Simulate the letter gate: unsigned engagement produces step-locked refusal
+    mockGetMyEngagement.mockResolvedValue(UNSIGNED_ENGAGEMENT);
+    mockCheckStepAccessibility.mockReturnValue({
+      refused: true as const,
+      reason: "step-locked" as const,
+      stepKey: "document-upload" as const,
+    });
+
+    const result = await requestUploadUrlAction(UPLOAD_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.refused).toBe(true);
+    // Confirms server-side refusal (not just UI hide) per EPIC-005 constraint
+  });
+
+  it("[ADR-005] non-owner — engagement not found → refused, no insert, no audit", async () => {
+    // getMyEngagement returns null (FILTER fails closed for non-owners)
+    mockWithRequestContext.mockResolvedValue(null);
+
+    const result = await requestUploadUrlAction(UPLOAD_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.refused).toBe(true);
+    expect(mockInsertPendingDocument).not.toHaveBeenCalled();
+    expect(mockRecordAuthEvent).not.toHaveBeenCalled();
+  });
+
+  it("[ADR-019] audit event written after successful pending insert", async () => {
+    await requestUploadUrlAction(UPLOAD_INPUT);
+
+    expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
+    const auditArg = mockRecordAuthEvent.mock.calls[0]?.[0];
+    expect(auditArg?.action).toBe("document.upload_url_minted");
+    expect(auditArg?.targetType).toBe("Engagement");
+    expect(auditArg?.targetId).toBe(ENGAGEMENT_ID);
+    expect(auditArg?.sourceSurface).toBe("portal");
+    expect(auditArg?.actor.role).toBe("CLIENT");
+    expect(auditArg?.actor.clerkUserId).toBe(CLIENT_IDENTITY.clerkUserId);
+  });
+
+  it("returns error when no CLIENT identity present", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await requestUploadUrlAction(UPLOAD_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Unauthorized");
+    expect(mockInsertPendingDocument).not.toHaveBeenCalled();
+  });
+
+  it("[AC-FILE-002-01] any content-type accepted — no rejection for content-type (e.g. binary)", async () => {
+    // Upload a file with a non-document content-type — should not be rejected
+    const binaryInput = {
+      ...UPLOAD_INPUT,
+      filename: "data.bin",
+      contentType: "application/octet-stream",
+    };
+
+    const result = await requestUploadUrlAction(binaryInput);
+
+    // The action should succeed (no format allow-list rejection at the action layer)
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // insertPendingDocument was called with the declared content-type
+    expect(mockInsertPendingDocument).toHaveBeenCalledOnce();
+    const insertArg = mockInsertPendingDocument.mock.calls[0]?.[0];
+    expect(insertArg?.contentType).toBe("application/octet-stream");
+  });
+
+});
+
+// ─── completeUploadAction tests ───────────────────────────────────────────────
+
+describe("completeUploadAction — scan-promote gate (AC-NFR-009-01/-02)", () => {
+
+  const COMPLETE_INPUT = {
+    documentId: "doc-uuid-001",
+    storageKey: `engagements/${ENGAGEMENT_ID}/documents/doc-uuid-001/v1/test.pdf`,
+  };
+
+  it("[AC-NFR-009-01] clean file → outcome active, revalidatePath called", async () => {
+    mockCompleteUpload.mockResolvedValue({ outcome: "active", documentId: "doc-uuid-001" });
+
+    const result = await completeUploadAction(COMPLETE_INPUT);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.outcome).toBe("active");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/onboarding");
+  });
+
+  it("[AC-NFR-009-02] infected file → outcome infected, withheld (not active)", async () => {
+    mockCompleteUpload.mockResolvedValue({
+      outcome: "infected",
+      documentId: "doc-uuid-001",
+      threat: "EICAR-Test-File",
+    });
+
+    const result = await completeUploadAction(COMPLETE_INPUT);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // Outcome is 'infected' — withheld from the client
+    expect(result.data.outcome).toBe("infected");
+  });
+
+  it("[AC-NFR-009-02] audit action for infected = document.upload_rejected_malicious", async () => {
+    mockCompleteUpload.mockResolvedValue({
+      outcome: "infected",
+      documentId: "doc-uuid-001",
+      threat: "EICAR-Test-File",
+    });
+
+    await completeUploadAction(COMPLETE_INPUT);
+
+    const auditArg = mockRecordAuthEvent.mock.calls[0]?.[0];
+    expect(auditArg?.action).toBe("document.upload_rejected_malicious");
+  });
+
+  it("[EPIC-005 gate] complete refused when letter unsigned (server-side refusal)", async () => {
+    mockGetMyEngagement.mockResolvedValue(UNSIGNED_ENGAGEMENT);
+    mockCheckStepAccessibility.mockReturnValue({
+      refused: true as const,
+      reason: "step-locked" as const,
+      stepKey: "document-upload" as const,
+    });
+
+    const result = await completeUploadAction(COMPLETE_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.refused).toBe(true);
+    // scan-promote must NOT run when gate blocked
+    expect(mockCompleteUpload).not.toHaveBeenCalled();
+  });
+
+  it("[ADR-022] rate-limit checked — refuses when throttled", async () => {
+    mockRateLimiterConsume.mockReturnValue({ allowed: false, retryAfterMs: 30_000 });
+
+    const result = await completeUploadAction(COMPLETE_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Too many");
+    expect(mockCompleteUpload).not.toHaveBeenCalled();
+  });
+
+  it("[ADR-019] audit event written after scan (action distinguishes outcome)", async () => {
+    mockCompleteUpload.mockResolvedValue({ outcome: "active", documentId: "doc-uuid-001" });
+
+    await completeUploadAction(COMPLETE_INPUT);
+
+    const auditArg = mockRecordAuthEvent.mock.calls[0]?.[0];
+    expect(auditArg?.action).toBe("document.upload_completed");
+    expect(auditArg?.targetType).toBe("Engagement");
+    expect(auditArg?.targetId).toBe(ENGAGEMENT_ID);
+    expect(auditArg?.sourceSurface).toBe("portal");
+  });
+
+  it("returns error when no CLIENT identity present", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await completeUploadAction(COMPLETE_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Unauthorized");
+    expect(mockCompleteUpload).not.toHaveBeenCalled();
+  });
+
+  it("pending outcome stays pending (scan indeterminate — fail-closed)", async () => {
+    mockCompleteUpload.mockResolvedValue({
+      outcome: "pending",
+      documentId: "doc-uuid-001",
+      reason: "scanner-indeterminate: timeout",
+    });
+
+    const result = await completeUploadAction(COMPLETE_INPUT);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.outcome).toBe("pending");
+  });
+
+});
+
+// ─── getChecklistAction tests ──────────────────────────────────────────────────
+
+describe("getChecklistAction — load document checklist", () => {
+
+  it("[AC-ONBD-004-01] returns the engagement's checklist on success", async () => {
+    const result = await getChecklistAction();
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.engagementId).toBe(ENGAGEMENT_ID);
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.items[0]?.label).toBe("Tax Return W-2");
+  });
+
+  it("[EPIC-005 gate] checklist refused when letter unsigned", async () => {
+    mockGetMyEngagement.mockResolvedValue(UNSIGNED_ENGAGEMENT);
+    mockCheckStepAccessibility.mockReturnValue({
+      refused: true as const,
+      reason: "step-locked" as const,
+      stepKey: "document-upload" as const,
+    });
+
+    const result = await getChecklistAction();
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.refused).toBe(true);
+    expect(result.error).toContain("not yet accessible");
+  });
+
+  it("returns error when no CLIENT identity", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await getChecklistAction();
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("Unauthorized");
+  });
+
+  it("returns error when no engagement found", async () => {
+    mockWithRequestContext.mockResolvedValue(null);
+
+    const result = await getChecklistAction();
 
     expect(result.success).toBe(false);
     if (result.success) return;

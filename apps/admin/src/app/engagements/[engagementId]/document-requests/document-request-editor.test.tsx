@@ -128,21 +128,22 @@ describe("DocumentRequestEditor", () => {
     expect(screen.getByTestId("document-request-editor")).toBeInTheDocument();
   });
 
-  it("renders the label input with data-testid='label-input'", () => {
+  it("renders the label input with data-testid='document-request-label-input'", () => {
     renderEditor();
-    expect(screen.getByTestId("label-input")).toBeInTheDocument();
+    expect(screen.getByTestId("document-request-label-input")).toBeInTheDocument();
   });
 
-  it("renders the 'Add request' button with data-testid='add-request'", () => {
+  it("renders the 'Add request' button with data-testid='add-document-request-button'", () => {
     renderEditor();
-    expect(screen.getByTestId("add-request")).toBeInTheDocument();
+    expect(screen.getByTestId("add-document-request-button")).toBeInTheDocument();
   });
 
   it("[AC-FILE-007-01] renders existing requests when initialRequests is provided", () => {
     renderEditor({ initialRequests: EXISTING_REQUESTS });
 
     expect(screen.getByTestId("request-list")).toBeInTheDocument();
-    const items = screen.getAllByTestId("request-item");
+    // Items now use data-testid="document-request-item-{id}" (cross-app e2e pattern)
+    const items = screen.getAllByTestId(/^document-request-item-/);
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent("2023 W-2 form");
     expect(items[1]).toHaveTextContent("Bank statements (last 3 months)");
@@ -168,8 +169,8 @@ describe("DocumentRequestEditor", () => {
     const user = userEvent.setup();
     renderEditor();
 
-    await user.type(screen.getByTestId("label-input"), "2023 W-2 form");
-    await user.click(screen.getByTestId("add-request"));
+    await user.type(screen.getByTestId("document-request-label-input"), "2023 W-2 form");
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
       expect(mockCreateDocumentRequestAction).toHaveBeenCalledWith(
@@ -183,8 +184,8 @@ describe("DocumentRequestEditor", () => {
     const user = userEvent.setup();
     renderEditor();
 
-    await user.type(screen.getByTestId("label-input"), "2023 W-2 form");
-    await user.click(screen.getByTestId("add-request"));
+    await user.type(screen.getByTestId("document-request-label-input"), "2023 W-2 form");
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
       expect(screen.getByRole("status")).toHaveTextContent(/document request added/i);
@@ -195,11 +196,11 @@ describe("DocumentRequestEditor", () => {
     const user = userEvent.setup();
     renderEditor({ initialRequests: [] });
 
-    await user.type(screen.getByTestId("label-input"), "New document request");
-    await user.click(screen.getByTestId("add-request"));
+    await user.type(screen.getByTestId("document-request-label-input"), "New document request");
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
-      const items = screen.getAllByTestId("request-item");
+      const items = screen.getAllByTestId(/^document-request-item-/);
       expect(items).toHaveLength(1);
       expect(items[0]).toHaveTextContent("New document request");
     });
@@ -209,11 +210,11 @@ describe("DocumentRequestEditor", () => {
     const user = userEvent.setup();
     renderEditor();
 
-    await user.type(screen.getByTestId("label-input"), "2023 W-2 form");
-    await user.click(screen.getByTestId("add-request"));
+    await user.type(screen.getByTestId("document-request-label-input"), "2023 W-2 form");
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("label-input")).toHaveValue("");
+      expect(screen.getByTestId("document-request-label-input")).toHaveValue("");
     });
   });
 
@@ -224,7 +225,7 @@ describe("DocumentRequestEditor", () => {
     renderEditor();
 
     // Leave label empty and click Add
-    await user.click(screen.getByTestId("add-request"));
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/required|empty/i);
@@ -236,8 +237,8 @@ describe("DocumentRequestEditor", () => {
     const user = userEvent.setup();
     renderEditor();
 
-    await user.type(screen.getByTestId("label-input"), "   ");
-    await user.click(screen.getByTestId("add-request"));
+    await user.type(screen.getByTestId("document-request-label-input"), "   ");
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/empty|whitespace/i);
@@ -250,7 +251,7 @@ describe("DocumentRequestEditor", () => {
     renderEditor();
 
     // Fill label via direct input value change (typing 501 chars is slow)
-    const input = screen.getByTestId("label-input") as HTMLInputElement;
+    const input = screen.getByTestId("document-request-label-input") as HTMLInputElement;
     // Bypass maxLength for testing purposes using userEvent type is fine;
     // the client-side validator checks the value, not maxLength attribute
     await user.type(input, "A".repeat(10)); // small amount to get into state
@@ -268,7 +269,7 @@ describe("DocumentRequestEditor", () => {
 
     await user.clear(input);
     await user.type(input, "Valid label");
-    await user.click(screen.getByTestId("add-request"));
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/must not exceed|500/i);
@@ -286,8 +287,8 @@ describe("DocumentRequestEditor", () => {
     const user = userEvent.setup();
     renderEditor();
 
-    await user.type(screen.getByTestId("label-input"), "2023 W-2 form");
-    await user.click(screen.getByTestId("add-request"));
+    await user.type(screen.getByTestId("document-request-label-input"), "2023 W-2 form");
+    await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
@@ -295,7 +296,7 @@ describe("DocumentRequestEditor", () => {
       );
     });
     // List should not gain a new item on failure
-    expect(screen.queryByTestId("request-item")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId(/^document-request-item-/)).toHaveLength(0);
   });
 
   // ── XSS safety ────────────────────────────────────────────────────────────
@@ -316,7 +317,7 @@ describe("DocumentRequestEditor", () => {
     });
 
     // The label is rendered as text content, not injected as HTML
-    const items = screen.getAllByTestId("request-item");
+    const items = screen.getAllByTestId(/^document-request-item-/);
     expect(items[0]).toHaveTextContent(xssLabel);
     // No <script> injected into the DOM
     expect(document.querySelector("script[data-injected]")).not.toBeInTheDocument();

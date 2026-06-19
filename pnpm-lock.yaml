@@ -135,6 +135,9 @@ importers:
       '@tax-portal/esign':
         specifier: workspace:*
         version: link:../../packages/esign
+      '@tax-portal/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@tax-portal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
