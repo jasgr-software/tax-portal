@@ -13,15 +13,18 @@
 **BRIEF-008 / EPIC-008 — Onboarding completion (gate close → automatic New→In Progress transition → accountant
 notified) — Phase: DISPATCH.** Branch `brief-008-onboarding-completion-transition` (off `main` @ `d49c984`).
 
-> **Task status (2026-06-19, Dispatch — 002 implemented, routed to SDET review):** TASK-008-001 **`done`**
-> (SDET-APPROVED 22:11:00Z; committed `bac39eb`, code in `ae3b20c`). **TASK-008-002 implemented → `review`**
-> (portal completion triggers; developer ticked submission gate, `Complexity-actual: 1`, `Completed-at` blank;
-> changes **uncommitted** in working tree). **SDET dispatch composed (gate-2 approval).** TASK-008-003
-> **`backlog`** (UNBLOCKED — admin surface; depends only on 001; file-disjoint from 002 — dispatched after 002
-> approval). TASK-008-004 (e2e; Docker pre-flight), -005 (@demo) **`backlog`** (gated behind 002+003 / 004
-> respectively). **Resume:** re-invoke `/io` with the SDET 002 result inline → on APPROVE, main session commits
-> 002 (code + close), IO dispatches 003; on REJECT, IO routes fixes back to the developer. Conductor STATE.md
-> mirrors this.
+> **Task status (2026-06-19, Dispatch — 003 implemented → routed to SDET review):** TASK-008-001
+> **`done`** (SDET-APPROVED 22:11:00Z; committed `bac39eb`, code `ae3b20c`). TASK-008-002 **`done`**
+> (SDET-APPROVED 17:17:00Z; gates re-run independently — lint/type-check clean, `actions.test.ts` 55/55, portal
+> 172/172, zero regressions; scope-disciplined — only the two portal files; `Complexity-actual: 1`). **Main
+> session committed 002 (code + SDET close) as `f443307`.** **TASK-008-003 → `in-progress`** (admin surface —
+> render `onboarding_completed` in the feed + minimal engagement-status observable; D6; depends only on 001;
+> file-disjoint from the now-committed 002). **TASK-008-003 → `review`** (developer completed; submission gate
+> ticked; `Complexity-actual: 2`; `Completed-at` blank; changes uncommitted in working tree) — **routed to SDET
+> gate-2 review this invocation.** TASK-008-004 (e2e; Docker pre-flight), -005 (@demo) **`backlog`** (gated
+> behind 002+003 / 004). **Resume:** re-invoke `/io` with the SDET 003 result inline → on APPROVE, main session
+> commits 003, IO dispatches 004 (e2e — Docker pre-flight here); on REJECT, IO routes the enumerated fixes back
+> to the developer. Conductor STATE.md mirrors this.
 **Phase-2 capstone; the smallest Phase-2 slice (8 AC).** Goal: when an engagement's three onboarding steps are
 all satisfied (letter signed — EPIC-005; questionnaire submitted — EPIC-006; required documents uploaded —
 EPIC-007), the **system** marks onboarding complete, **automatically transitions the engagement New → In
@@ -391,3 +394,93 @@ committed `bac39eb`).
 **End:** Dispatch continues — **TASK-008-002 routed to SDET review**. On APPROVE: main session commits 002
 (code + close edit), IO dispatches TASK-008-003 (admin surface). On REJECT: IO routes the enumerated fixes back
 to the `[webapp-developer]`. Composing ONE `## Next Dispatch` for the SDET review of TASK-008-002.
+
+---
+
+### IO Dispatch (TASK-008-002 approved + committed; dispatching TASK-008-003 — admin surface) — BRIEF-008 / EPIC-008 — 2026-06-19
+**Start:** Re-invoked with the SDET TASK-008-002 result inline: **APPROVED** (17:17:00Z). Independently-run
+gate evidence verified — `pnpm lint` clean, `pnpm type-check` clean, `actions.test.ts` 55/55, full portal
+172/172, zero regressions; all four focus areas pass (server-resolved engagement id per ADR-003; real D5
+error-containment counterfactual; scope discipline — only the two portal files changed, `packages/` untouched,
+`signEngagementLetterAction` untouched; AC-path test tags assert the id argument); metadata gate clean
+(`Complexity-actual: 1`). **Main session committed 002 (code + SDET close) as `f443307`.** Tasks 001 + 002 now
+`done` and committed on `brief-008-onboarding-completion-transition`. One carried non-blocking observation: the
+recurring clock-inversion (SDET `Completed-at` earlier than developer `Started-at`) — the existing PROGRESS.md
+`ungated-fix` retro item (RETRO-006 item 2 → elevated at BRIEF-007), not a gate failure.
+**Actions:**
+- Re-read the TASK-008-003 spec + the brief (D6: admin `NotificationsIndicator.tsx` HARD-filters to
+  `new_engagement_request` and must also render `onboarding_completed`; a minimal read-only "In Progress"
+  engagement-status display on the existing admin per-engagement surface so AC-ONBD-006-01 has a UI observable).
+- Confirmed the live anchor: `apps/admin/src/app/requests/_components/NotificationsIndicator.tsx` filters on
+  `NOTIFICATION_TYPE_NEW_REQUEST` (L56) and keys list/empty rendering to `newRequestNotifs`;
+  `NOTIFICATION_TYPE_ONBOARDING_COMPLETE` is exported from the `@tax-portal/db` barrel (`index.ts` L233, value
+  `"onboarding_completed"`, added by TASK-008-001).
+- **Dependency check:** 003 depends only on 001 (`done`, committed). File-disjoint from the now-committed 002
+  (002 = portal `onboarding/actions.ts`; 003 = admin component + admin engagement page + admin test + optional
+  additive `packages/db` admin-pool status read). Cross-surface (CLAUDE.md § Platform-frontend scope): 003 is
+  the **admin half** of the slice; 002 was the portal half; the cross-app path is TASK-008-004 — so 003 itself
+  carries **admin component/unit tests** (`E2e-required: no`), not e2e.
+- Phase-transition reflex: updated `## Current initiative` task status (001+002 done/committed; 003
+  in-progress; 004/005 backlog); flipped TASK-008-003 → `in-progress`; appended this entry.
+**End:** Dispatch continues. Composing ONE `## Next Dispatch` for **TASK-008-003** (`[webapp-developer]`,
+`Impl: developer`). On its SDET approval: main session commits 003, IO dispatches TASK-008-004 (e2e +
+cross-app — **Docker pre-flight fires here**, the first e2e-gated task), then 005 (@demo).
+
+---
+
+### SDET Review — TASK-008-003 — 2026-06-19T17:40:00Z
+**Start:** TASK-008-003 at `review`; SDET spawned for gate-2 review (admin surface — notification feed extension + engagement-status observable).
+**Actions:**
+- Startup checklist: ENGINE.md, sdet.md, PROGRESS.md, task file, brief AC binding (AC-ONBD-006-01, AC-ONBD-007-01/-02, AC-MSG-013-04), upstream refs (ADR-003, ADR-005, ADR-006) all read.
+- Scope discipline (diff): `git diff --name-only HEAD` returns exactly the 7 files named in the Work Log + the two task/PROGRESS files. `apps/portal` diff is 0 lines. `prisma/schema.prisma`, `db/migrations/`, `db/policies/` show zero changes — no schema migration. PASS.
+- Focus area 1 (additive no-schema DB read, ADR-003): `getEngagementStatusForAdmin` uses `getAdminPool()` + raw mssql `SELECT [id],[status] WHERE id=@engagementId` — no Prisma direct access, no SESSION_CONTEXT. Admin pool is correct for the admin surface (no CLIENT context). Reads `Engagement.status` — not the notification rows, no `0004` bypass. PASS.
+- Focus area 2 (notification feed extension, XSS): Two-element `||` filter; unknown/future types filtered, not rendered implicitly. Tests confirm `some_future_type` absent from DOM. Unread badge counts both types. "Review request" link preserved. No `dangerouslySetInnerHTML` in component or page. PASS.
+- Focus area 3 (AC coverage + dual-tags): `[AC-ONBD-007-01 / AC-MSG-013-04]` describe (3 tests, render + unread + read variants). `[AC-ONBD-007-02]` describe (3 tests, title/body content + XSS). `[AC-ONBD-006-01]` — 2 `it` entries assert both 'New' and 'In Progress' statuses with argument check. PASS.
+- Focus area 4 (scope discipline): `apps/portal` zero diff, `apps/portal` test non-regression 172/172. No engagement list/pipeline/lifecycle UI, no client-facing labels, no changes to 001 engine or 002 portal wiring. PASS.
+- Focus area 5 (independent gate re-runs on uncommitted working tree): `pnpm lint` PASS; `pnpm type-check` PASS; `pnpm --filter admin test` 246/246 PASS; `pnpm --filter portal test` 172/172 PASS.
+- Metadata: `Complexity-actual: 2` (valid); `Completed-at` correctly blank at review. Pre-impl Work Log entry present. Required spec fields all present. `Introduces-gate: no` — no Gate Authoring Rules evidence required.
+- Atomic close edit performed: SDET Review box ticked, Decision: approved, comprehensive notes, approval breadcrumb appended to Work Log, `Completed-at: 2026-06-19T17:40:00Z`, `Status: done`.
+**End:** **TASK-008-003 APPROVED.** All 3 of tasks 001/002/003 now `done` and ready for commit. TASK-008-004 (e2e, Docker pre-flight) is unblocked.
+
+---
+
+### IO Dispatch (TASK-008-003 implemented → routed to SDET review — admin surface) — BRIEF-008 / EPIC-008 — 2026-06-19
+**Start:** Re-invoked with the TASK-008-003 implementer result inline: developer **completed**, status flipped
+`in-progress → review`, all submission-gate boxes ticked. `packages/db/src/repositories/engagement.ts` adds
+`getEngagementStatusForAdmin(engagementId)` (admin-pool `SELECT [id],[status]` → `{id,status}|null`; NO new
+entity/column/policy; DECISION recorded — admin pool, no CLIENT SESSION_CONTEXT at admin surface, ADR-003 §7
+admin-read pattern); barrel-exported via `index.ts`. `NotificationsIndicator.tsx` extends the hard-filter from
+`NEW_REQUEST`-only to the known set {`NEW_REQUEST`, `ONBOARDING_COMPLETE`} (imported from `@tax-portal/db`);
+unread badge counts both; body rendered as default-escaped React text (XSS-safe); `data-notification-type` per
+item; "Review request" link when `engagementRequestId` set (D4 FK reuse); unknown/future types NOT rendered.
+`document-requests/actions.ts` adds `getEngagementStatusAction` (ACCOUNTANT identity guard →
+`getEngagementStatusForAdmin`); `document-requests/page.tsx` renders `<span data-testid="engagement-status"
+data-status={status}>` (AC-ONBD-006-01 UI observable). Tests: `NotificationsIndicator.test.tsx` (16) +
+`engagement-status.test.ts` (7). Gates: lint clean, type-check clean, admin 246/246, portal 172/172 (ADR-006
+non-regression). `Complexity-actual: 2`; `Completed-at` blank; changes uncommitted in working tree (001+002
+committed `bac39eb`/`f443307`).
+**Actions:**
+- Read the TASK-008-003 spec + its SDET Review focus areas + the brief AC binding (AC-ONBD-006-01,
+  AC-ONBD-007-01/-02, AC-MSG-013-04) + upstream refs (ADR-003, ADR-005, ADR-006). Verified the task is at
+  `review` with the submission gate ticked, `Complexity-actual: 2` (valid 1–5), `Completed-at` correctly blank.
+- Composed the **gate-2 SDET dispatch** with this-task-specific binding focus areas: (1) the new `packages/db`
+  read is genuinely additive & no-schema — verify via `git diff` NO Prisma migration / `db/migrations/*` /
+  `db/policies/*` / `prisma/schema.prisma`; admin-pool seam (ADR-003, no direct Prisma outside the wrapper);
+  the admin-pool choice does NOT bypass the accountant-only `0004` notification boundary (reads
+  `Engagement.status` on the already-accountant-gated admin page, not client-scoped notification rows). (2)
+  Notification feed extension is minimal & non-regressing — only the two known types rendered (no implicit
+  default for unknown/future), `new_engagement_request` + unread badge + "Review request" link preserved,
+  default-escaped React text (no `dangerouslySetInnerHTML`). (3) AC coverage + dual-tags
+  (AC-ONBD-007-01/AC-MSG-013-04 dual-tagged, AC-ONBD-007-02, AC-ONBD-006-01 New + In Progress). (4) Scope
+  discipline — no engagement list/pipeline UI, no lifecycle controls, no client-facing labels (Phase-3 OOS),
+  `apps/portal` untouched (ADR-006), no change to the 001 engine / 002 portal wiring. (5) Independent re-run of
+  lint, type-check, `pnpm --filter admin test`, `pnpm --filter portal test` on the uncommitted working tree
+  (note pre-existing failures as pre-existing). (6) Metadata gate — `Complexity-actual: 2` valid, `Completed-at`
+  blank until close. Atomic-close-on-approve / enumerated-reject; **SDET does NOT commit** (main session commits
+  003 after approval).
+- Phase-transition reflex: updated `## Current initiative` task status (001+002 done/committed; 003 → review,
+  SDET dispatch composed; 004/005 backlog); appended this entry.
+**End:** Dispatch continues — **TASK-008-003 routed to SDET review**. On APPROVE: main session commits 003 (code
++ close edit), IO dispatches TASK-008-004 (e2e + cross-app — **Docker pre-flight fires here**, the first
+e2e-gated task). On REJECT: IO routes the enumerated fixes back to the `[webapp-developer]`. Composing ONE
+`## Next Dispatch` for the SDET review of TASK-008-003.

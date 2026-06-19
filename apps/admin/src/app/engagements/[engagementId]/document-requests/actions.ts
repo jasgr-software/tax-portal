@@ -34,6 +34,7 @@ import { getAuthProvider } from "@tax-portal/auth";
 import {
   withRequestContext,
   listDocumentRequestsForEngagement,
+  getEngagementStatusForAdmin,
 } from "@tax-portal/db";
 import type { DocumentRequestItem } from "@tax-portal/db";
 // NOT on the barrel — import directly from the source module (TASK-007-004 constraint)
@@ -48,6 +49,10 @@ export type CreateDocumentRequestResult =
 
 export type ListDocumentRequestsResult =
   | { success: true; data: DocumentRequestItem[] }
+  | { success: false; error: string };
+
+export type GetEngagementStatusResult =
+  | { success: true; status: string }
   | { success: false; error: string };
 
 // ─── Identity helper ──────────────────────────────────────────────────────────
@@ -179,4 +184,44 @@ export async function listDocumentRequestsAction(
   );
 
   return { success: true, data };
+}
+
+/**
+ * Get the engagement status for the admin per-engagement surface (read-only badge).
+ *
+ * AC-ONBD-006-01 (UI observable): The admin per-engagement page shows the engagement
+ *   status, reading "In Progress" once the onboarding completion engine has transitioned it.
+ *
+ * ADR-003: Uses getEngagementStatusForAdmin (admin pool, RLS-exempt) — no SESSION_CONTEXT
+ *   required for this admin-side read (the accountant's identity is already verified by the
+ *   middleware guard; the admin pool is the correct pool for admin-surface reads, per
+ *   DECISION in engagement.ts TASK-008-003).
+ * ADR-006: Admin surface only — this action is apps/admin. Not in apps/portal.
+ * ADR-005: No new entity/column/policy. Reads existing Engagement.status column.
+ *
+ * @param engagementId - The Engagement.id from the URL route param (server-resolved).
+ * @returns GetEngagementStatusResult — success + status string, or failure + error string.
+ */
+export async function getEngagementStatusAction(
+  engagementId: string,
+): Promise<GetEngagementStatusResult> {
+  // ── Identity guard (ACCOUNTANT-only, ADR-005) ─────────────────────────────
+  const identity = await getAccountantIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
+  }
+
+  if (typeof engagementId !== "string" || !engagementId.trim()) {
+    return { success: false, error: "A valid engagement ID is required" };
+  }
+
+  // Admin pool read — no withRequestContext needed (getEngagementStatusForAdmin uses admin pool).
+  // ADR-003: admin pool is sanctioned for admin-surface reads (DECISION in engagement.ts TASK-008-003).
+  const result = await getEngagementStatusForAdmin(engagementId.trim());
+
+  if (!result) {
+    return { success: false, error: "Engagement not found" };
+  }
+
+  return { success: true, status: result.status };
 }

@@ -448,6 +448,52 @@ export async function recordLetterSignatureAsClient(input: RecordLetterSignature
   }
 }
 
+// ─── Read: getEngagementStatusForAdmin (admin pool — RLS-exempt, status-only) ─
+
+/**
+ * Returns a minimal status-only view of an Engagement for the admin surface.
+ *
+ * Used by: apps/admin document-requests page to display a read-only engagement
+ * status badge (AC-ONBD-006-01 UI observable).
+ *
+ * DECISION (TASK-008-003): Admin pool is correct here because:
+ *   (a) The accountant needs to see the engagement's current status regardless of
+ *       whether a CLIENT SESSION_CONTEXT is set (there is none on the admin page).
+ *   (b) getEngagementForClient (request pool) requires a SESSION_CONTEXT-aware context
+ *       and returns a full EngagementItem — overkill for a status-only badge.
+ *   (c) The admin pool is already used for engagement writes at accept-time
+ *       (createEngagement) — admin reads at the same trust level are consistent.
+ *   (d) ADR-003 §7: admin pool is allowed for admin-surface reads that are not
+ *       request-scoped (the admin is authenticated by the middleware guard, not
+ *       by SESSION_CONTEXT).
+ *
+ * ADR-006: Admin surface only — not accessible from apps/portal.
+ * ADR-005: No new entity/column/policy. Reads existing Engagement.status.
+ * ADR-003: Admin pool; no withRequestContext required.
+ *
+ * Returns { id, status } when the engagement exists, null otherwise.
+ *
+ * @param engagementId — the Engagement.id from the URL route param (server-resolved).
+ */
+export async function getEngagementStatusForAdmin(
+  engagementId: string,
+): Promise<{ id: string; status: string } | null> {
+  const pool = await getAdminPool();
+  const req = new MssqlRequest(pool);
+  req.input("engagementId", engagementId);
+
+  const result = await req.query<{ id: string; status: string }>(
+    `SELECT [id], [status]
+     FROM [dbo].[Engagement]
+     WHERE [id] = @engagementId`
+  );
+
+  const row = result.recordset[0];
+  if (!row) return null;
+
+  return { id: row.id, status: row.status };
+}
+
 // ─── Internal: row mapper ─────────────────────────────────────────────────────
 
 function mapRow(row: {

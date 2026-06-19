@@ -86,6 +86,7 @@ export { getAdminPool, closeAdminPool } from "./admin-connection.js";
 // getEngagementForClient        — request pool read (sec.pol_Engagement FILTER enforces client isolation)
 // getMyEngagement               — no-arg request pool read (FILTER returns caller's own row; TASK-005-006)
 // recordLetterSignatureAsClient — REQUEST POOL signature write (BLOCK-governed; production path)
+// getEngagementStatusForAdmin   — admin pool status-only read for admin surface (TASK-008-003, AC-ONBD-006-01 UI)
 //
 // NOT on this barrel (substrate/test-only):
 //   recordLetterSignature — admin-pool write that bypasses BLOCK; import from the source module directly.
@@ -100,6 +101,8 @@ export {
   getEngagementForClient,
   getMyEngagement,
   recordLetterSignatureAsClient,
+  // Admin-pool status-only read for the admin per-engagement surface (TASK-008-003, AC-ONBD-006-01 UI)
+  getEngagementStatusForAdmin,
 } from "./repositories/engagement.js";
 
 // Onboarding read model (EPIC-005 / TASK-005-005)
