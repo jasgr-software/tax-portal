@@ -10,54 +10,94 @@
 
 ## Current initiative
 
-**_No slice active._ BRIEF-007 / EPIC-007 — Initial document upload (checklist + secure, malware-scanned
-file-storage path) — DELIVERED 2026-06-19.** Merged **PR #52 → `main` @ `eaa5875`** (Lane B, user-approved,
-squash + branch-delete, no protection toggle). **Close-finalize COMPLETE:** Gate 8 (post-merge CI) ✅ GREEN —
-CI run `27844771147` `completed/success` (required `lint-and-typecheck` ✅ + `security-scan` ✅; advisory
-`test-portal`/`test-admin` ✅) + CodeQL run `27844771086` `completed/success`, both @ `eaa5875`. Gate 9 **N/A**
-(`Brief-deploys: no`, ADR-007). **Final 9-gate scorecard: gates 1–8 GREEN, gate 9 N/A.** **Zero post-merge
-bugs.** PR-review panel found + fixed **2 majors** (`c46eb91`, folded into the squash), headlined by **M1 — a
-cross-tenant ownership gap in `completeUpload`** (now re-asserts engagement ownership before promotion, with a
-dedicated regression test — defense-in-depth atop the `0007` RLS policy). Full close detail in
-`RETRO-007.md § Post-Merge Addendum`; AC ledger in `HANDOFF-007.md` (19/19 in-scope AC).
+**BRIEF-008 / EPIC-008 — Onboarding completion (gate close → automatic New→In Progress transition → accountant
+notified) — Phase: DISPATCH (paused at a clean checkpoint).** Branch `brief-008-onboarding-completion-transition`
+(off `main` @ `d49c984`).
 
-**What shipped (net-new platform capabilities):** the platform's **first stored-bytes path** — first
-`FileStorage` port + Azurite adapter (ADR-008/009), first `FileScanner` port (mock-first, ADR-021), the
-**third** client-isolation RLS policy `0007` (ADR-005), the two-phase authorize-then-sign +
-scan-before-available pipeline, the checklist read model + document-step satisfaction wired into the EPIC-005
-read model (AC-ONBD-004-04), and the ADR-019/022 audit+rate-limit caller-binding (reused, not hand-rolled).
-**Delivers onboarding step 3** on the EPIC-005 spine without weakening the EPIC-005 letter hard gate.
+> **Task status (2026-06-19, Dispatch checkpoint):** TASK-008-001 **`review`** (developer-implemented +
+> submission-gate boxes ticked by the developer; **SDET review pending** — NOT yet approved). TASK-008-002,
+> -003, -004, -005 **`backlog`**. Working tree (uncommitted, on the feature branch): `onboarding-completion.ts`
+> + its two test files (predicate tier-2 + integration tier-3) + `packages/db/src/index.ts` barrel edit. **No
+> commits yet** (the main session commits per-task after SDET approval). **Resume:** re-invoke `/io` (or
+> `/orchestrate EPIC-008`) → IO reads this file → Dispatch resumes by **spawning the SDET to review
+> TASK-008-001** (the next pipeline step), then dispatches TASK-008-002 + -003 (both depend only on 001),
+> then -004 (e2e; Docker pre-flight), then -005 (@demo). Conductor STATE.md mirrors this.
+**Phase-2 capstone; the smallest Phase-2 slice (8 AC).** Goal: when an engagement's three onboarding steps are
+all satisfied (letter signed — EPIC-005; questionnaire submitted — EPIC-006; required documents uploaded —
+EPIC-007), the **system** marks onboarding complete, **automatically transitions the engagement New → In
+Progress** (the single automatic transition in the lifecycle), and emits an **accountant-only in-portal
+notification** identifying the engagement + client. Gated. `Brief-type: feature` · `Brief-deploys: no`.
+Methodology: gherkin (8 epic scenarios) · e2e required (portal + admin + cross-app).
 
-**Delivery state (Phase 2 — onboarding gate):** EPIC-005 (step 1) ✓ + EPIC-006 (step 2) ✓ + **EPIC-007
-(step 3) ✓ DELIVERED.** **→ NEXT READY: EPIC-008 (onboarding-completion capstone) is now UNBLOCKED** — it
-required both EPIC-006 ✓ and EPIC-007 ✓; both are delivered. EPIC-008 is the Phase-2 capstone and the next
-ready roadmap slice (`/orchestrate EPIC-008`).
+**Key design property — ZERO schema migration.** This slice introduces **no net-new entity, no new column, no
+new RLS policy, no new provider seam**. It is **behavior over existing shapes**:
+- `Engagement.status` already exists (`@default("New")`, `'New' | 'In Progress'`; schema comment already
+  reserves the transition for EPIC-008). The transition is `New → In Progress`, fired once.
+- The onboarding read model (`packages/db/src/onboarding.ts` `resolveOnboarding`) already computes all three
+  step `done` flags (letter `letterSignedAt`; questionnaire `questionnaireSubmittedAt`; document-upload
+  `allRequiredProvided` from `resolveChecklist`). **Onboarding complete = all three `done` flags true.** No
+  re-derivation, no fork.
+- The EPIC-003 `Notification` entity + the accountant-only `db/policies/0004-notification-policy.sql` +
+  the admin notification feed already exist. The completion notification is a **new `type` value**
+  (`onboarding_completed`), inserted on the admin pool (mirror EPIC-003's inlined `createEngagementRequest`
+  notification INSERT), reusing the existing nullable `engagementRequestId` FK (Engagement is 1:1 with
+  EngagementRequest) + a denormalized client-name title/body to identify engagement + client (AC-ONBD-007-02).
+- The audit seam (`packages/db/src/audit.ts` `recordAuthEvent` / `withAuditTransaction`) already anticipates
+  an `'engagement.transition'` action; the transition is recorded there (ADR-019).
 
-**Carried BRIEF-007 retro observations (do not lose; all in `## Open retro action items` + RETRO-007):**
-1. **Clock-domain inversion family** recurred multiple times this slice (now ~7-8× project-wide across
-   RETRO-002/003/004/005/006). TASK-007-007's SDET wrote a clean forward-ordered `Completed-at`; several other
-   tasks carried the SDET-vs-developer clock-domain offset. **Candidate to elevate per RETRO-006 item 2** (7th+
-   occurrence threshold met).
-2. **Doc-drift (header comment):** `apps/admin/e2e/specs/document-requests.spec.ts` header comment lists stale
-   data-testids that diverge from the actual `DocumentRequestEditor.tsx` (`document-request-label-input`,
-   `add-document-request-button`, `document-request-item-{id}`). Functional tests use correct selectors —
-   comment-only drift (TASK-007-005). Non-blocking.
-3. **CSP env-gating follow-up (TASK-007-006):** `apps/portal/next.config.mjs` `connect-src` includes the
-   unconditional `http://localhost:10000` dev origin (inert in prod HTTPS via mixed-content blocking, but ships
-   in the prod CSP header). Recommend env-gating it out of production in a follow-up hardening pass.
-4. **Pre-existing flake:** `apps/portal/e2e/specs/questionnaire-cross-app.spec.ts:372` (EPIC-006-owned, file
-   unmodified this branch — RETRO-006 item 5). NOT a BRIEF-007 regression.
-5. **`@demo` re-run prior-epic PNG churn** (RETRO-006 item 4) recurred — the EPIC-007 specs are scoped
-   correctly, but `pnpm e2e:demo` re-runs all `@demo` specs and rewrites prior galleries; main session reverted.
-   Candidate to fix (scope each spec / a per-epic grep).
-6. **`adminDb` type-cast in `apps/admin/src/app/requests/[id]/page.tsx`** (Overwatch Obs 6 — orphan-route nav fix,
-   TASK-007-006). Advisory; SDET-approved. Recommend a typed accessor on the `packages/db` admin client next
-   `packages/db` pass so the cast is not needed. Non-blocking.
+**Design DECISIONS (IO Plan — see the IO Plan session entry below):**
+- **D1 — completion is derived, not a stored flag.** No `onboardingCompletedAt` column. "Complete" = the three
+  existing `done` flags all true; the persistent fire-once record IS the `status='In Progress'` value.
+- **D2 — fire-once guard via the status precondition.** The privileged write is `UPDATE Engagement SET
+  status='In Progress' WHERE id=@id AND status='New'`; only when `@@ROWCOUNT=1` do the notification INSERT +
+  audit fire — so a re-evaluation of an already-In-Progress engagement is a guaranteed no-op (AC-ONBD-006-03),
+  even under concurrency. The whole privileged step is ONE `withAuditTransaction` (atomic: transition +
+  notification + audit commit/rollback together).
+- **D3 — server-authoritative re-evaluation.** The privileged seam `processOnboardingCompletion(engagementId)`
+  re-evaluates completion itself under the admin pool (loads engagement + checklist by id) — it does NOT trust
+  a caller-passed boolean (EPIC-007 M1 lesson: re-assert server-side).
+- **D4 — notification identifies engagement + client via the EngagementRequest 1:1 link + denormalized name**
+  (no `engagementId` FK migration; mirrors EPIC-003's proven pattern; the prospect→client name is always
+  present from EPIC-001's `EngagementRequest`).
+- **D5 — trigger points.** `processOnboardingCompletion(engagement.id)` is invoked from the two portal actions
+  that can be the *completing* step (`submitQuestionnaireAction`, `completeUploadAction`) — never letter-sign
+  (steps 2/3 are still pending after the letter). The D2 guard makes double-invocation safe/idempotent.
+  Completion processing is attempted after the step's own commit and best-effort (errors logged, not
+  rolling back the committed step; the D2 guard makes a later retry idempotent).
+- **D6 — admin notification surface.** `apps/admin/.../NotificationsIndicator.tsx` currently HARD-FILTERS to
+  `new_engagement_request`; it is extended to also render `onboarding_completed` (AC-ONBD-007-01/-02,
+  AC-MSG-013-04). A minimal read-only engagement-status display ("In Progress") is added to the existing admin
+  per-engagement surface (`engagements/[engagementId]/document-requests/page.tsx`) so AC-ONBD-006-01 has a UI
+  observable for the e2e — admin-side only (client-facing lifecycle labels remain Phase-3 out-of-scope).
 
-**Cross-surface-parity sunset counter (CLAUDE.md § Platform-frontend scope):** Overwatch confirmed cross-surface
-parity CLEAN this slice (both `apps/portal` + `apps/admin` audited; no parity findings). **Sunset counter: 1 of
-3** consecutive zero-finding Close-prep retros toward the keep/remove review threshold (BRIEF-007 is the first
-consecutive clean slice; reset to 0 on any future parity finding).
+**Tasks (5; dependency chain 001 → {002, 003} → 004 → 005):**
+- **TASK-008-001** `[webapp-developer]` `Impl: developer` — **the completion engine** (`packages/db`): new
+  `onboarding-completion.ts` — `isOnboardingComplete(model)` pure predicate (tier-2 truth table) +
+  `processOnboardingCompletion(engagementId)` privileged atomic fire-once seam (admin-pool re-evaluation →
+  status UPDATE WHERE status='New' → notification INSERT → audit, all in one `withAuditTransaction`) + the
+  `onboarding_completed` type constant; barrel export. Tier-3 integration vs. the real DB (truth table;
+  transition+notification+audit on complete; no-op on incomplete; fire-once no duplicate; accountant-only read
+  / client+anon ZERO). **AC: AC-ONBD-005-01/-02, -006-01/-02/-03, -007-01/-02, AC-MSG-013-04.** Depends: none.
+- **TASK-008-002** `[webapp-developer]` `Impl: developer` — **portal triggers**: invoke
+  `processOnboardingCompletion(engagement.id)` from `submitQuestionnaireAction` + `completeUploadAction` after
+  their success (D5). Additive; preserves each step's existing behavior + the EPIC-005 letter gate. Integration
+  test that completing the last step drives the transition. **AC: AC-ONBD-006-01/-02, -007-01 (path).**
+  Depends: 001.
+- **TASK-008-003** `[webapp-developer]` `Impl: developer` — **admin surface**: render `onboarding_completed` in
+  the notification feed (D6) + minimal engagement-status display. Component tests. **AC: AC-ONBD-006-01 (UI
+  observable), -007-01/-02, AC-MSG-013-04.** Depends: 001.
+- **TASK-008-004** `[webapp-developer]` `Impl: developer` — **e2e + cross-app**: bind the epic's 8 gherkin
+  scenarios; the full path complete-three-steps (portal) → In Progress + accountant notification (admin) →
+  cross-app. `E2e-required: yes`. **AC: all 8 (tier-6 coverage).** Depends: 002, 003.
+- **TASK-008-005** `[webapp-developer]` `Impl: developer` — **@demo gallery** `docs/demos/EPIC-008/`
+  (non-gating, DEMO-POLICY). **AC: none (demo artifact; justification: non-gating UI walkthrough).** Depends: 004.
+
+**Backlog-triage gate (slice-kickoff): PASS** — `## Awaiting PR merge` empty; `## Active bugs` none; `## Open
+retro action items` all carried as observations with explicit reasons (none block this slice).
+
+**Cross-surface-parity sunset counter (CLAUDE.md § Platform-frontend scope):** 1 of 3 consecutive zero-finding
+Close-prep retros (BRIEF-007 was the first clean slice). BRIEF-008 touches BOTH surfaces (portal triggers +
+admin feed/status) — audit both at Audit/Review; a clean parity result advances the counter to 2 of 3.
 
 ## Awaiting PR merge
 
@@ -190,80 +230,78 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ---
 
-### Sweep pointer — BRIEF-007 Dispatch session entries archived (Audit transition) — 2026-06-19
-At the BRIEF-007 Dispatch→Audit phase transition, the full Dispatch-phase inline session history (IO Plan/Design
-record; IO Dispatch chain for TASK-007-002/004/005/006; SDET review gate-records for TASK-007-001..007) was
-**swept to `PROGRESS-ARCHIVE.md`** (see "Sweep marker — BRIEF-007 Dispatch → Audit transition — 2026-06-19").
-Full per-entry text preserved in git history at the 7 build commits (`0a84977`, `4a6b75a`, `0e34253`,
-`ee8232e`, `596c7ac`, `68ca721`, `94f5e3f`) + the live task files (`tasks/TASK-007-001..007.md`). Only the new
-IO Audit phase-start entry below is retained inline.
+### Sweep pointer — BRIEF-007 session entries archived (BRIEF-008 Plan-start) — 2026-06-19
+At the EPIC-007→EPIC-008 slice boundary, all trailing BRIEF-007 inline session history (the Audit sweep pointer,
+the IO Audit entry, the Close-prep→Close-finalize sweep pointer, and the IO Close-finalize entry — gate-8 CI
+green @ `eaa5875`, gate-9 N/A, zero post-merge bugs, EPIC-008 unblocked) was **swept to `PROGRESS-ARCHIVE.md`**
+(see "Sweep marker — BRIEF-008 Plan-start (new slice) — 2026-06-19"). Full per-entry text preserved in git
+history at the BRIEF-007 commits + `RETRO-007.md` (incl. its `## Post-Merge Addendum`) + `HANDOFF-007.md` + the
+archived `tasks/done/TASK-007-*` / `BUG-007-001` files. Only the new IO Plan entry below is retained inline.
 
 ---
 
-### IO Audit — BRIEF-007 / EPIC-007 (initial document upload) — 2026-06-19
-**Start:** Audit phase. **Dispatch is COMPLETE** — all 7 BRIEF-007 tasks are `done` + SDET-approved + committed
-on `brief-007-initial-document-upload` (off `main` @ `7d538a3`): TASK-007-001 `0a84977` (FileStorage port +
-Azurite adapter), 002 `4a6b75a` (FileScanner port mock-first + `validateUploadedBytes`), 003 `0e34253`
-(Document/DocumentRequest models + `0007` RLS policy), 004 `ee8232e` (two-phase upload/scan/download pipeline +
-checklist read model), 005 `596c7ac` (admin document-request authoring UI), 006 `68ca721` (portal upload step +
-ADR-019/022 binding + orphan-route nav fix + cross-app e2e), 007 `94f5e3f` (`@demo` gallery). Prior-epic
-demo-PNG churn reverted by main session; `.orchestration/STATE.md` deliberately NOT on the branch
-(Conductor docs-lane). `## Awaiting PR merge` empty; `## Active bugs` none.
-**Actions:** Ran the phase-transition reflex — swept the BRIEF-007 Dispatch-phase inline session history (IO
-Plan + Dispatch chain + the seven SDET review gate-records) to `PROGRESS-ARCHIVE.md` (sweep marker +
-above pointer); rewrote `## Current initiative` to **Phase: Audit** with all 7 tasks `done`/committed and the
-five carried retro observations recorded inline (clock-domain inversion ~7-8×; `document-requests.spec.ts`
-header-comment doc-drift; CSP `localhost:10000` env-gating follow-up; pre-existing
-`questionnaire-cross-app.spec.ts:372` EPIC-006 flake; `@demo` prior-epic PNG churn); appended this Audit-start
-entry. **Composing ONE `## Next Dispatch` for Overwatch** — a read-only advisory audit of the integrated
-BRIEF-007 diff across all 7 tasks. Audit charter: scope discipline (did any task exceed its brief slice — e.g.
-the new `engagements/` admin authoring route or the portal CSP change overreaching?); audit/rate-limit seam
-reuse (ADR-019/ADR-022 — no parallel paths, the shared `getRateLimiter()`/`recordAuthEvent` seams reused, not
-hand-rolled); the `0007` RLS policy + the two new ports (FileStorage/ADR-008, FileScanner/ADR-021) stayed within
-the cited ADRs; gated-path accountability (every changed gated path traces to a task); and surface the five
-carried retro observations for the Close-prep retro. Cross-surface default applies — audit BOTH `apps/portal`
-AND `apps/admin`. Overwatch is advisory; the SDET remains the approval authority.
-**End:** Audit phase opened; PROGRESS.md updated (sweep + `## Current initiative` rewrite + this entry).
-Returning the single Overwatch dispatch block to the main session. On the audit's return, the IO classifies
-each finding (blocking → dispatched fix or recorded disposition; non-blocking → retro carry) before advancing
-to Review.
+### IO Plan — BRIEF-008 / EPIC-008 (onboarding completion — gate close, auto New→In Progress, accountant notified) — 2026-06-19
+**Start:** New slice. **Slice-start gate CLEAR** (`## Awaiting PR merge` empty; `## Active bugs` none;
+EPIC-007 DELIVERED + out of limbo). Build brief supplied:
+`.implementation/briefs/BRIEF-008-onboarding-completion-transition.md` (8 AC; gherkin; e2e-required;
+`Brief-type: feature`, `Brief-deploys: no`). Ingested the brief + its cited refs (REQ-ONBD-005/006/007,
+REQ-MSG-013; ADR-003/005/006/012/019) + the brief's `## Data & Interface Contract`. **Context note:** this run
+is driven by the Conductor (`/orchestrate EPIC-008`); the main session is the dispatch executor.
+**Actions:**
+- **Clarify:** all 8 AC are observable/testable and trace to the cited REQ sources verbatim; methodology
+  recorded (gherkin acceptance format bound to the epic's 8 scenarios; e2e required on portal + admin +
+  cross-app; tier map per ADR-012). No untestable AC → no escalation to the brief author.
+- **Design (the live-seam survey + the binding contract):** read `packages/db/src/onboarding.ts`
+  (`resolveOnboarding` already computes all three step `done` flags), `checklist.ts` (`resolveChecklist` →
+  `allRequiredProvided`, vacuously satisfied when empty), `repositories/notification.ts` +
+  `repositories/engagement-request.ts` (the EPIC-003 admin-pool inlined-notification INSERT pattern; standalone
+  `createNotification` was removed), `audit.ts` (`recordAuthEvent`/`withAuditTransaction`; already anticipates
+  an `'engagement.transition'` action), `repositories/engagement.ts` (`EngagementItem` carries
+  `letterSignedAt`/`questionnaireSubmittedAt`/`status`/`engagementRequestId`/`clientUserId`; `status` default
+  `New`, comment reserves the transition for EPIC-008; `clientUserId` nullable per DECISION-A), the portal
+  onboarding actions (`submitQuestionnaireAction`/`completeUploadAction` both server-resolve `engagement.id` —
+  the trigger points), `db/policies/0004-notification-policy.sql` (accountant-only read; null/CLIENT → ZERO),
+  and the admin `NotificationsIndicator.tsx` (HARD-filters to `new_engagement_request` — needs extension).
+  **Conclusion: ZERO schema migration** — no net-new entity/column/policy/provider seam. Recorded design
+  DECISIONS D1–D6 (see `## Current initiative`): completion is derived (no marker column); fire-once via
+  `UPDATE … WHERE status='New'` + `@@ROWCOUNT` inside one `withAuditTransaction`; server-authoritative
+  re-evaluation in the privileged seam (EPIC-007 M1 lesson); notification identifies engagement+client via the
+  EngagementRequest 1:1 link + denormalized name (no FK migration); trigger from the two completing portal
+  actions only; admin feed extended + a minimal admin-side status observable.
+- **Design-coherence check (local) — PASS:** every AC maps to a task; the design honors all five cited ADRs
+  (ADR-003 server-side/admin-pool writes; ADR-005 reuse the accountant-only `0004` policy + a per-policy read
+  test; ADR-006 admin surface; ADR-012 tier map; ADR-019 reuse the audit seam for `engagement.transition`); no
+  conflict with the brief's `## Data & Interface Contract`; no genuinely-upstream shape question → nothing
+  raised to `OPEN-QUESTIONS.md`. The brief's "no new entity" intent is consistent with the live schema.
+- **Branch:** created `brief-008-onboarding-completion-transition` off `main` @ `d49c984`.
+- **Decompose:** created 5 task files (TASK-008-001..005) — dependency chain 001 → {002, 003} → 004 → 005;
+  each carries `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`, `Impl`, `E2e-required`,
+  `Brief-type: feature`, `Brief-deploys: no`. All `Status: backlog`.
+- **Docker pre-flight:** deferred to the first e2e dispatch wave (TASK-008-004) per the brief's e2e mandate —
+  the db/portal/admin unit+integration tasks (001–003) run without the container e2e stack; 004 is the first
+  e2e-gated task and will pre-flight Docker then.
+- Ran the phase-transition reflex (swept BRIEF-007 trailing entries to the archive; rewrote
+  `## Current initiative` to BRIEF-008 / Plan; appended this entry).
+**End:** Plan COMPLETE (exit condition met: slice-start gate clear; brief ingested + every task traces to
+testable AC; methodology recorded; branch created; 5 task files at `backlog` with all required fields;
+design-coherence PASS; PROGRESS.md `## Current initiative` populated). → **Dispatch.** Composing ONE
+`## Next Dispatch` for **TASK-008-001** (the completion engine in `packages/db`) — the dependency root of the
+slice. Cross-surface default (CLAUDE.md § Platform-frontend scope) applies from TASK-008-002 onward.
 
 ---
 
-### Sweep pointer — BRIEF-007 Close-prep session entries archived (Close-finalize transition) — 2026-06-19
-At the BRIEF-007 Close-prep→Close-finalize phase transition (slice merged: PR #52 → `eaa5875`), the
-Close-prep-phase inline session history (the Validate→Close-prep sweep pointer + the **IO Close-prep** session
-entry — consistency gate PASS; 7 TASK-007-* + BUG-007-001 archived to `tasks/done/`; HANDOFF-007 + RETRO-007
-written; slice moved to `## Awaiting PR merge`; PR title/body composed) was **swept to `PROGRESS-ARCHIVE.md`**
-(see "Sweep marker — BRIEF-007 Close-prep → Close-finalize transition — 2026-06-19"). The earlier Audit + Validate
-sweep history remains archived there too. Full per-entry text in git history at the 8 BRIEF-007 build commits +
-the panel-fix commit `c46eb91` (all folded into squash `eaa5875` / PR #52), the archived `tasks/done/TASK-007-*`
-/ `tasks/done/BUG-007-001-*` files, `HANDOFF-007.md`, and `RETRO-007.md` (now carrying the `## Post-Merge
-Addendum`). Only the new IO Close-finalize entry below is retained inline.
-
----
-
-### IO Close-finalize — BRIEF-007 / EPIC-007 (initial document upload) — 2026-06-19
-**Start:** Resume found the slice in `## Awaiting PR merge` → attempted **Close-finalize**. **PR #52** was
-squash-merged to `main` @ **`eaa5875`** (Lane B, user-approved; `gh pr merge 52 --squash --delete-branch`; no
-`--admin`/protection toggle; remote branch deleted; local `main` synced). The fixer's `c46eb91` (M1 cross-tenant
-`completeUpload` ownership fix + regression test + 8 other panel findings) is in the squash.
-**Actions:** **Gate 8 — post-merge CI:** located + watched both post-merge runs on `main` @ `eaa5875` to
-completion (`gh run watch --exit-status` both exit 0, confirmed at run + job level via
-`gh run view --json status,conclusion,headSha`; no blocking sleep loop, no `| tail`). **CI** run
-**`27844771147`** `completed/success` — required `lint-and-typecheck` ✅ + `security-scan` ✅; advisory
-`test-portal` ✅ + `test-admin` ✅; `report-failure` skipped. **CodeQL** run **`27844771086`**
-`completed/success`. **Gate 8 GREEN.** **Gate 9 — N/A** (`Brief-deploys: no`, ADR-007 — no staging
-environment). **Zero post-merge bugs** (no `BUG-007-POST-NNN` created). Ran the phase-transition reflex — swept
-the Close-prep-phase inline history to `PROGRESS-ARCHIVE.md` (sweep marker + pointer above); rewrote
-`## Current initiative` to **EPIC-007 DELIVERED** (with the next-ready note — EPIC-008 unblocked); **emptied
-`## Awaiting PR merge`**. **Wrote `RETRO-007.md § Post-Merge Addendum`** (merge detail PR #52 → `eaa5875` Lane B
-user-approved; gate-8 run ids + conclusions; gate-9 N/A; the final post-merge 9-gate scorecard 1–8 GREEN / 9
-N/A; zero post-merge bugs; PR-review panel/fix outcome — 2 majors incl. M1 cross-tenant `completeUpload`
-ownership gap + regression test; EPIC-008 unblocked). These `.implementation/tasks/**` edits are working-tree
-only — the main session commits them into the docs-lane close PR (the IO does not run git). The Conductor files
-(`.orchestration/STATE.md`, `.orchestration/runs/PR-52-verdict.json`) are out of IO scope — untouched.
-**End:** Close-finalize COMPLETE; BRIEF-007 / EPIC-007 **DELIVERED**. `## Current initiative` shows no active
-slice; the slice-start gate is clear (`## Awaiting PR merge` empty). **This invocation ends here.** Next: the
-Conductor runs `/planning validate EPIC-007` (consuming HANDOFF-007), ships the docs-lane close PR, and writes
-the final run report; then `/orchestrate EPIC-008` (Phase-2 capstone, now unblocked).
+### IO Dispatch (checkpoint — user-requested pause) — BRIEF-008 / EPIC-008 — 2026-06-19
+**Start:** Dispatch phase. TASK-008-001 (completion engine) dispatched to a `[webapp-developer]`.
+**Actions:** TASK-008-001 is **implemented and at `review`** — `packages/db/src/onboarding-completion.ts`
+(`isOnboardingComplete` predicate + `processOnboardingCompletion` privileged fire-once seam +
+`NOTIFICATION_TYPE_ONBOARDING_COMPLETE`), `onboarding-completion.predicate.test.ts` (tier-2 truth table),
+`onboarding-completion.integration.test.ts` (tier-3), and the `packages/db/src/index.ts` barrel export. The
+developer ticked the submission-gate boxes (lint/type-check/build/tests + security review) and set
+`Started-at` + `Complexity-actual: 4`. **NOT yet committed and NOT yet SDET-reviewed** — `Completed-at` is
+correctly still blank. The user requested a **pause** before the SDET review dispatch.
+**End:** **PAUSED at a clean Dispatch checkpoint.** No guardrail/inner-stop fired — this is a user-requested
+pause, not an escalation. Slice state is durable: the task files carry the spec + the developer Work Log; the
+implementation sits uncommitted on `brief-008-onboarding-completion-transition`. **Next on resume:** spawn the
+**SDET** to review TASK-008-001 (verify the fire-once `@@ROWCOUNT` guard, the atomic `withAuditTransaction`,
+the accountant-only-read tier-3 test, and no schema migration); on approval, the main session commits 001,
+then Dispatch continues with TASK-008-002 + -003 (parallel; depend on 001), -004 (e2e), -005 (@demo).

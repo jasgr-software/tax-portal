@@ -2676,3 +2676,14 @@ Phase-transition sweep at the BRIEF-007 Validate-phase close (all 3 Validate gat
 
 ### Sweep marker — BRIEF-007 Close-prep → Close-finalize transition — 2026-06-19
 Phase-transition sweep at the BRIEF-007 Close-prep close (slice merged: PR #52 → `eaa5875`). The full BRIEF-007 **Close-prep-phase inline session history** retained in `PROGRESS.md` through Close-prep — the **Validate→Close-prep sweep pointer**, the **IO Close-prep session entry** (consistency gate PASS; all 7 TASK-007-* + BUG-007-001 archived to `tasks/done/`; HANDOFF-007 + RETRO-007 written; slice moved to `## Awaiting PR merge` with the branch + 9 commits + pre-merge gate verdicts 1–7 green; PR title/body composed for the main session) — is swept here at the Close-prep→Close-finalize transition. The full per-entry session text is preserved in git history at the BRIEF-007 build commits (`0a84977`, `4a6b75a`, `0e34253`, `ee8232e`, `596c7ac`, `68ca721`, `94f5e3f`, `414890f`) + the panel-fix commit (`c46eb91`, all folded into the squash `eaa5875` / PR #52) + the live archived task files (`tasks/done/TASK-007-001..007.md` + `tasks/done/BUG-007-001-*.md`) + `HANDOFF-007.md` + `RETRO-007.md` (which now carries the `## Post-Merge Addendum` with the gate-8 run ids + the final post-merge 9-gate scorecard). The live `PROGRESS.md` retains only: `## Current initiative` (rewritten to **EPIC-007 DELIVERED**), an emptied `## Awaiting PR merge`, the carried `## Open retro action items`, and the new **IO Close-finalize** session entry. No per-entry session text is lost.
+
+### Sweep marker — BRIEF-008 Plan-start (new slice) — 2026-06-19
+At the BRIEF-008 / EPIC-008 Plan-start (slice-start gate clear; EPIC-007 DELIVERED + out of PR limbo), the
+trailing BRIEF-007 inline session history retained in `PROGRESS.md` through Close-finalize — the **BRIEF-007
+Audit sweep pointer**, the **IO Audit** entry, the **Close-prep → Close-finalize sweep pointer**, and the
+**IO Close-finalize** entry (gate-8 post-merge CI green — CI `27844771147` + CodeQL `27844771086` @ `eaa5875`;
+gate-9 N/A; zero post-merge bugs; EPIC-008 unblocked) — is swept here at the EPIC-007→EPIC-008 slice boundary.
+Full per-entry text preserved in git history at the BRIEF-007 commits + `RETRO-007.md` (incl. its
+`## Post-Merge Addendum`) + `HANDOFF-007.md` + the archived `tasks/done/TASK-007-*` / `BUG-007-001` files. The
+live `PROGRESS.md` now opens the BRIEF-008 slice: `## Current initiative` rewritten to **BRIEF-008 / EPIC-008 —
+Plan**, the carried `## Open retro action items`, and the new **IO Plan** session entry. No session text lost.

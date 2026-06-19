@@ -215,3 +215,21 @@ export type {
   ChecklistReadModel,
 } from "./checklist.js";
 export { resolveChecklist } from "./checklist.js";
+
+// Onboarding completion engine (EPIC-008 / TASK-008-001)
+// isOnboardingComplete           — pure predicate: true iff all three step done flags are true
+//                                  (AC-ONBD-005-01/-02). Consumes OnboardingReadModel from onboarding.ts.
+// processOnboardingCompletion    — privileged, server-authoritative, fire-once seam (ADR-003).
+//                                  Evaluates completion, transitions New → In Progress, inserts
+//                                  accountant-only Notification, and records the ADR-019 audit event —
+//                                  atomically in ONE transaction (AC-ONBD-006-01/-02/-03,
+//                                  AC-ONBD-007-01/-02, AC-MSG-013-04).
+// NOTIFICATION_TYPE_ONBOARDING_COMPLETE — "onboarding_completed" type constant; imported by
+//                                          TASK-008-003 for the admin notification feed.
+// ENGAGEMENT_TRANSITION_ACTION   — "engagement.transition" audit action constant.
+export {
+  isOnboardingComplete,
+  processOnboardingCompletion,
+  NOTIFICATION_TYPE_ONBOARDING_COMPLETE,
+  ENGAGEMENT_TRANSITION_ACTION,
+} from "./onboarding-completion.js";
