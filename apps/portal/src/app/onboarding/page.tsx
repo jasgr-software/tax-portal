@@ -27,13 +27,19 @@
  * // is non-blocking — a questionnaire failure shows the awaiting state, not an error page.
  * // TASK-006-005 extends getMyQuestionnaireAction to carry alreadySubmitted + existingAnswers.
  *
+ * // DECISION (TASK-007-006): getChecklistAction() is called in parallel with the other fetches.
+ * // The checklist result is non-blocking — null on failure shows the awaiting state.
+ * // Only fetched when the document-upload step is accessible (letter signed).
+ * // resolveOnboarding(engagement, allRequiredProvided) needs the fresh checklist for the
+ * // done flag (AC-ONBD-004-04). The page revalidates on upload (revalidatePath in actions.ts).
+ *
  * Note: This page is a server component — it calls the server action directly at render time.
  * (Server components can call server-side functions directly; they do not need to invoke
  * "use server" actions via client form actions.)
  */
 
 import type { Metadata } from "next";
-import { getMyOnboardingAction, getMyQuestionnaireAction } from "./actions";
+import { getMyOnboardingAction, getMyQuestionnaireAction, getChecklistAction } from "./actions";
 import { OnboardingSequence } from "./_components/OnboardingSequence";
 
 export const metadata: Metadata = {
@@ -42,12 +48,15 @@ export const metadata: Metadata = {
 };
 
 export default async function OnboardingPage() {
-  // Resolve the client's onboarding state + questionnaire in parallel.
-  // DECISION (TASK-006-004): parallel fetch; questionnaire failure is non-blocking.
+  // Resolve the client's onboarding state + questionnaire + checklist in parallel.
+  // DECISION (TASK-006-004): parallel fetch; questionnaire + checklist failures are non-blocking.
   // getMyQuestionnaireAction defers alreadySubmitted + existingAnswers to TASK-006-005.
-  const [onboardingResult, questionnaireResult] = await Promise.all([
+  // DECISION (TASK-007-006): getChecklistAction fetches the document checklist.
+  // Non-blocking — checklist failure shows the awaiting state (not an error page).
+  const [onboardingResult, questionnaireResult, checklistResult] = await Promise.all([
     getMyOnboardingAction(),
     getMyQuestionnaireAction(),
+    getChecklistAction(),
   ]);
 
   // Error state — no engagement found (not yet set up, or non-CLIENT identity).
@@ -76,12 +85,19 @@ export default async function OnboardingPage() {
   const questionnaire = questionnaireResult.success ? questionnaireResult.data : null;
   const alreadySubmitted = questionnaireResult.success ? questionnaireResult.alreadySubmitted : false;
 
+  // Extract checklist data (non-blocking — null on failure shows awaiting state in step).
+  // DECISION (TASK-007-006): When checklist resolves (letter signed + step accessible),
+  // allRequiredProvided is passed to OnboardingSequence so resolveOnboarding can compute
+  // the document-upload step done flag (AC-ONBD-004-04).
+  const checklist = checklistResult.success ? checklistResult.data : null;
+
   return (
     <OnboardingSequence
       model={onboardingResult.data}
       letterContent={onboardingResult.letterContent}
       questionnaire={questionnaire}
       alreadySubmitted={alreadySubmitted}
+      checklist={checklist}
     />
   );
 }

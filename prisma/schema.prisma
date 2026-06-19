@@ -182,6 +182,9 @@ model Engagement {
 
   // EPIC-006: Reverse relation — at most one QuestionnaireAnswer per Engagement (AC-ONBD-003-04)
   questionnaireAnswer   QuestionnaireAnswer?
+  // EPIC-007: Reverse relations — document-request checklist + uploaded documents (AC-FILE-008-01)
+  documentRequests      DocumentRequest[]
+  documents             Document[]
 
   @@map("Engagement")
 }
@@ -270,6 +273,102 @@ model QuestionnaireAnswer {
   updatedAt    DateTime @updatedAt @db.DateTimeOffset
 
   @@map("QuestionnaireAnswer")
+}
+
+// ─── DocumentRequest ──────────────────────────────────────────────────────────
+// Accountant-authored checklist item — "please upload X" per engagement.
+// ACCOUNTANT-OWNED AND CLIENT-READABLE — clients read their own engagement's requests.
+// RLS (ADR-005): FILTER (client read — CLIENT reads own engagement's requests) + BLOCK
+//   (accountant-only write — no CLIENT branch in fn_document_request_write_access).
+//   Security policy: sec.pol_DocumentRequest (Track B: db/policies/0007-document-policy.sql).
+//
+// ADR-002: UNIQUEIDENTIFIER PK NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// createdBy: accountant clerkId recorded at creation (audit, mirrors LetterTemplate.updatedBy).
+// FK → Engagement onDelete: NoAction — never cascade-delete an engagement's request rows.
+//
+// Satisfaction is DERIVED in the read model (TASK-007-004):
+//   fulfilled = ≥1 Document with status='active' references this request via documentRequestId.
+//   outstanding = no such document exists.
+//   No stored satisfaction marker — DECISION in TASK-007-003.
+//
+// AC-FILE-008-01: Each engagement has a checklist of document requests.
+// AC-FILE-007-01: Accountant can create document requests with a free-text label.
+
+model DocumentRequest {
+  id           String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Engagement — one engagement can have many requests (AC-FILE-008-01)
+  engagementId String   @db.UniqueIdentifier
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: NoAction)
+  // Free-text label describing what the client should upload (AC-FILE-007-01)
+  label        String   @db.NVarChar(500)
+  // Accountant clerkId at creation (audit — mirrors LetterTemplate.updatedBy)
+  createdBy    String?  @db.NVarChar(64)
+  createdAt    DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt    DateTime @updatedAt @db.DateTimeOffset
+
+  // Reverse relation — documents uploaded in response to this request
+  documents    Document[]
+
+  @@map("DocumentRequest")
+}
+
+// ─── Document ─────────────────────────────────────────────────────────────────
+// Stored-file metadata row — the THIRD client-owned-row family (after Engagement + QuestionnaireAnswer).
+// CLIENT-OWNED AND CLIENT-ISOLATED — the client can read only their own engagement's documents.
+// RLS (ADR-005): FILTER + BLOCK via sec.pol_Document (Track B: db/policies/0007-document-policy.sql).
+//   Ownership: engagementId → Engagement.clientUserId → User.clerkId = SESSION_CONTEXT('clerk_user_id').
+//   Mirrors 0005 (Engagement) and 0006 (QuestionnaireAnswer) ownership join pattern.
+//
+// ADR-002: UNIQUEIDENTIFIER PK NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// ADR-009 storage-key shape: engagements/{engagementId}/documents/{id}/v1/{urlencoded-filename}.
+//
+// status column: 'pending' | 'active' | 'infected' (ADR-009).
+//   Default 'pending' — set after AV scan passes (TASK-007-004 wires upload + scan).
+//   'active' = AV clean, visible to client.
+//   'infected' = AV threat detected, quarantined (never served).
+//   CHECK constraint enforcing the three-value enum lives in Track B (0007-document-policy.sql).
+//
+// documentRequestId: nullable FK → DocumentRequest (onDelete: NoAction).
+//   NULL = ad-hoc upload not tied to a checklist request (design option, not shipped in v1 UI).
+//   non-NULL = uploaded in fulfillment of the request (DECISION-TASK-007-003 — FK over join table).
+//   Satisfaction (fulfilled/outstanding) is DERIVED in the read model (TASK-007-004).
+//
+// AC-FILE-001-05: A file in engagement A is NOT exposed to other engagements — proven by the
+//   FILTER predicate keying on engagementId → Engagement.clientUserId → User.clerkId.
+// AC-FILE-003-02: Retrieval requires an authorization check — the FILTER predicate is that gate.
+
+model Document {
+  id                String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Engagement — the isolation column the FILTER predicate keys on (AC-FILE-001-05)
+  // onUpdate: NoAction required by Prisma cyclic-cascade validation (multi-path through Engagement → EngagementRequest → User)
+  engagementId      String    @db.UniqueIdentifier
+  engagement        Engagement @relation(fields: [engagementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Nullable FK → DocumentRequest — fulfillment link (DECISION-TASK-007-003: FK not join table)
+  // NULL = not tied to a specific request; non-NULL = uploaded in response to this request
+  // onUpdate: NoAction required by Prisma cyclic-cascade validation (DocumentRequest → Engagement)
+  documentRequestId String?   @db.UniqueIdentifier
+  documentRequest   DocumentRequest? @relation(fields: [documentRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // ADR-009 storage key: engagements/{engagementId}/documents/{id}/v1/{urlencoded-filename}
+  storageKey        String    @db.NVarChar(1024)
+  // Authoritative original filename as uploaded (ADR-009)
+  originalFilename  String    @db.NVarChar(500)
+  // Declared content-type (e.g. 'application/pdf') — verified at upload (TASK-007-004)
+  contentType       String    @db.NVarChar(255)
+  // Claimed/verified file size in bytes (ADR-009)
+  sizeBytes         BigInt    @db.BigInt
+  // ADR-009 status: 'pending' | 'active' | 'infected' — CHECK constraint in Track B
+  // Default 'pending'; transitions via AV scan result in TASK-007-004
+  status            String    @default("pending") @db.NVarChar(16)
+  // Version counter — v1 only (no replace/history in this slice per brief Out-of-scope)
+  version           Int       @default(1)
+  // Optional threat label when status='infected' (AV scan result — TASK-007-004)
+  scanThreat        String?   @db.NVarChar(500)
+  // Uploader clerkId (audit trail — client or accountant)
+  uploadedBy        String?   @db.NVarChar(64)
+  createdAt         DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt         DateTime  @updatedAt @db.DateTimeOffset
+
+  @@map("Document")
 }
 
 // ─── Notification ─────────────────────────────────────────────────────────────

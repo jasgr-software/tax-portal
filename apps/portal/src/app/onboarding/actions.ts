@@ -43,6 +43,8 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import {
   getAuthProvider,
+  getRateLimiter,
+  buildRateLimitKey,
 } from "@tax-portal/auth";
 import {
   withRequestContext,
@@ -56,12 +58,24 @@ import {
   getMyQuestionnaire,
   getMyQuestionnaireAnswer,
   submitQuestionnaireAsClient,
+  authorizeEngagementForUpload,
+  resolveChecklist,
+  listDocumentRequestsForEngagement,
 } from "@tax-portal/db";
+// NOT on the barrel — import directly from the source module (TASK-007-004 constraint)
+// Mirrors createDocumentRequestAsAccountant import pattern in admin actions.ts.
+import {
+  insertPendingDocument,
+  completeUpload,
+  getDocumentForOwnershipCheck,
+} from "@tax-portal/db/src/repositories/document.js";
+import { getStorage } from "@tax-portal/storage";
 import { getESignatureProvider } from "@tax-portal/esign";
 import type {
   OnboardingReadModel,
   QuestionnaireForEngagement,
   QuestionDef,
+  ChecklistReadModel,
 } from "@tax-portal/db";
 
 // ─── Identity helper ──────────────────────────────────────────────────────────
@@ -178,12 +192,28 @@ export async function getMyOnboardingAction(): Promise<
     return { success: false, error: "No active engagement found" };
   }
 
-  const model = resolveOnboarding(engagement);
-
   // Load the current letter template for the letter step display (AC-IDNT-007-03 UI).
   // Admin pool read — safe for server-side display; content is auto-escaped at render.
   const template = await getCurrentLetterTemplate();
   const letterContent = template?.content ?? "";
+
+  // DECISION (TASK-007-006): resolve the checklist to compute the document-upload step done flag.
+  // resolveOnboarding(engagement, allRequiredProvided) needs allRequiredProvided from resolveChecklist.
+  // Only needed when the letter is signed (step accessible) — otherwise allRequiredProvided defaults
+  // to false (conservative) and no extra DB round-trip is needed.
+  let allRequiredProvided: boolean | undefined;
+  const letterSigned = engagement.letterSignedAt != null;
+  if (letterSigned) {
+    // resolveChecklist runs under the same request context (FILTER-governed).
+    const checklist = await withRequestContext(
+      identity.clerkUserId,
+      identity.role,
+      () => resolveChecklist(engagement.id),
+    );
+    allRequiredProvided = checklist.allRequiredProvided;
+  }
+
+  const model = resolveOnboarding(engagement, allRequiredProvided);
 
   return { success: true, data: model, letterContent };
 }
@@ -571,4 +601,483 @@ export async function submitQuestionnaireAction(
   revalidatePath("/onboarding");
 
   return { success: true };
+}
+
+// ─── EPIC-007: Document Upload Actions ────────────────────────────────────────
+
+/**
+ * Resolve the source IP server-side from the incoming request headers.
+ * Mirrors the same function in sign-up/actions.ts (ADR-005, TASK-004-009).
+ * ADR-022: rate-limit by source IP to prevent upload-path abuse.
+ */
+async function resolveSourceIpForUpload(): Promise<string> {
+  const headerStore = await headers();
+  const trustProxy = process.env["TRUST_PROXY"] === "true";
+
+  if (trustProxy) {
+    const xForwardedFor = headerStore.get("x-forwarded-for");
+    if (xForwardedFor) {
+      const firstIp = xForwardedFor.split(",")[0]?.trim();
+      if (firstIp) return firstIp;
+    }
+    const xRealIp = headerStore.get("x-real-ip");
+    if (xRealIp) return xRealIp.trim();
+  }
+
+  return "127.0.0.1";
+}
+
+/** Stable endpoint identifier for the portal upload surface (ADR-022 §1). */
+const UPLOAD_URL_ENDPOINT = "portal:document-upload" as const;
+const COMPLETE_UPLOAD_ENDPOINT = "portal:document-upload-complete" as const;
+
+// ─── Result types ─────────────────────────────────────────────────────────────
+
+/**
+ * Input for requestUploadUrlAction.
+ * Contains only upload metadata — the engagement is resolved server-side from SESSION_CONTEXT.
+ * The requestId is the DocumentRequest.id; the server confirms the client owns the engagement
+ * before using it. It does NOT bypass any authz check — authorizeEngagementForUpload runs FIRST.
+ */
+export interface RequestUploadUrlInput {
+  /** The DocumentRequest.id this upload fulfills. Confirmed server-side after authz. */
+  requestId: string;
+  /** Original filename as declared by the uploader (ADR-009). */
+  filename: string;
+  /** Declared content-type (signed into the upload URL policy). */
+  contentType: string;
+  /** Declared content-length (advisory; authoritative size comes from stat() in completeUpload). */
+  sizeBytes: number;
+}
+
+export type RequestUploadUrlResult =
+  | {
+      success: true;
+      data: {
+        /** The new Document.id — used in completeUploadAction. */
+        documentId: string;
+        /** The signed upload URL (client PUTs directly to storage — ADR-009). */
+        uploadUrl: string;
+        /** The storage key — used in completeUploadAction. */
+        storageKey: string;
+      };
+    }
+  | { success: false; error: string; refused?: boolean };
+
+export type CompleteUploadInput = {
+  /** The Document.id returned by requestUploadUrlAction. */
+  documentId: string;
+  /** The storage key returned by requestUploadUrlAction. */
+  storageKey: string;
+};
+
+export type CompleteUploadActionResult =
+  | {
+      success: true;
+      data: {
+        outcome: "active" | "infected" | "pending";
+        documentId: string;
+      };
+    }
+  | { success: false; error: string; refused?: boolean };
+
+export type GetChecklistResult =
+  | { success: true; data: ChecklistReadModel }
+  | { success: false; error: string; refused?: boolean };
+
+// ─── Server Actions ───────────────────────────────────────────────────────────
+
+/**
+ * Get the document-upload checklist for the authenticated CLIENT's engagement.
+ *
+ * No-arg action: the engagement is resolved server-side (no client-supplied id).
+ * Used by DocumentUploadStep after an upload to refresh the checklist.
+ *
+ * ADR-001/ADR-005: engagement resolved server-side from SESSION_CONTEXT.
+ * ADR-003: runs under withRequestContext(CLIENT) so FILTER predicate governs.
+ * EPIC-005 letter gate: checkStepAccessibility enforces server-side refusal.
+ */
+export async function getChecklistAction(): Promise<GetChecklistResult> {
+  const identity = await getClientIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: CLIENT identity required" };
+  }
+
+  const resolved = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    async () => {
+      const engagement = await getMyEngagement();
+      if (!engagement) return null;
+
+      // Gate check: letter must be signed before document-upload is accessible.
+      const refusal = checkStepAccessibility(engagement, "document-upload");
+      if (refusal) return { refused: true } as const;
+
+      const checklist = await resolveChecklist(engagement.id);
+      return { engagement, checklist };
+    },
+  );
+
+  if (!resolved) {
+    return { success: false, error: "No active engagement found" };
+  }
+
+  if ("refused" in resolved) {
+    return {
+      success: false,
+      error: "Document upload step is not yet accessible: engagement letter must be signed first",
+      refused: true,
+    } as const;
+  }
+
+  return { success: true, data: resolved.checklist };
+}
+
+/**
+ * Phase 1 of the two-phase upload pipeline (ADR-009 step 2).
+ *
+ * Authorize the CLIENT for upload, insert a pending Document row, and mint a signed
+ * upload URL so the client can PUT bytes directly to storage (app never proxies bytes).
+ *
+ * Flow (ADR-009 / ADR-019 / ADR-022):
+ *   1. getClientIdentity() → must be CLIENT (role from verified session, never client input).
+ *   2. getRateLimiter().consume(...) (ADR-022) — refuse if throttled (BEFORE authz).
+ *   3. checkStepAccessibility(engagement, 'document-upload') — refuse if letter unsigned (EPIC-005).
+ *   4. authorizeEngagementForUpload(engagementId) (request pool / FILTER) → EngagementItem or null.
+ *      null → 404 / refuse. Confirms the caller owns the engagement.
+ *   5. insertPendingDocument(admin pool) → documentId + storageKey.
+ *   6. getStorage().getSignedUploadUrl(storageKey) → signed upload URL.
+ *   7. recordAuthEvent (ADR-019) — audit after the owner-confirmed pending insert.
+ *   8. Return { documentId, uploadUrl, storageKey } to the client.
+ *
+ * SECURITY GUARDRAIL: The engagement is owner-resolved server-side.
+ * The requestId in the input is the DocumentRequest.id — it is recorded on the Document row
+ * for checklist linkage but is NOT used to bypass any authz check. authorizeEngagementForUpload
+ * uses the engagement.id from the server-resolved engagement (not from the client).
+ *
+ * ADR-009: signed upload URL; client PUTs directly; app never proxies bytes.
+ * ADR-022: rate-limit BEFORE authorize.
+ * EPIC-005 letter gate: checkStepAccessibility refused first.
+ * ADR-019: audit after owner-confirmed write.
+ * ADR-001/ADR-005: engagementId owner-resolved server-side (FILTER) — never client input.
+ */
+export async function requestUploadUrlAction(
+  input: RequestUploadUrlInput,
+): Promise<RequestUploadUrlResult> {
+  // Step 1: identity guard — CLIENT only (role from verified session)
+  const identity = await getClientIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: CLIENT identity required" };
+  }
+
+  // Step 2: ADR-022 rate-limit BEFORE authorize.
+  // Mirrors sign-up/actions.ts signUpWithInvitation rate-limit pattern.
+  const sourceIp = await resolveSourceIpForUpload();
+  const rateLimitKey = buildRateLimitKey(sourceIp, UPLOAD_URL_ENDPOINT);
+  const limiter = getRateLimiter();
+  const rateLimitResult = limiter.consume(rateLimitKey);
+
+  if (!rateLimitResult.allowed) {
+    return {
+      success: false,
+      error: "Too many upload attempts. Please wait before trying again.",
+    };
+  }
+
+  // Step 3: resolve engagement server-side (no client-supplied engagementId).
+  // authorizeEngagementForUpload uses the FILTER predicate — fail-closed for non-owners.
+  const resolved = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    async () => {
+      const engagement = await getMyEngagement();
+      if (!engagement) return null;
+
+      // Step 3a: EPIC-005 letter gate — must be signed before upload is accessible.
+      const refusal = checkStepAccessibility(engagement, "document-upload");
+      if (refusal) return { refused: true } as const;
+
+      // Step 3b: Confirm ownership via FILTER-governed authz query (ADR-009 step 2a).
+      const authorizedEngagement = await authorizeEngagementForUpload(engagement.id);
+      if (!authorizedEngagement) return null;
+
+      return { engagement: authorizedEngagement };
+    },
+  );
+
+  if (!resolved) {
+    return { success: false, error: "Engagement not found", refused: true };
+  }
+
+  if ("refused" in resolved) {
+    return {
+      success: false,
+      error: "Document upload step is not yet accessible: engagement letter must be signed first",
+      refused: true,
+    };
+  }
+
+  const { engagement } = resolved;
+
+  // m1 guard: confirm the client-supplied requestId belongs to the resolved engagement.
+  // We query under the request pool (FILTER-governed) so CLIENT-B cannot link to CLIENT-A's
+  // DocumentRequest. If the requestId is not found in the caller's engagement, treat as null
+  // (ad-hoc upload) rather than linking to an unverified checklist item.
+  let verifiedDocumentRequestId: string | null = null;
+  if (input.requestId) {
+    const ownedRequests = await withRequestContext(
+      identity.clerkUserId,
+      identity.role,
+      () => listDocumentRequestsForEngagement(engagement.id),
+    );
+    const matched = ownedRequests.find((r) => r.id === input.requestId);
+    verifiedDocumentRequestId = matched?.id ?? null;
+  }
+
+  // Step 4: Insert the pending Document row (admin pool — ADR-009 step 2d).
+  // requestId is the DocumentRequest.id linking this upload to a checklist item.
+  // uploadedByClerkId is from the server-verified session (ADR-005 / ADR-019 audit trail).
+  let pendingResult: { documentId: string; storageKey: string };
+  try {
+    pendingResult = await insertPendingDocument({
+      engagementId: engagement.id,
+      documentRequestId: verifiedDocumentRequestId,
+      originalFilename: input.filename,
+      contentType: input.contentType,
+      sizeBytes: input.sizeBytes,
+      uploadedByClerkId: identity.clerkUserId,
+    });
+  } catch (err: unknown) {
+    // m3: log full error server-side; return a generic stable message to the client
+    // to avoid leaking internal topology (storage host, SQL object names, etc.).
+    console.error("[requestUploadUrlAction] insertPendingDocument failed:", err);
+    return {
+      success: false,
+      error: "Failed to register upload. Please try again.",
+    };
+  }
+
+  const { documentId, storageKey } = pendingResult;
+
+  // Step 5: mint the signed upload URL (ADR-009 step 2e).
+  // The client PUTs bytes directly to storage — the app never proxies bytes (ADR-009).
+  const storage = getStorage();
+  const signedUpload = await storage.getSignedUploadUrl(storageKey, {
+    contentType: input.contentType,
+    maxSizeBytes: 100 * 1024 * 1024, // 100 MB cap (ADR-021 § ADR-008 §)
+  });
+
+  // DECISION (TASK-007-006): Rewrite the signed URL's origin for browser consumption.
+  //
+  // In local/CI docker-compose, the portal server connects to Azurite at the Docker-internal
+  // hostname "azurite:10000" (set in PORTAL_STORAGE_CONNECTION_STRING). The SAS URL produced
+  // by BlobServiceClient uses that same internal hostname. However, the client browser (running
+  // on the host) cannot resolve "azurite" — the host can only reach the emulator via localhost
+  // (the mapped port from docker-compose: ${AZURITE_PORT:-10000}:10000).
+  //
+  // BLOB_PUBLIC_ENDPOINT (optional): when set, its origin replaces the storage URL's origin
+  // before the URL is returned to the browser. The path and query string (SAS params) are
+  // preserved verbatim — only the scheme+host+port are swapped.
+  //
+  // Example (docker-compose local stack):
+  //   STORAGE_CONNECTION_STRING → BlobEndpoint=http://azurite:10000/devstoreaccount1
+  //   Signed URL generated       → http://azurite:10000/devstoreaccount1/...?sas-params
+  //   BLOB_PUBLIC_ENDPOINT       → http://localhost:10000
+  //   Rewritten URL returned     → http://localhost:10000/devstoreaccount1/...?sas-params
+  //
+  // In production (real Azure), internal and external URLs are the same — BLOB_PUBLIC_ENDPOINT
+  // is not set and the URL is returned as-is.
+  let uploadUrl = signedUpload.url;
+  const blobPublicEndpoint = process.env["BLOB_PUBLIC_ENDPOINT"];
+  if (blobPublicEndpoint) {
+    try {
+      const internal = new URL(uploadUrl);
+      const publicOrigin = new URL(blobPublicEndpoint);
+      // Swap scheme+host+port; keep path + search + hash intact.
+      internal.protocol = publicOrigin.protocol;
+      internal.hostname = publicOrigin.hostname;
+      internal.port = publicOrigin.port;
+      uploadUrl = internal.toString();
+    } catch {
+      // Malformed BLOB_PUBLIC_ENDPOINT — log and fall back to the original URL.
+      // A browser-side upload failure will surface the misconfiguration.
+      console.warn(
+        "[requestUploadUrlAction] BLOB_PUBLIC_ENDPOINT is set but could not be parsed; " +
+          "returning raw storage URL. Browser-side PUT may fail if the storage host is " +
+          "not reachable from the client. Value:",
+        blobPublicEndpoint,
+      );
+    }
+  }
+
+  // Step 6: audit the upload-URL mint after the owner-confirmed write (ADR-019).
+  // DECISION (TASK-007-006): audit the pending insert (URL mint = commitment to storage path).
+  // The completion audit is in completeUploadAction (after the scan-promote gate).
+  // mirrors submitQuestionnaireAction: audit runs after rowsAffected=1 (owner-confirmed write).
+  await recordAuthEvent({
+    actor: { clerkUserId: identity.clerkUserId, role: "CLIENT" },
+    action: "document.upload_url_minted",
+    targetType: "Engagement",
+    targetId: engagement.id,
+    sourceSurface: "portal",
+  });
+
+  return {
+    success: true,
+    data: {
+      documentId,
+      uploadUrl,
+      storageKey,
+    },
+  };
+}
+
+/**
+ * Phase 2 of the two-phase upload pipeline (ADR-009 / ADR-021).
+ *
+ * Called after the client has PUT bytes to the signed upload URL.
+ * Drives the scan-before-available gate (ADR-021 / AC-NFR-009-01/-02):
+ *   - 'clean' + validation 'pass' → promote to 'active' (Document available)
+ *   - 'infected'                  → promote to 'infected' (AC-NFR-009-02: withheld)
+ *   - 'indeterminate' / fail      → stay 'pending' (fail-closed)
+ *
+ * The DocumentUploadStep component reflects the outcome:
+ *   - 'active'   → checklist refreshed; fulfilled item leaves outstanding (AC-FILE-008-03)
+ *   - 'infected' → rejection message shown to uploader (AC-NFR-009-02)
+ *   - 'pending'  → transient "being processed" message
+ *
+ * Flow:
+ *   1. getClientIdentity() → must be CLIENT (role from verified session, never client input).
+ *   2. getRateLimiter().consume(...) (ADR-022 — upload-complete path).
+ *   3. checkStepAccessibility (EPIC-005 letter gate) — refuse if letter unsigned.
+ *   4. completeUpload(documentId, storageKey) — stat + validate + scan + promote.
+ *   5. recordAuthEvent (ADR-019) — audit after the scan-promote gate.
+ *   6. revalidatePath('/onboarding') — re-computes the step done flag (AC-ONBD-004-04).
+ *
+ * ADR-009: complete after PUT.
+ * ADR-021: scan-before-available gate.
+ * ADR-019: audit after owner-confirmed scan result.
+ * ADR-022: rate-limit on the complete path too.
+ * EPIC-005 letter gate: refused server-side if letter unsigned.
+ */
+export async function completeUploadAction(
+  input: CompleteUploadInput,
+): Promise<CompleteUploadActionResult> {
+  // Step 1: identity guard — CLIENT only (role from verified session)
+  const identity = await getClientIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: CLIENT identity required" };
+  }
+
+  // Step 2: ADR-022 rate-limit on the complete path.
+  const sourceIp = await resolveSourceIpForUpload();
+  const rateLimitKey = buildRateLimitKey(sourceIp, COMPLETE_UPLOAD_ENDPOINT);
+  const limiter = getRateLimiter();
+  const rateLimitResult = limiter.consume(rateLimitKey);
+
+  if (!rateLimitResult.allowed) {
+    return {
+      success: false,
+      error: "Too many requests. Please wait before trying again.",
+    };
+  }
+
+  // Step 3: EPIC-005 letter gate + M1 ownership check.
+  // Resolve engagement server-side for the gate check, and verify the client-supplied
+  // documentId belongs to the caller's engagement under the request pool (FILTER-governed).
+  const engagementAndOwnership = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    async () => {
+      const eng = await getMyEngagement();
+      if (!eng) return null;
+
+      // M1: load the document under the request pool — RLS FILTER returns null if the
+      // document does not belong to this caller's engagement (cross-owner isolation).
+      const docOwnership = await getDocumentForOwnershipCheck(input.documentId);
+
+      return { engagement: eng, docOwnership };
+    },
+  );
+
+  if (!engagementAndOwnership) {
+    return { success: false, error: "No active engagement found", refused: true };
+  }
+
+  const { engagement, docOwnership } = engagementAndOwnership;
+
+  const refusal = checkStepAccessibility(engagement, "document-upload");
+  if (refusal) {
+    return {
+      success: false,
+      error: "Document upload step is not yet accessible: engagement letter must be signed first",
+      refused: true,
+    };
+  }
+
+  // M1: confirm the document is owned by this engagement (RLS-filtered above; double-check
+  // the engagementId matches the server-resolved engagement).
+  if (
+    !docOwnership ||
+    docOwnership.engagementId.toLowerCase() !== engagement.id.toLowerCase()
+  ) {
+    console.warn(
+      "[completeUploadAction] document ownership check failed: documentId not visible " +
+        "to caller or does not belong to their engagement",
+      { documentId: input.documentId, callerEngagementId: engagement.id },
+    );
+    return { success: false, error: "Document not found or access denied." };
+  }
+
+  // Step 4: scan-promote gate (ADR-021 / AC-NFR-009-01/-02).
+  // completeUpload: stat → validate → scan → promote active|infected|stay pending.
+  // Pass the server-resolved engagementId so the admin-pool promotion is scoped
+  // by engagementId (defence-in-depth — M1 root-cause fix).
+  let scanResult: Awaited<ReturnType<typeof completeUpload>>;
+  try {
+    scanResult = await completeUpload({
+      documentId: input.documentId,
+      storageKey: input.storageKey,
+      uploadedByClerkId: identity.clerkUserId,
+      engagementId: engagement.id,
+    });
+  } catch (err: unknown) {
+    // m3: log full error server-side; return a generic stable message to the client.
+    console.error("[completeUploadAction] completeUpload failed:", err);
+    return {
+      success: false,
+      error: "Upload processing failed. Please try again.",
+    };
+  }
+
+  // Step 5: audit after the scan-promote gate (ADR-019).
+  // Action distinguishes outcome for the audit trail.
+  const auditAction =
+    scanResult.outcome === "active"
+      ? "document.upload_completed"
+      : scanResult.outcome === "infected"
+      ? "document.upload_rejected_malicious"
+      : "document.upload_pending";
+
+  await recordAuthEvent({
+    actor: { clerkUserId: identity.clerkUserId, role: "CLIENT" },
+    action: auditAction,
+    targetType: "Engagement",
+    targetId: engagement.id,
+    sourceSurface: "portal",
+  });
+
+  // Step 6: revalidate so the onboarding read model re-computes the step done flag (AC-ONBD-004-04).
+  // resolveOnboarding(engagement, allRequiredProvided) needs the fresh checklist.
+  // revalidatePath causes the page to re-fetch the read model including resolveChecklist.
+  revalidatePath("/onboarding");
+
+  return {
+    success: true,
+    data: {
+      outcome: scanResult.outcome,
+      documentId: scanResult.documentId,
+    },
+  };
 }

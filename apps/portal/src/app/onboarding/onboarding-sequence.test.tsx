@@ -37,6 +37,10 @@ vi.mock("./actions", () => ({
   signEngagementLetterAction: mockSignEngagementLetterAction,
   getMyOnboardingAction: vi.fn(),
   getClientIdentity: vi.fn(),
+  // TASK-007-006: DocumentUploadStep imports these
+  requestUploadUrlAction: vi.fn(),
+  completeUploadAction: vi.fn(),
+  getChecklistAction: vi.fn(),
 }));
 
 // Mock @tax-portal/db — only the type imports are needed here; mocked to prevent
@@ -94,7 +98,7 @@ describe("OnboardingSequence — AC-ONBD-001-01: renders exactly three steps in 
 
   it("[AC-ONBD-001-01] renders exactly three step containers", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const steps = screen.getAllByTestId(/^onboarding-step-/);
@@ -103,7 +107,7 @@ describe("OnboardingSequence — AC-ONBD-001-01: renders exactly three steps in 
 
   it("[AC-ONBD-001-01] steps are rendered in the correct order: letter, questionnaire, upload", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const steps = screen.getAllByTestId(/^onboarding-step-/);
@@ -116,7 +120,7 @@ describe("OnboardingSequence — AC-ONBD-001-01: renders exactly three steps in 
 
   it("[AC-ONBD-001-01] each step has a data-step attribute matching its key", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     expect(screen.getByTestId("onboarding-step-engagement-letter")).toBeInTheDocument();
@@ -130,7 +134,7 @@ describe("OnboardingSequence — AC-ONBD-001-03: renders current position + rema
 
   it("[AC-ONBD-001-03] shows 'Step 1 of 3' when unsigned (currentStep = engagement-letter)", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const positionEl = screen.getByTestId("onboarding-position");
@@ -139,7 +143,7 @@ describe("OnboardingSequence — AC-ONBD-001-03: renders current position + rema
 
   it("[AC-ONBD-001-03] shows '2 steps remaining' when unsigned (remaining = 2)", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const positionEl = screen.getByTestId("onboarding-position");
@@ -148,7 +152,7 @@ describe("OnboardingSequence — AC-ONBD-001-03: renders current position + rema
 
   it("[AC-ONBD-001-03] position indicator has data-current-step attribute", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const positionEl = screen.getByTestId("onboarding-position");
@@ -157,7 +161,7 @@ describe("OnboardingSequence — AC-ONBD-001-03: renders current position + rema
 
   it("[AC-ONBD-001-03] position indicator has data-remaining attribute", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const positionEl = screen.getByTestId("onboarding-position");
@@ -166,7 +170,7 @@ describe("OnboardingSequence — AC-ONBD-001-03: renders current position + rema
 
   it("[AC-ONBD-001-03] shows 'Step 2 of 3' and '1 step remaining' when letter is signed", () => {
     render(
-      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const positionEl = screen.getByTestId("onboarding-position");
@@ -182,7 +186,7 @@ describe("OnboardingSequence — AC-ONBD-002-01/-02 UI: locked affordances when 
 
   it("[AC-ONBD-002-01 UI] intake-questionnaire step has data-accessible='false' when unsigned", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const questionnaireStep = screen.getByTestId("onboarding-step-intake-questionnaire");
@@ -191,7 +195,7 @@ describe("OnboardingSequence — AC-ONBD-002-01/-02 UI: locked affordances when 
 
   it("[AC-ONBD-002-02 UI] document-upload step has data-accessible='false' when unsigned", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const uploadStep = screen.getByTestId("onboarding-step-document-upload");
@@ -200,7 +204,7 @@ describe("OnboardingSequence — AC-ONBD-002-01/-02 UI: locked affordances when 
 
   it("[AC-ONBD-002-01/-02 UI] locked steps show a lock badge", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     expect(screen.getByTestId("lock-badge-intake-questionnaire")).toBeInTheDocument();
@@ -209,7 +213,7 @@ describe("OnboardingSequence — AC-ONBD-002-01/-02 UI: locked affordances when 
 
   it("[AC-ONBD-002-01/-02 UI] locked steps show a lock message explaining how to unlock", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     expect(screen.getByTestId("lock-message-intake-questionnaire")).toHaveTextContent(
@@ -222,7 +226,7 @@ describe("OnboardingSequence — AC-ONBD-002-01/-02 UI: locked affordances when 
 
   it("[AC-ONBD-002-01/-02 UI] engagement-letter step is NOT locked when unsigned", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const letterStep = screen.getByTestId("onboarding-step-engagement-letter");
@@ -237,7 +241,7 @@ describe("OnboardingSequence — AC-ONBD-002-03 UI: unlocked after signing", () 
 
   it("[AC-ONBD-002-03 UI] intake-questionnaire step has data-accessible='true' when signed", () => {
     render(
-      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const questionnaireStep = screen.getByTestId("onboarding-step-intake-questionnaire");
@@ -246,7 +250,7 @@ describe("OnboardingSequence — AC-ONBD-002-03 UI: unlocked after signing", () 
 
   it("[AC-ONBD-002-03 UI] document-upload step has data-accessible='true' when signed", () => {
     render(
-      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const uploadStep = screen.getByTestId("onboarding-step-document-upload");
@@ -255,7 +259,7 @@ describe("OnboardingSequence — AC-ONBD-002-03 UI: unlocked after signing", () 
 
   it("[AC-ONBD-002-03 UI] no lock badges when letter is signed", () => {
     render(
-      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     expect(screen.queryByTestId("lock-badge-intake-questionnaire")).not.toBeInTheDocument();
@@ -264,7 +268,7 @@ describe("OnboardingSequence — AC-ONBD-002-03 UI: unlocked after signing", () 
 
   it("[AC-ONBD-002-03 UI] engagement-letter step has data-done='true' when signed", () => {
     render(
-      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={SIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     const letterStep = screen.getByTestId("onboarding-step-engagement-letter");
@@ -318,7 +322,7 @@ describe("LetterSignStep — AC-IDNT-007-03 UI: renders accountant's template co
 
   it("[AC-IDNT-007-03 UI] OnboardingSequence passes letter content to LetterSignStep", () => {
     render(
-      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} />,
+      <OnboardingSequence model={UNSIGNED_READ_MODEL} letterContent={LETTER_CONTENT} questionnaire={null} alreadySubmitted={false} checklist={null} />,
     );
 
     // The letter content should appear in the rendered output

@@ -25,7 +25,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getAuthProvider } from "@tax-portal/auth";
-import { withRequestContext, getEngagementRequest } from "@tax-portal/db";
+import { withRequestContext, getEngagementRequest, adminDb } from "@tax-portal/db";
 import type { EngagementRequestItem } from "@tax-portal/db";
 import { RequestDetail } from "../_components/RequestDetail";
 import { DecisionActions } from "../_components/DecisionActions";
@@ -94,6 +94,28 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
     notFound();
   }
 
+  // DECISION (TASK-007-006): Look up whether an Engagement exists for this request.
+  // Shown as a "Document checklist" nav-link to the document-requests authoring surface.
+  // Uses adminDb (RLS-exempt admin pool) since the accountant page needs to see any engagement.
+  // This is a read-only admin lookup — no SESSION_CONTEXT needed (admin-pool pattern).
+  let engagementId: string | null = null;
+  if (request) {
+    try {
+      const engagementLookup = await (adminDb as unknown as {
+        engagement: {
+          findFirst: (args: { where: { engagementRequestId: string }; select: { id: true } }) => Promise<{ id: string } | null>;
+        };
+      }).engagement.findFirst({
+        where: { engagementRequestId: request.id },
+        select: { id: true },
+      });
+      engagementId = engagementLookup?.id ?? null;
+    } catch {
+      // Non-blocking — if the lookup fails, the nav-link is simply not shown.
+      engagementId = null;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top nav — mirrors requests/page.tsx pattern */}
@@ -119,14 +141,25 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
         </div>
       </nav>
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+      {/* Breadcrumb + engagement nav */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4 flex items-center gap-4">
         <a
           href="/requests"
           className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
         >
           ← Back to Requests
         </a>
+        {/* TASK-007-006: Document checklist link — shown once an engagement exists for this request.
+            Fixes the orphan-route problem: the authoring surface was reachable only by URL. */}
+        {engagementId && (
+          <a
+            href={`/engagements/${engagementId}/document-requests`}
+            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+            data-testid="document-requests-link"
+          >
+            Document checklist / requests →
+          </a>
+        )}
       </div>
 
       {/* Main content */}

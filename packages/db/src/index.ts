@@ -164,3 +164,54 @@ export {
   getMyQuestionnaireAnswer,
   submitQuestionnaireAsClient,
 } from "./repositories/questionnaire-answer.js";
+
+// DocumentRequest repository (EPIC-007 / TASK-007-004)
+// listDocumentRequestsForEngagement — request pool read (sec.pol_DocumentRequest FILTER-governed)
+//   CLIENT sees own engagement's requests; ACCOUNTANT sees all.
+//   Must be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+//
+// NOT on this barrel (accountant-only writes):
+//   createDocumentRequestAsAccountant — admin pool write (BLOCK-governed write for accountant path);
+//     import from "./repositories/document-request.js" in server actions.
+export type {
+  DocumentRequestItem,
+  CreateDocumentRequestInput,
+} from "./repositories/document-request.js";
+export {
+  listDocumentRequestsForEngagement,
+} from "./repositories/document-request.js";
+
+// Document repository (EPIC-007 / TASK-007-004) — two-phase authorize-then-sign pipeline
+// authorizeEngagementForUpload  — request pool authz (FILTER-governed; 404 on RLS miss)
+// listEngagementDocuments       — request pool read (FILTER-governed; client sees own docs only)
+// authorizeThenSignDownload     — request pool authz → active-only → signed download URL (ADR-009)
+//
+// NOT on this barrel (import directly from source module in server actions):
+//   insertPendingDocument           — admin pool INSERT (ADR-009 step 2d)
+//   completeUpload                  — admin pool promote (scan-before-available gate, ADR-021)
+//   getDocumentForOwnershipCheck    — request pool read (FILTER-governed; M1 ownership guard)
+export type {
+  DocumentItem,
+  InsertPendingDocumentInput,
+  InsertPendingDocumentResult,
+  CompleteUploadInput,
+  CompleteUploadResult,
+  AuthorizeThenSignDownloadInput,
+  AuthorizeThenSignDownloadResult,
+} from "./repositories/document.js";
+export {
+  authorizeEngagementForUpload,
+  listEngagementDocuments,
+  authorizeThenSignDownload,
+} from "./repositories/document.js";
+
+// Checklist read model (EPIC-007 / TASK-007-004)
+// resolveChecklist — request pool/FILTER-scoped read model; derives outstanding/fulfilled
+//   per DocumentRequest based on ≥1 active Document references (AC-FILE-008-01/-02/-03).
+//   allRequiredProvided drives the document-upload step done flag in resolveOnboarding (AC-ONBD-004-04).
+export type {
+  ChecklistItem,
+  ChecklistItemStatus,
+  ChecklistReadModel,
+} from "./checklist.js";
+export { resolveChecklist } from "./checklist.js";
