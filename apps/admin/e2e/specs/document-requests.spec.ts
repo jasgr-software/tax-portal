@@ -17,12 +17,12 @@
  *
  * Stack: admin container at http://localhost:13001 (ADMIN_PORT env), AUTH_PROVIDER=mock.
  *
- * data-* hooks (TASK-007-005):
- *   data-testid="document-request-editor"  — root container
- *   data-testid="label-input"              — label text input
- *   data-testid="add-request"              — submit button
- *   data-testid="request-list"             — list of existing requests
- *   data-testid="request-item"             — each request row
+ * data-* hooks (TASK-007-005 — must match DocumentRequestEditor.tsx exactly):
+ *   data-testid="document-request-editor"      — root container
+ *   data-testid="document-request-label-input" — label text input
+ *   data-testid="add-document-request-button"  — submit button
+ *   data-testid="request-list"                 — list of existing requests
+ *   data-testid="document-request-item-{id}"   — each request row (prefix-matched in specs)
  *
  * DB fixtures (admin pool — RLS-exempt, teardown only):
  *   The spec seeds a minimal Engagement row + related EngagementRequest row to provide
@@ -270,24 +270,24 @@ test.describe("[AC-FILE-007-01] accountant creates a labeled document request wi
       await expect(editor).toBeVisible({ timeout: 15_000 });
 
       // When: she creates a document request with a free-text label
-      const labelInput = page.locator('[data-testid="label-input"]');
+      const labelInput = page.locator('[data-testid="document-request-label-input"]');
       await expect(labelInput).toBeVisible();
 
       const label = uniqueLabel("[AC-FILE-007-01] 2023 W-2 form");
       await labelInput.fill(label);
 
-      const addButton = page.locator('[data-testid="add-request"]');
+      const addButton = page.locator('[data-testid="add-document-request-button"]');
       await expect(addButton).toBeVisible();
       await addButton.click();
 
       // Then: a labeled document request is created in that engagement
       // The new request appears in the list
       await expect(
-        page.locator('[data-testid="request-item"]').first(),
+        page.locator('[data-testid^="document-request-item-"]').first(),
       ).toBeVisible({ timeout: 10_000 });
 
       await expect(
-        page.locator('[data-testid="request-item"]').first(),
+        page.locator('[data-testid^="document-request-item-"]').first(),
       ).toHaveText(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 
       // Success banner is shown
@@ -310,7 +310,7 @@ test.describe("[AC-FILE-007-01] accountant creates a labeled document request wi
       ).toBeVisible({ timeout: 10_000 });
 
       await expect(
-        page.locator('[data-testid="request-item"]').first(),
+        page.locator('[data-testid^="document-request-item-"]').first(),
       ).toContainText(label, { timeout: 10_000 });
     } finally {
       // Cleanup — always delete seeded rows even if the test fails
@@ -331,7 +331,7 @@ test.describe("[AC-FILE-007-01] accountant creates a labeled document request wi
       await expect(editor).toBeVisible({ timeout: 15_000 });
 
       // Click Add with empty label
-      const addButton = page.locator('[data-testid="add-request"]');
+      const addButton = page.locator('[data-testid="add-document-request-button"]');
       await addButton.click();
 
       // Error banner should appear (use first() — Next.js route announcer also has role="alert")
@@ -344,7 +344,7 @@ test.describe("[AC-FILE-007-01] accountant creates a labeled document request wi
 
       // No request in the list
       await expect(
-        page.locator('[data-testid="request-item"]'),
+        page.locator('[data-testid^="document-request-item-"]'),
       ).toHaveCount(0);
     } finally {
       await cleanupEngagement(engagementId, engagementRequestId);
