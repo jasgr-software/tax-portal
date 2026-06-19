@@ -1,0 +1,34 @@
+{
+  "name": "@tax-portal/storage",
+  "version": "0.0.1",
+  "private": true,
+  "description": "FileStorage port + Azurite/Memory adapters + fail-closed selector (ADR-008)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "sh -c 'tsc -p tsconfig.json'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "sh -c 'tsc --noEmit -p tsconfig.json'"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "^12.32.0"
+  },
+  "devDependencies": {
+    "@tax-portal/eslint-config": "workspace:*",
+    "@tax-portal/tsconfig": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}

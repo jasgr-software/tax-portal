@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-005-002 (ESIGN_PROVIDER + ALLOW_MOCK_ESIGN added to portal compose service)
+**Last updated:** TASK-007-001 (STORAGE_* env + `packages/storage` FileStorage port; `--skipApiVersionCheck` added to Azurite command; `azurite` health dependency added to portal + admin)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -70,13 +70,23 @@ The compose file uses `${SA_PASSWORD:?...}` — the stack will refuse to start i
 
 ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 
-### Azurite (storage adapter)
+### Azurite (storage adapter — `packages/storage` FileStorage port, ADR-008)
+
+`packages/storage` ships the `FileStorage` port and two adapters: `AzuriteAdapter` (production path for local dev + CI) and `MemoryAdapter` (unit tests only). The env-driven selector (`getStorage()`) reads `STORAGE_ADAPTER` at startup. `STORAGE_ADAPTER=cloud` throws (fail-closed boot — no production adapter in this build, ADR-008). `STORAGE_ADAPTER` unset/unknown also throws.
+
+The `AzuriteAdapter` is the **only** module that imports `@azure/storage-blob` — no app code in `apps/**` route handlers or server actions may import that SDK directly (ADR-008/ADR-020).
+
+**Azurite compose note (TASK-007-001):** The Azurite container command now includes `--skipApiVersionCheck` to allow the `@azure/storage-blob` v12.x SDK (API version `2026-04-06`) to communicate with the `mcr.microsoft.com/azure-storage/azurite:latest` image. Without this flag, the SDK's API version is rejected by older Azurite images. **If you pull a new Azurite image and it supports the required API version natively, `--skipApiVersionCheck` can be removed.**
+
+Both `portal` and `admin` compose services now depend on `azurite: service_healthy` so that the FileStorage port is available before the apps start.
 
 | Variable | Required | Description | Default (local dev) |
 |----------|----------|-------------|---------------------|
-| `STORAGE_ADAPTER` | Required by app | Adapter selector: `azurite \| memory \| cloud` | `azurite` |
-| `STORAGE_CONNECTION_STRING` | Required for `azurite` adapter | Azure Blob connection string pointing at the Azurite container | See `.env.example` |
-| `STORAGE_CONTAINER` | Optional | Blob container name | `tax-portal-documents` |
+| `STORAGE_ADAPTER` | **Required** (app startup fails without it) | Adapter selector: `azurite \| memory \| cloud`. `cloud` throws (fail-closed). `memory` is test-only. | `azurite` (via compose) |
+| `STORAGE_CONNECTION_STRING` | **Required** for `azurite` adapter | Azure Blob connection string pointing at the Azurite container. Host-side uses `127.0.0.1:10000`; compose containers use `azurite:10000`. | See `.env.example` |
+| `STORAGE_CONTAINER` | Optional | Blob container name. The adapter calls `createIfNotExists()` — no manual creation needed. | `tax-portal-documents` |
+| `PORTAL_STORAGE_CONNECTION_STRING` | host env → portal container | Container-side connection string for the portal service. Uses the compose service name `azurite` on port `10000`. Set in `.env.local` (added TASK-007-001). | falls back to compose inline default |
+| `ADMIN_STORAGE_CONNECTION_STRING` | host env → admin container | Container-side connection string for the admin service. Uses the compose service name `azurite` on port `10000`. Set in `.env.local` (added TASK-007-001). | falls back to compose inline default |
 
 ### App services (portal + admin active as of TASK-004-001)
 
@@ -107,6 +117,9 @@ ADR-007: SQL authentication only. No Managed Identity, no Azure-only constructs.
 | `RATE_LIMIT_WINDOW_MS` | Both | `InMemoryRateLimiter` sliding window duration in milliseconds. Default: `60000` (60 seconds). Set in docker-compose.yml for both portal and admin services. Added BUG-003-001. |
 | `ESIGN_PROVIDER` | portal | E-sign provider selector: `mock` (local/e2e) or `docuseal` (production, deferred). **Default: `docuseal` (real — DECISION-E).** The mock requires `ALLOW_MOCK_ESIGN=true` (fail-closed guard). docker-compose.yml defaults to `mock` via `${ESIGN_PROVIDER:-mock}` for local/e2e containers. **NEVER set `mock` in a real production deploy** — a real deploy uses `docuseal` and leaves `ALLOW_MOCK_ESIGN` unset. Added TASK-005-002. |
 | `ALLOW_MOCK_ESIGN` | portal | **Mock e-sign opt-in** (ADR-023 §4 / DECISION-E). Must be `"true"` for the portal container to serve the mock e-sign binding. Keys on this flag (not `NODE_ENV`) — same pattern as `ALLOW_MOCK_AUTH` (BUG-002-001). Defaults to `"true"` in compose (`${ALLOW_MOCK_ESIGN:-true}`) for e2e/local containers. **NEVER set to `"true"` in a real production deploy** — a real deploy sets `ESIGN_PROVIDER=docuseal` and leaves `ALLOW_MOCK_ESIGN` unset → fail closed. Setting `ESIGN_PROVIDER=docuseal` + `ALLOW_MOCK_ESIGN=true` is a contradiction → throws. Added TASK-005-002. |
+| `STORAGE_ADAPTER` | Both | FileStorage adapter selector (ADR-008): `azurite` (local dev/CI default), `memory` (test-only), `cloud` (Phase-5 slot — throws at startup). Defaults to `azurite` via compose. Added TASK-007-001. |
+| `STORAGE_CONNECTION_STRING` | Both | Azure Blob connection string for the AzuriteAdapter. In compose containers, resolves via `PORTAL_STORAGE_CONNECTION_STRING` / `ADMIN_STORAGE_CONNECTION_STRING` (compose internal `azurite:10000` hostname). Added TASK-007-001. |
+| `STORAGE_CONTAINER` | Both | Blob container name for the FileStorage adapter. Default `tax-portal-documents`. Added TASK-007-001. |
 
 ---
 

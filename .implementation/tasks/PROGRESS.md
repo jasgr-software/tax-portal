@@ -10,22 +10,49 @@
 
 ## Current initiative
 
-_None active._ **BRIEF-006 / EPIC-006 — Intake questionnaire (per-service-type templates + client completion) —
-DELIVERED 2026-06-19.** Merged via **PR #50 → `main` @ `e55f8c5`** (reviewed lane). Close-finalize complete:
-**gate 8 (post-merge CI) PASS** — CI run `27796565080` `success` (jobs `lint-and-typecheck` / `security-scan` /
-`test-portal` / `test-admin` all green) + CodeQL run `27796564765` `success`, both @ `e55f8c5`; **gate 9 N/A**
-(`Brief-deploys: no`, ADR-007 — no staging environment). **All applicable gates 1–8 GREEN.** **7/7 in-scope AC
-delivered.** Zero `BUG-006-POST-*`. Post-Merge Addendum + final 9-gate scorecard written to `RETRO-006.md`;
-handoff in `HANDOFF-006.md`. Slice removed from `## Awaiting PR merge`.
+**BRIEF-007 / EPIC-007 — Initial document upload — checklist, secure malware-scanned file-storage path.**
+**Phase: Plan → Dispatch (TASK-007-001 dispatched).** Branch: `brief-007-initial-document-upload` (off `main`
+@ `7d538a3`, created by main session). **Gated: yes** (gated paths — `packages/`, `apps/`, `prisma/`,
+`db/policies/`, `docker-compose.yml`). **Brief-type: feature · Brief-deploys: no.** **Methodology:**
+`acceptance_format: gherkin` (bind the epic's 19 scenarios — do NOT re-author), **`e2e: required`** (both
+`apps/portal` + `apps/admin` + `e2e:cross-app`), `tdd: optional`, `coverage_target: none`. **19 in-scope AC**
+(REQ-ONBD-004, REQ-FILE-007/008/001-subset/002/003, REQ-NFR-009). Largest Phase-2 slice: two net-new ports
+(`FileStorage`/ADR-008, `FileScanner`/ADR-021 mock-first) + the **third** client-isolation RLS policy
+(`db/policies/0007-*`) + the first stored-bytes path. **Delivers onboarding step 3**, on the EPIC-005 spine.
 
-**Delivery state (Phase 2 — onboarding gate):** EPIC-005 (onboarding spine + letter e-sign gate, step 1) +
-**EPIC-006 (intake questionnaire, step 2) — DELIVERED.** **Next ready:** **EPIC-007 is now unblocked** (it
-depended on the EPIC-006 questionnaire substrate). **EPIC-008 remains blocked on EPIC-007.** Next orchestration:
-Conductor runs `/planning validate EPIC-006` for the `COVERAGE.md` write-back of the 7 in-scope AC (source:
-`HANDOFF-006.md`), then the docs-lane close PR carries these `.implementation/tasks/**` Close-finalize edits.
+**Goal:** accountant authors labeled document requests (`apps/admin`); post-letter-gate client sees the
+checklist (outstanding vs provided), uploads any-type files to fulfill (two-phase authorize-then-sign, ADR-009),
+malicious files withheld + uploader informed (scan-before-available, ADR-021); files encrypted-at-rest
+(adapter contract, ADR-020), engagement-isolated (`0007`, ADR-005), audited (ADR-019), rate-limited (ADR-022);
+the document-upload step's satisfaction wired into the EPIC-005 read model (AC-ONBD-004-04). EPIC-005 letter
+hard gate must NOT be weakened.
 
-The IO is now eligible to Plan the next slice (`## Awaiting PR merge` empty; slice-start gate passable) when a
-build brief for the next ready epic (EPIC-007) is provided.
+**Tasks (7) — all `Status: backlog` at Plan close except TASK-007-001 dispatched:**
+| Task | Impl | E2e | Introduces-gate | AC covered |
+| ---- | ---- | --- | --------------- | ---------- |
+| TASK-007-001 `FileStorage` port + Azurite/Memory adapters + fail-closed select + compose/env | developer | no | no | AC-FILE-003-01 (adapter contract) |
+| TASK-007-002 `FileScanner` port (mock-first) + select + MIME/size validation helper | developer | no | no | (seam for AC-NFR-009-*, AC-FILE-002-01) |
+| TASK-007-003 DocumentRequest + Document models + `0007` RLS policy + isolation test | developer | no | **yes** | AC-FILE-008-01, AC-FILE-001-05, AC-FILE-003-02 |
+| TASK-007-004 two-phase upload/download pipeline + checklist read model + step satisfaction | developer | **yes** | **yes** | AC-FILE-001-02, AC-ONBD-004-04, AC-FILE-008-01, AC-FILE-003-01/-02/-03/-04, AC-NFR-009-01 |
+| TASK-007-005 accountant document-request authoring UI (`apps/admin`) | developer | yes | no | AC-FILE-007-01 |
+| TASK-007-006 client document-upload step + checklist + rejection (`apps/portal`) + cross-app e2e | developer | yes | no | AC-ONBD-004-01/-02/-03, AC-FILE-007-02/-03, AC-FILE-008-02/-03, AC-FILE-001-02, AC-FILE-002-01, AC-NFR-009-02 |
+| TASK-007-007 `@demo` walkthrough (authoring + upload + rejection gallery) | developer | yes | no | none (non-gating demo) |
+
+**All 19 in-scope AC are covered across the tasks; tiers match the brief's tier map.** Dependency order:
+001/002/003 are independent foundations → 004 (depends on 001+002+003) → 005 (depends on 004) → 006 (depends
+on 004+005) → 007 (depends on 005+006). **Two gate-introducing tasks** (`0007` policy in 003; scan-promotion
+gate in 004) carry mandatory three-item Gate-Authoring evidence (ENGINE.md § Gate Authoring Rules).
+
+**Design decisions recorded (slice-local, not upstream — brief delegated these to IO Design):** fulfillment =
+nullable FK `Document.documentRequestId` (not a join); all DocumentRequests required in v1 (zero-requests =
+vacuously-satisfied upload step); `Document.status` enum `pending｜active｜infected`; storage key
+`engagements/{engagementId}/documents/{documentId}/v1/{urlencoded-filename}` (ADR-009); `FileScanner` verdict
+`clean｜infected｜indeterminate`; `FileScanner` co-located in `packages/storage`; TTL caps from ADR-008.
+**No `OPEN-QUESTIONS.md` entry needed** — no genuinely-upstream/cross-cutting decision arose (ADR-008/009/021
+already fix the port shapes, state machine, TTL caps, key pattern). **Local design-coherence check: PASS.**
+
+**Delivery state (Phase 2 — onboarding gate):** EPIC-005 (step 1) + EPIC-006 (step 2) DELIVERED; **EPIC-007
+(step 3) IN PROGRESS.** EPIC-008 (onboarding completion capstone) remains blocked on EPIC-007.
 
 ## Awaiting PR merge
 
@@ -138,16 +165,39 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ---
 
-### Sweep pointer — BRIEF-006 inline session entries archived (close transition) — 2026-06-19
-At the Close-finalize (PR limbo → close) phase transition, the full BRIEF-006 inline session history (IO Plan/Design, the Dispatch chain, the SDET review gate-records for TASK-006-001..007, the BUG-006-001 reject→fix→re-approve chain, the Overwatch Audit + IO design-scan record, the Smoke gate-5 record, the SDET Validate gates 6/7 + quality-audit record, and the IO Close-prep record) was **swept to `PROGRESS-ARCHIVE.md`** (see "Sweep marker — BRIEF-006 close (PR limbo → Close-finalize) transition — 2026-06-19"). Full per-entry text is preserved in git history at the `brief-006-intake-questionnaire` build commits (squashed into `e55f8c5`) + `tasks/done/TASK-006-*.md` + `tasks/done/BUG-006-001-*.md` + `RETRO-006.md` + `HANDOFF-006.md`. Only the new Close-finalize entry below is retained inline.
+### Sweep pointer — BRIEF-006 Close-finalize entry archived (Plan transition) — 2026-06-19
+At the BRIEF-007 Plan-start phase transition, the retained inline **IO Close-finalize — BRIEF-006 / EPIC-006**
+entry was **swept to `PROGRESS-ARCHIVE.md`** (see "Sweep marker — BRIEF-007 Plan start … transition — 2026-06-19").
+Full text preserved in git history at `e55f8c5` + `RETRO-006.md` + `HANDOFF-006.md`. Only the new BRIEF-007 Plan
+entry below is retained inline.
 
 ---
 
-### IO Close-finalize — BRIEF-006 / EPIC-006 — 2026-06-19 (gate 8 post-merge CI; gate 9 N/A; slice swept from limbo)
-**Start:** Resumed with `## Awaiting PR merge` non-empty (BRIEF-006, PR #50) → resume logic → attempt Close-finalize. PR #50 squash-merged to `main` @ `e55f8c5` (reviewed lane / Lane B; `gh pr merge 50 --squash --delete-branch`; no `--admin`/protection toggle; user-approved). Local `main` synced to `e55f8c5`; remote branch deleted. Read startup checklist (ENGINE.md, PHASES.md § Close-finalize + Scorecard gates 8–9, seed/sources.md, PROGRESS.md, RETRO-006.md).
-**Gate 8 — Post-merge CI: PASS.** Both post-merge workflows on `main` @ `e55f8c5` watched to completion (CI was `in_progress` at dispatch; CodeQL already complete). **CI** run `27796565080` → `conclusion: success` — jobs `lint-and-typecheck` ✅, `security-scan` ✅, `test-portal` ✅, `test-admin` ✅ (`report-failure` `skipped`). https://github.com/jasgr-software/tax-portal/actions/runs/27796565080. **CodeQL** (`Code Quality: Push on main`) run `27796564765` → `conclusion: success`. https://github.com/jasgr-software/tax-portal/actions/runs/27796564765. The branch-protection required checks (`lint-and-typecheck` + `security-scan`) are green; the advisory `test-portal`/`test-admin` also green.
-**Gate 9 — N/A.** `Brief-deploys: no`; no staging environment (ADR-007 — production platform deferred). Recorded N/A.
-**Post-merge bugs:** none. Zero `BUG-006-POST-*` created during PR limbo. `BUG-006-001` was a pre-merge rejection (resolved on-branch, archived to `tasks/done/`), rides the PR — not a post-merge bug.
-**Artifacts written:** RETRO-006.md § Post-Merge Addendum (merge detail + gate 8 run URLs/conclusions + gate 9 N/A + final post-merge 9-gate scorecard [1–8 green, 9 N/A] + zero-POST-bugs + EPIC-007-unblocked note). PROGRESS.md: `## Current initiative` rewritten to EPIC-006-DELIVERED + next-ready (EPIC-007 unblocked; EPIC-008 still blocked on EPIC-007); slice removed from `## Awaiting PR merge` (now empty); the four BRIEF-006 carried follow-ups left in `## Open retro action items`.
-**Phase-transition reflex (PR limbo → Close-finalize done):** swept the BRIEF-006 inline session entries to PROGRESS-ARCHIVE.md (sweep pointer above); updated `## Current initiative` + `## Awaiting PR merge`; appended this entry. These `.implementation/tasks/**` edits are made in the working tree only — the main session commits them into the docs-lane close PR (the IO does not commit). The out-of-slice Conductor files (`.orchestration/STATE.md`, `.planning/EPIC-002-*.md`, `.orchestration/runs/PR-50-verdict.json`) were NOT touched.
-**End:** Close-finalize exit condition met — PR merged, gate 8 green (CI + CodeQL run URLs recorded), gate 9 N/A, zero `BUG-006-POST-*`, Post-Merge Addendum + final scorecard written, slice removed from `## Awaiting PR merge`. **BRIEF-006 / EPIC-006 DELIVERED.** `## Current initiative` is empty — IO eligible to Plan the next slice (EPIC-007) when its brief is provided. **IO ends the invocation.** Next (Conductor): `/planning validate EPIC-006` COVERAGE write-back (source HANDOFF-006) → docs-lane close PR carrying these edits.
+### SDET Review — TASK-007-001 — 2026-06-19
+**Start:** Review TASK-007-001 (`packages/storage` FileStorage port + Azurite/Memory adapters + fail-closed select + compose/env/operations wiring). Task at `Status: review`.
+**Actions:**
+- Read ENGINE.md, sdet.md, TASK-007-001, PROGRESS.md (startup checklist).
+- Read upstream refs: ADR-008, ADR-009, ADR-020, ADR-006 (all present).
+- Read all source files: `types.ts`, `ttl.ts`, `select.ts`, `index.ts`, `adapters/azurite.ts`, `adapters/memory.ts`, `storage.test.ts`, `storage.integration.test.ts`, `package.json`, `tsconfig.json`, `vitest.config.ts`.
+- Read infra files: `docker-compose.yml`, `.env.example`, `inventory.md`, `runbook.md`.
+- Verified provider-SDK containment: `@azure/storage-blob` only in `adapters/azurite.ts`, zero hits in `apps/**`. Barrel exports type-only + `getStorage` + `resetStorageForTesting` — no adapter class leaks.
+- Verified fail-closed boot matches `packages/esign/src/select.ts` precedent: `cloud` throws "no production adapter bound", unknown/unset throws, no silent fallback.
+- Verified TTL caps centralized in `ttl.ts`; both adapters call the shared resolvers; throws before any SDK call.
+- Docker pre-flight: `docker info` PASS; `tax-portal-azurite` confirmed running on host port 10000.
+- Independently ran `pnpm --filter @tax-portal/storage test` against live Azurite: **42 passed (33 unit + 9 integration, 175ms tests)**. AC-FILE-003-01 assertion (`isServerEncrypted === true` via `getRawProperties()`) confirmed against real Azurite container — not mocked, not skipped.
+- Ran full gate: `pnpm lint` PASS · `pnpm type-check` PASS · `pnpm build` PASS (packages + portal + admin).
+- Verified operations-doc consistency: `inventory.md` and `runbook.md` updated with storage topology, env table, `--skipApiVersionCheck` note, fail-closed selector table, ADR-009 integrity hook stub.
+- Verified cross-surface: both `portal` and `admin` services in `docker-compose.yml` have `STORAGE_*` env + `azurite: service_healthy` depends_on.
+- All mandatory rejection checks passed. `Complexity-actual: 3` present and in range.
+- Atomic close: ticked SDET Review box, wrote Review prose, appended Work Log breadcrumb, set `Completed-at: 2026-06-19T07:05:00Z`, flipped `Status: done`.
+**End:** TASK-007-001 **approved and done**. All six mandatory focus areas PASS. 42/42 tests confirmed against live Azurite. IO may proceed to dispatch TASK-007-002.
+
+---
+
+### IO Plan — BRIEF-007 / EPIC-007 (initial document upload) — 2026-06-19
+**Start:** Fresh slice. Conductor-driven; slice-start gate clear (`## Awaiting PR merge` empty, BRIEF-006 finalized); `/compact` checkpoint treated satisfied (Conductor autonomous run); branch `brief-007-initial-document-upload` pre-created by main session (off `7d538a3`) — IO did not run git. Docker pre-flight deferred to Dispatch/Smoke (noted as a Dispatch obligation before the e2e wave; TASK-007-004/005/006 e2e + the Azurite-inclusive smoke).
+**Ingest + Clarify:** Read BRIEF-007 in full (19 in-scope AC; methodology gherkin / e2e-required both surfaces / tdd-optional / coverage-none; 10 cited ADRs as binding constraints; 11 extra_gates). Read the cited load-bearing ADRs (ADR-008 FileStorage port + TTL + fail-closed boot; ADR-009 two-phase authorize-then-sign + storage key + state machine; ADR-021 scan-before-available + FileScanner contract + MIME-not-allowlist; ADR-005 §6 HARD per-policy test) and the in-repo precedents to mirror: `db/policies/0005`/`0006` (ownership join + two-part policy file), `packages/db/src/onboarding.ts` (the `document-upload` step's `done:false` placeholder this slice fills), `packages/db/src/repositories/questionnaire-answer.ts` (request-pool BLOCK-governed client write + admin-pool substrate write), `packages/esign/src/select.ts` (fail-closed mock select), `packages/auth/src/rate-limiter/port.ts` + `packages/db/src/audit.ts` (ADR-022/019 seams to reuse), `prisma/schema.prisma` (Engagement/User/QuestionnaireAnswer field conventions), `apps/admin/src/app/settings/questionnaire-templates/` + `apps/portal/src/app/onboarding/` (UI precedents), `docker-compose.yml` Azurite `:10000`. **Every one of the 19 AC traces to testable behavior** at the brief's prescribed tier (verified against the tier map).
+**Design:** Expanded the brief's `## Data & Interface Contract` to the full field-level contract and bound it into the task specs (DocumentRequest + Document columns/types per ADR-002; the `0007` FILTER+BLOCK predicate shape mirroring `0006`; FileStorage/FileScanner port signatures from ADR-008/021; the two-phase upload + authorize-then-sign download interface from ADR-009; the checklist outstanding/fulfilled read model + the server-side step-satisfaction evaluation wired into `resolveOnboarding`). Recorded the slice-local `// DECISION:`s (see `## Current initiative` — fulfillment FK; all-required-in-v1; status enum; storage key; scanner verdict + colocation; TTL caps). Confirmed none are genuinely upstream (the brief delegated each to IO Design; ADR-008/009/021 fix the rest) → **no `OPEN-QUESTIONS.md` raised-upstream entry**. **Local design-coherence check: PASS** (all 6 constraint ADRs honored; EPIC-005 letter gate preserved; onboarding spine extended not forked; both surfaces validated; two gate-introducing tasks carry mandatory evidence).
+**Decompose:** Created 7 task files (`tasks/TASK-007-001..007`), all `Status: backlog`, each with `Impl`, mandated-test fields (E2e-required set per CLAUDE.md § E2e defaults: yes on 004/005/006/007 — file upload/signed-URL/SESSION_CONTEXT/cross-module), `**Acceptance criteria:**` (19 AC fully covered), `**Upstream refs:**`, `**Introduces-gate:**` (yes on 003 `0007` policy + 004 scan-promotion gate; § Gate Authoring Rules applied), `Brief-type: feature` / `Brief-deploys: no` mirrored, the cross-surface default noted. Dependency chain: 001/002/003 (independent) → 004 → 005 → 006 → 007.
+**PROGRESS.md:** Rewrote `## Current initiative` (name, branch, goal, phase, gated, full task table + statuses, decisions, design-coherence PASS); phase-transition reflex executed (swept the BRIEF-006 Close-finalize entry to PROGRESS-ARCHIVE.md; appended this entry).
+**End:** Plan exit condition met (slice-start gate clear; brief ingested; every task traces to testable AC; methodology recorded; branch present; all task files complete; design-coherence PASS; `## Current initiative` populated). Docker pre-flight is a Dispatch-time obligation (not required during Plan). **Transitioning to Dispatch.** Composing ONE `## Next Dispatch` for TASK-007-001 (`FileStorage` port + Azurite adapter — the foundational, dependency-free port). The main session spawns the `webapp-developer` and re-invokes the IO with the result.

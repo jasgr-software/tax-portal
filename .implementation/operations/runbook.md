@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-005-002 (e-sign env vars — ESIGN_PROVIDER/ALLOW_MOCK_ESIGN added to portal compose service)
+**Last updated:** TASK-007-001 (storage adapter bring-up + STORAGE_* env vars; Azurite `--skipApiVersionCheck`; portal/admin depend on `azurite: service_healthy`)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -223,6 +223,58 @@ pnpm dev                            # Both apps concurrently
 ```
 
 The containers (SQL Server, Azurite, Mailhog) must be running for the app to connect.
+
+---
+
+## Object Storage (FileStorage port — packages/storage — ADR-008)
+
+Added in TASK-007-001. The `packages/storage` package ships the `FileStorage` port and two adapters:
+- **`AzuriteAdapter`** — targets Azurite via `@azure/storage-blob` (the only module allowed to import that SDK).
+- **`MemoryAdapter`** — in-process `Map<string,Buffer>`; unit tests only; NOT a runtime target.
+
+### Env-driven selector (fail-closed boot)
+
+`STORAGE_ADAPTER` is read at process startup by `getStorage()` in `packages/storage/src/select.ts`:
+
+| Value | Behaviour |
+|-------|-----------|
+| `azurite` | `AzuriteAdapter` — local dev + CI default |
+| `memory` | `MemoryAdapter` — test-only; runtime use is a misconfiguration |
+| `cloud` | **THROWS at startup** — no production adapter in this build (Phase-5 slot, ADR-008) |
+| unset / unknown | **THROWS at startup** — explicit value required |
+
+There is no silent fallback. A misconfigured `STORAGE_ADAPTER` is caught at process start, not at first file operation.
+
+### Local dev bring-up
+
+Azurite is included in the compose stack and is available from day one:
+
+```bash
+docker compose up -d azurite   # Starts Azurite only
+docker compose up -d           # Starts full stack (Azurite + sqlserver + mailhog + portal + admin)
+```
+
+The `AzuriteAdapter` calls `createIfNotExists()` before each operation — no manual bucket/container creation is needed. The default container is `tax-portal-documents`.
+
+**Azurite API version note (TASK-007-001):** The Azurite compose command includes `--skipApiVersionCheck` to allow `@azure/storage-blob` v12.x SDK (which sends API version `2026-04-06`) to communicate with the `mcr.microsoft.com/azure-storage/azurite:latest` image. Without this flag, the SDK's API version is rejected. If you pull a new Azurite image that natively supports the required API version, the flag can be removed.
+
+### Connection strings
+
+The `AzuriteAdapter` uses the Azurite well-known dev account (public constants — not secrets):
+- **Host-side** (dev server, scripts, Playwright): `BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1`
+- **Compose container-side** (portal, admin): `BlobEndpoint=http://azurite:10000/devstoreaccount1`
+
+See `.env.example` for the full connection string formats (`STORAGE_CONNECTION_STRING`, `PORTAL_STORAGE_CONNECTION_STRING`, `ADMIN_STORAGE_CONNECTION_STRING`).
+
+### Encryption at rest (AC-FILE-003-01 / ADR-008 / ADR-020)
+
+Azurite simulates AES-256 SSE transparently — no per-object encryption config is needed. The adapter does NOT hand-roll crypto. The tier-3 integration test (`packages/storage/src/storage.integration.test.ts`) asserts `isServerEncrypted === true` on stored blobs via an out-of-band `getRawProperties()` call.
+
+**ADR-013/020:** The `@azure/storage-blob` SDK is confined to `packages/storage/src/adapters/azurite.ts`. No app code in `apps/portal/**` or `apps/admin/**` may import it. The SDET checks this at review.
+
+### ADR-009 storage-integrity hook stub
+
+ADR-009 describes a two-step upload pattern (create `Document` row → signed-upload URL → client uploads → webhook/readiness check flips row state). The reconciliation sweep (for dangling storage objects from failed uploads) is a **DEFERRED** Phase-5+ feature. No sweep/cleanup logic should be added to this table until the reconciliation pattern is formally implemented. This stub documents the intent for the implementing task (TASK-007-004 and beyond).
 
 ---
 
