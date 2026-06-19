@@ -36,6 +36,9 @@
   → resumes at Implement (the IO reads `.implementation/tasks/PROGRESS.md` and continues). **Delivering it closes
   Phase 2** (44/44 AC) → the Report phase must run the phase-closeout (Phase-2 walkthrough video per
   `DEMO-POLICY.md` § Part B; ship `docs/demos/phase-2/`).
+- **Phase-2 close-out follow-up (deferred, user-directed 2026-06-19):** triage the four C4 backfill
+  as-built-vs-ADR drifts (commit `9900d6a`) with `/planning` + `/architecture` — esp. the ADR-005/009/010
+  schema-lag (table-set ahead of `prisma/schema.prisma`). Not slice-blocking; addressed at Phase-2 wrap-up.
 
 ## Recent outcomes
 
