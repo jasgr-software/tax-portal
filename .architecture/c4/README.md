@@ -6,16 +6,17 @@
 
 ## Level files
 
-- `L1-context.md` — System context: users, external systems, system boundary
-- `L2-containers.md` — Containers: two Next.js front ends (`apps/portal`, `apps/admin`), SQL Server 2022 (+ Security Policies), Clerk, object storage (Azure Blob / Azurite), Docuseal, mail catcher
-- `L3-components.md` — Components: modules within each app (auth, front-door, onboarding, engagements, files, messaging, notifications, admin) + shared `packages/`
-- `L4-code.md` — Code-level: key classes, hooks, server actions, route handlers, the `packages/db` identity-propagation wrapper
+- `L1-context.md` — System context: actors (prospect / client / accountant), the one-platform boundary, and the external-system seams (Clerk, Docuseal, Azure Blob/Azurite, malware scanner, email) with current mock/emulated state
+- `L2-containers.md` — Containers: two Next.js front ends (`apps/portal`, `apps/admin`) of one platform over shared `packages/`, SQL Server 2022 (schema + Security Policies + audit ledger), Azurite (blob), Mailhog, Docuseal (compose-deferred); the request-pool vs admin-pool DB paths
+- `L3-components.md` — Components: app middleware/actions/webhooks; `packages/db` (`$extends` wrapper, repositories, onboarding/checklist read models, audit seam); the RLS policy layer; the four provider seams (auth/storage/esign/email + scanner)
+- `L4-code.md` — Code-level (selective): the `$extends` SESSION_CONTEXT SET hook, the two-phase authorize-then-sign upload pipeline, the BLOCK-governed client write pattern, and the provider-seam shape
 
 ## Status
 
-Index migrated into `.architecture/` 2026-06-13. The level files (`L1`–`L4`) are stubs to be authored by
-the Architecture Agent. The container list above reflects the current decided stack (SQL Server era —
-ADR-002/004/005/008), superseding the pre-architecture Supabase sketch below.
+Index migrated into `.architecture/` 2026-06-13. **All four level files (`L1`–`L4`) authored 2026-06-19** as
+a backfill of the as-built architecture across delivery Phases 1–4 — each element is grounded in a real source
+path or Accepted ADR. The container list above reflects the SQL Server era (ADR-002/004/005/006/008/019/023),
+superseding the pre-architecture Supabase sketch below (retired, retained for history only).
 
 ## Seed sketch (pre-architecture — stale, retained for history)
 
