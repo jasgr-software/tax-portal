@@ -48,6 +48,8 @@ const {
   mockGetStorage,
   mockGetRateLimiter,
   mockRateLimiterConsume,
+  // TASK-008-002: completion trigger mock
+  mockProcessOnboardingCompletion,
 } = vi.hoisted(() => {
   const mockCreateSignatureRequest = vi.fn();
   const mockVerifyCompletion = vi.fn();
@@ -100,6 +102,8 @@ const {
     mockGetStorage,
     mockGetRateLimiter,
     mockRateLimiterConsume,
+    // TASK-008-002: completion trigger mock (best-effort; default resolves without error)
+    mockProcessOnboardingCompletion: vi.fn().mockResolvedValue({ transitioned: true }),
   };
 });
 
@@ -122,6 +126,8 @@ vi.mock("@tax-portal/db", () => ({
   authorizeEngagementForUpload: mockAuthorizeEngagementForUpload,
   resolveChecklist: mockResolveChecklist,
   listDocumentRequestsForEngagement: mockListDocumentRequestsForEngagement,
+  // TASK-008-002: completion trigger (EPIC-008)
+  processOnboardingCompletion: mockProcessOnboardingCompletion,
 }));
 
 // @tax-portal/db/src/repositories/document.js — NOT on the barrel (TASK-007-004)
@@ -346,6 +352,9 @@ beforeEach(() => {
     expiresAt: new Date(Date.now() + 300_000),
   });
   mockGetStorage.mockReturnValue({ getSignedUploadUrl: mockGetSignedUploadUrl });
+
+  // TASK-008-002: completion trigger — resolves successfully by default (best-effort)
+  mockProcessOnboardingCompletion.mockResolvedValue({ transitioned: true });
 });
 
 afterEach(() => {
@@ -1015,6 +1024,90 @@ describe("completeUploadAction — scan-promote gate (AC-NFR-009-01/-02)", () =>
     if (!result.success) return;
     expect(result.data.outcome).toBe("pending");
   });
+
+});
+
+// ─── TASK-008-002: Completion trigger tests ────────────────────────────────────
+//
+// These tests prove that the completion engine is wired into the two portal
+// onboarding actions that can be the *completing* step: submitQuestionnaireAction
+// and completeUploadAction (AC-ONBD-006-01, AC-ONBD-006-02, AC-ONBD-007-01 path).
+//
+// The trigger is best-effort (D5): an error inside processOnboardingCompletion must
+// NOT roll back or fail the step's already-committed success result.
+//
+// The letter-sign action is intentionally out of scope — steps 2/3 are still pending
+// after the letter; scope discipline verified in the last test below.
+
+describe("TASK-008-002 — completion trigger wiring", () => {
+
+  it(
+    "[AC-ONBD-006-01 / AC-ONBD-007-01 path] submitQuestionnaireAction success → calls " +
+    "processOnboardingCompletion with server-resolved engagement.id",
+    async () => {
+      // All defaults: identity set, engagement resolved, submit succeeds.
+      const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+      expect(result.success).toBe(true);
+      // Completion trigger must have been called exactly once with the server-resolved id.
+      expect(mockProcessOnboardingCompletion).toHaveBeenCalledOnce();
+      expect(mockProcessOnboardingCompletion).toHaveBeenCalledWith(ENGAGEMENT_ID);
+    },
+  );
+
+  it(
+    "[AC-ONBD-006-01 / AC-ONBD-007-01 path] completeUploadAction success → calls " +
+    "processOnboardingCompletion with server-resolved engagement.id",
+    async () => {
+      const COMPLETE_INPUT = {
+        documentId: "doc-uuid-001",
+        storageKey: `engagements/${ENGAGEMENT_ID}/documents/doc-uuid-001/v1/test.pdf`,
+      };
+
+      const result = await completeUploadAction(COMPLETE_INPUT);
+
+      expect(result.success).toBe(true);
+      // Completion trigger must have been called exactly once with the server-resolved id.
+      expect(mockProcessOnboardingCompletion).toHaveBeenCalledOnce();
+      expect(mockProcessOnboardingCompletion).toHaveBeenCalledWith(ENGAGEMENT_ID);
+    },
+  );
+
+  it(
+    "[D5 error containment] a thrown error from processOnboardingCompletion is caught + logged " +
+    "and submitQuestionnaireAction still returns its success result",
+    async () => {
+      // processOnboardingCompletion throws — simulates a transient DB error.
+      mockProcessOnboardingCompletion.mockRejectedValue(
+        new Error("Completion engine failure — simulated"),
+      );
+
+      const result = await submitQuestionnaireAction(VALID_ANSWERS_JSON);
+
+      // The action's own step result must still be success: true (best-effort, D5).
+      expect(result.success).toBe(true);
+      // The completion trigger was attempted.
+      expect(mockProcessOnboardingCompletion).toHaveBeenCalledOnce();
+    },
+  );
+
+  it(
+    "[scope discipline] signEngagementLetterAction does NOT call processOnboardingCompletion " +
+    "(steps 2/3 still pending after the letter — letter is never the completing step)",
+    async () => {
+      // Set up a successful letter-sign flow.
+      mockGetEngagementForClient
+        .mockResolvedValueOnce(UNSIGNED_ENGAGEMENT) // initial load
+        .mockResolvedValueOnce(SIGNED_ENGAGEMENT);   // reload after signing
+      mockResolveOnboarding.mockReturnValue(SIGNED_READ_MODEL);
+
+      const result = await signEngagementLetterAction(ENGAGEMENT_ID);
+
+      expect(result.success).toBe(true);
+      // CRITICAL: the letter-sign action must NOT call processOnboardingCompletion.
+      expect(mockProcessOnboardingCompletion).not.toHaveBeenCalled();
+    },
+  );
 
 });
 
