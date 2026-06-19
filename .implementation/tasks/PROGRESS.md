@@ -27,7 +27,7 @@ malicious files withheld + uploader informed (scan-before-available, ADR-021); f
 the document-upload step's satisfaction wired into the EPIC-005 read model (AC-ONBD-004-04). EPIC-005 letter
 hard gate must NOT be weakened.
 
-**Tasks (7) — all `Status: backlog` at Plan close except TASK-007-001 dispatched:**
+**Tasks (7) — TASK-007-001 `done` (SDET-approved, committed `0a84977`); TASK-007-002 dispatched; remainder `backlog`:**
 | Task | Impl | E2e | Introduces-gate | AC covered |
 | ---- | ---- | --- | --------------- | ---------- |
 | TASK-007-001 `FileStorage` port + Azurite/Memory adapters + fail-closed select + compose/env | developer | no | no | AC-FILE-003-01 (adapter contract) |
@@ -191,6 +191,32 @@ entry below is retained inline.
 - All mandatory rejection checks passed. `Complexity-actual: 3` present and in range.
 - Atomic close: ticked SDET Review box, wrote Review prose, appended Work Log breadcrumb, set `Completed-at: 2026-06-19T07:05:00Z`, flipped `Status: done`.
 **End:** TASK-007-001 **approved and done**. All six mandatory focus areas PASS. 42/42 tests confirmed against live Azurite. IO may proceed to dispatch TASK-007-002.
+
+---
+
+### SDET Review — TASK-007-002 — 2026-06-19
+**Start:** Review TASK-007-002 (`FileScanner` port + mock/cloud bindings + fail-closed select + `validateUploadedBytes` helper). Task at `Status: review`. Reading task file, ADRs 021/013/020, esign select.ts precedent, all delivered source files.
+**Actions:**
+- Read ENGINE.md, sdet.md, TASK-007-002, PROGRESS.md (startup checklist).
+- Read upstream refs: ADR-021 (scan-before-available; FileScanner contract; verdict triple; MIME-not-allowlist; fail-closed boot), ADR-013 (port discipline — no vendor SDK in app code), ADR-020 (encryption/KMS abstraction — no cloud SDK in app code).
+- Read esign precedent: `packages/esign/src/select.ts` — confirmed selector matrix to mirror.
+- Read all source: `port.ts`, `bindings/mock.ts`, `bindings/cloud.ts`, `select.ts`, `validation.ts`, `index.ts`, `scanner.test.ts`, `validation.test.ts`.
+- FA-1 (indeterminate structural distinctness): ScanVerdict discriminated union on `verdict` field; `isPromotable` test asserts false for indeterminate. PASS.
+- FA-2 (fail-closed select / ALLOW_MOCK_SCANNER not NODE_ENV): full matrix verified against esign precedent; zero NODE_ENV references in select.ts; contradiction guard present. PASS.
+- FA-3 (no vendor scanner SDK): grep across `apps/**` and `packages/**` — zero vendor SDK hits; only project-owned `MockFileScanner` in the package's own test file. PASS.
+- FA-4 (safety not allow-list): 6 uncommon-type-passes tests; Case B logic in validation.ts fails-open for unknown types; only positive executable detection raises mismatch. PASS.
+- FA-5 (mock determinism): MALICIOUS_PATTERN and INDETERMINATE_PATTERN are module-level constants; priority key > stream; tests cover key, stream, case-insensitivity, priority. PASS.
+- FA-6 (independent test run): `pnpm --filter @tax-portal/storage test` — 88/88 PASS (33 storage + 9 integration + 18 scanner + 28 validation, 4 files). `pnpm lint` and `pnpm type-check` PASS.
+- All mandatory rejection checks PASS (Work Log breadcrumb chain present; Complexity-actual=2; Started-at/Complexity-estimate present; no tool-hygiene violations; required spec fields present; Introduces-gate=no so gate-authoring evidence not required).
+- Atomic close: ticked SDET Review box, wrote Review prose, appended Work Log breadcrumb, set Completed-at, flipped Status: done.
+**End:** TASK-007-002 **approved and done**. All 6 mandatory focus areas PASS. 88/88 tests confirmed. IO may proceed to dispatch TASK-007-003.
+
+---
+
+### IO Dispatch — TASK-007-002 (`FileScanner` port, mock-first) — 2026-06-19
+**Start:** Dispatch phase. TASK-007-001 done + committed (`0a84977`). Per the Plan dependency chain (001/002/003 independent foundations → 004 → 005 → 006 → 007), the next independent foundation is TASK-007-002 (no `Depends on`).
+**Actions:** Read PROGRESS.md (startup), TASK-007-002 task file (complete: port + mock + cloud stub + fail-closed select + `validateUploadedBytes` helper; E2e-required `no`; Introduces-gate `no`; 7 TDD tests enumerated), and re-verified the `packages/esign/src/select.ts` fail-closed precedent (flag-keyed `ALLOW_MOCK_*` not NODE_ENV; contradiction guard; unknown→throw; singleton + `resetForTesting`) the dispatch must mirror. No git, no commit (main-session-owned). Composed ONE `webapp-developer` dispatch with the binding ADR-021 contract, mandatory dispatch-checkpoint, methodology/gate expectations, and the no-git reminder.
+**End:** TASK-007-002 dispatched (status remains `backlog` until the developer's checkpoint flips it to `in-progress`). Awaiting developer result; on completion the IO re-enters Dispatch for SDET review of 002, then dispatches TASK-007-003.
 
 ---
 
