@@ -4,6 +4,44 @@
 
 ---
 
+<!-- Swept at BRIEF-007 Smoke→Validate transition (2026-06-19) -->
+
+### BRIEF-007 Smoke-phase session entries — swept
+
+The BRIEF-007 **Smoke-phase** inline session history was swept here at the Smoke→Validate transition:
+(1) the **SDET Container Smoke gate** record (gate 5 — CONDITIONAL PASS; clean-volume bring-up healthy; all 5
+Track-A + 10 Track-B migrations incl. `0007`; `0007` DB objects + `Document_status_chk` present; both apps
+`/healthz`+`/readyz` 200; **first stored-bytes path PASS end-to-end through real Azurite** — clean
+upload→scan→promote `active` + authorize-then-sign download, portal e2e 44/44; infected→withheld fail-closed —
+with one blocking defect BUG-007-001 filed); (2) the **IO Smoke-disposition + BUG-007-001 fix** entry
+(IO self-implemented the e2e-spec-only stale-testid selector fix, `Impl: io`, 1 file, mechanical, zero
+production change; root cause = TASK-007-006's `DocumentRequestEditor.tsx` testid rename not mirrored into the
+sibling TASK-007-005 spec — a blast-radius miss); (3) the **SDET BUG-007-001 re-smoke + close** record
+(independent re-smoke 3/3 `document-requests.spec.ts` GREEN, 32/38 overall — the 6 failures all pre-existing
+mailhog-absent EPIC-003; BUG-007-001 CLOSED — SDET-approved). Smoke gate **CLEARED**. Fix committed `414890f`.
+Full per-entry text preserved in git history + the live task/BUG files (`tasks/TASK-007-001..007.md`,
+`tasks/BUG-007-001-admin-e2e-document-requests-stale-testids.md`). Only the new IO Validate phase-start entry is
+retained inline.
+
+**Minor note carried to retro (non-blocking):** the SDET wrote BUG-007-001's close timestamp as a midnight
+sentinel `2026-06-19T00:00:00Z` — same clock-domain family already elevated to `ungated-fix` this slice.
+
+---
+
+<!-- Swept at BRIEF-007 Audit→Smoke transition (2026-06-19) -->
+
+### BRIEF-007 IO Audit phase-start session entry — swept
+
+The BRIEF-007 **IO Audit phase-start** entry (Dispatch-COMPLETE pickup — all 7 tasks `done`/SDET-approved/committed;
+the phase-transition reflex that swept the Dispatch-phase inline history; the single Overwatch advisory-audit
+dispatch composition + its audit charter) was swept here at the Audit→Smoke transition. **Headline:** Overwatch
+returned **0 blocking findings; all gates green; nothing blocks Review.** One non-blocking finding (clock-domain
+inversion 7th occurrence — threshold met) + five advisory observations were classified by the IO at the Audit
+disposition (the new IO Audit-disposition + Review-design-scan + Smoke phase-start entries are retained inline
+below). Full Audit-start text preserved in git history + the live task files.
+
+---
+
 <!-- Swept at BRIEF-005 Validate→Close-prep transition (2026-06-18) -->
 
 ### BRIEF-005 IO Smoke→Validate transition session entry — swept
@@ -2623,3 +2661,13 @@ Slice-close phase-transition sweep at Close-finalize. **BRIEF-006 / EPIC-006 is 
 
 ### Sweep marker — BRIEF-007 Plan start (BRIEF-006 Close-finalize → BRIEF-007 Plan) transition — 2026-06-19
 Phase-transition sweep at the start of the next slice's Plan. The retained inline **IO Close-finalize — BRIEF-006 / EPIC-006** session entry (gate 8 post-merge CI PASS — CI run `27796565080` + CodeQL `27796564765`; gate 9 N/A; slice swept from `## Awaiting PR merge`; Post-Merge Addendum + final scorecard to `RETRO-006.md`) is swept here. Full text preserved in git history at `e55f8c5` + `RETRO-006.md` + `HANDOFF-006.md`. The new BRIEF-007 Plan session entry is retained inline in `PROGRESS.md`.
+
+---
+
+### Sweep marker — BRIEF-007 Dispatch → Audit transition — 2026-06-19
+Phase-transition sweep at the BRIEF-007 Dispatch-phase close (all 7 tasks `done` + SDET-approved + committed on `brief-007-initial-document-upload`). The full BRIEF-007 **Dispatch-phase inline session history** retained in `PROGRESS.md` through Dispatch — the **IO Plan/Design record**, the **IO Dispatch chain** (TASK-007-002/004/005/006 dispatch entries), and the **SDET review gate-records** (TASK-007-001/002/003/004/005/006/007, each with FA-1..FA-n focus areas, independent gate re-runs, clock-domain notes, and atomic-close breadcrumbs) — is swept here at the Dispatch→Audit transition. Full per-entry session text is preserved in git history at the BRIEF-007 build commits (`0a84977`, `4a6b75a`, `0e34253`, `ee8232e`, `596c7ac`, `68ca721`, `94f5e3f` on `brief-007-initial-document-upload`) + the live task files (`tasks/TASK-007-001..007.md`, each carrying its full Work Log + SDET Review prose). The live `PROGRESS.md` retains only: `## Current initiative` (rewritten to phase **Audit**, 7/7 tasks `done`), the carried `## Open retro action items`, and the new **IO Audit phase-start** session entry. The five carried BRIEF-007 retro observations (clock-domain inversion family ~7-8×; `document-requests.spec.ts` header-comment doc-drift; CSP `localhost:10000` env-gating follow-up; pre-existing `questionnaire-cross-app.spec.ts:372` EPIC-006 flake; `@demo` prior-epic PNG churn) are recorded in the live `## Current initiative` retro-carry block + this entry. No per-entry session text is lost.
+
+---
+
+### Sweep marker — BRIEF-007 Validate → Close-prep transition — 2026-06-19
+Phase-transition sweep at the BRIEF-007 Validate-phase close (all 3 Validate gates PASS). The full BRIEF-007 **Validate-phase inline session history** retained in `PROGRESS.md` through Validate — the **Smoke→Validate sweep pointer + IO transition entry**, the **SDET Gate 6 (Acceptance-validation)** record (the full 19-AC↔test traceability matrix across tier-3 security/integration + tier-6 e2e, the gherkin `.feature` binding confirmation, and the three HARD-non-negotiable real-confirmations: per-policy client-isolation AC-FILE-001-05/-003-02 + scan-before-available fail-closed AC-NFR-009-01/-02), the **SDET Gate 7 (CI gate)** record (`pnpm ci:local` EXIT 0; per-surface + per-package test counts totalling 57 files / 836 tests all PASS; lint/type-check/build clean both surfaces; Docker pre-flight ServerVersion 29.4.1), and the **SDET Quality Parity Audit** record (both surfaces config + `e2e:run` + EPIC-007 `.feature` files; cross-surface parity CLEAN; sunset counter 1/3) — is swept here at the Validate→Close-prep transition. The full per-entry session text is preserved in git history at the BRIEF-007 build commits (`0a84977`, `4a6b75a`, `0e34253`, `ee8232e`, `596c7ac`, `68ca721`, `94f5e3f`, `414890f` on `brief-007-initial-document-upload`) + the live task files (`tasks/done/TASK-007-001..007.md` + `tasks/done/BUG-007-001-*.md`, each carrying its full Work Log + SDET Review prose) + the Gate-6 AC↔test matrix preserved verbatim in `HANDOFF-007.md`. The live `PROGRESS.md` retains only: `## Current initiative` (rewritten to phase **Close-prep**, all 7 tasks `done`/archived, slice in `## Awaiting PR merge`), the carried `## Open retro action items`, and the new **IO Close-prep** session entry. No per-entry session text is lost.
