@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-007-001 (STORAGE_* env + `packages/storage` FileStorage port; `--skipApiVersionCheck` added to Azurite command; `azurite` health dependency added to portal + admin)
+**Last updated:** TASK-007-003 (DocumentRequest + Document Prisma models; 0007-document-policy.sql Track B — THIRD client-owned-rows policy: sec.pol_Document FILTER+BLOCK + sec.pol_DocumentRequest FILTER+BLOCK accountant-write)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -194,6 +194,7 @@ run by the migration runner. Not managed by Prisma.
 | `db/policies/0004-notification-policy.sql` | `sec.pol_Notification` — accountant/admin read, no CLIENT branch (accountant-only inbox) | TASK-003 |
 | `db/policies/0005-engagement-policy.sql` | `sec.pol_Engagement` — FIRST client-owned-rows policy; FILTER+BLOCK; CLIENT-ownership via User.clerkId → Engagement.clientUserId | TASK-005-001 |
 | `db/policies/0006-questionnaire-policy.sql` | SECOND client-owned-rows policy; `sec.pol_QuestionnaireAnswer` (FILTER+BLOCK, CLIENT ownership via Engagement → User.clerkId) + `sec.pol_QuestionnaireTemplate` (BLOCK only, accountant-write, no CLIENT branch — mirrors fn_service_write_access) | TASK-006-001 |
+| `db/policies/0007-document-policy.sql` | THIRD client-owned-rows policy; `sec.pol_Document` (FILTER+BLOCK, CLIENT ownership via Engagement.engagementId → User.clerkId; PART 0 adds ADR-009 status CHECK constraint `'pending'\|'active'\|'infected'`) + `sec.pol_DocumentRequest` (FILTER client-reads own + BLOCK accountant-only write, no CLIENT branch in fn_document_request_write_access — mirrors fn_service_write_access/fn_questionnaire_template_write_access) | TASK-007-003 |
 
 ### Track A (Prisma) entity inventory (post-TASK-006-001)
 
@@ -208,6 +209,8 @@ run by the migration runner. Not managed by Prisma.
 | `Notification` | `dbo.Notification` | `sec.pol_Notification` (accountant-only read) | TASK-003 |
 | `QuestionnaireTemplate` | `dbo.QuestionnaireTemplate` | `sec.pol_QuestionnaireTemplate` (BLOCK only, accountant-write, no CLIENT branch) | TASK-006-001 |
 | `QuestionnaireAnswer` | `dbo.QuestionnaireAnswer` | `sec.pol_QuestionnaireAnswer` (SECOND client-owned-rows — FILTER+BLOCK) | TASK-006-001 |
+| `DocumentRequest` | `dbo.DocumentRequest` | `sec.pol_DocumentRequest` (FILTER client-read + BLOCK accountant-only write, no CLIENT write branch) | TASK-007-003 |
+| `Document` | `dbo.Document` | `sec.pol_Document` (THIRD client-owned-rows — FILTER+BLOCK via engagementId isolation column) | TASK-007-003 |
 
 ---
 
