@@ -19,7 +19,9 @@ detail + the Stop/defer matrix), and `seed/sources.md` (the project + engine bin
 2. Read `ENGINE.md` (autonomy boundary, engine interface, readiness gate, state-ledger contract,
    defer-to-inner-stops) and `PHASES.md`.
 3. Read `STATE.md`. If a run is mid-flight, **resume at the recorded phase** instead of re-selecting.
-   Otherwise begin a new run at Select.
+   Otherwise begin a new run at Select. `STATE.md` holds **bounded hot-state**: the active run in full + one
+   line per prior run (§ Bounded-ledger rule). Resume from `## Current run` + primary sources — do **not** rely
+   on accumulated conversation context.
 
 ## The single-slice lifecycle
 
@@ -30,6 +32,21 @@ Select → Gate → Compose → Implement → Review → Fix → Merge/Finalize 
 Each phase has one observable exit condition (`PHASES.md`). Update `STATE.md` at every transition. **If any
 inner stop fires (engine killswitch, Docker gate, carve-out, workflow-file LGTM, fixer cap), record it,
 report it, and STOP at that phase** — never work around a guardrail.
+
+> **Phase-boundary cold-start (NORTH-STAR conclusion #7).** At each phase transition, **compact**: re-derive the
+> next phase's inputs from `STATE.md` (`## Current run`) + the primary sources (the brief, `ROADMAP`/`COVERAGE`,
+> `PROGRESS.md`, the PR, the verdict log) — not from accumulated conversation context. A phase that **cannot**
+> cold-start from the ledger reveals a state-ledger contract gap: the ledger is missing something the phase
+> silently relied on. Treat that as a finding (fix the ledger contract), not as a reason to keep the context
+> warm. This is conclusion #1 ("scripting *is* the erosion detector") applied to the Conductor's own memory —
+> and the standing dress rehearsal for the deterministic sequencer (Increment 3), whose nodes run in bounded
+> contexts by construction.
+
+> **Bounded-ledger rule (NORTH-STAR conclusion #7).** `STATE.md` carries the active run in full + one line per
+> prior run under `## Recent outcomes`. On a run's close, **collapse it to a one-line pointer**
+> (`EPIC-NNN ✅ DELIVERED <date> · PR #N → <sha> · RETRO-NNN/HANDOFF-NNN`) — do **not** retain its full
+> narrative here; that is durable in git, the PR, `ROADMAP`/`COVERAGE`, and the RETRO/HANDOFF artifacts.
+> Structured tables (COVERAGE, ROADMAP) are exempt; prose-blob-per-run accretion is the target.
 
 ### Select
 Read `ROADMAP.md` + the epic files + `COVERAGE.md`. If `$ARGUMENTS` pins an epic id, target it; else choose

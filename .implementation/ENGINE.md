@@ -320,6 +320,15 @@ cross-cutting BUG files. (4) `## Open retro action items`. (5) `---` marker + se
 `PROGRESS-ARCHIVE.md` at each phase transition). The IO updates PROGRESS.md at every phase transition and at
 start/end of every invocation.
 
+**Bounded-ledger rule (NORTH-STAR conclusion #7).** Long-running ledgers carry **bounded hot-state only**.
+`PROGRESS.md` holds the active initiative; closed work does **not** accumulate as prose. When rolling session
+entries to `PROGRESS-ARCHIVE.md` at a phase transition, the IO appends a **one-line pointer** (slice → PR/sha →
+`done/TASK-*` + `RETRO-NNN`/`HANDOFF-NNN`) — **not** the full prose. The detail is already durable in
+`tasks/done/`, the RETRO/HANDOFF artifacts, the merged PR, `.planning/ROADMAP.md`+`COVERAGE.md`, and git
+history; re-keeping it inline is the engine hoarding conclusions instead of trusting sources. *Structured
+row-per-entity tables (COVERAGE, ROADMAP) are exempt — they are bounded by real entities; prose-blob-per-cycle
+archives are the target.* `PROGRESS-ARCHIVE.md` is a thin **index**, not a log.
+
 ## Dispatch Checkpoint
 
 **Authoritative for the atomic-edit-before-any-other-file-change rule** — the ordering contract that makes

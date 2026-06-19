@@ -40,5 +40,9 @@ gate.
   depends on the prior phase's artifact (a PR exists before review; a merge exists before write-back).
 - **Resumability** — a fresh `/orchestrate` reads `STATE.md` and resumes at the recorded phase. A `stopped-at`
   outcome is resumed by re-invoking after the human action named in the report.
+- **Phase-boundary cold-start** (NORTH-STAR conclusion #7; see `AGENT.md`) — every transition is a compaction
+  point: the next phase re-derives its inputs from `STATE.md` (`## Current run`) + primary sources, not from
+  accumulated context. Resumability is therefore exercised on **every** transition, not just across sessions —
+  a phase that can't cold-start exposes a state-ledger contract gap (fix the ledger, don't keep context warm).
 - **Merge/Finalize is the engine's, not the Conductor's** — the Conductor observes and records; it never
   merges directly and never overrides the engine's merge conditions.
