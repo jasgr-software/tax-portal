@@ -177,6 +177,24 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ---
 
+### SDET Review — TASK-007-007 — 2026-06-19
+**Start:** Review TASK-007-007 (`@demo` gallery — document-request authoring + client upload + rejection, both surfaces). Task at `Status: review`. Non-gating demo artifact. `Introduces-gate: no`. `E2e-required: yes` (demo walkthrough run). `Complexity-actual: 3`. `Started-at: 2026-06-19T17:26:04Z` (real clock, forward of Completed-at). Read ENGINE.md, sdet.md, PROGRESS.md, task file (full), both demo spec files, DEMO.md, EPIC-006 DEMO.md (precedent), both Playwright configs, both package.json e2e scripts. Viewed all 4 PNGs. Ran `git status docs/demos/` for RETRO-006 item-4 check. Ran `pnpm lint` + `pnpm type-check` independently.
+**Actions:**
+- Mandatory rejection checks: all PASS. Starting-implementation Work Log entry present. `Complexity-actual: 3` (in 1–5). `Started-at: 2026-06-19T17:26:04Z` present. `Complexity-estimate: 3` present. `Introduces-gate: no` — gate-authoring evidence not required. Required task-spec fields present. No tool-hygiene violations.
+- Clock-domain: developer-recorded `Completed-at: 2026-06-19T17:37:51Z` is 11m47s after `Started-at: 2026-06-19T17:26:04Z` — forward-ordered. SDET set `Completed-at: 2026-06-19T17:42:00Z` (real clock at close, per the mandate to write a real clock value). No inversion.
+- FA-1 (PNGs exist, real seeded UI): All 4 PNGs present (56 KB, 75 KB, 69 KB, 85 KB). Visually inspected: 01 shows Document Requests page with "Document request added." success banner + labeled item; 02 shows Onboarding with Outstanding checklist item; 03 shows Onboarding with Document Upload step Complete + all items fulfilled; 04 shows Onboarding with rejection message + Outstanding badge. All real seeded UI. No blank/error captures.
+- FA-2 (RETRO-006 item-4 scoping): `git status docs/demos/` confirms `docs/demos/EPIC-007/` is entirely untracked (new). Prior-epic PNGs (EPIC-001..006) show modified pre-existing state from prior task demo runs. Code inspection of both specs confirms both define `DEMO_DIR` pointing exclusively to `docs/demos/EPIC-007` via `path.resolve`. No prior-epic path is referenced or written by the EPIC-007 specs. RETRO-006 item-4 compliant. Prior-epic PNG re-write is caused by the portal `e2e:demo` re-executing all prior-epic `@demo` specs — not a scoping violation in the EPIC-007 specs.
+- FA-3 (`@demo`-tagged, excluded from `e2e:run`): Both admin and portal `package.json` define `e2e:run` as `playwright test --grep-invert @demo`. All 4 test titles in both specs contain `@demo` in the test name string. `e2e:demo` uses `--grep @demo`. Confirmed: these specs cannot run in the gating suite.
+- FA-4 (DEMO.md mirrors EPIC-006 structure): Summary block, surfaces, persona links (jane + sarah), flow links (flow-onboarding + flow-file-exchange), epic link, regenerate command block, per-screenshot sections with AC tags + surface attribution + embedded images, footer spec/exclusion note — all present and structurally parallel to EPIC-006 DEMO.md.
+- FA-5 (assert-before-screenshot): All 4 screenshots preceded by element-state assertions (`toContainText`, `toBeVisible`, `toHaveAttribute`). No screenshot without prior assertion. Header comment explicitly documents the discipline.
+- FA-6 (lint + type-check): `pnpm lint` PASS (0 warnings, both surfaces). `pnpm type-check` PASS (0 errors, all packages + apps).
+- FA-7 (cross-surface): Admin spec covers jane-accountant (Tax Portal); portal spec covers sarah-returning-client (Client Portal). Expected and correct for the gallery.
+- Carried doc-drift observation noted: `// DECISION:` in admin demo spec documents that `DocumentRequestEditor.tsx` actual testids differ from TASK-007-005 spec header comment. Not a behavior defect; carried to BRIEF-007 Close-prep retro.
+- Atomic close: ticked SDET Review checkbox, wrote full Review prose (FA-1 through FA-7 + clock-domain + doc-drift observation), appended Work Log breadcrumb, set `Completed-at: 2026-06-19T17:42:00Z`, flipped `Status: done`.
+**End:** TASK-007-007 **approved and done**. All 4 PNGs confirmed (real seeded UI). RETRO-006 item-4 scoping confirmed (`docs/demos/EPIC-007/` only). `@demo` gating-exclusion confirmed. DEMO.md structurally parallel to EPIC-006 precedent. Assert-before-screenshot present across all screens. `pnpm lint` + `pnpm type-check` clean. Clock forward-ordered. Non-gating demo gallery is complete. BRIEF-007 all 7 tasks done — IO may proceed to Review phase.
+
+---
+
 ### SDET Review — TASK-007-006 — 2026-06-19
 **Start:** Review TASK-007-006 (client document-upload step + checklist + rejection surface + cross-app e2e). Task at `Status: review`. `Introduces-gate: no`. `E2e-required: yes` (both portal and cross-app). `Complexity-actual: 5`. Reading ENGINE.md, sdet.md, PROGRESS.md, task file (full), EPIC-007 planning file, all delivered source + test files.
 **Actions:**
