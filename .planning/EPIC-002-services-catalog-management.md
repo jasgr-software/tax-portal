@@ -2,7 +2,7 @@
 id: EPIC-002
 title: Accountant manages the services catalog
 phase: 1
-status: planned
+status: delivered   # 2026-06-16 — PR #40 squash-merge 70ea10e; 7/7 in-scope AC verified (COVERAGE [A])
 slice: The signed-in accountant adds, edits, and deactivates services in the admin UI; her changes drive what prospects can request on the public front door.
 requirements:
   - REQ-DOOR-002: [AC-DOOR-002-01, AC-DOOR-002-02, AC-DOOR-002-03, AC-DOOR-002-05]

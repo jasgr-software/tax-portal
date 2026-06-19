@@ -26,8 +26,8 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-006 (intake questionnaire) | 7 |
 | &nbsp;&nbsp;— EPIC-007 (initial document upload) | 19 |
 | &nbsp;&nbsp;— EPIC-008 (onboarding completion → In Progress) | 8 |
-| AC `verified` (signed off) | **61** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ EPIC-005 (10, 2026-06-18)** — the first Phase-2 onboarding-gate slice. |
-| AC still `planned` (placed, not yet verified) | **34 — the remaining Phase-2 onboarding-gate set** (EPIC-006/007/008); EPIC-005's 10 now `verified` |
+| AC `verified` (signed off) | **68** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ EPIC-005 (10, 2026-06-18) + EPIC-006 (7, 2026-06-18)** — the first two Phase-2 onboarding-gate slices. |
+| AC still `planned` (placed, not yet verified) | **27 — the remaining Phase-2 onboarding-gate set** (EPIC-007 19, EPIC-008 8); EPIC-005's 10 + EPIC-006's 7 now `verified` |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -76,6 +76,38 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > (real Docuseal deferred per the standing mock-integration directive — same pattern as EPIC-004's mocked auth).
 > **This is the first delivered Phase-2 epic; EPIC-006 (intake questionnaire) and EPIC-007 (initial document
 > upload) are now unblocked** (their `depends_on: EPIC-005` is satisfied) and EPIC-008 remains the capstone.
+>
+> **EPIC-006 (7 AC) signed off 2026-06-18** — the intake-questionnaire slice (per-service-type templates +
+> client completion — **step 2 of the onboarding sequence**) shipped (PR #50, squash merge `e55f8c5`); see
+> basis note [A]. **Second Phase-2 slice delivered.** All 7 in-scope AC verified: AC-ONBD-003-01/-02/-03/-04
+> (the client is presented the questionnaire matching their engagement's service type behind the EPIC-005
+> letter gate, one template per service type, completes & submits, answers recorded one-per-engagement and the
+> step marked satisfied) and AC-DASH-012-01/-02/-03 (the accountant authors/edits a per-service-type template
+> from the Tax Portal, one per service type, edits retained). Net-new platform capabilities: the **second
+> client-owned-row family + second client-isolation policy** (`QuestionnaireAnswer` one-per-engagement;
+> `pol_QuestionnaireAnswer` mirroring EPIC-005's `0005`), the **first per-service-type template**
+> (`QuestionnaireTemplate`, `@@unique([serviceId])`, accountant-owned BLOCK-only `pol_QuestionnaireTemplate`),
+> and **server-side engagement→service-type→template resolution** (no client-supplied ids — the client cannot
+> pick their questionnaire), with the letter hard gate **NOT weakened** (`accessible: signed` unchanged).
+> **REQ-AUTH-003 feature AC remain Phase-3-owned** (the isolation *mechanism* + its mandatory per-policy HARD
+> test land here; the feature AC are not claimed by this slice). **EPIC-007 (initial document upload) is the
+> next-ready Phase-2 slice** (its `depends_on: EPIC-005` is satisfied; EPIC-006 was a parallel sibling, not a
+> dependency); EPIC-008 remains the capstone (still needs EPIC-007).
+>
+> **[A] applied to the EPIC-006 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
+> EPIC-001/002/003/004/005 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging
+> gate does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on the
+> PR #50 head `a7ef3d6` (plus `test-portal` ✅ + `test-admin` ✅ + CodeQL ✅) **and** on the post-merge `main`
+> run at `e55f8c5` — **CI** run `27796565080` (`lint-and-typecheck` ✅ / `security-scan` ✅ / `test-portal` ✅ /
+> `test-admin` ✅) + **CodeQL** run `27796564765` ✅. Each of the 7 in-scope AC has automated test(s) tagged
+> with its AC id, validated by the implementation engine's SDET acceptance-validation gate under the
+> **mandated gherkin methodology** (prose-bind, each scenario text ↔ test assertion confirmed — see
+> `.implementation/tasks/HANDOFF-006.md` for the per-AC tier/evidence map), exercised at dev time against the
+> real container stack: tier-3 integration against the real SQL Server container (incl. the **HARD second
+> client-isolation policy** `sec.pol_QuestionnaireAnswer` 7/7 — CLIENT-A reads own / CLIENT-B reads ZERO /
+> null SESSION_CONTEXT reads ZERO / ACCOUNTANT reads both / cross-client UPDATE BLOCK / template INSERT BLOCK),
+> and e2e on the full docker-compose stack (admin 35/35, portal 36/36, cross-app 11/11). The same per-PR-CI-tier
+> follow-up tracked for EPIC-001 applies here.
 >
 > **[A] applied to the EPIC-005 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
 > EPIC-001/002/003/004 — the same basis the prior four epics shipped on; per-PR CI tiers do not run the full AC
@@ -194,13 +226,13 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-IDNT-007 | AC-IDNT-007-01 | EPIC-005 | 2 | `AC-IDNT-007-01` | verified | PR#48 `f879da2` (2026-06-18) · SDET+CI [A] |
 | REQ-IDNT-007 | AC-IDNT-007-02 | EPIC-005 | 2 | `AC-IDNT-007-02` | verified | PR#48 `f879da2` (2026-06-18) · SDET+CI [A] |
 | REQ-IDNT-007 | AC-IDNT-007-03 | EPIC-005 | 2 | `AC-IDNT-007-03` | verified | PR#48 `f879da2` (2026-06-18) · SDET+CI [A] |
-| REQ-ONBD-003 | AC-ONBD-003-01 | EPIC-006 | 2 | `AC-ONBD-003-01` | planned | — |
-| REQ-ONBD-003 | AC-ONBD-003-02 | EPIC-006 | 2 | `AC-ONBD-003-02` | planned | — |
-| REQ-ONBD-003 | AC-ONBD-003-03 | EPIC-006 | 2 | `AC-ONBD-003-03` | planned | — |
-| REQ-ONBD-003 | AC-ONBD-003-04 | EPIC-006 | 2 | `AC-ONBD-003-04` | planned | — |
-| REQ-DASH-012 | AC-DASH-012-01 | EPIC-006 | 2 | `AC-DASH-012-01` | planned | — |
-| REQ-DASH-012 | AC-DASH-012-02 | EPIC-006 | 2 | `AC-DASH-012-02` | planned | — |
-| REQ-DASH-012 | AC-DASH-012-03 | EPIC-006 | 2 | `AC-DASH-012-03` | planned | — |
+| REQ-ONBD-003 | AC-ONBD-003-01 | EPIC-006 | 2 | `AC-ONBD-003-01` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
+| REQ-ONBD-003 | AC-ONBD-003-02 | EPIC-006 | 2 | `AC-ONBD-003-02` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
+| REQ-ONBD-003 | AC-ONBD-003-03 | EPIC-006 | 2 | `AC-ONBD-003-03` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
+| REQ-ONBD-003 | AC-ONBD-003-04 | EPIC-006 | 2 | `AC-ONBD-003-04` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
+| REQ-DASH-012 | AC-DASH-012-01 | EPIC-006 | 2 | `AC-DASH-012-01` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
+| REQ-DASH-012 | AC-DASH-012-02 | EPIC-006 | 2 | `AC-DASH-012-02` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
+| REQ-DASH-012 | AC-DASH-012-03 | EPIC-006 | 2 | `AC-DASH-012-03` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
 | REQ-ONBD-004 | AC-ONBD-004-01 | EPIC-007 | 2 | `AC-ONBD-004-01` | planned | — |
 | REQ-ONBD-004 | AC-ONBD-004-02 | EPIC-007 | 2 | `AC-ONBD-004-02` | planned | — |
 | REQ-ONBD-004 | AC-ONBD-004-03 | EPIC-007 | 2 | `AC-ONBD-004-03` | planned | — |

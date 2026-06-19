@@ -7,6 +7,146 @@
 
 ## Current run
 
+### EPIC-006 — BRIEF-006 (intake questionnaire — per-service-type templates) — started 2026-06-18
+- **Phase:** **✅ DELIVERED** (2026-06-18). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → **Implement ✓** →
+  **PR #50** → **Review ✓** → **Fix ✓** → **Merge ✓ (user-approved, Lane B)** → **Close-finalize ✓ (gates
+  1–8 green; 9 N/A)** → **Validate write-back ✓ (`/planning`)** → Report. **PR #50 squash-merged → `main` @
+  `e55f8c5`** (`--delete-branch`, no protection toggle); post-merge CI green (CI `27796565080` + CodeQL
+  `27796564765`). **/planning:** 7 EPIC-006 AC flipped `verified` (COVERAGE 61→68); EPIC-006 rolled
+  `delivered`; **EPIC-007 next-ready**, EPIC-008 still needs EPIC-007. **Phase-2 now 2/4 epics, 17/44 AC.**
+  Net-new platform capabilities: the **second client-owned-row family** (questionnaire answers) + the **second
+  client-isolation RLS policy** (`sec.pol_QuestionnaireAnswer`, `db/policies/0006`, HARD tier-3 7/7), the
+  **first per-service-type template** (vs. EPIC-005's single-row letter template), and server-side
+  service-type→template resolution + owner-only BLOCK-governed questionnaire submit (read-model satisfaction;
+  EPIC-005 letter hard gate NOT weakened). One latent TASK-006-002 runtime defect surfaced+fixed by the e2e
+  gate (BUG-006-001, mock-interface-drift class). **Docs-lane close-out:** `chore/epic-006-close` (IO
+  Close-finalize PROGRESS/RETRO-006 + /planning COVERAGE/ROADMAP/EPIC-006 write-back + the carried EPIC-002
+  status reconciliation + this STATE update) → Lane A merge. The `docs/demos/EPIC-006/` gallery already rode
+  the slice PR #50. **Phase closeout: n/a (Phase 2 in progress — EPIC-007/008 remain).** **Next:**
+  `/orchestrate EPIC-007`.
+- **(superseded) live phase line:** Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → Implement ✓ (PR #50 opened) → Review (next).
+- **Implement ✓ (engine `/io` drove the full slice; main session = dispatch executor + git).** IO Plan (branch
+  `brief-006-intake-questionnaire` off `main` @ `3dee2f1`; 7 tasks; DECISIONs F–I; design-coherence PASS) →
+  **Dispatch 7/7 done + SDET-approved + committed** (001 schema+`0006` 2nd client-isolation policy [HARD
+  tier-3 7/7]; 002 admin template UI; 003 server-side resolver [`e8b585c`]; 004 portal step UI behind the
+  EPIC-005 gate; 005 submit+read-model [`cb43671`]; 006 e2e gate + **BUG-006-001** fix [mock interface drift,
+  caught by e2e]; 007 @demo gallery) → **Audit CLEAN** (Overwatch, 0 blocking; 1 metric-only obs) → **IO
+  design-scan PASS** → **Container Smoke PASS** (both surfaces; carried `sqlserver` healthcheck cosmetic) →
+  **Validate PASS** (gate 6 acceptance 7/7 AC gherkin prose-bind; gate 7 CI `ci:local` exit 0 + e2e admin
+  35/35 / portal 36/36 / cross-app 11/11; quality audit CLEAN) → **Close-prep ✓** (RETRO-006 + HANDOFF-006; 8
+  files archived; slice → `## Awaiting PR merge`).
+- **PR #50** — https://github.com/jasgr-software/tax-portal/pull/50 (OPEN; base `main`; head
+  `brief-006-intake-questionnaire`; head commit `c83e182`). Branch commit chain: plan+001, 002, 003 `e8b585c`,
+  004, 005 `cb43671`, 006+BUG-001, 007, close-prep, PR-ledger `c83e182`. **Application-code PR → reviewed lane**
+  (panel → fix → resolve threads → merge on green required CI, no protection toggle). The out-of-slice
+  `.orchestration/STATE.md` + `.planning/EPIC-002` reconciliation are NOT on this branch (Conductor docs-lane).
+- **One non-blocking carry:** pre-existing EPIC-005 portal e2e flake `AC-ONBD-001-01` (file unmodified this
+  branch; passes on retry) — retro follow-up, not a BRIEF-006 regression.
+- **Review ✓ (`/pr-review 50`).** 3-lens panel posted ONE advisory COMMENT review
+  (pullrequestreview-4529167829): verdict **request-changes** — **1 major / 5 minor / 3 nit** (11 raw → 9
+  deduped). Verdict captured to `.orchestration/runs/PR-50-verdict.json`; **fix-decision gate → RUN /pr-fix**
+  (`bin/orchestrate-gates.sh --gate fix-decision`, verdict-consistent, exit 0).
+  - **Major (F1):** `apps/portal/src/app/onboarding/actions.ts` `submitQuestionnaireAction` — a non-string
+    answer value (e.g. `{"<requiredId>": 5}`) makes `parsedAnswers[q.id]?.trim()` throw an uncaught
+    `TypeError` OUTSIDE the JSON try/catch → unhandled server-action error instead of `{success:false}`
+    refusal; + the missing negative-path test. (Merged correctness+security; escalated to major.)
+  - **Minors:** un-whitelisted/uncapped answers blob persisted verbatim (sec F2); `@@ROWCOUNT` read after the
+    Engagement UPDATE not the answer INSERT — owner-path INSERT-ok/UPDATE-zero could persist a row yet report
+    refusal (corr F3); non-transactional upsert race on `serviceId` UNIQUE (corr F6); dead `existingAnswers`
+    prop chain + discarded `getMyQuestionnaireAnswer` read (oe+corr F4); redundant 3× engagement reads (oe F5).
+  - **Nits:** `sp_set_session_context` escaped-interpolation hardening note (closed surface; sec F3); test-only
+    admin-pool write twin (oe F7); unused `questionnaire` prop (oe F8).
+  - **CI note from the lead (NOT a code defect):** `lint-and-typecheck` is RED — but from the
+    `validate-gates.sh` governance script (task-markdown work-log / CI-evidence entries for TASK-006-001/-007),
+    not a TS/ESLint failure; `test-portal`/`test-admin`/`security-scan`/CodeQL all green. The fixer must clear
+    this to green the required check.
+- **Fix ✓ (`/pr-fix 50`).** Fixer addressed 9/9: **F1 (major) FIXED** (per-value `typeof !== "string"`
+  guard before `.trim()` → `{success:false}`; +2 negative-path tests — number + nested-object); **F2** FIXED
+  (whitelist stored answers to template question ids + 64KB cap via `sanitizedAnswersJson`); **F3** FIXED
+  (`DECLARE @insertRows=@@ROWCOUNT` immediately after the INSERT — reports INSERT rowcount, not the UPDATE's;
+  33504 path intact); **F4** FIXED (removed the dead `existingAnswers` prop chain end-to-end; kept the
+  `getMyQuestionnaireAnswer` read that drives `alreadySubmitted`); **F6** FIXED (upsert catches 2601/2627
+  unique-violation → retry as UPDATE); **F8** FIXED (dropped the unused `questionnaire` prop). **validate-gates
+  CI cleared** — real governance-script gaps fixed: TASK-006-007 missing "Starting implementation" breadcrumb +
+  TASK-006-001 missing RED:/GREEN: counterfactual anchors for `check_ci_evidence`. **DISPOSITIONED (on-thread
+  rationale):** F5 (3× engagement reads = intentional defense-in-depth; `getMyEngagement` needed for the full
+  `EngagementItem` shape `checkStepAccessibility` consumes), F7 (admin-pool write twin = the established
+  `recordLetterSignature`/`…AsClient` house-twin pattern), security-nit (`sp_set_session_context`
+  escaped-interpolation = closed surface, values server-derived + DML `.input()`-bound). Fixer commit `a7ef3d6`;
+  CI run 27796116235 GREEN (lint-and-typecheck, security-scan, test-portal, test-admin, CodeQL all pass).
+- **Threads resolved → conversation-resolution gate cleared.** Fixer resolved 6 (the fixed findings); Conductor
+  resolved the 3 dispositioned threads (F5/F7/security-nit, rationale already posted) via
+  `resolveReviewThread`. **PR #50 now `mergeStateStatus: CLEAN` / `mergeable: MERGEABLE`.** Branch protection:
+  required checks `lint-and-typecheck`+`security-scan` green; `required_conversation_resolution: true` satisfied;
+  no required PR reviews. Head `a7ef3d6`.
+- **⏸ Merge decision (Lane B, application-code reviewed lane):** `gh pr merge 50 --squash --delete-branch` on
+  green required CI, **no `--admin`/`enforce_admins` toggle**. All prior slices (EPIC-002/003/004/005) merged
+  **user-approved** — surfacing for approval. **On merge:** IO **Close-finalize** (gate 8 post-merge CI; gate 9
+  N/A `Brief-deploys: no`) → `/planning validate EPIC-006` write-back (flip 7 COVERAGE rows `verified`; roll
+  EPIC-006 `delivered`) → docs-lane close PR (STATE + EPIC-002 reconciliation + COVERAGE/ROADMAP write-backs +
+  the `docs/demos/EPIC-006/` gallery already on the slice PR) → final Report.
+- **Next:** Conductor **Merge/Finalize** — awaiting user merge approval for PR #50.
+- **Slice:** Phase-2 **step 2 of onboarding**. The accountant authors a **per-service-type** intake
+  questionnaire template in `apps/admin`; the client — having passed the EPIC-005 letter gate — completes the
+  questionnaire **matching their engagement's service type** in `apps/portal`, and the answers are recorded
+  against the engagement. Introduces the **second client-owned-row family** (questionnaire answers +
+  their ADR-005 isolation policy `db/policies/0006-*`) and the **first per-service-type template** (vs.
+  EPIC-005's single-row letter template). Builds on EPIC-005 (onboarding spine + gate) and EPIC-002 (service
+  catalog). Static v1 questionnaires (no conditional organizer — REQ-ONBD-008 is v2).
+- **In-scope AC (7):** AC-ONBD-003-01/-02/-03/-04, AC-DASH-012-01/-02/-03.
+- **Base branch:** main @ `3dee2f1` · **Feature branch:** _(engine-created at Plan; no `*006*` branch yet)_
+- **PR:** _(none yet — engine opens at Dispatch/Close-prep)_
+- **Gate-blocker resolved (pre-Select dependency data-integrity bug):** the first readiness run
+  (`EPIC-006-20260618T185750Z`) FAILED `readiness:deps-delivered` → `unmet: EPIC-002(planned)`. **Root cause:**
+  EPIC-002 is genuinely delivered (PR #40 `70ea10e` on `main`; 7/7 AC `verified` in COVERAGE; ROADMAP table
+  `delivered`) but its epic-file front-matter `status:` scalar was never rolled from `planned` by the
+  2026-06-16 validate write-back. **Resolution (user-approved):** the **planning layer** (its owner)
+  reconciled `.planning/EPIC-002-…md` front-matter `status: planned → delivered` (one-line doc-consistency
+  fix; no AC/COVERAGE/ROADMAP change). The Conductor did **not** relax the gate or hand-edit `.planning/`.
+- **Gate — GO on all 7 criteria.** Re-run `bin/orchestrate-gates.sh --gate readiness --epic EPIC-006`
+  (run_id `EPIC-006-20260618T190441Z`): (1) `status: planned` ✓ (2) `open_questions: []` ✓ (3)
+  `deps-delivered` ✓ (EPIC-005 + EPIC-002 both `delivered` after reconciliation) (4) COVERAGE has the 7
+  EPIC-006 rows ✓ (7) **PASS at Gate entry** (first run, clean tree); the re-run's `git-clean-branch-free`
+  FAIL is **solely** the Conductor's own in-flight writes (`STATE.md` ledger + the EPIC-002 planning
+  reconciliation — both ride the closing docs-lane PR), **no foreign WIP**, no `*006*` branch. **Engine-clear**
+  gate PASS (`## Awaiting PR merge` empty, no active bugs). **Criterion 5 (semantic, Conductor-owned):** all 7
+  AC resolve **verbatim** to the cited REQ sources (AC-ONBD-003-* → REQ-ONBD-003; AC-DASH-012-* →
+  REQ-DASH-012 — both `status: accepted`, observable/testable) and all 7 carry gherkin scenarios in the epic ✓.
+- **Compose — DONE.** Wrote `.implementation/briefs/BRIEF-006-intake-questionnaire.md`: 7 AC (verbatim) +
+  gherkin bound to the epic's 7 scenarios; methodology gherkin / e2e-required (`apps/portal` + `apps/admin`);
+  extra_gates = **client-data isolation (ADR-005, HARD tier-3 — the SECOND client-owned-row family: the
+  answer rows)**, correct-questionnaire-for-service-type (tier-3), step-satisfied-only-on-submit + answers
+  recorded (tier-3), behind-the-EPIC-005-letter-gate, SESSION_CONTEXT on client answers + accountant template
+  write (ADR-003), cross-surface (portal + admin), container smoke. demo: yes · apps [portal, admin] ·
+  personas [jane-accountant, sarah-returning-client] · flows [flow-onboarding]. Carries a
+  `## Data & Interface Contract` (source-traced: per-service-type questionnaire-template entity bound to
+  `Service`; client-owned answer rows; questionnaire step `not-submitted → submitted`; extension of the
+  EPIC-005 onboarding read model — field-level expansion left to IO Design per the altitude rule).
+- **Compose carries (concrete obligations from sources + live repo state):**
+  - **Second client-isolation policy (ADR-005)** — new `sec` predicate + FILTER/BLOCK policy
+    (`db/policies/0006-*`) on the questionnaire-answer rows, joining ownership to `SESSION_CONTEXT` via the
+    owning `Engagement`; reuse `db/policies/0005-engagement-policy.sql` as the ownership-join seam. **Mandatory
+    tier-3 CLIENT-A-cannot-read-CLIENT-B test** (anonymous reads ZERO; ACCOUNTANT can).
+  - **Per-service-type template** — accountant-managed (NOT client-owned); one template per `Service`
+    (AC-DASH-012-02). Contrast EPIC-005's single global `LetterTemplate` row. Mirror the EPIC-005 admin
+    letter-template editor (`apps/admin/src/app/settings/letter-template/`); accountant-only write boundary
+    (mirror the EPIC-002 `sec.fn_service_write_access` predicate).
+  - **Service-type linkage** — the engagement resolves its service type via `EngagementRequest →
+    EngagementRequestService → Service` (EPIC-002 catalog); the client never supplies the template id / service
+    type — both derive from the owned engagement. Reversible `active=false` deactivate must not break a client
+    mid-onboarding.
+  - **Extend, don't fork, the EPIC-005 onboarding spine** — `packages/db/src/onboarding.ts` (read model +
+    server-side gate) gains the questionnaire step's satisfaction (`not-submitted → submitted` on submit); the
+    portal step plugs into `apps/portal/src/app/onboarding/`. Must NOT weaken the EPIC-005 letter hard gate
+    (questionnaire step stays unreachable until the letter is signed) and keep sequencing server-authoritative.
+  - **Reuse** `packages/db` `withRequestContext` + `$extends` SET (ADR-003 Amendment 1: no `@read_only`);
+    `packages/auth` client/accountant identity + role gate; request-pool/BLOCK-governed client write pattern
+    from EPIC-005's `recordLetterSignatureAsClient` for the fail-closed answer-submission action.
+- **Plan-phase note for the IO:** no architecture consult needed to dispatch — all five cited ADRs (003/004/
+  005/006/012) are Accepted and the seams (client-isolation policy, per-service-type template, onboarding
+  read model) all have delivered EPIC-005/002 precedents. No third-party provider in this slice (no e-sign /
+  scanner) — pure Prisma + RLS + two UI surfaces.
+
 ### EPIC-005 — BRIEF-005 (onboarding spine + engagement-letter e-sign gate) — started 2026-06-18
 - **Phase:** **✅ DELIVERED** (2026-06-18). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → **Implement ✓** →
   **PR #48 opened** → **Review ✓** → **Fix ✓** → **Merge ✓ (user-approved, Lane B)** → **Close-finalize ✓
