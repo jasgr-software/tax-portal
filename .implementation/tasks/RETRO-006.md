@@ -156,7 +156,47 @@ Everything else below is an **observation** (no rule change, no promoted action 
 - **CI carries (EPIC-004 follow-ups):** `test-portal` `packages/**` build step before graduating to required;
   ESLint `adminDb` import-boundary extension.
 
-## Post-Merge Addendum (Close-finalize — pending)
+## Post-Merge Addendum (Close-finalize — 2026-06-19)
 
-_Pending PR merge. The IO appends the post-merge CI verdict (gate 8), the final post-merge 9-gate scorecard, the
-post-merge bug list, and the resolved/carried disposition here at Close-finalize._
+**PR #50 squash-merged to `main` @ `e55f8c5`** (`gh pr merge 50 --squash --delete-branch`; reviewed lane / Lane B
+— application code → `/pr-review` panel; no `--admin`, no `enforce_admins` toggle; user-approved). Remote branch
+`brief-006-intake-questionnaire` deleted; local `main` synced to `e55f8c5`. Reviewed lane outcome: 3-lens panel
+(1 major + 5 minor + 3 nit) → `/pr-fix 50` (F1 major + F2/F3/F4/F6/F8 fixed with tests; F5/F7/security-nit
+dispositioned on-thread; the real `validate-gates.sh` governance gaps on TASK-006-001/-007 fixed) → all 3
+dispositioned threads resolved → CLEAN/MERGEABLE → merged. Fixer commit `a7ef3d6` was the PR head; the squash
+folded it into `e55f8c5`.
+
+**Gate 8 — Post-merge CI: ✅ PASS.** Both post-merge workflows on `main` @ `e55f8c5` GREEN (watched to completion
+from `in_progress`):
+- **CI** — run `27796565080` → `conclusion: success`.
+  https://github.com/jasgr-software/tax-portal/actions/runs/27796565080 — all 4 jobs green:
+  `lint-and-typecheck` ✅, `security-scan` ✅, `test-portal` ✅, `test-admin` ✅ (`report-failure` correctly
+  `skipped`). These are the branch-protection required checks (`lint-and-typecheck` + `security-scan` enforced;
+  `test-portal`/`test-admin` advisory-but-green).
+- **CodeQL** (`Code Quality: Push on main`) — run `27796564765` → `conclusion: success`.
+  https://github.com/jasgr-software/tax-portal/actions/runs/27796564765 (completed at dispatch time).
+
+**Gate 9 — Post-merge staging smoke: N/A.** `Brief-deploys: no`; no staging environment exists (ADR-007 —
+production platform deferred). Gate does not apply.
+
+**Post-merge bugs:** none. Zero `BUG-006-POST-*` files created during PR limbo. `BUG-006-001` was a **pre-merge**
+SDET rejection (resolved on-branch, test-mock-only, 184/184 re-run, archived to `tasks/done/`) — it rides the PR,
+not a post-merge bug.
+
+### Final post-merge 9-gate scorecard
+
+1. Per-task submission gates — ✅ 7/7
+2. SDET Review — ✅ 7/7 approved (1 in-slice rejection BUG-006-001, fixed + re-approved)
+3. Overwatch Audit — ✅ CLEAN, 0 blocking
+4. IO Design scan — ✅ PASS (0 violations)
+5. Container Smoke — ✅ PASS
+6. SDET Acceptance-validation — ✅ 7/7 in-scope AC
+7. SDET CI gate — ✅ PASS (`pnpm ci:local` EXIT 0; e2e portal 36/36, admin 35/35, cross-app 11/11)
+8. **Post-merge CI — ✅ PASS** (CI run `27796565080` + CodeQL run `27796564765`, both `success` @ `e55f8c5`)
+9. Post-merge staging smoke — **N/A** (`Brief-deploys: no`, ADR-007)
+
+**All applicable gates (1–8) GREEN; gate 9 N/A. BRIEF-006 / EPIC-006 — DELIVERED.** Slice removed from
+`## Awaiting PR merge`. Next: Conductor runs `/planning validate EPIC-006` for the `COVERAGE.md` write-back of the
+7 in-scope AC (HANDOFF-006 is the source); then the docs-lane close PR carries these `.implementation/tasks/**`
+edits. EPIC-007 is now unblocked (depended on the EPIC-006 questionnaire substrate); EPIC-008 still depends on
+EPIC-007.

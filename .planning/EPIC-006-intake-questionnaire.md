@@ -2,7 +2,7 @@
 id: EPIC-006
 title: Intake questionnaire — per-service-type templates, client completion
 phase: 2
-status: planned
+status: delivered
 slice: The accountant defines a per-service-type intake questionnaire template; the onboarding client completes the questionnaire matching their engagement's service type, and the answers are recorded.
 requirements:
   - REQ-ONBD-003: [AC-ONBD-003-01, AC-ONBD-003-02, AC-ONBD-003-03, AC-ONBD-003-04]
