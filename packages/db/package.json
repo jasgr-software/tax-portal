@@ -18,9 +18,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@prisma/client": "5.22.0"
+    "@prisma/client": "5.22.0",
+    "@tax-portal/storage": "workspace:*"
   },
   "devDependencies": {
+    "@azure/storage-blob": "^12.32.0",
     "@tax-portal/eslint-config": "workspace:*",
     "@tax-portal/tsconfig": "workspace:*",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
