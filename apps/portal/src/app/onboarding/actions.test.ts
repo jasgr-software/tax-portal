@@ -40,8 +40,10 @@ const {
   // EPIC-007 upload mocks
   mockAuthorizeEngagementForUpload,
   mockResolveChecklist,
+  mockListDocumentRequestsForEngagement,
   mockInsertPendingDocument,
   mockCompleteUpload,
+  mockGetDocumentForOwnershipCheck,
   mockGetSignedUploadUrl,
   mockGetStorage,
   mockGetRateLimiter,
@@ -90,8 +92,10 @@ const {
     // EPIC-007 upload mocks
     mockAuthorizeEngagementForUpload: vi.fn(),
     mockResolveChecklist: vi.fn(),
+    mockListDocumentRequestsForEngagement: vi.fn(),
     mockInsertPendingDocument: vi.fn(),
     mockCompleteUpload: vi.fn(),
+    mockGetDocumentForOwnershipCheck: vi.fn(),
     mockGetSignedUploadUrl,
     mockGetStorage,
     mockGetRateLimiter,
@@ -117,12 +121,14 @@ vi.mock("@tax-portal/db", () => ({
   // EPIC-007 upload mocks
   authorizeEngagementForUpload: mockAuthorizeEngagementForUpload,
   resolveChecklist: mockResolveChecklist,
+  listDocumentRequestsForEngagement: mockListDocumentRequestsForEngagement,
 }));
 
 // @tax-portal/db/src/repositories/document.js — NOT on the barrel (TASK-007-004)
 vi.mock("@tax-portal/db/src/repositories/document.js", () => ({
   insertPendingDocument: mockInsertPendingDocument,
   completeUpload: mockCompleteUpload,
+  getDocumentForOwnershipCheck: mockGetDocumentForOwnershipCheck,
 }));
 
 // @tax-portal/storage — mock the storage adapter
@@ -311,6 +317,15 @@ beforeEach(() => {
   mockRateLimiterConsume.mockReturnValue({ allowed: true });
   mockGetRateLimiter.mockReturnValue({ consume: mockRateLimiterConsume });
   mockAuthorizeEngagementForUpload.mockResolvedValue(SIGNED_ENGAGEMENT);
+  // Default: listDocumentRequestsForEngagement returns one item (requestId matches "req-001")
+  mockListDocumentRequestsForEngagement.mockResolvedValue([
+    { id: "req-001", engagementId: ENGAGEMENT_ID, label: "Tax Return W-2", createdBy: null, createdAt: new Date(), updatedAt: new Date() },
+  ]);
+  // Default: getDocumentForOwnershipCheck returns doc owned by caller's engagement
+  mockGetDocumentForOwnershipCheck.mockResolvedValue({
+    engagementId: ENGAGEMENT_ID,
+    uploadedBy: "client_test_clerk_id",
+  });
   mockResolveChecklist.mockResolvedValue({
     engagementId: ENGAGEMENT_ID,
     items: [

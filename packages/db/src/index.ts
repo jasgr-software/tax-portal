@@ -186,9 +186,10 @@ export {
 // listEngagementDocuments       — request pool read (FILTER-governed; client sees own docs only)
 // authorizeThenSignDownload     — request pool authz → active-only → signed download URL (ADR-009)
 //
-// NOT on this barrel (admin-pool pipeline writers — import from source module in server actions):
-//   insertPendingDocument       — admin pool INSERT (ADR-009 step 2d)
-//   completeUpload              — admin pool promote (scan-before-available gate, ADR-021)
+// NOT on this barrel (import directly from source module in server actions):
+//   insertPendingDocument           — admin pool INSERT (ADR-009 step 2d)
+//   completeUpload                  — admin pool promote (scan-before-available gate, ADR-021)
+//   getDocumentForOwnershipCheck    — request pool read (FILTER-governed; M1 ownership guard)
 export type {
   DocumentItem,
   InsertPendingDocumentInput,

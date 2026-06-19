@@ -60,12 +60,14 @@ import {
   submitQuestionnaireAsClient,
   authorizeEngagementForUpload,
   resolveChecklist,
+  listDocumentRequestsForEngagement,
 } from "@tax-portal/db";
 // NOT on the barrel — import directly from the source module (TASK-007-004 constraint)
 // Mirrors createDocumentRequestAsAccountant import pattern in admin actions.ts.
 import {
   insertPendingDocument,
   completeUpload,
+  getDocumentForOwnershipCheck,
 } from "@tax-portal/db/src/repositories/document.js";
 import { getStorage } from "@tax-portal/storage";
 import { getESignatureProvider } from "@tax-portal/esign";
@@ -818,6 +820,21 @@ export async function requestUploadUrlAction(
 
   const { engagement } = resolved;
 
+  // m1 guard: confirm the client-supplied requestId belongs to the resolved engagement.
+  // We query under the request pool (FILTER-governed) so CLIENT-B cannot link to CLIENT-A's
+  // DocumentRequest. If the requestId is not found in the caller's engagement, treat as null
+  // (ad-hoc upload) rather than linking to an unverified checklist item.
+  let verifiedDocumentRequestId: string | null = null;
+  if (input.requestId) {
+    const ownedRequests = await withRequestContext(
+      identity.clerkUserId,
+      identity.role,
+      () => listDocumentRequestsForEngagement(engagement.id),
+    );
+    const matched = ownedRequests.find((r) => r.id === input.requestId);
+    verifiedDocumentRequestId = matched?.id ?? null;
+  }
+
   // Step 4: Insert the pending Document row (admin pool — ADR-009 step 2d).
   // requestId is the DocumentRequest.id linking this upload to a checklist item.
   // uploadedByClerkId is from the server-verified session (ADR-005 / ADR-019 audit trail).
@@ -825,19 +842,19 @@ export async function requestUploadUrlAction(
   try {
     pendingResult = await insertPendingDocument({
       engagementId: engagement.id,
-      documentRequestId: input.requestId || null,
+      documentRequestId: verifiedDocumentRequestId,
       originalFilename: input.filename,
       contentType: input.contentType,
       sizeBytes: input.sizeBytes,
       uploadedByClerkId: identity.clerkUserId,
     });
   } catch (err: unknown) {
+    // m3: log full error server-side; return a generic stable message to the client
+    // to avoid leaking internal topology (storage host, SQL object names, etc.).
+    console.error("[requestUploadUrlAction] insertPendingDocument failed:", err);
     return {
       success: false,
-      error:
-        err instanceof Error
-          ? `Failed to register upload: ${err.message}`
-          : "Failed to register upload. Please try again.",
+      error: "Failed to register upload. Please try again.",
     };
   }
 
@@ -966,17 +983,29 @@ export async function completeUploadAction(
     };
   }
 
-  // Step 3: EPIC-005 letter gate — refuse if letter unsigned.
-  // Resolve engagement server-side for the gate check.
-  const engagement = await withRequestContext(
+  // Step 3: EPIC-005 letter gate + M1 ownership check.
+  // Resolve engagement server-side for the gate check, and verify the client-supplied
+  // documentId belongs to the caller's engagement under the request pool (FILTER-governed).
+  const engagementAndOwnership = await withRequestContext(
     identity.clerkUserId,
     identity.role,
-    () => getMyEngagement(),
+    async () => {
+      const eng = await getMyEngagement();
+      if (!eng) return null;
+
+      // M1: load the document under the request pool — RLS FILTER returns null if the
+      // document does not belong to this caller's engagement (cross-owner isolation).
+      const docOwnership = await getDocumentForOwnershipCheck(input.documentId);
+
+      return { engagement: eng, docOwnership };
+    },
   );
 
-  if (!engagement) {
+  if (!engagementAndOwnership) {
     return { success: false, error: "No active engagement found", refused: true };
   }
+
+  const { engagement, docOwnership } = engagementAndOwnership;
 
   const refusal = checkStepAccessibility(engagement, "document-upload");
   if (refusal) {
@@ -987,22 +1016,38 @@ export async function completeUploadAction(
     };
   }
 
+  // M1: confirm the document is owned by this engagement (RLS-filtered above; double-check
+  // the engagementId matches the server-resolved engagement).
+  if (
+    !docOwnership ||
+    docOwnership.engagementId.toLowerCase() !== engagement.id.toLowerCase()
+  ) {
+    console.warn(
+      "[completeUploadAction] document ownership check failed: documentId not visible " +
+        "to caller or does not belong to their engagement",
+      { documentId: input.documentId, callerEngagementId: engagement.id },
+    );
+    return { success: false, error: "Document not found or access denied." };
+  }
+
   // Step 4: scan-promote gate (ADR-021 / AC-NFR-009-01/-02).
   // completeUpload: stat → validate → scan → promote active|infected|stay pending.
+  // Pass the server-resolved engagementId so the admin-pool promotion is scoped
+  // by engagementId (defence-in-depth — M1 root-cause fix).
   let scanResult: Awaited<ReturnType<typeof completeUpload>>;
   try {
     scanResult = await completeUpload({
       documentId: input.documentId,
       storageKey: input.storageKey,
       uploadedByClerkId: identity.clerkUserId,
+      engagementId: engagement.id,
     });
   } catch (err: unknown) {
+    // m3: log full error server-side; return a generic stable message to the client.
+    console.error("[completeUploadAction] completeUpload failed:", err);
     return {
       success: false,
-      error:
-        err instanceof Error
-          ? `Upload processing failed: ${err.message}`
-          : "Upload processing failed. Please try again.",
+      error: "Upload processing failed. Please try again.",
     };
   }
 

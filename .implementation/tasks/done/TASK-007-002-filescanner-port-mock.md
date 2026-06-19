@@ -80,7 +80,7 @@ The **first `FileScanner` port** (ADR-021), mock-first per the standing mock-thi
 ## Work Log
 
 ### 2026-06-19T12:08:25Z — webapp-developer — in-progress
-**What done:** Task opened. Reading ENGINE.md, developer.md, task spec, ADR-021, and esign package precedent.
+**What done:** Starting implementation. Task opened; reading ENGINE.md, developer.md, task spec, ADR-021, and esign package precedent.
 **What next:** Implement scanner port, mock/cloud bindings, fail-closed selector, validation helper, and all 7 tests.
 **Blockers:** None.
 

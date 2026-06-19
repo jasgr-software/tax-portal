@@ -127,6 +127,13 @@ export interface CompleteUploadInput {
   storageKey: string;
   /** Uploader clerkId for the infected-notification path (AC-NFR-009-02). */
   uploadedByClerkId: string | null;
+  /**
+   * The server-resolved engagement id — used to scope the promotion UPDATE so that
+   * a client-supplied documentId that does not belong to this engagement cannot be
+   * promoted (defence-in-depth; the caller must also verify ownership via
+   * getDocumentForOwnershipCheck before reaching here — M1 fix).
+   */
+  engagementId: string;
 }
 
 /** Result of completeUpload. */
@@ -231,6 +238,36 @@ export async function authorizeEngagementForUpload(
   const row = await client.engagement.findUnique({ where: { id: engagementId } });
   if (!row) return null;
   return mapEngagementRow(row);
+}
+
+// ─── Read: getDocumentForOwnershipCheck (request pool — M1 ownership guard) ───
+
+/**
+ * Load minimal ownership fields for a Document under the REQUEST POOL (FILTER-governed).
+ *
+ * Used by `completeUploadAction` to verify that the client-supplied `documentId`
+ * belongs to the caller's engagement before invoking the admin-pool promotion gate.
+ *
+ * Under sec.pol_Document (0007-document-policy.sql):
+ *   - CLIENT sees only documents for their own engagement (FILTER).
+ *   - Null SESSION_CONTEXT → throws (ADR-003 §6 fail-closed).
+ *   - A document that does not belong to the caller's engagement → null (RLS-filtered).
+ *
+ * Returns { engagementId, uploadedBy } when the document is visible to the caller.
+ * Returns null when the document does not exist or is RLS-filtered from this caller.
+ *
+ * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+ *
+ * M1 fix: the caller (completeUploadAction) must confirm the returned engagementId
+ * matches the server-resolved engagement before proceeding to completeUpload.
+ */
+export async function getDocumentForOwnershipCheck(
+  documentId: string,
+): Promise<{ engagementId: string; uploadedBy: string | null } | null> {
+  const client = dbAsDocumentClient();
+  const row = await client.document.findUnique({ where: { id: documentId } });
+  if (!row) return null;
+  return { engagementId: row.engagementId, uploadedBy: row.uploadedBy };
 }
 
 // ─── Write: insertPendingDocument (admin pool — ADR-009 step 2d) ──────────────
@@ -369,14 +406,14 @@ export async function completeUpload(
   // This is the named code path per Gate-Authoring Rules (ENGINE.md § Gate Authoring Rules).
   if (scanVerdict.verdict === "clean" && validationResult === "pass") {
     // PROMOTE: pending → active (ADR-021 — scan passed, MIME/size valid)
-    await promotePendingToActive(input.documentId, stat.sizeBytes);
+    await promotePendingToActive(input.documentId, input.engagementId, stat.sizeBytes);
     return { outcome: "active", documentId: input.documentId };
   }
 
   if (scanVerdict.verdict === "infected") {
     // TERMINAL: pending → infected (AC-NFR-009-02 — threat detected; never signable)
     const threat = scanVerdict.threat ?? null;
-    await promoteToInfected(input.documentId, stat.sizeBytes, threat);
+    await promoteToInfected(input.documentId, input.engagementId, stat.sizeBytes, threat);
     return {
       outcome: "infected",
       documentId: input.documentId,
@@ -392,7 +429,7 @@ export async function completeUpload(
       : `validation-failed: ${validationResult}`;
 
   // Update sizeBytes to the authoritative value even if staying pending
-  await updateSizeBytesOnPending(input.documentId, stat.sizeBytes);
+  await updateSizeBytesOnPending(input.documentId, input.engagementId, stat.sizeBytes);
 
   return {
     outcome: "pending",
@@ -477,9 +514,7 @@ export async function authorizeThenSignDownload(
   if (row.status !== "active") {
     return {
       authorized: false,
-      reason: row.status === "pending" || row.status === "infected"
-        ? "not-active"
-        : "not-active",
+      reason: "not-active",
     };
   }
 
@@ -505,29 +540,33 @@ export async function authorizeThenSignDownload(
 
 async function promotePendingToActive(
   documentId: string,
+  engagementId: string,
   sizeBytes: number,
 ): Promise<void> {
   const pool = await getAdminPool();
   const req = new MssqlRequest(pool);
   req.input("documentId", mssqlPkg.NVarChar(50), documentId);
+  req.input("engagementId", mssqlPkg.NVarChar(50), engagementId);
   req.input("sizeBytes", mssqlPkg.BigInt(), sizeBytes);
   await req.query(
     `UPDATE [dbo].[Document]
      SET [status] = N'active',
          [sizeBytes] = @sizeBytes,
          [updatedAt] = SYSDATETIMEOFFSET()
-     WHERE [id] = @documentId AND [status] = N'pending'`
+     WHERE [id] = @documentId AND [engagementId] = @engagementId AND [status] = N'pending'`
   );
 }
 
 async function promoteToInfected(
   documentId: string,
+  engagementId: string,
   sizeBytes: number,
   threat: string | null,
 ): Promise<void> {
   const pool = await getAdminPool();
   const req = new MssqlRequest(pool);
   req.input("documentId", mssqlPkg.NVarChar(50), documentId);
+  req.input("engagementId", mssqlPkg.NVarChar(50), engagementId);
   req.input("sizeBytes", mssqlPkg.BigInt(), sizeBytes);
   req.input("scanThreat", mssqlPkg.NVarChar(500), threat ?? null);
   await req.query(
@@ -536,23 +575,25 @@ async function promoteToInfected(
          [sizeBytes] = @sizeBytes,
          [scanThreat] = @scanThreat,
          [updatedAt] = SYSDATETIMEOFFSET()
-     WHERE [id] = @documentId AND [status] = N'pending'`
+     WHERE [id] = @documentId AND [engagementId] = @engagementId AND [status] = N'pending'`
   );
 }
 
 async function updateSizeBytesOnPending(
   documentId: string,
+  engagementId: string,
   sizeBytes: number,
 ): Promise<void> {
   const pool = await getAdminPool();
   const req = new MssqlRequest(pool);
   req.input("documentId", mssqlPkg.NVarChar(50), documentId);
+  req.input("engagementId", mssqlPkg.NVarChar(50), engagementId);
   req.input("sizeBytes", mssqlPkg.BigInt(), sizeBytes);
   await req.query(
     `UPDATE [dbo].[Document]
      SET [sizeBytes] = @sizeBytes,
          [updatedAt] = SYSDATETIMEOFFSET()
-     WHERE [id] = @documentId AND [status] = N'pending'`
+     WHERE [id] = @documentId AND [engagementId] = @engagementId AND [status] = N'pending'`
   );
 }
 

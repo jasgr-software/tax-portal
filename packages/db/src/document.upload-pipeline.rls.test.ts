@@ -470,6 +470,60 @@ describe("[ADR-009][ADR-021] Two-phase upload pipeline — pending insert + scan
     }
   });
 
+  /**
+   * [M1 REGRESSION] CLIENT-B cannot promote CLIENT-A's pending document via completeUpload.
+   *
+   * Attack surface: completeUpload runs on the admin pool (RLS-exempt). Without the
+   * engagementId scope on the promotion UPDATE, CLIENT-B could pass CLIENT-A's documentId
+   * and drive it through the scan/promote gate. This test proves the engagementId scoping
+   * (added in the M1 fix) prevents the cross-owner promotion.
+   *
+   * The test seeds CLIENT-A's pending doc, then calls completeUpload with CLIENT-B's
+   * engagementId — the scoped UPDATE finds zero rows (wrong engagementId), so the doc
+   * stays 'pending' even though the call returns 'pending' for a different reason.
+   *
+   * Note: completeUpload is called directly here (not the server action) to isolate the
+   * repository-layer fix. The server action adds an additional authz gate (M1 request-pool
+   * ownership check); this test proves the defence-in-depth scoping at the SQL layer.
+   */
+  it("[M1] CLIENT-B cannot promote CLIENT-A's pending document — engagementId scope blocks cross-owner promotion", async () => {
+    // Insert a pending doc for CLIENT-A
+    const { documentId, storageKey } = await insertPendingDocument({
+      engagementId: clientAEngagementId,
+      originalFilename: "client-a-cross-owner-test.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 0,
+      uploadedByClerkId: clientAClerkId,
+    });
+
+    // PUT the file so stat() succeeds
+    const storage = getStorage();
+    await storage.put({
+      key: storageKey,
+      body: Buffer.from("%PDF-1.4 client-a doc"),
+      contentType: "application/pdf",
+    });
+
+    // CLIENT-B attempts to promote CLIENT-A's document by passing CLIENT-B's engagementId.
+    // The promotion UPDATE scopes by engagementId → zero rows matched → stays 'pending'.
+    await completeUpload({
+      documentId,
+      storageKey,
+      uploadedByClerkId: clientBClerkId,
+      engagementId: clientBEngagementId, // CLIENT-B's engagement — mismatched
+    });
+
+    // The promotion UPDATE targeted WHERE id=docId AND engagementId=clientBEngagementId.
+    // The document belongs to CLIENT-A's engagement, so zero rows were matched and the
+    // document status was NOT changed. Verify via DB read-back.
+    const verify = await adminPool.request().query<{ status: string }>(
+      `SELECT [status] FROM [dbo].[Document] WHERE [id] = '${documentId}'`
+    );
+    // The document must still be 'pending' — the cross-owner promotion was blocked by
+    // the engagementId scope on the UPDATE WHERE clause.
+    expect(verify.recordset[0]?.status).toBe("pending");
+  });
+
 });
 
 // ─── Tests: authorize-then-sign download (ADR-009) ───────────────────────────

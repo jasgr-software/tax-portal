@@ -36,18 +36,20 @@ const nextConfig = {
     //
     // The connect-src directive must allow:
     //   - 'self'                            — same-origin requests (portal server actions, APIs)
-    //   - http://localhost:10000            — Azurite emulator (local dev / e2e docker-compose)
     //   - https://*.blob.core.windows.net   — Azure Blob Storage (production)
+    //   - http://localhost:10000            — Azurite emulator (local dev / e2e only, env-gated)
     //
     // BLOB_PUBLIC_ENDPOINT (optional env var): when set at build time, its origin is also
     // included. This covers cases where the local dev endpoint differs from localhost:10000.
     //
     // Note: `routes-manifest.json` is compiled at `next build` time. `headers()` is called
     // during the build to produce the static manifest. Therefore BLOB_PUBLIC_ENDPOINT must
-    // be available at build time to appear in the manifest. The docker-compose Dockerfile
-    // build stage does not set BLOB_PUBLIC_ENDPOINT, so we include localhost:10000 directly
-    // in the base set (safe because HTTP-only connections to localhost are already blocked
-    // by mixed-content policy when the portal itself is served over HTTPS in production).
+    // be available at build time to appear in the manifest.
+    //
+    // m2 fix: the localhost:10000 origin is now env-gated — only added when NODE_ENV is not
+    // "production". In a production build NODE_ENV=production, so the Azurite origin is omitted
+    // from the shipped CSP. Local dev / CI e2e always sets NODE_ENV=development.
+    const isProduction = process.env["NODE_ENV"] === "production";
     const blobPublicEndpoint = process.env["BLOB_PUBLIC_ENDPOINT"];
     let extraConnectSrc = "";
     if (blobPublicEndpoint) {
@@ -61,7 +63,9 @@ const nextConfig = {
         // Malformed BLOB_PUBLIC_ENDPOINT — ignore
       }
     }
-    const connectSrcOrigins = `'self' http://localhost:10000 https://*.blob.core.windows.net${extraConnectSrc}`;
+    // Include the Azurite localhost origin only in non-production builds.
+    const localhostConnectSrc = isProduction ? "" : " http://localhost:10000";
+    const connectSrcOrigins = `'self'${localhostConnectSrc} https://*.blob.core.windows.net${extraConnectSrc}`;
 
     return [
       {

@@ -244,17 +244,13 @@ services:
       # Override via .env.local if needed; "100" safely covers the worst-case sequential test load.
       RATE_LIMIT_MAX_ATTEMPTS: "${RATE_LIMIT_MAX_ATTEMPTS:-100}"
       RATE_LIMIT_WINDOW_MS: "${RATE_LIMIT_WINDOW_MS:-60000}"
-      # Object storage (packages/storage — FileStorage port — ADR-008).
-      # "azurite" adapter connects to the Azurite container at internal hostname "azurite":10000.
-      STORAGE_ADAPTER: "${STORAGE_ADAPTER:-azurite}"
-      STORAGE_CONNECTION_STRING: "${ADMIN_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1}"
-      STORAGE_CONTAINER: "${STORAGE_CONTAINER:-tax-portal-documents}"
+      # Note: STORAGE_* env vars and the azurite dependency are intentionally omitted from
+      # the admin service — apps/admin has no @tax-portal/storage dependency (m4 fix).
+      # Storage env + azurite depends_on live only on the portal service.
     ports:
       - "${ADMIN_PORT:-3001}:3001"
     depends_on:
       sqlserver:
-        condition: service_healthy
-      azurite:
         condition: service_healthy
     healthcheck:
       test:
