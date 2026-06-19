@@ -2,7 +2,7 @@
 id: EPIC-007
 title: Initial document upload — checklist, secure upload, malware scan
 phase: 2
-status: planned
+status: delivered
 slice: The accountant defines a document checklist for the engagement; the onboarding client uploads documents against it through secure, malware-scanned, non-public storage, and the step is satisfied when the required items are provided.
 requirements:
   - REQ-ONBD-004: [AC-ONBD-004-01, AC-ONBD-004-02, AC-ONBD-004-03, AC-ONBD-004-04]

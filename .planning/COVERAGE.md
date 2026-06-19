@@ -26,8 +26,8 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-006 (intake questionnaire) | 7 |
 | &nbsp;&nbsp;— EPIC-007 (initial document upload) | 19 |
 | &nbsp;&nbsp;— EPIC-008 (onboarding completion → In Progress) | 8 |
-| AC `verified` (signed off) | **68** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ EPIC-005 (10, 2026-06-18) + EPIC-006 (7, 2026-06-18)** — the first two Phase-2 onboarding-gate slices. |
-| AC still `planned` (placed, not yet verified) | **27 — the remaining Phase-2 onboarding-gate set** (EPIC-007 19, EPIC-008 8); EPIC-005's 10 + EPIC-006's 7 now `verified` |
+| AC `verified` (signed off) | **87** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ EPIC-005 (10, 2026-06-18) + EPIC-006 (7, 2026-06-18) + EPIC-007 (19, 2026-06-19)** — the first three Phase-2 onboarding-gate slices. |
+| AC still `planned` (placed, not yet verified) | **8 — the remaining Phase-2 onboarding-gate set** (EPIC-008 8, the capstone); EPIC-005's 10 + EPIC-006's 7 + EPIC-007's 19 now `verified` |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -90,9 +90,24 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > and **server-side engagement→service-type→template resolution** (no client-supplied ids — the client cannot
 > pick their questionnaire), with the letter hard gate **NOT weakened** (`accessible: signed` unchanged).
 > **REQ-AUTH-003 feature AC remain Phase-3-owned** (the isolation *mechanism* + its mandatory per-policy HARD
-> test land here; the feature AC are not claimed by this slice). **EPIC-007 (initial document upload) is the
-> next-ready Phase-2 slice** (its `depends_on: EPIC-005` is satisfied; EPIC-006 was a parallel sibling, not a
-> dependency); EPIC-008 remains the capstone (still needs EPIC-007).
+> test land here; the feature AC are not claimed by this slice).
+>
+> **EPIC-007 (19 AC) signed off 2026-06-19** — the initial-document-upload slice (accountant-authored checklist
+> + client uploads against it via the portal's **first secure, malware-scanned, non-public file-storage path** —
+> **step 3 of the onboarding sequence**) shipped (PR #52, squash merge `eaa5875`); see basis note [A]. **Third
+> Phase-2 slice delivered.** All 19 in-scope AC verified (AC-ONBD-004-01/-02/-03/-04, AC-FILE-007-01/-02/-03,
+> AC-FILE-008-01/-02/-03, AC-FILE-001-02/-05, AC-FILE-002-01, AC-FILE-003-01/-02/-03/-04, AC-NFR-009-01/-02).
+> Net-new platform capabilities: the **first `FileStorage` port + Azurite adapter (the first stored-bytes
+> path)**, the **first `FileScanner` port (mock-first)**, the **third client-isolation RLS policy** (`pol_Document`/
+> `0007` — client-owned-row family now Engagement + QuestionnaireAnswer + **Document**), the **two-phase
+> authorize-then-sign upload + scan-before-available pipeline** (promote to `active` only on clean+valid;
+> `infected`/`indeterminate` never signable), the **checklist read model + document-step satisfaction** (zero
+> requests → vacuously satisfied; letter hard gate **NOT weakened**), and the **ADR-019/022 audit + rate-limit
+> caller-binding** seam split. The 3-lens PR-review panel + fixer cleared **2 majors** (headlined by a
+> cross-tenant ownership gap in `completeUpload`, now re-asserting engagement ownership before promotion + a
+> regression test). **EPIC-008 (onboarding completion → automatic New→In Progress + accountant notification) is
+> the next-ready Phase-2 slice** — its `depends_on` (EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅) is fully satisfied;
+> it is the **Phase-2 capstone**.
 >
 > **[A] applied to the EPIC-006 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
 > EPIC-001/002/003/004/005 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging
@@ -233,25 +248,25 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-DASH-012 | AC-DASH-012-01 | EPIC-006 | 2 | `AC-DASH-012-01` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
 | REQ-DASH-012 | AC-DASH-012-02 | EPIC-006 | 2 | `AC-DASH-012-02` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
 | REQ-DASH-012 | AC-DASH-012-03 | EPIC-006 | 2 | `AC-DASH-012-03` | verified | PR#50 `e55f8c5` (2026-06-18) · SDET+CI [A] |
-| REQ-ONBD-004 | AC-ONBD-004-01 | EPIC-007 | 2 | `AC-ONBD-004-01` | planned | — |
-| REQ-ONBD-004 | AC-ONBD-004-02 | EPIC-007 | 2 | `AC-ONBD-004-02` | planned | — |
-| REQ-ONBD-004 | AC-ONBD-004-03 | EPIC-007 | 2 | `AC-ONBD-004-03` | planned | — |
-| REQ-ONBD-004 | AC-ONBD-004-04 | EPIC-007 | 2 | `AC-ONBD-004-04` | planned | — |
-| REQ-FILE-007 | AC-FILE-007-01 | EPIC-007 | 2 | `AC-FILE-007-01` | planned | — |
-| REQ-FILE-007 | AC-FILE-007-02 | EPIC-007 | 2 | `AC-FILE-007-02` | planned | — |
-| REQ-FILE-007 | AC-FILE-007-03 | EPIC-007 | 2 | `AC-FILE-007-03` | planned | — |
-| REQ-FILE-008 | AC-FILE-008-01 | EPIC-007 | 2 | `AC-FILE-008-01` | planned | — |
-| REQ-FILE-008 | AC-FILE-008-02 | EPIC-007 | 2 | `AC-FILE-008-02` | planned | — |
-| REQ-FILE-008 | AC-FILE-008-03 | EPIC-007 | 2 | `AC-FILE-008-03` | planned | — |
-| REQ-FILE-001 | AC-FILE-001-02 | EPIC-007 | 2 | `AC-FILE-001-02` | planned | — |
-| REQ-FILE-001 | AC-FILE-001-05 | EPIC-007 | 2 | `AC-FILE-001-05` | planned | — |
-| REQ-FILE-002 | AC-FILE-002-01 | EPIC-007 | 2 | `AC-FILE-002-01` | planned | — |
-| REQ-FILE-003 | AC-FILE-003-01 | EPIC-007 | 2 | `AC-FILE-003-01` | planned | — |
-| REQ-FILE-003 | AC-FILE-003-02 | EPIC-007 | 2 | `AC-FILE-003-02` | planned | — |
-| REQ-FILE-003 | AC-FILE-003-03 | EPIC-007 | 2 | `AC-FILE-003-03` | planned | — |
-| REQ-FILE-003 | AC-FILE-003-04 | EPIC-007 | 2 | `AC-FILE-003-04` | planned | — |
-| REQ-NFR-009 | AC-NFR-009-01 | EPIC-007 | 2 | `AC-NFR-009-01` | planned | — |
-| REQ-NFR-009 | AC-NFR-009-02 | EPIC-007 | 2 | `AC-NFR-009-02` | planned | — |
+| REQ-ONBD-004 | AC-ONBD-004-01 | EPIC-007 | 2 | `AC-ONBD-004-01` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — e2e `document-upload.spec.ts` |
+| REQ-ONBD-004 | AC-ONBD-004-02 | EPIC-007 | 2 | `AC-ONBD-004-02` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — e2e outstanding-badge |
+| REQ-ONBD-004 | AC-ONBD-004-03 | EPIC-007 | 2 | `AC-ONBD-004-03` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — e2e upload→fulfilled |
+| REQ-ONBD-004 | AC-ONBD-004-04 | EPIC-007 | 2 | `AC-ONBD-004-04` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 `checklist.test.ts` (zero-reqs vacuously satisfied) |
+| REQ-FILE-007 | AC-FILE-007-01 | EPIC-007 | 2 | `AC-FILE-007-01` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — e2e admin `document-requests.spec.ts` |
+| REQ-FILE-007 | AC-FILE-007-02 | EPIC-007 | 2 | `AC-FILE-007-02` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — cross-app author→client-sees |
+| REQ-FILE-007 | AC-FILE-007-03 | EPIC-007 | 2 | `AC-FILE-007-03` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — cross-app client-fulfills |
+| REQ-FILE-008 | AC-FILE-008-01 | EPIC-007 | 2 | `AC-FILE-008-01` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 `checklist.test.ts` |
+| REQ-FILE-008 | AC-FILE-008-02 | EPIC-007 | 2 | `AC-FILE-008-02` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — e2e outstanding-vs-fulfilled |
+| REQ-FILE-008 | AC-FILE-008-03 | EPIC-007 | 2 | `AC-FILE-008-03` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — e2e fulfilled-leaves-outstanding |
+| REQ-FILE-001 | AC-FILE-001-02 | EPIC-007 | 2 | `AC-FILE-001-02` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 pipeline clean→active |
+| REQ-FILE-001 | AC-FILE-001-05 | EPIC-007 | 2 | `AC-FILE-001-05` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 HARD isolation `0007` (CLIENT-B reads ZERO) |
+| REQ-FILE-002 | AC-FILE-002-01 | EPIC-007 | 2 | `AC-FILE-002-01` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — e2e any-type (no accept restriction) |
+| REQ-FILE-003 | AC-FILE-003-01 | EPIC-007 | 2 | `AC-FILE-003-01` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 Azurite `isServerEncrypted` |
+| REQ-FILE-003 | AC-FILE-003-02 | EPIC-007 | 2 | `AC-FILE-003-02` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 HARD authz-required (+ M1 fix regression) |
+| REQ-FILE-003 | AC-FILE-003-03 | EPIC-007 | 2 | `AC-FILE-003-03` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 null-ctx fail-closed (no public path) |
+| REQ-FILE-003 | AC-FILE-003-04 | EPIC-007 | 2 | `AC-FILE-003-04` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 TTL-bounded signed URL |
+| REQ-NFR-009 | AC-NFR-009-01 | EPIC-007 | 2 | `AC-NFR-009-01` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 indeterminate→stays-pending (fail-closed) |
+| REQ-NFR-009 | AC-NFR-009-02 | EPIC-007 | 2 | `AC-NFR-009-02` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 infected→withheld + e2e rejection banner |
 | REQ-ONBD-005 | AC-ONBD-005-01 | EPIC-008 | 2 | `AC-ONBD-005-01` | planned | — |
 | REQ-ONBD-005 | AC-ONBD-005-02 | EPIC-008 | 2 | `AC-ONBD-005-02` | planned | — |
 | REQ-ONBD-006 | AC-ONBD-006-01 | EPIC-008 | 2 | `AC-ONBD-006-01` | planned | — |

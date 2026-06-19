@@ -155,8 +155,61 @@ elevation threshold this slice and is promoted to `ungated-fix` (off-PR). Everyt
 - **CI carries (EPIC-004 follow-ups):** `test-portal` `packages/**` build step before graduating to required;
   ESLint `adminDb` import-boundary extension.
 
-## Post-Merge Addendum (Close-finalize)
+## Post-Merge Addendum (Close-finalize) — 2026-06-19
 
-_Pending — written at Close-finalize after PR merge (gate 8 post-merge CI verification + the final 9-gate
-scorecard; gate 9 N/A, `Brief-deploys: no`)._
+**Merge:** **PR #52** squash-merged to `main` → **`eaa5875`** (`eaa58759a10995cde1e8ea37103fbb388cca8a66`),
+**Lane B** (reviewed lane — application code: `packages/`, `apps/`, `prisma/`, `db/policies/`,
+`docker-compose.yml`), **user-approved**. `gh pr merge 52 --squash --delete-branch` — **no `--admin`**, no
+`enforce_admins`/branch-protection toggle; remote branch deleted; local `main` synced to `eaa5875`. The
+fixer's `c46eb91` (the M1 cross-tenant `completeUpload` ownership fix + its regression test + the other 8
+panel findings) is folded into the squash.
+
+**PR-review panel + fix outcome:** `/pr-review` ran the 3-lens advisory panel; **2 majors** found and fixed by
+`/pr-fix`, headlined by **M1 — a cross-tenant ownership gap in `completeUpload`** (the upload-completion path
+did not re-assert engagement ownership before promoting the document — a client could complete an upload
+against another engagement's authorization handle). Fixed **with a dedicated regression test** + the other 8
+panel findings, all in `c46eb91`. This deepens the file-isolation guarantee beyond the `0007` RLS policy at
+the data layer — the application path now re-checks ownership at completion (defense-in-depth). Threads
+resolved; merged on green required CI.
+
+**Gate 8 — post-merge CI (`main` @ `eaa5875`): ✅ GREEN.**
+
+- **CI** workflow — run **`27844771147`** — `completed/success`. Jobs:
+  `lint-and-typecheck` ✅ **success** (required) · `security-scan` ✅ **success** (required) ·
+  `test-portal` ✅ success (advisory) · `test-admin` ✅ success (advisory) · `report-failure` skipped.
+  Both **required** checks green.
+- **CodeQL** (Code Quality: Push on main) workflow — run **`27844771086`** — `completed/success`.
+- Watched via `gh run watch <id> --exit-status` (both exit 0) + a `gh run view --json status,conclusion`
+  poll-to-completion (no blocking sleep loop, no `| tail`); conclusions confirmed at run + job level against
+  `headSha = eaa58759a10995cde1e8ea37103fbb388cca8a66`.
+
+**Gate 9 — post-merge staging smoke: N/A** (`Brief-deploys: no`, ADR-007 — production platform deferred, no
+staging environment).
+
+**Post-merge bugs:** **zero.** No `BUG-007-POST-NNN` created; nothing surfaced after merge.
+
+### Final post-merge 9-gate scorecard
+
+| # | Gate | Verdict |
+| - | ---- | ------- |
+| 1 | Per-task submission | ✅ 7/7 |
+| 2 | SDET Review | ✅ 7/7 (1 in-slice rejection BUG-007-001 fixed + re-approved) |
+| 3 | Overwatch Audit | ✅ CLEAN, 0 blocking |
+| 4 | IO Design scan | ✅ PASS (0 violations; orphan-route IA fix-forward folded into TASK-007-006) |
+| 5 | Container Smoke | ✅ PASS (first stored-bytes path proven end-to-end through real Azurite) |
+| 6 | SDET Acceptance-validation | ✅ APPROVED — 19/19 in-scope AC (gherkin prose-bind) |
+| 7 | SDET CI gate | ✅ PASS (`pnpm ci:local` EXIT 0; 57 files / 836 tests green) |
+| 8 | Post-merge CI | ✅ **GREEN** — CI `27844771147` success (both required checks) + CodeQL `27844771086` success @ `eaa5875` |
+| 9 | Post-merge staging smoke | **N/A** (`Brief-deploys: no`) |
+
+**Gates 1–8 GREEN; gate 9 N/A. BRIEF-007 / EPIC-007 DELIVERED.**
+
+**Delivery state:** Phase 2 (onboarding gate) — EPIC-005 (step 1) ✓ + EPIC-006 (step 2) ✓ + **EPIC-007
+(step 3) ✓** all delivered. **EPIC-008 (onboarding-completion capstone) is now UNBLOCKED** — it required both
+EPIC-006 ✓ and EPIC-007 ✓; both are delivered. EPIC-008 is the Phase-2 capstone and the next ready slice.
+
+_The off-PR `ungated-fix` carries (clock-domain `Completed-at` `developer.md` amend; CSP env-gating;
+header-comment doc-drift; `adminDb` typed accessor; `@demo` screenshot scoping; pre-existing e2e flakes) remain
+in `## Open retro action items` — none ride this application-code PR; they land on future docs/ungated changes
+or the next task touching the relevant surface._
 </content>

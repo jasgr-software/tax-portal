@@ -1,7 +1,11 @@
-# Per-run gate verdict logs are runtime artifacts — not committed.
-# The Conductor's close-out step may snapshot a run's records into its
+# Per-run gate verdict logs + PR-verdict snapshots are runtime artifacts — not
+# committed. The Conductor's close-out step may snapshot a run's records into its
 # run report (.orchestration/_templates/run-report.md); the live log is local.
+# (`*.json` added 2026-06-19 — the per-PR `PR-<N>-verdict.json` snapshots are
+#  local-only like the `*.jsonl` gate logs; prevents stale-artifact dirty-tree
+#  friction at the next run's readiness gate.)
 *.jsonl
+*.json
 
 # Keep the directory and its schema doc tracked.
 !.gitignore

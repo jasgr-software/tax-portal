@@ -7,6 +7,37 @@
 
 ## Status / amendment history
 
+- **2026-06-19 (EPIC-007 delivered — third Phase-2 slice ships; the first secure file-storage path)** — the
+  initial-document-upload slice (accountant-authored checklist + client uploads against it via the portal's
+  first secure, malware-scanned, non-public file-storage path — step 3 of the onboarding sequence) shipped
+  (PR #52, squash merge `eaa5875`). All **19 in-scope AC** signed off `verified` in `COVERAGE.md`:
+  AC-ONBD-004-01/-02/-03/-04 (checklist shown, outstanding-vs-provided, client uploads to fulfill, step
+  satisfied when required items provided), AC-FILE-007-01/-02/-03 (accountant authors labeled document
+  requests; client sees + fulfills), AC-FILE-008-01/-02/-03 (per-engagement checklist; outstanding distinct
+  from fulfilled; a fulfilled request leaves the outstanding set), AC-FILE-001-02/-05 (client upload +
+  engagement isolation), AC-FILE-002-01 (any file type), AC-FILE-003-01/-02/-03/-04 (encrypted at rest,
+  authz-required retrieval, no public path, time-limited grant), AC-NFR-009-01/-02 (scanned before available;
+  malicious withheld + uploader informed). EPIC-007 → `delivered`. Net-new platform capabilities: the **first
+  `FileStorage` port + Azurite adapter (the first stored-bytes path)**, the **first `FileScanner` port
+  (mock-first)**, the **third client-isolation RLS policy** (`pol_Document`/`0007` — the client-owned-row
+  family is now Engagement + QuestionnaireAnswer + **Document**), the **two-phase authorize-then-sign upload +
+  scan-before-available pipeline** (promote to `active` only on clean+valid; `infected`/`indeterminate` never
+  signable), the **checklist read model + document-step satisfaction** (zero requests → vacuously satisfied;
+  the EPIC-005 letter hard gate NOT weakened), and the **ADR-019/022 audit + rate-limit caller-binding** seam
+  split. **REQ-AUTH-003 feature AC remain Phase-3-owned** (the isolation mechanism + its HARD per-policy test
+  land here; the feature AC are not claimed). Sign-off basis [A]: green required CI (`lint-and-typecheck` +
+  `security-scan`) on the PR #52 head + post-merge `main` `eaa5875` (CI run `27844771147` — `lint-and-typecheck`/
+  `security-scan`/`test-portal`/`test-admin` all ✅; CodeQL run `27844771086` ✅), plus the implementation
+  engine's SDET acceptance-validation under the mandated gherkin methodology (tier-3 integration against the
+  real SQL Server + Azurite stack incl. the HARD third client-isolation policy `0007` and the scan-before-
+  available fail-closed proofs; tier-6 e2e both surfaces + cross-app; CI gate `pnpm ci:local` 836/836). The
+  3-lens PR-review panel found + the fixer cleared **2 majors** — headlined by a cross-tenant ownership gap in
+  the upload-completion path (`completeUpload` now re-asserts engagement ownership before promotion, with a
+  dedicated regression test, defense-in-depth atop the `0007` RLS policy). **EPIC-008 (onboarding completion →
+  automatic New→In Progress + accountant notification) is now the next-ready Phase-2 slice** — its
+  `depends_on` (EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅) is fully satisfied. It is the **Phase-2 capstone**.
+  **Phase-2 progress: 3/4 epics, 36/44 AC verified.** **Next:** `/orchestrate EPIC-008`.
+
 - **2026-06-18 (EPIC-006 delivered — second Phase-2 slice ships)** — the intake-questionnaire slice
   (per-service-type templates + client completion — step 2 of the onboarding sequence) shipped (PR #50, squash
   merge `e55f8c5`). All **7 in-scope AC** signed off `verified` in `COVERAGE.md`: AC-ONBD-003-01/-02/-03/-04
@@ -192,8 +223,8 @@ checklist + secure upload (FILE, NFR malware scan). Depends on Phase 1's accept�
 |---|---|---|---|
 | **EPIC-005** | Onboarding spine + engagement-letter e-sign gate — minimal Engagement entity (created on accept, status New), three-step sequence, the letter hard gate, editable letter template (10 AC) | `delivered` (PR #48, `f879da2`, 2026-06-18) — 10/10 in-scope AC | EPIC-003 ✅, EPIC-004 ✅ |
 | **EPIC-006** | Intake questionnaire — accountant authors per-service-type templates; client completes the matching questionnaire (7 AC) | `delivered` (PR #50, `e55f8c5`, 2026-06-18) — 7/7 in-scope AC | EPIC-005 ✅, EPIC-002 ✅ |
-| **EPIC-007** | Initial document upload — accountant defines the checklist; client uploads against it via the first secure, malware-scanned, non-public file-storage path (19 AC) | `planned` — **unblocked / next-ready** (EPIC-005 ✅) | EPIC-005 ✅ |
-| **EPIC-008** | Onboarding completion — all-three-steps gate, automatic New → In Progress transition, accountant in-portal notification (8 AC, incl. AC-MSG-013-04) | `planned` — capstone (still needs EPIC-006, EPIC-007) | EPIC-005 ✅, EPIC-006, EPIC-007 |
+| **EPIC-007** | Initial document upload — accountant defines the checklist; client uploads against it via the first secure, malware-scanned, non-public file-storage path (19 AC) | `delivered` (PR #52, `eaa5875`, 2026-06-19) — 19/19 in-scope AC | EPIC-005 ✅ |
+| **EPIC-008** | Onboarding completion — all-three-steps gate, automatic New → In Progress transition, accountant in-portal notification (8 AC, incl. AC-MSG-013-04) | `planned` — **unblocked / next-ready** (EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅) | EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅ |
 
 > **Build order:** EPIC-005 first (no Phase-2 predecessor) — **delivered 2026-06-18** (PR #48, `f879da2`).
 > EPIC-006 and EPIC-007 both build on EPIC-005's onboarding sequence and gate and are independent of each
@@ -202,8 +233,8 @@ checklist + secure upload (FILE, NFR malware scan). Depends on Phase 1's accept�
 > a dependency). EPIC-008 is the capstone — it depends on all three step-epics because onboarding completion
 > is defined over their outputs (still needs EPIC-007; EPIC-006 ✅).
 >
-> **Phase-2 progress (2026-06-18):** 2 of 4 epics delivered (EPIC-005, EPIC-006) — **17 of 44 Phase-2 AC
-> `verified`**; 27 remain `planned` (EPIC-007 19, EPIC-008 8). **Next:** EPIC-007.
+> **Phase-2 progress (2026-06-19):** 3 of 4 epics delivered (EPIC-005, EPIC-006, EPIC-007) — **36 of 44
+> Phase-2 AC `verified`**; 8 remain `planned` (EPIC-008, the capstone). **Next:** EPIC-008.
 >
 > **Scope boundaries (this phase):** Phase 2 introduces only the *minimal* Engagement substrate (New /
 > In Progress) the gate needs — the **full four-stage lifecycle pipeline, manual transitions, and

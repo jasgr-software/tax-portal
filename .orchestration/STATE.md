@@ -7,7 +7,199 @@
 
 ## Current run
 
-### EPIC-006 — BRIEF-006 (intake questionnaire — per-service-type templates) — started 2026-06-18
+### EPIC-007 — BRIEF-007 (initial document upload — checklist + first secure file-storage path) — started 2026-06-19
+- **Phase:** **✅ DELIVERED** (2026-06-19). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → **Implement ✓** → **PR #52**
+  → **Review ✓** → **Fix ✓** → **Merge ✓ (user-approved, Lane B)** → **Close-finalize ✓ (gates 1–8 green; 9
+  N/A)** → **Validate write-back ✓ (`/planning`)** → Report. **PR #52 squash-merged → `main` @ `eaa5875`**
+  (`--delete-branch`, no protection toggle); post-merge CI green (CI `27844771147` + CodeQL `27844771086`).
+  **/planning:** 19 EPIC-007 AC flipped `verified` (COVERAGE 68→87); EPIC-007 rolled `delivered`; **EPIC-008
+  next-ready** (Phase-2 capstone — `depends_on` EPIC-005/006/007 all ✅). **Phase-2 now 3/4 epics, 36/44 AC.**
+  Net-new platform capabilities: the **first `FileStorage` port + Azurite adapter (the platform's first
+  stored-bytes path)**, the **first `FileScanner` port (mock-first)**, the **third client-isolation RLS policy**
+  (`db/policies/0007`, `pol_Document`, HARD tier-3 — client-owned-row family now Engagement + QuestionnaireAnswer
+  + Document), the **two-phase authorize-then-sign upload + scan-before-available pipeline** (promote to `active`
+  only on clean+valid; `infected`/`indeterminate` never signable; TTL-bounded signed URLs), the **checklist read
+  model + document-step satisfaction** (zero-requests vacuously satisfied; EPIC-005 letter hard gate NOT
+  weakened), and the **ADR-019/022 audit + rate-limit caller-binding** seam split. **Panel found + fixer cleared
+  2 majors** — headlined by **M1**, a cross-tenant ownership gap in `completeUpload` (a signed-in CLIENT could
+  drive another client's pending doc through the admin-pool scan/promote state machine) → now re-asserts
+  engagement ownership before promotion + `engagementId`-scoped UPDATEs + a dedicated regression test
+  (defense-in-depth atop the `0007` RLS policy). One latent BUG-007-001 surfaced+fixed by the container-smoke
+  gate (TASK-006 testid-rename blast-radius miss in the admin e2e spec). **Docs-lane close-out:**
+  `chore/epic-007-close` (IO Close-finalize PROGRESS/RETRO-007 + /planning COVERAGE/ROADMAP/EPIC-007 write-back +
+  this STATE update + the `runs/.gitignore` `*.json` durable fix) → Lane A merge. The `PR-52-verdict.json`
+  verdict snapshot stays **local-only** (now `.gitignore`d like the `*.jsonl` gate logs). The
+  `docs/demos/EPIC-007/` gallery rode the slice PR #52. **Phase closeout: n/a (Phase 2 in progress — EPIC-008 remains).** **Next:** `/orchestrate
+  EPIC-008`.
+- **(superseded) live phase line:** Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → Implement ✓ (PR #52 opened) → Review ✓ → Fix ✓ → Merge ✓ → Close-finalize ✓ → Validate ✓.
+- **Implement ✓ (engine `/io` drove the full slice; main session = dispatch executor + git).** IO Plan (branch
+  `brief-007-initial-document-upload` off `main` @ `7d538a3`; 7 tasks; dependency chain 001/002/003 → 004 → 005
+  → 006 → 007; Data & Interface Contract expanded; design-coherence PASS) → **Dispatch 7/7 done + SDET-approved
+  + committed** (001 FileStorage port + Azurite adapter [`0a84977`]; 002 FileScanner port mock-first + bytes
+  validation [`4a6b75a`]; 003 Document/DocumentRequest models + **third client-isolation policy `0007`** [HARD
+  tier-3 15/15] [`0e34253`]; 004 two-phase authorize-then-sign upload/scan/download pipeline + checklist read
+  model + onboarding satisfaction [scan-promotion gate; `ee8232e`]; 005 admin document-request authoring UI
+  [`596c7ac`]; 006 portal upload step + ADR-019/022 caller-binding + orphan-route nav fix + cross-app e2e
+  [`68ca721`]; 007 @demo gallery [`94f5e3f`]) → **Audit CLEAN** (Overwatch, 0 blocking; 6 advisory obs) → **IO
+  design-scan PASS** → **Container Smoke** (first stored-bytes path proven end-to-end through real Azurite;
+  portal 44/44) → surfaced **BUG-007-001** (TASK-006 testid rename → stale admin e2e selectors, blast-radius
+  miss) → IO self-fixed → **re-smoke 3/3 green** [`414890f`] → **Smoke PASS** → **Validate PASS** (gate 6
+  acceptance 19/19 AC under gherkin prose-bind incl. the 3 HARD non-negotiables [per-policy isolation +
+  scan-fail-closed]; gate 7 CI `ci:local` exit 0 + **836/836 tests**; quality parity both surfaces) →
+  **Close-prep ✓** (RETRO-007 + HANDOFF-007; 8 files archived; slice → `## Awaiting PR merge`) [`94de444`].
+- **PR #52** — https://github.com/jasgr-software/tax-portal/pull/52 (OPEN; base `main`; head
+  `brief-007-initial-document-upload`; head commit `94de444`; 10 commits). **Application-code PR → reviewed lane**
+  (MERGE-POLICY Lane B: panel → fix → resolve threads → merge on green required CI, no protection toggle). The
+  out-of-slice `.orchestration/STATE.md` is NOT on this branch (Conductor docs-lane).
+- **Carried follow-ups (RETRO-007, not slice-blocking):** clock-domain `Completed-at` inversion elevated to
+  `ungated-fix` (amends `developer.md`, rides a future docs change — NOT this PR); CSP `connect-src
+  localhost:10000` env-gating; `adminDb` typed accessor (packages/db); `@demo` prior-epic PNG output-scoping;
+  pre-existing EPIC-006 `questionnaire-cross-app.spec.ts:372` flake (file unmodified this branch).
+- **Review ✓ (`/pr-review 52`).** 3-lens panel posted ONE advisory COMMENT review
+  (pullrequestreview-4534772394): verdict **request-changes** — **2 major / 5 minor / 2 nit** (9 deduped from
+  11 raw across the 3 lenses). Verdict captured to `.orchestration/runs/PR-52-verdict.json`; **fix-decision
+  gate → RUN /pr-fix** (`bin/orchestrate-gates.sh --gate fix-decision`, verdict-consistent, exit 0).
+  - **M1 (major, correctness+security) — THE HEADLINE:** `completeUploadAction`
+    (`apps/portal/src/app/onboarding/actions.ts`) promotes a **client-supplied `documentId`/`storageKey`** with
+    no ownership binding — the only authz is `checkStepAccessibility` against the caller's OWN engagement; the
+    supplied id is never bound to that engagement/caller, and `completeUpload`'s admin-pool (RLS-exempt)
+    `promotePendingToActive`/`promoteToInfected` UPDATE `WHERE id=@documentId AND status='pending'` with no
+    engagement/uploader scope. A signed-in CLIENT-A could drive CLIENT-B's pending doc through scan/promote
+    (promote, or force terminal `infected` = availability attack). The upload phase correctly re-authorizes
+    (`authorizeEngagementForUpload`); the completion phase dropped it. Plus the test-design gap: no
+    cross-owner `completeUpload` test (the action test mocks it). **Real must-fix.**
+  - **M2 (major, over-engineering):** `authorizeThenSignDownload` (`packages/db/.../document.ts`, barrel-exported)
+    has **zero production callers** (only the RLS test); no download UI/route in either app. Folds the dead
+    identical-arm ternary (`row.status==='pending'||'infected' ? 'not-active' : 'not-active'`). Judgment call —
+    the download authz path is the mechanism that *proves* the brief's AC-FILE-003-02/-03/-04 security
+    properties (no public path / authz-required / time-limited) which EPIC-007 scopes here even though the
+    download *UI* is Phase 3; the fixer will likely DISPOSITION-keep with that rationale + delete the dead
+    ternary.
+  - **Minors:** unvalidated `requestId`→engagement linkage (corr+sec m1); CSP carryovers (`unsafe-inline`/`-eval`
+    + unconditional `localhost:10000` — already a PR-body follow-up; m2); verbatim `err.message` client leakage
+    (m3); docker-compose admin storage env wired-but-unused (m4); `FileStorage` `put`/`delete`/`list` unused
+    port methods (m5). **Nits:** port-surface question (n1); `BLOB_PUBLIC_ENDPOINT` operator-provisioning
+    confirmation (n2).
+  - **CI note (NOT a code defect):** `lint-and-typecheck` red is the `validate-gates.sh → check_work_log_content`
+    process gate, not a TS/ESLint failure; `test-portal`/`test-admin`/`security-scan` green. The fixer must clear
+    the work-log gate to green the required check.
+- **Fix ✓ (`/pr-fix 52`).** Fixer addressed 9/9: **M1 (major) FIXED** — `completeUploadAction` now loads the
+  document under the caller's request-pool/FILTER (`getDocumentForOwnershipCheck`) and refuses unless
+  `document.engagementId === server-resolved engagement.id`; all three admin-pool promotion helpers
+  (`promotePendingToActive`/`promoteToInfected`/`updateSizeBytesOnPending`) now scope `UPDATE … WHERE … AND
+  engagementId=@engagementId` (defence-in-depth); `CompleteUploadInput` gains a required `engagementId`; **+
+  cross-owner regression test** in `document.upload-pipeline.rls.test.ts` (CLIENT-A cannot complete/promote
+  CLIENT-B's pending doc). **M2** — dead identical-arm ternary simplified to the literal; **download path KEPT**
+  (disposition: it is the authorize-then-sign mechanism that proves AC-FILE-003-02/-03/-04, rationale posted).
+  **m1** FIXED (verify `requestId`'s `DocumentRequest.engagementId === engagement.id` before linking; else
+  null). **m3** FIXED (log `err` server-side, generic client message). **m4** FIXED (removed unused `STORAGE_*`
+  env + `azurite` depends_on from the admin compose service). **m2** PARTIAL (env-gated `localhost:10000` out of
+  the prod CSP; `unsafe-inline`/`-eval` nonce migration = tracked follow-up). **m5/n1/n2** DISPOSITIONED
+  (FileStorage port surface = deliberate ADR-008-verbatim contract; `BLOB_PUBLIC_ENDPOINT` operator-provisioned).
+  **CI work-log gate cleared** (TASK-007-002 "Starting implementation" breadcrumb). Fixer commit `c46eb91`;
+  CI run 27843630262 GREEN (lint-and-typecheck + security-scan + test-portal + test-admin all pass).
+- **Threads resolved → conversation-resolution gate cleared.** All 10 panel threads resolved (fixer resolved
+  the 7 fixed findings; replied+resolved the 3 dispositioned). **PR #52 now `mergeStateStatus: CLEAN` /
+  `mergeable: MERGEABLE`** on head `c46eb91`. Required checks `lint-and-typecheck`+`security-scan` green; no
+  required PR reviews; 0 unresolved threads.
+- **⏸ Merge decision (Lane B, application-code reviewed lane):** `gh pr merge 52 --squash --delete-branch` on
+  green required CI, **no `--admin`/`enforce_admins` toggle**. All prior slices (EPIC-002/003/004/005/006) merged
+  **user-approved** — surfacing for approval. **On merge:** IO **Close-finalize** (gate 8 post-merge CI; gate 9
+  N/A `Brief-deploys: no`) → `/planning validate EPIC-007` write-back (flip 19 COVERAGE rows `verified`; roll
+  EPIC-007 `delivered`) → docs-lane close PR (STATE + COVERAGE/ROADMAP/EPIC-007 write-backs + this verdict
+  artifact) → final Report.
+- **Next:** Conductor **Merge/Finalize** — awaiting user merge approval for PR #52.
+
+<!-- superseded Compose-phase line retained below for the run record -->
+### EPIC-007 (Compose-phase snapshot) — started 2026-06-19
+- **Phase:** **Compose ✓ → Implement (next).** Select ✓ → Gate ✓ (GO 7/7) → Compose ✓. Fresh run (EPIC-006
+  delivered; no mid-flight run). Pinned via `/orchestrate EPIC-007`; the next-ready Phase-2 slice (its only
+  dep, EPIC-005, is `delivered`; EPIC-006 was a parallel sibling, not a dependency).
+- **Slice:** Phase-2 **step 3 of onboarding** — and the portal's **first file-storage path**. In `apps/admin`
+  the accountant authors labeled **document requests** (the engagement's checklist); in `apps/portal` the
+  client — past the EPIC-005 letter gate — sees outstanding-vs-provided items and **uploads** documents (any
+  type) to fulfill them, and the step is satisfied when the required items are provided. Because it is the
+  first slice to store client files it carries the cross-cutting file properties every later upload inherits:
+  **encrypted at rest** (adapter contract, ADR-020/008), reachable only via **time-limited signed URLs**
+  (ADR-009, no public path), **malware-scanned before available** (ADR-021, mock-first seam), and **scoped to
+  its engagement** (ADR-005). Net-new infra: the **first `FileStorage` port** (`packages/storage`, Azurite
+  adapter — already in docker-compose) and the **first `FileScanner` port** (mock-first), plus the **third
+  client-isolation RLS policy** (`db/policies/0007-*`) on the document/file rows.
+- **In-scope AC (19):** AC-ONBD-004-01/-02/-03/-04, AC-FILE-007-01/-02/-03, AC-FILE-008-01/-02/-03,
+  AC-FILE-001-02, AC-FILE-001-05, AC-FILE-002-01, AC-FILE-003-01/-02/-03/-04, AC-NFR-009-01/-02.
+- **Base branch:** main @ `7d538a3` · **Feature branch:** _(engine-created at Plan; no `*007*` branch yet)_
+- **PR:** _(none yet — engine opens at Dispatch/Close-prep)_
+- **Pre-Select hygiene:** removed a stale Conductor run artifact `.orchestration/runs/PR-50-verdict.json`
+  (a `.json` verdict snapshot from the already-delivered/merged EPIC-006 PR #50 — its dir's own `.gitignore`
+  ignores `*.jsonl` runtime logs but not `*.json`; content already narrated in this ledger). This was the lone
+  `dirty=1` flagged by `readiness:git-clean-branch-free` on the first run; not foreign WIP, not app code.
+- **Gate — GO on all 7 criteria.** Mechanical 1–4,7 + engine-clear 6 via `bin/orchestrate-gates.sh` (readiness
+  run_id `EPIC-007-20260619T113008Z` — all 5 gates PASS, exit 0 after the artifact cleanup; engine-clear
+  run_id `run-20260619T112916Z` PASS, exit 0): (1) `status: planned` ✓ (2) `open_questions: []` ✓ (3)
+  `depends_on: [EPIC-005]` delivered ✓ (4) COVERAGE has the 19 EPIC-007 rows, all `planned` ✓ (7) tree clean
+  on `main`, no `*007*` branch ✓ (6) engine clear — `## Awaiting PR merge` empty, no active bugs ✓.
+  **Criterion 5 (semantic, Conductor-owned):** all 19 AC resolve **verbatim** to testable text in the cited
+  REQ sources (AC-ONBD-004-* → REQ-ONBD-004; AC-FILE-007-* → REQ-FILE-007; AC-FILE-008-* → REQ-FILE-008;
+  AC-FILE-001-02/-05 → REQ-FILE-001; AC-FILE-002-01 → REQ-FILE-002; AC-FILE-003-* → REQ-FILE-003;
+  AC-NFR-009-* → REQ-NFR-009 — all `status: accepted`, observable/testable) and all 19 carry gherkin scenarios
+  in the epic ✓. **One legitimate scoping carry (not an invention):** AC-NFR-009-01's REQ text spans "any
+  upload path (document uploads and message attachments alike)"; the epic correctly scopes this slice to the
+  **document-upload ingress only** (message-attachment ingress → Phase 4), recorded in *Out of scope*.
+- **Compose — DONE.** Wrote `.implementation/briefs/BRIEF-007-initial-document-upload.md`: 19 AC (verbatim) +
+  gherkin bound to the epic's 19 scenarios; methodology gherkin / e2e-required (`apps/portal` + `apps/admin`);
+  extra_gates = **engagement-scoped file isolation (ADR-005, HARD tier-3 — the THIRD client-isolation policy,
+  `db/policies/0007-*`, on the document/file rows: a file in engagement A is unreadable from engagement B,
+  anonymous reads ZERO)**, **scan-before-available (ADR-021, mock-first `FileScanner` seam — malicious withheld
+  + uploader informed; indeterminate stays quarantined fail-closed)**, **signed-URL-only access (ADR-009 — no
+  public path, time-limited, authorize-then-sign)**, **encryption at rest via the adapter (ADR-020/008)**,
+  **any-file-type accepted (REQ-FILE-002)**, **upload audited (ADR-019) + rate-limited (ADR-022)**,
+  **SESSION_CONTEXT on the client upload + authz path (ADR-003)**, behind-the-EPIC-005-letter-gate,
+  cross-surface (portal + admin), container smoke. demo: yes · apps [portal, admin] · personas
+  [jane-accountant, sarah-returning-client] · flows [flow-onboarding, flow-file-exchange]. Carries a
+  `## Data & Interface Contract` (source-traced: DocumentRequest + Document/file entities, pending→active|
+  infected lifecycle, outstanding→fulfilled checklist, the FileStorage + FileScanner ports, the upload/
+  download interface contracts — field-level minutiae left to IO Design per the altitude rule).
+- **Compose carries (concrete obligations from sources + live repo state):**
+  - **First `FileStorage` port (ADR-008)** — net-new `packages/storage` with the `FileStorage` interface
+    (`put`/`getSignedUploadUrl`/`getSignedDownloadUrl`/`stat`/…); the **Azurite** local adapter (already in
+    `docker-compose` `:10000`) plugged in at startup. App imports only the interface type. Encryption at rest
+    is the **adapter's** contract (AC-FILE-003-01) — the app does not implement crypto (ADR-020 PMK v1).
+  - **First `FileScanner` port (ADR-021), mock-first** — a deterministic stub returning clean/malicious lets
+    NFR-009-01/-02 be delivered against the seam (standing mock-third-party directive); real scanner deferred.
+    Scan-before-available sits in the ADR-009 `pending`→`active` state machine: `pending`/quarantine →
+    scan + MIME/size validation → `active` (available) or terminal `infected` (withheld + uploader informed);
+    **indeterminate/scanner-down stays `pending` fail-closed** — never silently `active`.
+  - **Third client-isolation policy (ADR-005)** — new `sec` predicate + FILTER/BLOCK policy
+    (`db/policies/0007-*`) on the document/file rows, joining ownership to `SESSION_CONTEXT` via the owning
+    `Engagement`; reuse `db/policies/0005-engagement-policy.sql` as the ownership-join seam. **Mandatory tier-3
+    file-in-A-unreadable-from-B test** (anonymous reads ZERO; ACCOUNTANT can) — AC-FILE-001-05 / AC-FILE-003-02.
+  - **Two-phase upload + authorize-then-sign (ADR-009)** — upload-URL request authorizes the engagement via the
+    RLS-scoped `db` (404 on no access), inserts a `pending` `Document` (admin pool, per ADR-009 step 2d), mints
+    a TTL signed upload URL; download mints a TTL signed URL **only** for `active` docs after an authz check —
+    satisfying AC-FILE-003-02/-03/-04. No public path; the client never holds adapter credentials.
+  - **Document requests = the checklist (REQ-FILE-007/008)** — accountant authors free-text-labeled
+    `DocumentRequest` rows in `apps/admin` (mirror the `apps/admin/src/app/settings/questionnaire-templates`
+    / `letter-template` authoring pattern); the engagement's checklist is the derived outstanding-vs-fulfilled
+    view the client sees + fulfills in `apps/portal`.
+  - **Extend, don't fork, the EPIC-005 onboarding spine** — `packages/db/src/onboarding.ts` (read model +
+    server-side gate) gains the document-upload step's satisfaction (`not-satisfied → satisfied` when the
+    required checklist items are provided — AC-ONBD-004-04); the portal step plugs into
+    `apps/portal/src/app/onboarding/`. Must NOT weaken the EPIC-005 letter hard gate (the upload step stays
+    unreachable until the letter is signed) and keep sequencing server-authoritative.
+  - **Reuse** `packages/db` `withRequestContext` + `$extends` SET (ADR-003 Amendment 1: no `@read_only`);
+    `packages/auth` client/accountant identity + role gate; the EPIC-003/004 audit seam
+    (`recordAuthEvent`/`withAuditTransaction`, ADR-019) for the upload event; the EPIC-004 `RateLimiter`
+    seam (ADR-022) on the upload path; request-pool/BLOCK-governed client write pattern from EPIC-005's
+    `recordLetterSignatureAsClient` for the fail-closed client upload action.
+- **Plan-phase note for the IO:** no architecture consult needed to dispatch — all ten cited ADRs (003/005/006/
+  008/009/012/019/020/021/022) are **Accepted** with no open decision blocking (ADR-020 OD-006 resolved →
+  PMK v1; ADR-021 AV engine is a defer-but-constrain capability contract, satisfied by the mock seam). No real
+  third-party in this slice (storage = Azurite emulator; scanner = mock) — the substantive new surface is the
+  `packages/storage` port + Azurite adapter, the mock `FileScanner`, the `0007` isolation policy, and the
+  two-phase upload pipeline. **Two net-new ports + a new RLS policy + the first stored-bytes path make this the
+  largest Phase-2 slice (19 AC).**
+
+
 - **Phase:** **✅ DELIVERED** (2026-06-18). Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → **Implement ✓** →
   **PR #50** → **Review ✓** → **Fix ✓** → **Merge ✓ (user-approved, Lane B)** → **Close-finalize ✓ (gates
   1–8 green; 9 N/A)** → **Validate write-back ✓ (`/planning`)** → Report. **PR #50 squash-merged → `main` @

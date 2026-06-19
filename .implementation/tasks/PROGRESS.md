@@ -10,71 +10,30 @@
 
 ## Current initiative
 
-**BRIEF-007 / EPIC-007 — Initial document upload — checklist, secure malware-scanned file-storage path.**
-**Phase: Close-prep (COMPLETE — consistency gate PASS; 7 tasks + BUG-007-001 archived to `tasks/done/`;
-HANDOFF-007 + RETRO-007 written; slice moved to `## Awaiting PR merge`).** Prior gates: Audit (COMPLETE — 0
-blocking) → Review design scan (PASS) → Smoke (PASS — gate 5 CLEARED; BUG-007-001 CLOSED, fix committed
-`414890f`) → Validate (COMPLETE — gates 6/7/quality-audit ALL PASS 2026-06-19). **Gates 1–7 all green; gate 8
-pending post-merge; gate 9 N/A (`Brief-deploys: no`).** Branch:
-`brief-007-initial-document-upload` (off `main`
-@ `7d538a3`, created by main session). **Gated: yes** (gated paths — `packages/`, `apps/`, `prisma/`,
-`db/policies/`, `docker-compose.yml`). **Brief-type: feature · Brief-deploys: no.** **Methodology:**
-`acceptance_format: gherkin` (bind the epic's 19 scenarios — do NOT re-author), **`e2e: required`** (both
-`apps/portal` + `apps/admin` + `e2e:cross-app`), `tdd: optional`, `coverage_target: none`. **19 in-scope AC**
-(REQ-ONBD-004, REQ-FILE-007/008/001-subset/002/003, REQ-NFR-009). Largest Phase-2 slice: two net-new ports
-(`FileStorage`/ADR-008, `FileScanner`/ADR-021 mock-first) + the **third** client-isolation RLS policy
-(`db/policies/0007-*`) + the first stored-bytes path. **Delivers onboarding step 3**, on the EPIC-005 spine.
+**_No slice active._ BRIEF-007 / EPIC-007 — Initial document upload (checklist + secure, malware-scanned
+file-storage path) — DELIVERED 2026-06-19.** Merged **PR #52 → `main` @ `eaa5875`** (Lane B, user-approved,
+squash + branch-delete, no protection toggle). **Close-finalize COMPLETE:** Gate 8 (post-merge CI) ✅ GREEN —
+CI run `27844771147` `completed/success` (required `lint-and-typecheck` ✅ + `security-scan` ✅; advisory
+`test-portal`/`test-admin` ✅) + CodeQL run `27844771086` `completed/success`, both @ `eaa5875`. Gate 9 **N/A**
+(`Brief-deploys: no`, ADR-007). **Final 9-gate scorecard: gates 1–8 GREEN, gate 9 N/A.** **Zero post-merge
+bugs.** PR-review panel found + fixed **2 majors** (`c46eb91`, folded into the squash), headlined by **M1 — a
+cross-tenant ownership gap in `completeUpload`** (now re-asserts engagement ownership before promotion, with a
+dedicated regression test — defense-in-depth atop the `0007` RLS policy). Full close detail in
+`RETRO-007.md § Post-Merge Addendum`; AC ledger in `HANDOFF-007.md` (19/19 in-scope AC).
 
-**Goal:** accountant authors labeled document requests (`apps/admin`); post-letter-gate client sees the
-checklist (outstanding vs provided), uploads any-type files to fulfill (two-phase authorize-then-sign, ADR-009),
-malicious files withheld + uploader informed (scan-before-available, ADR-021); files encrypted-at-rest
-(adapter contract, ADR-020), engagement-isolated (`0007`, ADR-005), audited (ADR-019), rate-limited (ADR-022);
-the document-upload step's satisfaction wired into the EPIC-005 read model (AC-ONBD-004-04). EPIC-005 letter
-hard gate must NOT be weakened.
+**What shipped (net-new platform capabilities):** the platform's **first stored-bytes path** — first
+`FileStorage` port + Azurite adapter (ADR-008/009), first `FileScanner` port (mock-first, ADR-021), the
+**third** client-isolation RLS policy `0007` (ADR-005), the two-phase authorize-then-sign +
+scan-before-available pipeline, the checklist read model + document-step satisfaction wired into the EPIC-005
+read model (AC-ONBD-004-04), and the ADR-019/022 audit+rate-limit caller-binding (reused, not hand-rolled).
+**Delivers onboarding step 3** on the EPIC-005 spine without weakening the EPIC-005 letter hard gate.
 
-**Tasks (7) — ALL `done` + SDET-approved + committed + ARCHIVED to `tasks/done/` at Close-prep:** 001 `0a84977` ·
-002 `4a6b75a` · 003 `0e34253` · 004 `ee8232e` · 005 `596c7ac` · 006 `68ca721` · 007 `94f5e3f`. BUG-007-001
-(`414890f`) also archived. Prior-epic demo-PNG churn reverted; `.orchestration/STATE.md` deliberately NOT on the
-branch (Conductor docs-lane).
-| Task | Impl | E2e | Introduces-gate | AC covered |
-| ---- | ---- | --- | --------------- | ---------- |
-| TASK-007-001 `FileStorage` port + Azurite/Memory adapters + fail-closed select + compose/env | developer | no | no | AC-FILE-003-01 (adapter contract) |
-| TASK-007-002 `FileScanner` port (mock-first) + select + MIME/size validation helper | developer | no | no | (seam for AC-NFR-009-*, AC-FILE-002-01) |
-| TASK-007-003 DocumentRequest + Document models + `0007` RLS policy + isolation test | developer | no | **yes** | AC-FILE-008-01, AC-FILE-001-05, AC-FILE-003-02 |
-| TASK-007-004 two-phase upload/download pipeline + checklist read model + step satisfaction | developer | **yes** | **yes** | AC-FILE-001-02, AC-ONBD-004-04, AC-FILE-008-01, AC-FILE-003-01/-02/-03/-04, AC-NFR-009-01 |
-| TASK-007-005 accountant document-request authoring UI (`apps/admin`) | developer | yes | no | AC-FILE-007-01 |
-| TASK-007-006 client document-upload step + checklist + rejection (`apps/portal`) + cross-app e2e | developer | yes | no | AC-ONBD-004-01/-02/-03, AC-FILE-007-02/-03, AC-FILE-008-02/-03, AC-FILE-001-02, AC-FILE-002-01, AC-NFR-009-02 |
-| TASK-007-007 `@demo` walkthrough (authoring + upload + rejection gallery) | developer | yes | no | none (non-gating demo) |
+**Delivery state (Phase 2 — onboarding gate):** EPIC-005 (step 1) ✓ + EPIC-006 (step 2) ✓ + **EPIC-007
+(step 3) ✓ DELIVERED.** **→ NEXT READY: EPIC-008 (onboarding-completion capstone) is now UNBLOCKED** — it
+required both EPIC-006 ✓ and EPIC-007 ✓; both are delivered. EPIC-008 is the Phase-2 capstone and the next
+ready roadmap slice (`/orchestrate EPIC-008`).
 
-**Fix-forward decision (2026-06-19 — orphan-route IA gap, SDET FA-1 from TASK-007-005):** the new
-`apps/admin/.../engagements/[engagementId]/document-requests` authoring surface is an **orphan** (no nav link
-from any admin page — only reachable by typing the URL), an IA gap against the spirit of AC-FILE-007-01. **Chosen
-remedy: FOLD the admin nav-link fix into TASK-007-006** (option a) rather than a dedicated fix task — 007-006 is
-the cross-surface task and already touches both admin and the cross-app e2e, so the nav link is a natural added
-deliverable AND the cross-app e2e can assert the accountant reaches the authoring surface by **navigation, not
-URL**. Landing spot: `apps/admin/src/app/requests/[id]/page.tsx` (the accountant's post-acceptance landing
-surface; the documented link target for notifications + RequestList "View") — surface a "Document checklist /
-requests" link to the engagement's `document-requests` authoring page **once an engagement exists** for that
-request. The route choice itself was sound (documented `// DECISION:`); only the nav link is missing. Not a
-dedicated fix task (disproportionate); bound into 007-006 below.
-
-**All 19 in-scope AC are covered across the tasks; tiers match the brief's tier map.** Dependency order:
-001/002/003 are independent foundations → 004 (depends on 001+002+003) → 005 (depends on 004) → 006 (depends
-on 004+005) → 007 (depends on 005+006). **Two gate-introducing tasks** (`0007` policy in 003; scan-promotion
-gate in 004) carry mandatory three-item Gate-Authoring evidence (ENGINE.md § Gate Authoring Rules).
-
-**Design decisions recorded (slice-local, not upstream — brief delegated these to IO Design):** fulfillment =
-nullable FK `Document.documentRequestId` (not a join); all DocumentRequests required in v1 (zero-requests =
-vacuously-satisfied upload step); `Document.status` enum `pending｜active｜infected`; storage key
-`engagements/{engagementId}/documents/{documentId}/v1/{urlencoded-filename}` (ADR-009); `FileScanner` verdict
-`clean｜infected｜indeterminate`; `FileScanner` co-located in `packages/storage`; TTL caps from ADR-008.
-**No `OPEN-QUESTIONS.md` entry needed** — no genuinely-upstream/cross-cutting decision arose (ADR-008/009/021
-already fix the port shapes, state machine, TTL caps, key pattern). **Local design-coherence check: PASS.**
-
-**Delivery state (Phase 2 — onboarding gate):** EPIC-005 (step 1) + EPIC-006 (step 2) DELIVERED; **EPIC-007
-(step 3) IN PROGRESS.** EPIC-008 (onboarding completion capstone) remains blocked on EPIC-007.
-
-**Carried BRIEF-007 retro observations (Audit/Close-prep retro — do not lose):**
+**Carried BRIEF-007 retro observations (do not lose; all in `## Open retro action items` + RETRO-007):**
 1. **Clock-domain inversion family** recurred multiple times this slice (now ~7-8× project-wide across
    RETRO-002/003/004/005/006). TASK-007-007's SDET wrote a clean forward-ordered `Completed-at`; several other
    tasks carried the SDET-vs-developer clock-domain offset. **Candidate to elevate per RETRO-006 item 2** (7th+
@@ -102,36 +61,16 @@ consecutive clean slice; reset to 0 on any future parity finding).
 
 ## Awaiting PR merge
 
-**BRIEF-007 / EPIC-007 — Initial document upload (checklist + secure malware-scanned file storage).** Close-prep
-**COMPLETE 2026-06-19**; slice in PR limbo awaiting the main session to open the PR → Conductor `/pr-review` →
-`/pr-fix` → merge → IO Close-finalize (gate 8). **Branch:** `brief-007-initial-document-upload` (off `main`
-@ `7d538a3`). **Brief-type: feature · Brief-deploys: no** (gate 9 N/A). **Lane:** reviewed / Lane B
-(application code — `packages/`, `apps/`, `prisma/`, `db/policies/`, `docker-compose.yml`). **Required CI
-checks:** `lint-and-typecheck` + `security-scan`.
+_None._ **BRIEF-007 / EPIC-007 cleared PR limbo 2026-06-19** — merged **PR #52 → `main` @ `eaa5875`** (Lane B,
+user-approved); Close-finalize COMPLETE (gate 8 GREEN — CI `27844771147` + CodeQL `27844771086` both
+`completed/success` @ `eaa5875`; gate 9 N/A; zero post-merge bugs). See `## Current initiative` + `RETRO-007.md
+§ Post-Merge Addendum`.
 
-**9 commits on the branch:** plan+001 `0a84977` · 002 `4a6b75a` · 003 `0e34253` · 004 `ee8232e` · 005 `596c7ac`
-· 006 `68ca721` · 007-demo `94f5e3f` · BUG-007-001 `414890f` (the plan commit is folded with 001 per the brief's
-commit history; the 9th is BUG-007-001's fix).
-
-**Pre-merge gate verdicts (for `scripts/validate-gates.sh` before the auto-merge condition-d check):**
-1. Per-task submission — ✅ 7/7
-2. SDET Review — ✅ 7/7 (1 in-slice rejection BUG-007-001, fixed + re-approved)
-3. Overwatch Audit — ✅ CLEAN, 0 blocking
-4. IO Design scan — ✅ PASS (0 violations; orphan-route IA gap fix-forward folded into TASK-007-006)
-5. Container Smoke — ✅ PASS (first stored-bytes path proven end-to-end through real Azurite)
-6. SDET Acceptance-validation — ✅ APPROVED, 19/19 in-scope AC (gherkin prose-bind)
-7. SDET CI gate — ✅ PASS (`pnpm ci:local` EXIT 0; **57 files / 836 tests** all green)
-8. Post-merge CI — pending (Close-finalize)
-9. Post-merge staging smoke — **N/A** (`Brief-deploys: no`, ADR-007)
-
-HANDOFF-007 is the `/planning validate EPIC-007` source (19/19 AC); RETRO-007 carries the gate scorecard +
-classification.
-
-Delivered (prior): **PR #50 `e55f8c5`** (EPIC-006 — intake questionnaire, onboarding step 2), PR #48 `f879da2`
+Delivered (recent): **PR #52 `eaa5875`** (EPIC-007 — initial document upload, onboarding step 3),
+**PR #50 `e55f8c5`** (EPIC-006 — intake questionnaire, onboarding step 2), PR #48 `f879da2`
 (EPIC-005 — opens Phase 2), PR #42 `ec151cb` (EPIC-003), PR #40 `70ea10e` (EPIC-002), PR #38 `0444551`
 (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) — all merged. **Phase 1 (MVP) complete; Phase 2 (onboarding gate) open —
-EPIC-005 + EPIC-006 delivered (steps 1 + 2); EPIC-007 (step 3) in PR limbo; EPIC-008 (capstone) unblocked once
-007 merges.**
+EPIC-005 + EPIC-006 + EPIC-007 delivered (steps 1 + 2 + 3); EPIC-008 (capstone) now UNBLOCKED (next ready).**
 
 ## Active bugs
 
@@ -291,44 +230,40 @@ to Review.
 
 ---
 
-### Sweep pointer — BRIEF-007 Validate session entries archived (Close-prep transition) — 2026-06-19
-At the BRIEF-007 Validate→Close-prep phase transition, the full Validate-phase inline session history (the
-Smoke→Validate IO transition entry; SDET **Gate 6** acceptance-validation record with the 19-AC↔test
-traceability matrix + gherkin binding + the three HARD-non-negotiable real-confirmations; SDET **Gate 7** CI
-record — `pnpm ci:local` EXIT 0, 57 files / 836 tests all PASS; SDET **Quality Parity Audit** record) was
-**swept to `PROGRESS-ARCHIVE.md`** (see "Sweep marker — BRIEF-007 Validate → Close-prep transition —
-2026-06-19"). Headline: **all 3 Validate gates PASS** — Gate 6 APPROVED (19/19 in-scope AC tagged + passing at
-prescribed tiers; gherkin `.feature` files bound verbatim from the epic; HARD per-policy client-isolation +
-scan-before-available fail-closed confirmed real against the live stack); Gate 7 CI PASS (`pnpm ci:local`
-EXIT 0; **836/836 tests**; lint/type-check/build clean both surfaces); Quality parity PASS (both surfaces at
-parity; sunset 1/3). The full Gate-6 AC↔test matrix is preserved verbatim in `HANDOFF-007.md`; full per-entry
-text in git history at the 8 BRIEF-007 commits + the `tasks/done/TASK-007-*` / `tasks/done/BUG-007-001-*` files.
-Only the new IO Close-prep phase-start entry below is retained inline.
+### Sweep pointer — BRIEF-007 Close-prep session entries archived (Close-finalize transition) — 2026-06-19
+At the BRIEF-007 Close-prep→Close-finalize phase transition (slice merged: PR #52 → `eaa5875`), the
+Close-prep-phase inline session history (the Validate→Close-prep sweep pointer + the **IO Close-prep** session
+entry — consistency gate PASS; 7 TASK-007-* + BUG-007-001 archived to `tasks/done/`; HANDOFF-007 + RETRO-007
+written; slice moved to `## Awaiting PR merge`; PR title/body composed) was **swept to `PROGRESS-ARCHIVE.md`**
+(see "Sweep marker — BRIEF-007 Close-prep → Close-finalize transition — 2026-06-19"). The earlier Audit + Validate
+sweep history remains archived there too. Full per-entry text in git history at the 8 BRIEF-007 build commits +
+the panel-fix commit `c46eb91` (all folded into squash `eaa5875` / PR #52), the archived `tasks/done/TASK-007-*`
+/ `tasks/done/BUG-007-001-*` files, `HANDOFF-007.md`, and `RETRO-007.md` (now carrying the `## Post-Merge
+Addendum`). Only the new IO Close-finalize entry below is retained inline.
 
 ---
 
-### IO Close-prep — BRIEF-007 / EPIC-007 (initial document upload) — 2026-06-19
-**Start:** Validate phase **COMPLETE** — all 3 gates PASS (Gate 6 acceptance-validation APPROVED 19/19 AC under
-gherkin; Gate 7 CI `pnpm ci:local` EXIT 0, 836/836; quality parity PASS, sunset 1/3). Gates 1–7 all green.
-`## Awaiting PR merge` empty; `## Active bugs` none active (BUG-007-001 closed). Entering **Close-prep**.
-**Actions:** Ran the phase-transition reflex — swept the Validate-phase inline session history (Smoke→Validate
-IO transition + SDET Gate 6 / Gate 7 / Quality Parity records) to `PROGRESS-ARCHIVE.md` (sweep marker + pointer
-above); rewrote `## Current initiative` to **Phase: Close-prep**. **Consistency gate: PASS** — all 7 TASK-007-*
-files `done` with complete in-range metadata (`Complexity-estimate`/`-actual` all ∈ 1–5, both populated;
-`Started-at`/`Completed-at` non-empty on all 7); BUG-007-001 `closed`; no task `in-progress`/`review`/`backlog`.
-The clock-domain `Completed-at` inversions on tasks 001–004 + the BUG-007-001 midnight-sentinel close stamp are
-dispositioned to the `ungated-fix` family (fields non-empty → do not block close). **Archived** all 7 TASK-007-*
-+ BUG-007-001 to `tasks/done/`. **Wrote `HANDOFF-007.md`** (19/19 AC satisfied + evidence basis; net-new
-capabilities — first FileStorage port + Azurite adapter, first FileScanner port mock-first, the THIRD
-client-isolation policy `0007`, the two-phase authorize-then-sign + scan-before-available pipeline, the checklist
-read model + document-step satisfaction, the ADR-019/022 caller-binding seam split; carried follow-ups) — the
-source for `/planning validate EPIC-007`. **Wrote `RETRO-007.md`** (7-gate scorecard, gates 1–7 green / 8
-pending / 9 N/A; classification: BUG-007-001 `gated-path-fix` resolved on-branch; clock-domain inversion
-`ungated-fix` ELEVATED at 7th+ occurrence, off-PR amends `developer.md`; the rest observations; cross-surface
-sunset KEEP at 1/3; Rule Sunset checked). **Moved the slice to `## Awaiting PR merge`** with the branch + 9
-commits + pre-merge gate verdicts (gates 1–7 green) for `scripts/validate-gates.sh`. Added the clock-domain
-`ungated-fix` to `## Open retro action items`. **Composed the PR title + body** for the main session (reviewed
-lane / Lane B — application code). **End:** Close-prep complete; slice in PR limbo. Returning the PR title/body
-for the main session to open the PR (the IO does not run git). Next: main session opens the PR → Conductor runs
-`/pr-review` → `/pr-fix` (if needed) → resolve threads → merge on green required CI → IO Close-finalize (gate 8)
-→ `/planning validate EPIC-007`. **This invocation ends here** (PR limbo).
+### IO Close-finalize — BRIEF-007 / EPIC-007 (initial document upload) — 2026-06-19
+**Start:** Resume found the slice in `## Awaiting PR merge` → attempted **Close-finalize**. **PR #52** was
+squash-merged to `main` @ **`eaa5875`** (Lane B, user-approved; `gh pr merge 52 --squash --delete-branch`; no
+`--admin`/protection toggle; remote branch deleted; local `main` synced). The fixer's `c46eb91` (M1 cross-tenant
+`completeUpload` ownership fix + regression test + 8 other panel findings) is in the squash.
+**Actions:** **Gate 8 — post-merge CI:** located + watched both post-merge runs on `main` @ `eaa5875` to
+completion (`gh run watch --exit-status` both exit 0, confirmed at run + job level via
+`gh run view --json status,conclusion,headSha`; no blocking sleep loop, no `| tail`). **CI** run
+**`27844771147`** `completed/success` — required `lint-and-typecheck` ✅ + `security-scan` ✅; advisory
+`test-portal` ✅ + `test-admin` ✅; `report-failure` skipped. **CodeQL** run **`27844771086`**
+`completed/success`. **Gate 8 GREEN.** **Gate 9 — N/A** (`Brief-deploys: no`, ADR-007 — no staging
+environment). **Zero post-merge bugs** (no `BUG-007-POST-NNN` created). Ran the phase-transition reflex — swept
+the Close-prep-phase inline history to `PROGRESS-ARCHIVE.md` (sweep marker + pointer above); rewrote
+`## Current initiative` to **EPIC-007 DELIVERED** (with the next-ready note — EPIC-008 unblocked); **emptied
+`## Awaiting PR merge`**. **Wrote `RETRO-007.md § Post-Merge Addendum`** (merge detail PR #52 → `eaa5875` Lane B
+user-approved; gate-8 run ids + conclusions; gate-9 N/A; the final post-merge 9-gate scorecard 1–8 GREEN / 9
+N/A; zero post-merge bugs; PR-review panel/fix outcome — 2 majors incl. M1 cross-tenant `completeUpload`
+ownership gap + regression test; EPIC-008 unblocked). These `.implementation/tasks/**` edits are working-tree
+only — the main session commits them into the docs-lane close PR (the IO does not run git). The Conductor files
+(`.orchestration/STATE.md`, `.orchestration/runs/PR-52-verdict.json`) are out of IO scope — untouched.
+**End:** Close-finalize COMPLETE; BRIEF-007 / EPIC-007 **DELIVERED**. `## Current initiative` shows no active
+slice; the slice-start gate is clear (`## Awaiting PR merge` empty). **This invocation ends here.** Next: the
+Conductor runs `/planning validate EPIC-007` (consuming HANDOFF-007), ships the docs-lane close PR, and writes
+the final run report; then `/orchestrate EPIC-008` (Phase-2 capstone, now unblocked).
