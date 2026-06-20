@@ -166,6 +166,17 @@ engine + Conductor ledgers) is a **docs-only change** — ship it via the **docs
 a `chore/<slug>` PR, no panel, fast-lane-merged on green required CI. The Conductor may do this autonomously
 as the closing step.
 
+> **Snapshot the verdict log (durability).** Before the docs-lane PR, union this run's gate records from the
+> ephemeral live log into the **committed durable ledger** so the data the erosion alarm + promotion ledger
+> rest on survives across runs and machines (`design/NORTH-STAR.md` § Target end-state):
+>
+> ```bash
+> bash .orchestration/bin/orchestrate-gates.sh --gate snapshot   # gate-log.jsonl → gate-history.jsonl
+> ```
+>
+> `gate-history.jsonl` is committed (the only tracked `*.jsonl` under `runs/`); the live `gate-log.jsonl` stays
+> gitignored. Include the updated ledger in the same docs-lane PR.
+
 When the brief is `demo.applicable` (`DEMO-POLICY.md`), the **UI demo gallery** the SDET captured at
 Smoke/Validate (`docs/demos/EPIC-NNN/DEMO.md` + AC-tagged PNGs) is docs — **include it in that same
 docs-lane PR** and reference it in the run report's **UI Demo** section (path + screen count). If the brief is

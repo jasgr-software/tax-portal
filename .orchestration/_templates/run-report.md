@@ -16,6 +16,7 @@
 | Fix | <findings addressed, CI green> | skipped (clean) | <capped, last failure> |
 | Merge/Finalize | <merged SHA + finalize done> | held (<LGTM / gate>) |
 | Validate | <signed-off / incomplete / failing> — AC verified: <list> |
+| Verdict log | <n gate records snapshotted → `runs/gate-history.jsonl`> · drift: <none / `<epic|gate>` flagged> |
 
 ## UI Demo
 

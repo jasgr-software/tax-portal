@@ -27,13 +27,15 @@ deterministic sequencer (the DAG: Select → Gate → Compose → Implement → 
   ├── pure-code gates        (globs, git/CI state, structured verdicts, file-structure checks)
   ├── narrow gate-judges      (typed I/O, conservative, logged — only where judgment is genuinely first made)
   └── halt-and-escalate       (anything outside codified cases → the user)
-verdict log (.orchestration/runs/gate-log.jsonl)
-  └── contract-erosion alarm + the promotion ledger (code vs judge, per gate, per run)
+verdict log (live: runs/gate-log.jsonl, gitignored · durable: runs/gate-history.jsonl, committed)
+  ├── inputs_digest (sha256 of the raw primary-source slice) — the erosion-alarm memory
+  ├── --gate snapshot    (close-out: live → durable, idempotent union)
+  └── --gate check-drift (per-phase: flags digest change / verdict flip per (epic,gate))
 contracts-as-code
   └── build-brief validator + versioned gate input contracts; drift fails loud
 ```
 
-The verdict log is **load-bearing, so it must be durable**: "advance on data" is hollow if the data evaporates. Today it is gitignored/ephemeral and `inputs_digest` is unpopulated — the promotion ledger and the erosion alarm both lack memory. The end-state requires a committed per-run snapshot (into the run report) and a real `inputs_digest`, so a gate's verdict history survives across runs and machines (tracked as an Increment-1 follow-up; see [`INCREMENT-2-durable-contracts.md`](./INCREMENT-2-durable-contracts.md) § Out of scope).
+The verdict log is **load-bearing, so it must be durable**: "advance on data" is hollow if the data evaporates. **Landed 2026-06-20** (branch `orchestration-verdict-log-durability`): `inputs_digest` is now a real `sha256:` of the raw primary-source slice each gate read; the ephemeral live log (`gate-log.jsonl`, gitignored) is unioned at close-out into a **committed durable ledger** (`gate-history.jsonl`) via `orchestrate-gates.sh --gate snapshot`; and `--gate check-drift` reads that ledger as the now-complete erosion alarm (flags any `(epic,gate)` whose digest changed or verdict flipped). A gate's verdict history now survives across runs and machines. *(Was the Increment-1 follow-up deferred in [`INCREMENT-2-durable-contracts.md`](./INCREMENT-2-durable-contracts.md) § Out of scope.)*
 
 The implementation engine stays a **swappable backend behind the build-brief contract** (`.orchestration/seed/sources.md`); none of this couples to `.implementation` internals.
 
@@ -48,8 +50,9 @@ The implementation engine stays a **swappable backend behind the build-brief con
 | Stage | What | Status |
 | --- | --- | --- |
 | **Increment 1 — Rails** | Persist the panel's structured verdict; gate-evaluator harness over primary sources; verdict log; typed gate-judge slot (no judge built). Control flow unchanged. | **Implemented** (branch `feat/orchestration-gate-rails`, 2026-06-17; test 11/11) — see [`INCREMENT-1-gate-rails.md`](./INCREMENT-1-gate-rails.md) |
-| **Increment 2 — Durable bounded contracts** *(sequencer foundations)* | Conclusion #7 made real: bounded-ledger house rule + STATE.md/PROGRESS-ARCHIVE restructure; phase-boundary cold-start protocol; C4 backfill. Plus the verdict-log durability follow-ups (`inputs_digest`, committed snapshot). Control flow unchanged. | **In progress** (branch `orchestration-increment-2-durable-contracts`, 2026-06-19) — see [`INCREMENT-2-durable-contracts.md`](./INCREMENT-2-durable-contracts.md) |
-| **Increment 3 — Sequencer** | Deterministic sequencer takes the happy path from the agent; agent retained for halt-and-escalate cases *and* for the AC-testability gate until its judge exists. Cold-start (Inc 2) is its proving ground. | Not started |
+| **Increment 2 — Durable bounded contracts** *(sequencer foundations)* | Conclusion #7 made real: bounded-ledger house rule + STATE.md/PROGRESS-ARCHIVE restructure; phase-boundary cold-start protocol; C4 backfill. Control flow unchanged. | **Implemented** (PR #56, 2026-06-19) — see [`INCREMENT-2-durable-contracts.md`](./INCREMENT-2-durable-contracts.md) |
+| **Verdict-log durability** *(Increment-1 follow-up)* | `inputs_digest` (sha256 of the raw source slice) + committed `gate-history.jsonl` + `--gate snapshot` / `--gate check-drift`. The erosion alarm + promotion ledger now persist across runs/machines. Control flow unchanged. | **Implemented** (branch `orchestration-verdict-log-durability`, 2026-06-20) |
+| **Increment 3 — Sequencer** | Deterministic sequencer takes the happy path from the agent; agent retained for halt-and-escalate cases *and* for the AC-testability gate until its judge exists. Cold-start (Inc 2) is its proving ground. | **Next** |
 | **Increment 4 — First judge** | Build the AC-testability gate-judge against the typed slot — **deferred until the first non-verbatim AC appears** (data-starved across 4 epics; do not build speculatively). | Deferred (blocked on data) |
 | **Ongoing — Promotion** | As the log proves a gate mechanical, move it `judge → code`. As a deferred branch fires and proves stable, codify it. Default lifecycle is **code-first, judge-on-demand** (Phase 2: 0 judges, all-code gates). | Continuous |
 
@@ -58,7 +61,7 @@ The implementation engine stays a **swappable backend behind the build-brief con
 At each delivery-phase close-out (the same moment `.planning/COVERAGE.md` is signed off), score advancement against the objective and record one line in § Advancement log:
 
 1. **Did any deferred branch fire this phase?** (open `PQ` at gate, unresolvable blocker, gate deviation, non-verbatim AC.) If so — was it handled by halt-and-escalate, and does it now have enough data to codify?
-2. **What does the verdict log say?** Any gate now eligible for `judge → code` promotion? Any `inputs_digest` drift (erosion alarm) fired?
+2. **What does the verdict log say?** Run `orchestrate-gates.sh --gate check-drift` over `runs/gate-history.jsonl`. Any gate now eligible for `judge → code` promotion? Any `inputs_digest` drift / verdict flip (erosion alarm) fired?
 3. **Did the contracts hold?** Build-brief schema stable? Any handoff that dropped something the agent silently absorbed?
 4. **Next increment still the right next step?** Re-confirm or re-sequence the migration path above.
 
@@ -69,7 +72,7 @@ At each delivery-phase close-out (the same moment `.planning/COVERAGE.md` is sig
 | Phase | Date | Deferred branches fired | Promotions | Erosion alarms | Next step confirmed |
 | --- | --- | --- | --- | --- | --- |
 | Phase 1 (MVP) | 2026-06-17 | none (all AC verbatim; all `OD` pre-resolved; zero open `PQ`; 1 gate deviation EPIC-004, human-resolved) | n/a (rails not built) | n/a | Increment 1 — Rails |
-| Phase 2 (onboarding, EPIC-005/006/007) | 2026-06-19 | **2 fired, both halt-escalated as designed:** EPIC-006 `deps-delivered` FAIL (`EPIC-002(planned)` — upstream `/planning` write-back bug; fixed at source by the planning layer) and EPIC-007 stale-artifact git-clean FAIL (→ durable `runs/.gitignore` fix). AC-testability judge case still **not fired** (all AC verbatim, incl. EPIC-007's one scoping carry handled in agent prose). | none — all 44 gate records `source: code`, 0 judges; nothing eligible (mechanical gates were born as code). Default reframed to **code-first, judge-on-demand**. | none firing — but `inputs_digest` is `null` (alarm half-built) and the log is ephemeral. *Two real build gaps in INCREMENT-1 "as built."* | **Re-sequenced:** Increment 2 = durable bounded contracts (this); sequencer promoted to Inc 3; judge demoted to Inc 4 (data-starved). |
+| Phase 2 (onboarding, EPIC-005/006/007) | 2026-06-19 | **2 fired, both halt-escalated as designed:** EPIC-006 `deps-delivered` FAIL (`EPIC-002(planned)` — upstream `/planning` write-back bug; fixed at source by the planning layer) and EPIC-007 stale-artifact git-clean FAIL (→ durable `runs/.gitignore` fix). AC-testability judge case still **not fired** (all AC verbatim, incl. EPIC-007's one scoping carry handled in agent prose). | none — all 44 gate records `source: code`, 0 judges; nothing eligible (mechanical gates were born as code). Default reframed to **code-first, judge-on-demand**. | none firing. *Both INCREMENT-1 "as built" gaps now **closed** (2026-06-20): `inputs_digest` populated + log made durable (`gate-history.jsonl`) + `--gate check-drift` completes the alarm.* | **Re-sequenced:** Increment 2 = durable bounded contracts (done, PR #56); verdict-log durability done (2026-06-20); sequencer = Increment 3 (next); judge = Inc 4 (data-starved). |
 
 > **EPIC-008 (Phase-2 capstone) is paused mid-Implement** while Increment 2 lands — it will close Phase 2; this
 > row is written from the first three Phase-2 slices and will be confirmed at the EPIC-008 close-out.

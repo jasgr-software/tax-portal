@@ -70,6 +70,70 @@ else
   bad "readiness did not emit expected log records"; sed 's/^/      /' "$LOG"
 fi
 
+echo "[inputs-digest]"
+# every record carries a well-formed sha256: digest (the erosion-alarm memory)
+if grep -q '"inputs_digest":"sha256:[0-9a-f]\{64\}"' "$LOG"; then
+  ok "records carry a well-formed sha256 inputs_digest"
+else
+  bad "inputs_digest missing/malformed"; sed 's/^/      /' "$LOG"
+fi
+# deterministic: same inputs → same digest across two independent runs
+A="${TMP}/a.jsonl"; B="${TMP}/b.jsonl"
+bash "$GATES" --gate readiness --fixture-dir "$FIX/ready" --epic EPIC-900 --log "$A" >/dev/null 2>&1
+bash "$GATES" --gate readiness --fixture-dir "$FIX/ready" --epic EPIC-900 --log "$B" >/dev/null 2>&1
+dig_a="$(grep '"gate":"readiness:status-planned"' "$A" | grep -oE '"inputs_digest":"sha256:[0-9a-f]+"' | head -1)"
+dig_b="$(grep '"gate":"readiness:status-planned"' "$B" | grep -oE '"inputs_digest":"sha256:[0-9a-f]+"' | head -1)"
+if [[ -n "$dig_a" && "$dig_a" == "$dig_b" ]]; then
+  ok "same inputs reproduce the same digest (deterministic)"
+else
+  bad "digest not deterministic: '$dig_a' vs '$dig_b'"
+fi
+# change-sensitive: a different epic front-matter → a different digest
+C="${TMP}/c.jsonl"
+bash "$GATES" --gate readiness --fixture-dir "$FIX/notready" --epic EPIC-902 --log "$C" >/dev/null 2>&1
+dig_c="$(grep '"gate":"readiness:status-planned"' "$C" | grep -oE '"inputs_digest":"sha256:[0-9a-f]+"' | head -1)"
+if [[ -n "$dig_c" && "$dig_c" != "$dig_a" ]]; then
+  ok "changed source front-matter → changed digest (drift-sensitive)"
+else
+  bad "digest did not change on a different source: ready='$dig_a' notready='$dig_c'"
+fi
+
+echo "[snapshot]"
+LIVE="${TMP}/live.jsonl"; HIST="${TMP}/history.jsonl"
+cp "$A" "$LIVE"; rm -f "$HIST"
+count() { [[ -f "$1" ]] && wc -l < "$1" | tr -d ' ' || echo 0; }
+bash "$GATES" --gate snapshot --log "$LIVE" --history "$HIST" >/dev/null 2>&1
+n1="$(count "$HIST")"
+bash "$GATES" --gate snapshot --log "$LIVE" --history "$HIST" >/dev/null 2>&1   # re-run
+n2="$(count "$HIST")"
+if [[ "$n1" -gt 0 && "$n1" -eq "$n2" ]]; then
+  ok "snapshot is idempotent (re-run adds 0; ${n1} records)"
+else
+  bad "snapshot not idempotent: first=$n1 second=$n2"
+fi
+# a genuinely new live record is picked up by a later snapshot
+cat "$C" >> "$LIVE"
+bash "$GATES" --gate snapshot --log "$LIVE" --history "$HIST" >/dev/null 2>&1
+n3="$(count "$HIST")"
+if [[ "$n3" -gt "$n2" ]]; then
+  ok "snapshot unions new live records (${n2} → ${n3})"
+else
+  bad "snapshot did not pick up new records: $n2 → $n3"
+fi
+
+echo "[check-drift]"
+# clean history (one epic, consistent digests) → exit 0
+CLEAN="${TMP}/clean.jsonl"
+cat "$A" "$B" > "$CLEAN"
+run 0 "consistent history shows no drift"  -- --gate check-drift --history "$CLEAN"
+# drifted history (same epic+gate, two different digests) → exit 1
+DRIFT="${TMP}/drift.jsonl"
+{
+  printf '{"run_id":"r1","epic":"EPIC-900","gate":"readiness:deps-delivered","verdict":"pass","source":"code","inputs_digest":"sha256:aaaa","ts":"t1","evidence":{}}\n'
+  printf '{"run_id":"r2","epic":"EPIC-900","gate":"readiness:deps-delivered","verdict":"fail","source":"code","inputs_digest":"sha256:bbbb","ts":"t2","evidence":{}}\n'
+} > "$DRIFT"
+run 1 "digest+verdict drift trips the alarm" -- --gate check-drift --history "$DRIFT"
+
 echo
 echo "RESULT: ${PASS} passed, ${FAIL} failed"
 [[ "$FAIL" -eq 0 ]]

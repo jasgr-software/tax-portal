@@ -95,8 +95,11 @@ produced enough data to revise the strategy. The 44-record verdict log + the liv
 - **The AC-testability gate-judge** — Increment 4, deferred: no non-verbatim AC has appeared in four epics, so
   there is no case to validate it against. Build it reactively when one appears, per NORTH-STAR § Why #6.
 - **`inputs_digest` + a durable verdict-log snapshot** — execution follow-ups to the Increment-1 rails (the
-  erosion-alarm digest is currently `null`; the log is gitignored). May ride Track B if cheap; otherwise a
-  tracked follow-up.
+  erosion-alarm digest was `null`; the log was gitignored). **DONE 2026-06-20** (branch
+  `orchestration-verdict-log-durability`, shipped separately from this increment): `inputs_digest` is a real
+  sha256 of each gate's raw primary-source slice; the live `gate-log.jsonl` is unioned at close-out into the
+  committed `gate-history.jsonl` (`--gate snapshot`); `--gate check-drift` completes the erosion alarm. See
+  [`NORTH-STAR.md`](./NORTH-STAR.md) § Target end-state + Migration path.
 
 ## Lanes / ownership
 
