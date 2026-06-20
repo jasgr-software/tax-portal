@@ -20,7 +20,7 @@
 
 | Slice | Delivered | PR → sha | Durable record |
 | --- | --- | --- | --- |
-| **BRIEF-008 / EPIC-008** | ⏸ paused mid-Implement | (draft, `brief-008-…`) | `STATE.md` § Current run; brief; `PROGRESS.md`; TASK-008-001 @ `ae3b20c` |
+| **BRIEF-008 / EPIC-008** | ⏳ Close-prep → `## Awaiting PR merge` | #55 (draft→ready), head `06119e2` | `RETRO-008` · `HANDOFF-008` · `done/TASK-008-*`; BUG-008-001 (open, tracked) |
 | **BRIEF-007 / EPIC-007** | 2026-06-19 | #52 → `eaa5875` | `RETRO-007` · `HANDOFF-007` · `done/TASK-007-*` |
 | **BRIEF-006 / EPIC-006** | 2026-06-18 | #50 → `e55f8c5` | `RETRO-006` · `HANDOFF-006` · `done/TASK-006-*` |
 | **BRIEF-005 / EPIC-005** | 2026-06-18 | #48 → `f879da2` | `RETRO-005` · `HANDOFF-005` · `done/TASK-005-*` |
@@ -29,6 +29,15 @@
 | **BRIEF-002 / EPIC-002** | 2026-06-16 | #40 → `70ea10e` | `RETRO-002` · `HANDOFF-002` · `done/TASK-002-*` |
 | **BRIEF-001 / EPIC-001** | 2026-06-15 | #35 → `f7f6c9d` | `RETRO-001` · `HANDOFF-001` · `done/TASK-001-*` |
 | **Foundations (pre-Epic-001)** | 2026-04 | #13/#14 etc. | `done/TASK-LOE-*`, `done/BUG-000-*`; requirements/architecture batches in git history |
+
+---
+
+## Sweep pointers (one line per swept phase-block)
+
+- **BRIEF-008 Plan→Validate session entries** (IO Plan, 5× SDET Review, IO Dispatch/Audit/Review/Smoke/Validate
+  checkpoints, SDET Smoke + Acceptance-Validation gates, the TASK-008-004 escalation triage) swept at the
+  Validate→Close-prep transition (2026-06-20). Durable in `done/TASK-008-*.md`, `HANDOFF-008.md`, `RETRO-008.md`,
+  `BUG-008-001-*.md`, and `git log -p PROGRESS.md`.
 
 ---
 
