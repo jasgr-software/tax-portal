@@ -186,4 +186,47 @@ Conductor's Report phase must run the **Phase-2 closeout** (walkthrough video pe
 `docs/demos/phase-2/`) and `/planning validate EPIC-008` to flip the 8 AC `planned → verified`, roll EPIC-008
 `planned → delivered`, and close Phase 2 in ROADMAP/COVERAGE.
 
-_Post-Merge Addendum (Close-finalize gate-8 detail) appended after PR #55 merge._
+## Post-Merge Addendum (Close-finalize) — 2026-06-20
+
+PR #55 merged to `main` via **squash commit `7fe2872`** (`mergedAt 2026-06-20T11:42:14Z`; branch
+`brief-008-onboarding-completion-transition` deleted) under **MERGE-POLICY Lane B** — plain
+`gh pr merge 55 --squash --delete-branch`, **no `--admin`, no `enforce_admins`/protection toggle**. The
+conversation-resolution gate was cleared by dispositioning + resolving all **7** review threads (6 panel
+findings + 1 `github-code-quality` bot finding); `mergeStateStatus` went `BLOCKED → CLEAN` before merge.
+
+**Gate 8 — post-merge CI on `main` @ `7fe2872`: GREEN.** CI workflow run **`27870105845`**
+`completed/success` — required **`lint-and-typecheck`** ✅ + **`security-scan`** ✅ (advisory `test-portal` +
+`test-admin` ✅; `report-failure` skipped); **CodeQL** run `27870105586` `completed/success`. Both required
+checks green — gate-8 satisfied.
+
+**Gate 9 — post-merge staging smoke: N/A** (`Brief-deploys: no`, ADR-007 — production platform deferred; no
+deploy field in the brief).
+
+**POST bugs:** none surfaced post-merge. No `BUG-008-POST-NNN` created.
+
+**BUG-008-001 stays OPEN** (Azurite SAS-URL host-unreachable from the Playwright browser — pre-existing
+EPIC-007/ADR-009 infra defect, not a BRIEF-008 regression). Per the Post-Close Protocol, open bugs are not
+archived; it remains in `tasks/` as its own future infra slice. AC-ONBD-005-01 stays carried by its tier-3
+integration proof (`onboarding-completion.integration.test.ts:485`).
+
+**Carried advisory panel minors (deferred from PR #55 review, per maintainer direction 2026-06-20).** The
+panel posted APPROVE (0 blocker / 0 major / 5 minor / 1 nit; `fix_required: false`). The fix-decision gate
+routed **SKIP** (no blocker/major); the actionable minors are deferred here rather than fixed on the slice PR:
+1. **Fire-once concurrency test gap** — `onboarding-completion.integration.test.ts:507`: the fire-once test
+   exercises the `status !== 'New'` short-circuit but not the `@@ROWCOUNT`-guard concurrent path (D2). Add a
+   concurrent-completion test asserting exactly one transition + one notification. Rides the next `packages/db`
+   task that touches this suite.
+2. **Unused export `ENGAGEMENT_TRANSITION_ACTION`** — `onboarding-completion.ts:74`: exported (module + barrel)
+   with no non-test downstream consumer. Drop the export/barrel re-export, or wire its intended consumer.
+3. **Redundant `EngagementWithClient` interface + field-by-field copy** — `onboarding-completion.ts:79` (+ copy
+   at 172–180): duplicates an existing shape; collapse to the shared type.
+
+These three join `## Carry-forward to next slice` / `## Open retro action items` as non-blocking, gated-path
+candidates (the next `packages/db` task that touches `onboarding-completion.*` is the natural carrier). The
+remaining 2 panel items (synthetic-`EngagementItem` DRY tradeoff `:218` — accepted, no wrong result;
+`completionErr` server-side log `:618` + verbatim `dbError` alert `:169` — accepted/forward-looking security
+hygiene) are dispositioned-as-intended, not actioned.
+
+**Close-finalize COMPLETE.** Slice removed from `## Awaiting PR merge`. EPIC-008 delivered at the engine level;
+the Conductor owns the remaining `/planning validate EPIC-008` write-back + the Phase-2 closeout (walkthrough
+video + `docs/demos/phase-2/`).

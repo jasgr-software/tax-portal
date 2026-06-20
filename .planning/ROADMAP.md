@@ -7,6 +7,27 @@
 
 ## Status / amendment history
 
+- **2026-06-20 (EPIC-008 delivered — Phase-2 capstone ships; 🎉 PHASE 2 COMPLETE)** — the onboarding-completion
+  slice shipped (PR #55, squash merge `7fe2872`). All **8 in-scope AC** signed off `verified` in `COVERAGE.md`:
+  AC-ONBD-005-01/-02 (onboarding complete iff all three steps done; no transition while any step is unsatisfied),
+  AC-ONBD-006-01/-02/-03 (engagement auto-moves New → In Progress; no accountant input; fires exactly once,
+  idempotent under concurrency), AC-ONBD-007-01/-02 (accountant-only completion notification identifying the
+  engagement + client by name), AC-MSG-013-04 (the `onboarding_completed` notification type, dual-tagged with
+  AC-ONBD-007-01). EPIC-008 → `delivered`. **Delivered with ZERO schema migration** — behavior over existing
+  shapes (no net-new entity, column, RLS policy, or provider seam): a derived completion predicate over the three
+  existing `resolveOnboarding` `done` flags + a privileged atomic fire-once seam (`status='New'`-guarded UPDATE →
+  notification INSERT → audit, one `withAuditTransaction`) reusing the EPIC-003 `Notification` + accountant-only
+  `0004` policy + the ADR-019 audit seam. The single automatic transition in the engagement lifecycle.
+  **AC-ONBD-005-01's browser-e2e tier deferred to BUG-008-001** (pre-existing EPIC-007/ADR-009 Azurite infra
+  defect, not a regression; carried for sign-off by its tier-3 integration proof). The 3-lens PR-review panel
+  posted APPROVE (0 blocker / 0 major / 6 minor·nit after dedupe; all dispositioned non-blocking, 3 actionable
+  carried to RETRO-008). **🎉 PHASE 2 (the onboarding gate) COMPLETE — EPIC-005/006/007/008 all delivered;
+  44/44 placed Phase-2 AC verified; 95/95 placed Phase-1+2 AC verified.** A newly accepted client now signs in,
+  e-signs the letter (hard gate), completes the intake questionnaire, uploads documents against the checklist —
+  and when all three steps are done the engagement automatically moves to In Progress and the accountant is
+  notified, with no manual action. **Next:** Phase 3 (engagement lifecycle — LIFE domain) is the next phase to
+  decompose; run `/planning` to author it. **Phase-2 progress: 4/4 epics, 44/44 AC verified.**
+
 - **2026-06-19 (EPIC-007 delivered — third Phase-2 slice ships; the first secure file-storage path)** — the
   initial-document-upload slice (accountant-authored checklist + client uploads against it via the portal's
   first secure, malware-scanned, non-public file-storage path — step 3 of the onboarding sequence) shipped
@@ -224,17 +245,18 @@ checklist + secure upload (FILE, NFR malware scan). Depends on Phase 1's accept�
 | **EPIC-005** | Onboarding spine + engagement-letter e-sign gate — minimal Engagement entity (created on accept, status New), three-step sequence, the letter hard gate, editable letter template (10 AC) | `delivered` (PR #48, `f879da2`, 2026-06-18) — 10/10 in-scope AC | EPIC-003 ✅, EPIC-004 ✅ |
 | **EPIC-006** | Intake questionnaire — accountant authors per-service-type templates; client completes the matching questionnaire (7 AC) | `delivered` (PR #50, `e55f8c5`, 2026-06-18) — 7/7 in-scope AC | EPIC-005 ✅, EPIC-002 ✅ |
 | **EPIC-007** | Initial document upload — accountant defines the checklist; client uploads against it via the first secure, malware-scanned, non-public file-storage path (19 AC) | `delivered` (PR #52, `eaa5875`, 2026-06-19) — 19/19 in-scope AC | EPIC-005 ✅ |
-| **EPIC-008** | Onboarding completion — all-three-steps gate, automatic New → In Progress transition, accountant in-portal notification (8 AC, incl. AC-MSG-013-04) | `planned` — **unblocked / next-ready** (EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅) | EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅ |
+| **EPIC-008** | Onboarding completion — all-three-steps gate, automatic New → In Progress transition, accountant in-portal notification (8 AC, incl. AC-MSG-013-04) | `delivered` (PR #55, `7fe2872`, 2026-06-20) — 8/8 in-scope AC · **Phase-2 capstone** | EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅ |
 
 > **Build order:** EPIC-005 first (no Phase-2 predecessor) — **delivered 2026-06-18** (PR #48, `f879da2`).
 > EPIC-006 and EPIC-007 both build on EPIC-005's onboarding sequence and gate and are independent of each
-> other (parallelizable); EPIC-006 is now **delivered 2026-06-18** (PR #50, `e55f8c5`). EPIC-007 is the
-> **next-ready** Phase-2 slice (its `depends_on: EPIC-005` is satisfied; EPIC-006 was a parallel sibling, not
-> a dependency). EPIC-008 is the capstone — it depends on all three step-epics because onboarding completion
-> is defined over their outputs (still needs EPIC-007; EPIC-006 ✅).
+> other (parallelizable) — EPIC-006 **delivered 2026-06-18** (PR #50, `e55f8c5`), EPIC-007 **delivered
+> 2026-06-19** (PR #52, `eaa5875`). EPIC-008 is the capstone — it depends on all three step-epics because
+> onboarding completion is defined over their outputs — **delivered 2026-06-20** (PR #55, `7fe2872`).
 >
-> **Phase-2 progress (2026-06-19):** 3 of 4 epics delivered (EPIC-005, EPIC-006, EPIC-007) — **36 of 44
-> Phase-2 AC `verified`**; 8 remain `planned` (EPIC-008, the capstone). **Next:** EPIC-008.
+> **Phase-2 progress (2026-06-20): ✅ COMPLETE — 4 of 4 epics delivered (EPIC-005/006/007/008); 44 of 44
+> Phase-2 AC `verified`.** The onboarding gate works end to end: letter e-sign (hard gate) → intake
+> questionnaire → document upload → automatic New → In Progress + accountant notification. **Next:** decompose
+> **Phase 3 (engagement lifecycle, LIFE domain)** — run `/planning`.
 >
 > **Scope boundaries (this phase):** Phase 2 introduces only the *minimal* Engagement substrate (New /
 > In Progress) the gate needs — the **full four-stage lifecycle pipeline, manual transitions, and

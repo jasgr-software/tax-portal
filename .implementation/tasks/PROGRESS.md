@@ -11,18 +11,18 @@
 ## Current initiative
 
 **BRIEF-008 / EPIC-008 — Onboarding completion (gate close → automatic New→In Progress transition → accountant
-notified) — Phase: CLOSE-PREP COMPLETE → in `## Awaiting PR merge`.** Branch
-`brief-008-onboarding-completion-transition` @ head **`06119e2`** → **PR #55**
-(`https://github.com/jasgr-software/tax-portal/pull/55`). **Pre-merge gates 1–7 GREEN** (per-task 5/5; SDET
-Review 5/5; Overwatch Audit CLEAN 0-blocking; IO Design scan no-drift; Smoke PASS; SDET Acceptance-validation
-8/8 in-scope AC APPROVED; SDET CI gate run `27856606320` `completed/success`, both required checks green). Gate
-8 (post-merge CI) pending Close-finalize; gate 9 N/A (`Brief-deploys: no`). **The Phase-2 capstone — Phase 2
-(EPIC-005/006/007/008, the onboarding gate) is complete at the engine level.** HANDOFF-008 + RETRO-008 written;
-all 5 tasks archived to `tasks/done/`; BUG-008-001 OPEN (tracked non-blocking follow-up).
+notified) — DELIVERED · CLOSE-FINALIZE COMPLETE 2026-06-20.** Merged to `main` via squash commit **`7fe2872`**
+(PR #55, `https://github.com/jasgr-software/tax-portal/pull/55`; branch deleted). **All 9 gates resolved:** 1–7
+GREEN (Close-prep), **gate 8 post-merge CI GREEN** @ `7fe2872` (CI run `27870105845` + CodeQL `27870105586`
+both `completed/success`; required `lint-and-typecheck` + `security-scan` green), **gate 9 N/A** (`Brief-deploys:
+no`). 7 review threads dispositioned+resolved before merge (Lane B; no `--admin`/protection toggle). HANDOFF-008
++ RETRO-008 (incl. Post-Merge Addendum) written; all 5 tasks in `tasks/done/`; **BUG-008-001 stays OPEN** (tracked
+non-blocking infra follow-up). **The Phase-2 capstone — Phase 2 (EPIC-005/006/007/008, the onboarding gate) is
+complete at the engine level.**
 
-> **Next (main session):** `gh pr ready 55` (un-draft) + apply the de-WIP'd title/body (composed at Close-prep);
-> then **Lane B reviewed-lane** — Conductor runs `/pr-review 55` → `/pr-fix` if needed → merge on green required
-> CI (no `--admin`, no protection toggle). After merge, re-invoke `/io` for **Close-finalize**.
+> **Next (Conductor):** `/planning validate EPIC-008 with CI evidence 7fe2872` (flip 8 AC `planned → verified`,
+> roll EPIC-008 → `delivered`) → **Phase-2 closeout** (DEMO-POLICY § Part B walkthrough video + `docs/demos/phase-2/`)
+> → docs-lane sign-off PR → run report. **IO Close-finalize ends here.**
 
 > **(Prior Plan→Validate phase-status notes swept to `PROGRESS-ARCHIVE.md` § Sweep pointers at the
 > Validate→Close-prep transition. The detailed AC↔test traceability table is durable in `HANDOFF-008.md`; the
@@ -112,42 +112,27 @@ zero-finding slices (BRIEF-007 first clean; **BRIEF-008 Audit CLEAN — both sur
 
 ## Awaiting PR merge
 
-**BRIEF-008 / EPIC-008 — Onboarding completion (Phase-2 capstone) — IN PR LIMBO (Close-prep complete
-2026-06-20).** Branch `brief-008-onboarding-completion-transition` @ head **`06119e2`** →
-**PR #55** (`https://github.com/jasgr-software/tax-portal/pull/55`). **Brief-type:** feature · **Brief-deploys:**
-no.
+_Empty — no slice in PR limbo._
 
-- **Pre-merge gate scorecard (1–7 GREEN):** (1) per-task submission 5/5; (2) SDET Review 5/5 (zero in-slice
-  rejections; the TASK-008-004 escalation dispositioned as BUG-008-001, not a rejection); (3) Overwatch Audit
-  CLEAN, 0 blocking; (4) IO Design scan PASS — no drift (honors Scope/Out-of-scope/ADR-003/005/006/012/019 +
-  the full D1–D6 contract); (5) Container Smoke PASS (zero BRIEF-008 failures on the live stack); (6) SDET
-  Acceptance-validation APPROVED — 8/8 in-scope AC (AC-ONBD-005-01 carried by tier-3 per BUG-008-001;
-  ADR-005 §6 read-boundary CONFIRMED); (7) SDET CI gate — run **`27856606320`** (pull_request) @ head
-  `06119e2` `completed/success`, both required checks green (`lint-and-typecheck` + `security-scan`; advisory
-  `test-portal` + `test-admin` green). (8) Post-merge CI — pending Close-finalize. (9) Post-merge staging smoke
-  — **N/A** (`Brief-deploys: no`).
-- **Tracked non-blocking follow-up:** BUG-008-001 (Azurite SAS-URL host-unreachable — pre-existing
-  EPIC-007/ADR-009 infra defect; AC-ONBD-005-01 browser-e2e tier deferred to it, carried by its tier-3 proof).
-- **Records:** `HANDOFF-008.md` (AC ledger / what-shipped), `RETRO-008.md` (9-gate scorecard + findings),
-  `done/TASK-008-001..005`.
-- **Phase-2 capstone:** EPIC-008 completes Phase 2 (the onboarding gate — EPIC-005/006/007/008) at the engine
-  level. Conductor Report phase runs the Phase-2 closeout (DEMO-POLICY § Part B video; `docs/demos/phase-2/`) +
-  `/planning validate EPIC-008`.
-- **Next (main session / Conductor):** `gh pr ready 55` + apply the de-WIP'd title/body → **Lane B reviewed
-  lane** (`/pr-review 55` → `/pr-fix` if needed → merge on green required CI; no `--admin`, no protection
-  toggle) → re-invoke `/io` for **Close-finalize** (gate 8 post-merge CI; gate 9 N/A; archive BUG-008-001 if no
-  POST bug surfaces; Post-Merge Addendum → RETRO-008).
+_Prior limbo cleared:_ **BRIEF-008 / EPIC-008** (Phase-2 capstone) merged **PR #55 → `main` @ `7fe2872`**
+(Lane B; 7 review threads dispositioned+resolved; no `--admin`/protection toggle); **Close-finalize COMPLETE
+2026-06-20** (gate 8 GREEN — CI `27870105845` + CodeQL `27870105586` both `completed/success` @ `7fe2872`,
+required `lint-and-typecheck` + `security-scan` green; gate 9 N/A `Brief-deploys: no`; zero post-merge bugs;
+BUG-008-001 stays OPEN). See `RETRO-008.md § Post-Merge Addendum`. **Remaining (Conductor-owned):**
+`/planning validate EPIC-008 with CI evidence 7fe2872` + the Phase-2 closeout.
 
 _Prior limbo cleared:_ **BRIEF-007 / EPIC-007** merged **PR #52 → `main` @ `eaa5875`** (Lane B, user-approved);
 Close-finalize COMPLETE (gate 8 GREEN — CI `27844771147` + CodeQL `27844771086` both `completed/success` @
 `eaa5875`; gate 9 N/A; zero post-merge bugs). See `RETRO-007.md § Post-Merge Addendum`.
 
-Delivered (recent): **PR #52 `eaa5875`** (EPIC-007 — initial document upload, onboarding step 3),
+Delivered (recent): **PR #55 `7fe2872`** (EPIC-008 — onboarding completion / New→In Progress transition,
+Phase-2 capstone), **PR #52 `eaa5875`** (EPIC-007 — initial document upload, onboarding step 3),
 **PR #50 `e55f8c5`** (EPIC-006 — intake questionnaire, onboarding step 2), PR #48 `f879da2`
 (EPIC-005 — opens Phase 2), PR #42 `ec151cb` (EPIC-003), PR #40 `70ea10e` (EPIC-002), PR #38 `0444551`
 (EPIC-004), PR #35 `f7f6c9d` (EPIC-001) — all merged. **Phase 1 (MVP) complete; Phase 2 (onboarding gate) —
-EPIC-005 + EPIC-006 + EPIC-007 delivered (steps 1 + 2 + 3); EPIC-008 (capstone) in PR limbo @ PR #55 — Phase 2
-complete at the engine level pending merge.**
+EPIC-005 + EPIC-006 + EPIC-007 + EPIC-008 all delivered at the engine level (steps 1 + 2 + 3 + completion
+capstone); Phase 2 complete at the engine level. Conductor-owned closeout remaining: `/planning validate
+EPIC-008` write-back + Phase-2 walkthrough video.**
 
 ## Active bugs
 
@@ -285,6 +270,16 @@ No active `BUG-002-POST-*` / `BUG-004-POST-*`.
   `Updated-by`-staleness finding (RETRO-008 item 1a):** all 5 BRIEF-008 tasks were left `Updated-by:
   webapp-developer`, not flipped to `sdet` on the atomic close — the same close-edit fix should set
   `Updated-by: sdet` alongside the `Completed-at` write.
+- **[gated-path candidates — PR #55 panel minors, deferred 2026-06-20] 3 advisory `onboarding-completion.*`
+  cleanups** — carried from the PR #55 review (panel APPROVE; fix-decision SKIP). Ride the next `packages/db`
+  task that touches `onboarding-completion.*`: (1) **fire-once concurrency test gap**
+  (`onboarding-completion.integration.test.ts:507` — the test covers the `status !== 'New'` short-circuit but
+  not the `@@ROWCOUNT`-guard concurrent path; add a concurrent-completion test asserting exactly one transition
+  + one notification); (2) **unused export `ENGAGEMENT_TRANSITION_ACTION`** (`onboarding-completion.ts:74` —
+  drop the export/barrel re-export or wire its consumer); (3) **redundant `EngagementWithClient` interface +
+  field-by-field copy** (`onboarding-completion.ts:79` + copy 172–180 — collapse to the shared type). Full
+  detail + the 2 dispositioned-as-intended items in `RETRO-008.md § Post-Merge Addendum`. (Observation — no
+  gate failure; not slice-blocking.)
 - **[gate-design — RETRO-008 item 3, observation] `check_work_log_content` wording brittleness +
   late-firing-on-`done`** — `scripts/validate-gates.sh`'s literal `"Starting implementation"` substring grep
   rejected TASK-008-002's truthful synonym "Starting TDD" (fixed at gate-7 by the IO `Impl: io` mechanical

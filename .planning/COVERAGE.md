@@ -26,8 +26,8 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-006 (intake questionnaire) | 7 |
 | &nbsp;&nbsp;— EPIC-007 (initial document upload) | 19 |
 | &nbsp;&nbsp;— EPIC-008 (onboarding completion → In Progress) | 8 |
-| AC `verified` (signed off) | **87** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ EPIC-005 (10, 2026-06-18) + EPIC-006 (7, 2026-06-18) + EPIC-007 (19, 2026-06-19)** — the first three Phase-2 onboarding-gate slices. |
-| AC still `planned` (placed, not yet verified) | **8 — the remaining Phase-2 onboarding-gate set** (EPIC-008 8, the capstone); EPIC-005's 10 + EPIC-006's 7 + EPIC-007's 19 now `verified` |
+| AC `verified` (signed off) | **95** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10, 2026-06-18 · EPIC-006 7, 2026-06-18 · EPIC-007 19, 2026-06-19 · **EPIC-008 8, 2026-06-20** — the capstone). **Phase 2 (the onboarding gate) complete.** |
+| AC still `planned` (placed, not yet verified) | **0** — every placed Phase-1 + Phase-2 AC is `verified`. |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -108,6 +108,45 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > regression test). **EPIC-008 (onboarding completion → automatic New→In Progress + accountant notification) is
 > the next-ready Phase-2 slice** — its `depends_on` (EPIC-005 ✅, EPIC-006 ✅, EPIC-007 ✅) is fully satisfied;
 > it is the **Phase-2 capstone**.
+>
+> **EPIC-008 (8 AC) signed off 2026-06-20** — the onboarding-completion slice (when an engagement's three
+> onboarding steps are all satisfied, the **system** marks onboarding complete, **automatically transitions the
+> engagement New → In Progress** — the single automatic transition in the lifecycle — and emits an
+> **accountant-only in-portal notification** identifying the engagement + client) shipped (PR #55, squash merge
+> `7fe2872`); see basis note [A]. **The Phase-2 capstone — fourth and final Phase-2 slice delivered.** All 8
+> in-scope AC verified: AC-ONBD-005-01/-02 (onboarding complete when all three steps done / stays incomplete and
+> no transition when any step is unsatisfied), AC-ONBD-006-01/-02/-03 (engagement moves to In Progress / the
+> transition is automatic with no accountant input / it fires exactly once, idempotent under concurrency via the
+> `@@ROWCOUNT`-guarded `status='New'` precondition), AC-ONBD-007-01/-02 (accountant-only completion notification /
+> identifying engagement + client by name), and AC-MSG-013-04 (the onboarding-completed notification type —
+> dual-tagged with AC-ONBD-007-01, pulled forward from Phase 4 since onboarding completion is built here). Net
+> result: **ZERO schema migration** — delivered as behavior over existing shapes (no net-new entity, column, RLS
+> policy, or provider seam): a derived completion predicate over the three existing `resolveOnboarding` `done`
+> flags + a privileged atomic fire-once seam (`status` UPDATE → notification INSERT → audit, one
+> `withAuditTransaction`) reusing the EPIC-003 `Notification` entity + the accountant-only `0004` policy + the
+> ADR-019 audit seam. **AC-ONBD-005-01's browser-e2e tier is deferred to BUG-008-001** (pre-existing
+> EPIC-007/ADR-009 Azurite SAS-URL host-unreachable infra defect — NOT a BRIEF-008 regression; its own future
+> infra slice) and is **carried for sign-off by its tier-3 integration proof** (`onboarding-completion.integration.test.ts:485`,
+> real container). **This completes Phase 2 (the onboarding gate): EPIC-005/006/007/008 all delivered — 44/44
+> placed Phase-2 AC verified; 95/95 placed Phase-1+2 AC verified.** Phase 3 (engagement lifecycle) is the next
+> roadmap phase to decompose.
+>
+> **[A] applied to the EPIC-008 sign-off (2026-06-20).** Same user-accepted CI-as-the-gate basis as
+> EPIC-001/002/003/004/005/006/007 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007
+> staging gate does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on the
+> PR #55 head `a88f31e` (plus advisory `test-portal` ✅ + `test-admin` ✅) **and** on the post-merge `main` run at
+> `7fe2872` — **CI** run `27870105845` (`lint-and-typecheck` ✅ / `security-scan` ✅ / `test-portal` ✅ /
+> `test-admin` ✅) + **CodeQL** run `27870105586` ✅. Each of the 8 in-scope AC has automated test(s) tagged with
+> its AC id, validated by the implementation engine's SDET acceptance-validation gate (Gate 6 APPROVED
+> 2026-06-20T05:30:00Z) under the **mandated gherkin methodology** (prose-bind, each scenario text ↔ test
+> assertion confirmed — see `.implementation/tasks/HANDOFF-008.md` for the per-AC tier/evidence map), exercised
+> at dev time against the real container stack: tier-2 predicate truth table, **tier-3 integration against the
+> real SQL Server container** (fire-once transition+notification+audit atomicity 14/14, incl. the accountant-only
+> read re-confirmed REAL — ACCOUNTANT reads ≥1 / CLIENT + null SESSION_CONTEXT read 0, ADR-005 §6), tier-5
+> component (`NotificationsIndicator` / `engagement-status`), and tier-6 e2e on the full docker-compose stack
+> (admin In-Progress + notification, portal negative path, cross-app, security fail-closed). The same
+> per-PR-CI-tier follow-up tracked for EPIC-001 applies here. The 6 advisory PR-review panel minors/nit are
+> dispositioned non-blocking (3 carried to `RETRO-008 § Post-Merge Addendum`); none affect AC sign-off.
 >
 > **[A] applied to the EPIC-006 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
 > EPIC-001/002/003/004/005 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging
@@ -267,14 +306,14 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-FILE-003 | AC-FILE-003-04 | EPIC-007 | 2 | `AC-FILE-003-04` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 TTL-bounded signed URL |
 | REQ-NFR-009 | AC-NFR-009-01 | EPIC-007 | 2 | `AC-NFR-009-01` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 indeterminate→stays-pending (fail-closed) |
 | REQ-NFR-009 | AC-NFR-009-02 | EPIC-007 | 2 | `AC-NFR-009-02` | verified | [A] PR#52 `eaa5875` / CI 27844771147 — tier-3 infected→withheld + e2e rejection banner |
-| REQ-ONBD-005 | AC-ONBD-005-01 | EPIC-008 | 2 | `AC-ONBD-005-01` | planned | — |
-| REQ-ONBD-005 | AC-ONBD-005-02 | EPIC-008 | 2 | `AC-ONBD-005-02` | planned | — |
-| REQ-ONBD-006 | AC-ONBD-006-01 | EPIC-008 | 2 | `AC-ONBD-006-01` | planned | — |
-| REQ-ONBD-006 | AC-ONBD-006-02 | EPIC-008 | 2 | `AC-ONBD-006-02` | planned | — |
-| REQ-ONBD-006 | AC-ONBD-006-03 | EPIC-008 | 2 | `AC-ONBD-006-03` | planned | — |
-| REQ-ONBD-007 | AC-ONBD-007-01 | EPIC-008 | 2 | `AC-ONBD-007-01` | planned | — |
-| REQ-ONBD-007 | AC-ONBD-007-02 | EPIC-008 | 2 | `AC-ONBD-007-02` | planned | — |
-| REQ-MSG-013 | AC-MSG-013-04 | EPIC-008 | 2 | `AC-MSG-013-04` | planned | — |
+| REQ-ONBD-005 | AC-ONBD-005-01 | EPIC-008 | 2 | `AC-ONBD-005-01` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-2 `predicate.test.ts:64` + tier-3 `integration.test.ts:485` (real container); **browser-e2e tier deferred to BUG-008-001**, carried by tier-3 |
+| REQ-ONBD-005 | AC-ONBD-005-02 | EPIC-008 | 2 | `AC-ONBD-005-02` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-2 predicate single-unsatisfied + tier-3 `integration.test.ts:396/429/456` (no transition, zero notif) + portal e2e negative path |
+| REQ-ONBD-006 | AC-ONBD-006-01 | EPIC-008 | 2 | `AC-ONBD-006-01` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-3 `integration.test.ts:374` + admin `engagement-status.test.ts:100/114` + admin e2e `:408` (In Progress) |
+| REQ-ONBD-006 | AC-ONBD-006-02 | EPIC-008 | 2 | `AC-ONBD-006-02` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-3 `integration.test.ts:374` (no accountant input) + admin e2e `:408` (transition without manual action) |
+| REQ-ONBD-006 | AC-ONBD-006-03 | EPIC-008 | 2 | `AC-ONBD-006-03` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-3 fire-once `integration.test.ts:507/542` (notif=1, audit=1; already-In-Progress no-op) + portal negative e2e |
+| REQ-ONBD-007 | AC-ONBD-007-01 | EPIC-008 | 2 | `AC-ONBD-007-01` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-3 `integration.test.ts:597/639/653/666` (accountant-only read, ADR-005 §6) + component `NotificationsIndicator.test.tsx` + admin e2e `:429` |
+| REQ-ONBD-007 | AC-ONBD-007-02 | EPIC-008 | 2 | `AC-ONBD-007-02` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-3 `integration.test.ts:615` (client name in title/body) + component `:126/137` + admin e2e `:453` |
+| REQ-MSG-013 | AC-MSG-013-04 | EPIC-008 | 2 | `AC-MSG-013-04` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — dual-tagged with AC-ONBD-007-01 at tier-3 `integration.test.ts:597` + component `:76` + admin e2e `:391` |
 
 ## Split requirements
 

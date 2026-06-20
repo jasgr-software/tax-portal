@@ -2,7 +2,7 @@
 id: EPIC-008
 title: Onboarding completion — gate close, auto-transition to In Progress, accountant notified
 phase: 2
-status: planned
+status: delivered
 slice: When all three onboarding steps are satisfied, onboarding is marked complete, the engagement automatically transitions New → In Progress, and the accountant is notified in-portal.
 requirements:
   - REQ-ONBD-005: [AC-ONBD-005-01, AC-ONBD-005-02]
