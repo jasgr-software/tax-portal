@@ -4,9 +4,18 @@
 # (`*.json` added 2026-06-19 — the per-PR `PR-<N>-verdict.json` snapshots are
 #  local-only like the `*.jsonl` gate logs; prevents stale-artifact dirty-tree
 #  friction at the next run's readiness gate.)
+# (`*.txt`/`*.graphql` added 2026-06-20 — scratch from gh GraphQL thread-resolve
+#  steps during /pr-fix; same local-only runtime-artifact class.)
 *.jsonl
 *.json
+*.txt
+*.graphql
 
-# Keep the directory and its schema doc tracked.
+# Keep the directory, its schema doc, and the DURABLE verdict-log ledger tracked.
+# gate-history.jsonl is the committed, cross-machine record the erosion alarm +
+# promotion ledger read ("advance on data" needs the data to survive); the live
+# gate-log.jsonl stays ignored. The snapshot step (orchestrate-gates.sh --gate
+# snapshot) unions the live log into it at close-out.
 !.gitignore
 !README.md
+!gate-history.jsonl
