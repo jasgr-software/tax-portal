@@ -33,6 +33,15 @@ Each phase has one observable exit condition (`PHASES.md`). Update `STATE.md` at
 inner stop fires (engine killswitch, Docker gate, carve-out, workflow-file LGTM, fixer cap), record it,
 report it, and STOP at that phase** — never work around a guardrail.
 
+> **Deterministic sequencer (Increment 3 — see `design/NORTH-STAR.md` + `design/INCREMENT-3-sequencer.md`).**
+> This DAG is driven by `bin/sequence.sh`, a **yield-and-resume** state machine: it runs the mechanical nodes
+> itself (Select, Gate via the rails, Fix-route, Report-snapshot) and **emits a typed next-action + exits 10**
+> at each semantic node — you (the agent) execute that one command, record the result with
+> `bin/sequence.sh --set <key>=<val>`, and the machine cold-starts from the `<!-- conductor-state/v1 -->` block
+> in `STATE.md` and advances. Defer-to-inner-stop is `bin/sequence.sh --halt "<reason>"`; `--status` shows the
+> current phase. The machine halt-escalates the AC-testability gate and every Stop/defer branch to you — it
+> never relaxes a gate. The phase prose below is the per-node spec the yields point you at.
+
 > **Phase-boundary cold-start (NORTH-STAR conclusion #7).** At each phase transition, **compact**: re-derive the
 > next phase's inputs from `STATE.md` (`## Current run`) + the primary sources (the brief, `ROADMAP`/`COVERAGE`,
 > `PROGRESS.md`, the PR, the verdict log) — not from accumulated conversation context. A phase that **cannot**
