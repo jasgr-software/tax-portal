@@ -13,6 +13,27 @@
 **BRIEF-008 / EPIC-008 — Onboarding completion (gate close → automatic New→In Progress transition → accountant
 notified) — Phase: DISPATCH.** Branch `brief-008-onboarding-completion-transition` (off `main` @ `d49c984`).
 
+> **Task status (2026-06-20, Dispatch — 001/002/003/004 done+committed; BUG-008-001 filed; 005 @demo
+> implemented → routed to SDET review):** TASK-008-001/002/003 **`done`+committed**. **TASK-008-004 `done`** —
+> SDET **APPROVED-WITH-DISPOSITION** (2026-06-20T01:15:00Z); main session committed the 3 e2e/cross-app specs +
+> `scripts/e2e-cross-app.sh` + close. The env-blocked upload-delivery e2e tier was dispositioned as
+> **BUG-008-001** (pre-existing EPIC-007/ADR-009 infra defect, NOT a regression — now filed & tracked; does NOT
+> block merge; AC-ONBD-005-01 carried by its tier-3 proof). **TASK-008-005 `review`** — developer completed the
+> @demo gallery (the final task in the chain; `Impl: developer`, `E2e-required: no`, non-gating per
+> DEMO-POLICY): `apps/{admin,portal}/e2e/demo/onboarding-completion.demo.spec.ts` (both `@demo`-tagged, output
+> scoped to `docs/demos/EPIC-008/`) + 3 AC-tagged PNGs (01 admin In Progress / 02 admin onboarding_completed
+> notif / 03 portal pre-completion state) + `DEMO.md`. **Portal positive-completion screen NOT captured** —
+> honestly noted as a "KNOWN GAP — BUG-008-001" in DEMO.md (no faking/mocking). Gates: lint 0, type-check 0,
+> build clean, portal 172, admin 246; EPIC-008 demo tests PASSED on both surfaces. `Complexity-actual: 2`;
+> `Completed-at` blank. **Main session already reverted the prior-epic PNG churn (EPIC-001..007)** — `git
+> status` confirms the tree holds ONLY EPIC-008 artifacts (2 demo specs + 3 PNGs + DEMO.md) + task/PROGRESS +
+> BUG-008-001. **SDET dispatch composed** (non-gating @demo review: scope discipline / tree-clean-of-prior-epoch
+> confirmation, truthfulness/no-fake, AC-tag+convention, `@demo` isolation from `e2e:run`, metadata gate).
+> **Resume:** on the SDET 005 result inline — APPROVE → main session commits 005 → this is the **LAST** task in
+> the chain → **Review phase** (design scan over the integrated diff vs. the brief) → Smoke → Validate →
+> Close-prep; REJECT → IO routes the enumerated fixes back to the `[webapp-developer]`.
+> **(Superseded task-status note from the prior 004-dispatch checkpoint follows for history.)**
+>
 > **Task status (2026-06-19, Dispatch — 001/002/003 done+committed; dispatching 004 e2e):** TASK-008-001
 > **`done`** (SDET-APPROVED 22:11:00Z; committed `bac39eb`, code `ae3b20c`). TASK-008-002 **`done`**
 > (SDET-APPROVED 17:17:00Z; committed `f443307`; `Complexity-actual: 1`). TASK-008-003 **`done`**
@@ -144,7 +165,25 @@ EPIC-005 + EPIC-006 + EPIC-007 delivered (steps 1 + 2 + 3); EPIC-008 (capstone) 
 
 ## Active bugs
 
-_None active._ **BUG-007-001 (BRIEF-007) — admin e2e `document-requests.spec.ts` stale data-testid selectors —
+**BUG-008-001 (BRIEF-008, surfaced at TASK-008-004 e2e gate) — Azurite SAS-URL PUT host-unreachable from the
+Playwright browser process — OPEN, tracked follow-up (does NOT block this slice's merge).** File:
+`.implementation/tasks/BUG-008-001-azurite-sas-url-host-unreachable-from-playwright-browser.md`.
+**Classification: pre-existing INFRA defect, EPIC-007-originated (ADR-009 two-phase upload pipeline), NOT a
+BRIEF-008 regression** — SDET-established three ways at the 004 gate (2026-06-20T01:15:00Z): (B) EPIC-007 upload
+specs byte-identical to `main` via `git diff origin/main...HEAD` (empty), no BRIEF-008 code in the
+upload-delivery path (`completeUploadAction` body unchanged), and the 4 EPIC-007 upload specs reproduce the
+failure with the three 004 specs stashed out of the tree; (C) `docker compose logs azurite` shows ZERO
+host-driven blob PUTs land — the SAS URL is signed against the container-internal Azurite address, unreachable
+from the host Playwright Chromium under the `:10000`/port-remap topology. **Affected:** AC-ONBD-005-01 portal
+positive path + the EPIC-008 cross-app spec + 4 committed EPIC-007 upload specs (`document-upload.spec.ts`
+22–24, `document-upload-cross-app.spec.ts` 18). **Disposition:** tracked follow-up, NOT slice-blocking — e2e is
+not a per-PR required CI check (CLAUDE.md; required = `lint-and-typecheck` + `security-scan`), and
+**AC-ONBD-005-01 is carried for slice Validate by its tier-3 integration proof**
+(`onboarding-completion.integration.test.ts:485`, real container, part of TASK-008-001's 14/14). **Do NOT fix
+the upload pipeline in BRIEF-008** — out of slice scope; its own future infra slice (EPIC-007/ADR-009 concern).
+Carried to RETRO-008 + Validate-disposition.
+
+_BUG-007-001 (BRIEF-007) — admin e2e `document-requests.spec.ts` stale data-testid selectors —
 CLOSED** (SDET-approved 2026-06-19; fix committed `414890f`; re-smoke 3/3 green; no production code changed) and
 **archived to `tasks/done/` at Close-prep**; its fix rides the BRIEF-007 PR (classified `gated-path-fix` in
 RETRO-007 item 1). File: `tasks/done/BUG-007-001-admin-e2e-document-requests-stale-testids.md`. The SDET's
@@ -570,6 +609,125 @@ On a developer-side Docker-unavailable STOP: the IO defers the e2e and surfaces 
 - **Atomic close edit: PERFORMED.** SDET Review box ticked, Decision: approved-with-disposition, comprehensive notes + B/C evidence, approval breadcrumb appended to Work Log, `Completed-at: 2026-06-20T01:15:00Z`, `Status: done`.
 - **Upload-pipeline defect disposition:** classified as **BUG-008-001** (pre-existing EPIC-007-owned Azurite/browser-PUT environment defect; not a BRIEF-008 regression). IO to file. AC-ONBD-005-01 browser-e2e tier deferred to BUG-008-001; tier-3 proof carries it for Validate.
 **End:** **TASK-008-004 APPROVED-WITH-DISPOSITION.** TASK-008-005 (@demo) is now unblocked (gated behind 004). Main session should commit 004 code + close edit; IO files BUG-008-001; IO dispatches TASK-008-005.
+
+---
+
+### IO Dispatch (TASK-008-004 approved+committed; BUG-008-001 filed; dispatching TASK-008-005 — @demo gallery) — BRIEF-008 / EPIC-008 — 2026-06-20
+**Start:** Re-invoked with the SDET TASK-008-004 result inline: **APPROVED-WITH-DISPOSITION**
+(2026-06-20T01:15:00Z). SDET independently established (not on the developer's word): **(B) pre-existing** —
+EPIC-007 upload specs byte-identical to `main` (`git diff origin/main...HEAD` empty), no BRIEF-008 code in the
+upload-delivery path (`completeUploadAction` body unchanged; only the +18-line best-effort
+`processOnboardingCompletion` try/catch appended after the success/revalidate path), and the 4 EPIC-007 upload
+failures reproduced with the three 004 specs stashed out of the tree; **(C) environment** — `docker compose
+logs azurite` shows ZERO host-driven blob PUTs land (SAS URL signed against the container-internal Azurite
+address, unreachable from the host Playwright Chromium under the `:10000`/port-remap topology); **(D) review
+clean** — zero production code in the diff, the 4 admin-spec schema fixes correct, 8 gherkin scenarios bound
+verbatim + AC-tagged, 3× flake-clean on the passing specs (admin EPIC-008 4/4 ×3, portal negative + security),
+AC-ONBD-005-01 proven at tier-3 (`onboarding-completion.integration.test.ts:485`, part of 001's 14/14), lint +
+type-check clean, metadata clean (`Complexity-actual: 4`). **Main session committed TASK-008-004** (3 specs +
+`scripts/e2e-cross-app.sh` + close). Tasks 001–004 now `done` + committed.
+**Actions:**
+- **Filed BUG-008-001** —
+  `.implementation/tasks/BUG-008-001-azurite-sas-url-host-unreachable-from-playwright-browser.md`: the
+  pre-existing Azurite host-PUT networking defect, per the SDET disposition. Captured the B+C evidence, the
+  affected specs (AC-ONBD-005-01 portal positive, EPIC-008 cross-app, + the 4 EPIC-007 upload specs), the root
+  cause (SAS URL signed against the container-internal Azurite address, unreachable from the host Playwright
+  browser under the `:10000`/port-remap topology), classification = **pre-existing INFRA defect,
+  EPIC-007-originated, NOT a BRIEF-008 regression**, and that **AC-ONBD-005-01 is carried for slice Validate by
+  its tier-3 integration proof**. **Disposition: tracked follow-up — does NOT block this slice's merge** (e2e
+  is not a per-PR required CI check; required = `lint-and-typecheck` + `security-scan`). Recorded in
+  `## Active bugs` with this disposition. **The upload pipeline is NOT fixed in BRIEF-008** — out of slice
+  scope; its own future infra slice.
+- Read the TASK-008-005 spec + `.orchestration/DEMO-POLICY.md`. The brief is `demo.applicable: yes` (apps
+  [portal, admin]; personas [jane-accountant, sarah-returning-client]; flow [flow-onboarding]). DEMO-POLICY
+  Part A: `@demo`-tagged Playwright spec against the **live container stack**, writes AC-tagged PNGs +
+  `DEMO.md` to `docs/demos/EPIC-008/` only; `e2e:run`/`e2e:smoke` exclude `@demo`; a separate `e2e:demo` runs
+  only `@demo`. Non-gating (the e2e gate is TASK-008-004).
+- **Composed the TASK-008-005 developer dispatch** (`[webapp-developer]`, `Impl: developer`,
+  `E2e-required: no`) with: which AC-tagged screens to capture (the completion observables that DID pass — admin
+  In Progress status + the `onboarding_completed` notification; the portal onboarding-completion state to the
+  extent the env allows); the `docs/demos/EPIC-008/` output convention (AC-tagged `NN-<AC-ID>-<slug>.png` +
+  `DEMO.md`); the **carried RETRO-006 item 4 / RETRO-007 obs 5 caution** — scope screenshot output to
+  `docs/demos/EPIC-008/` only, no prior-epic PNG churn (main session reverts cross-epic churn); the Docker/stack
+  requirement; the submission-gate commands; and the metadata contract (real `Started-at`, `Complexity-actual`,
+  blank `Completed-at`, flip to `review`, do not commit). **Explicit env caveat:** the upload-blocked portal
+  positive screen (BUG-008-001) may not be capturable — capture what the env supports and note any gap, do NOT
+  fake a screenshot.
+- Phase-transition reflex: updated `## Current initiative` task status (001–004 done/committed; BUG-008-001
+  filed; 005 in-progress); recorded BUG-008-001 in `## Active bugs`; flipped TASK-008-005 → `in-progress`;
+  appended this entry.
+**End:** Dispatch continues — final task. Composing ONE `## Next Dispatch` for **TASK-008-005**
+(`[webapp-developer]`, `Impl: developer`). On the implementer result: route to **SDET review** (non-gating
+@demo — scope discipline to `docs/demos/EPIC-008/`, AC-tagged gallery, no prior-epic churn); on approve → main
+session commits 005 → IO enters **Review** (design scan over the integrated diff vs. the brief), then Smoke,
+Validate, Close-prep. BUG-008-001 rides as a tracked non-blocking follow-up (carried to RETRO-008).
+
+---
+
+### SDET Review — TASK-008-005 (@demo gallery) — 2026-06-20T02:30:00Z
+**Start:** TASK-008-005 at `review`; SDET spawned for non-gating @demo review (scope discipline + truthfulness). Per DEMO-POLICY this is not an acceptance gate; reviewed for five binding focus areas only.
+**Actions:**
+- Read ENGINE.md, sdet.md, DEMO-POLICY.md, task spec, PROGRESS.md (startup checklist complete).
+- **Focus area 1 — Scope discipline:** `git status --short` shows exactly: `M .implementation/tasks/PROGRESS.md`, `M .implementation/tasks/TASK-008-005-demo-gallery.md`, `?? .implementation/tasks/BUG-008-001-…`, `?? apps/admin/e2e/demo/onboarding-completion.demo.spec.ts`, `?? apps/portal/e2e/demo/onboarding-completion.demo.spec.ts`, `?? docs/demos/EPIC-008/`. **Zero EPIC-001..007 PNG entries** — the main session revert is confirmed clean. Zero `apps/**/src/**`, `packages/**`, `prisma/**`, `db/**`, `scripts/**`, `Dockerfile*`, or workflow changes. Scope discipline PASS.
+- Output-dir constant audit: admin spec L69 `const DEMO_DIR = path.resolve(__dirname, "../../../../docs/demos/EPIC-008")` — resolves to `docs/demos/EPIC-008/` from `apps/admin/e2e/demo/`. Portal spec L80 identical resolution from `apps/portal/e2e/demo/`. Both specs use only the `shot(file)` helper (L70/L81) for every `page.screenshot()` call. No prior-epic path used anywhere. PASS.
+- **Focus area 2 — Truthfulness:** Admin spec test 1 (L374): seeds `status='In Progress'` + `onboarding_completed` notification → navigates to `/engagements/${seeded.engagementId}/document-requests` → asserts `[data-testid="engagement-status"]` visible + `data-status="In Progress"` + text "In Progress" → then screenshots 01. Test 2 (L426): seeds same → navigates to `/requests` → asserts `[data-testid="notification-list"]` visible + `[data-notification-type="onboarding_completed"]` visible + client first name `"AdComplDemo"` present in notification title and body → screenshots 02. Portal spec test (L450): seeds pre-completion engagement (letter+questionnaire done, `status='New'`, DocumentRequest) → navigates to `/onboarding` → asserts `done-badge-engagement-letter` visible + `done-badge-intake-questionnaire` visible + `onboarding-step-document-upload` with `data-accessible="true"` + `document-upload-active` visible → screenshots 03. All three screenshots preceded by real navigation + targeted assertions. No unconditional screenshot, no mock/hand-edit possible via this flow.
+- Visual inspection of PNGs: 01 shows the real Tax Portal admin UI — Document Requests page, `Status: In Progress` badge visible, engaged to `user_accountant_e2e_001`, genuine seeded data (engagement UUID in footer). GENUINE. 02 shows the real admin /requests notification feed with multiple `onboarding_completed` notification rows (including "AdComplDemo Gallery" client) alongside `new_engagement_request` rows — genuine production UI at scale. GENUINE. 03 shows the real Client Portal onboarding page — step 1 (Engagement Letter) Complete ✓, step 2 (Intake Questionnaire) Complete ✓, step 3 (Document Upload) accessible with "Outstanding" document request and live "Upload file" button. Seeded data matches the portal spec fixture (`"2023 Tax Return (E2E demo-008 portal)"`). GENUINE.
+- BUG-008-001 gap: `DEMO.md` § 03 contains an explicit `KNOWN GAP — BUG-008-001` blockquote (docs/demos/EPIC-008/DEMO.md L52–54). No fourth PNG exists that would represent the all-steps-done portal state — the gap is not papered over. Truthfulness PASS.
+- Note on PNG 03 subtitle: the UI label "Step 3 of 3 — all steps complete" is the page's multi-step header indicating the user is at step 3 and steps 1+2 are done — not a "all 3 done" summary. Step 3 shows `Outstanding` with the upload widget live. The DEMO.md section correctly describes this as the pre-completion state. No truthfulness concern.
+- **Focus area 3 — AC-tag + convention:** PNGs are ordered `01-`, `02-`, `03-` and AC-tagged (`AC-ONBD-006-01`, `AC-ONBD-007-01`, `AC-ONBD-005-01`). DEMO.md has: title + Brief + persona links (jane-accountant, sarah-returning-client) + flow link (flow-onboarding) + Policy link (DEMO-POLICY.md Part A) + 3 `## NN. <step> [AC-ID]` sections (01, 02, 03) each with embedded image + observable + Proves block + a regenerate footer (How to regenerate code block with stack bring-up + per-surface `e2e:demo` commands). Convention PASS.
+- **Focus area 4 — `@demo` isolation:** admin `package.json` `e2e:run: playwright test --grep-invert @demo` (excludes @demo); `e2e:smoke: … --grep-invert @demo` (excludes @demo); `e2e:demo: playwright test --grep @demo --grep-invert @video` (selects @demo, excludes @video). Portal `package.json`: `e2e:run: playwright test --grep-invert @demo`; `e2e:demo: playwright test --grep @demo`. Both spec test titles contain the literal string `@demo` (admin L375, L427; portal L451). `@demo` tag cannot leak into `e2e:run` or the required CI gate path. Isolation PASS.
+- **Focus area 5 — Metadata gate:** `Complexity-actual: 2` (valid 1–5). `Complexity-estimate: 2` present. `Started-at: 2026-06-20T01:01:37Z` present. `Completed-at: —` (blank, correctly SDET-authored on close). Required fields present: `**Acceptance criteria:** none (justification: …)`, `**Upstream refs:** ADR-006`, `**Introduces-gate:** no`. Pre-implementation Work Log entry present (2026-06-20 "Starting implementation" entry predates the "Completed" entry — Dispatch Checkpoint satisfied). All mandatory Quality Gate boxes ticked except SDET Review (pending this close). Metadata PASS.
+- Security review: screenshots contain only seeded demo data (`AdComplDemo Gallery`, `DemoSarah Completion`, UUIDs, e2e-only email addresses). No real user PII, no secrets, no credentials visible. PASS.
+- Atomic close edit performed: SDET Review box ticked, Decision: approved, comprehensive Notes, approval breadcrumb appended to Work Log, `Completed-at: 2026-06-20T02:30:00Z`, `Status: done`.
+**End:** **TASK-008-005 APPROVED.** This is the last task in the BRIEF-008 dependency chain (001–005 all `done`). Dispatch exit condition met. Main session commits TASK-008-005 (2 demo specs + 3 PNGs + DEMO.md + close edit); IO enters Review phase (design scan over the integrated diff vs. the brief), then Smoke → Validate → Close-prep.
+
+---
+
+### IO Dispatch (TASK-008-005 implemented → routed to SDET review — @demo gallery) — BRIEF-008 / EPIC-008 — 2026-06-20
+**Start:** Re-invoked with the TASK-008-005 implementer result inline: developer **completed**, status flipped
+`in-progress → review`, submission-gate boxes ticked. Created `apps/admin/e2e/demo/onboarding-completion.demo.spec.ts`
++ `apps/portal/e2e/demo/onboarding-completion.demo.spec.ts` (both `@demo`-tagged; output-dir constant scoped to
+`docs/demos/EPIC-008/`); wrote 3 AC-tagged PNGs (`01-AC-ONBD-006-01-engagement-in-progress.png` [admin In
+Progress; tags 006-01/-02], `02-AC-ONBD-007-01-onboarding-complete-notification.png` [admin onboarding_completed
+notif w/ client name; tags 007-01/-02], `03-AC-ONBD-005-01-portal-onboarding-state.png` [portal pre-completion —
+steps 1+2 done, step 3 accessible]) + `DEMO.md`. **Portal positive-completion screen NOT captured** —
+BUG-008-001 (Azurite SAS host-unreachable) blocks the upload pipeline so the all-steps-done portal state can't
+be browser-reached; documented as a "KNOWN GAP — BUG-008-001" in `DEMO.md`, NOT faked/mocked. Gates: lint 0,
+type-check 0, build clean, portal 172, admin 246; EPIC-008 demo tests PASSED both surfaces (neighbor failures
+are pre-existing env quirks — identity-spine port, Mailhog :18025, BUG-008-001 upload timeouts — not EPIC-008
+regressions). `Complexity-actual: 2`; `Completed-at` blank. **Main-session cleanup already done:** the shared
+`e2e:demo` run churned 27 prior-epic PNGs (EPIC-001..007 — carried RETRO-006 item 4 / RETRO-007 obs 5); main
+session reverted all of them (`git checkout -- docs/demos/EPIC-001..007`). Nothing committed yet.
+**Actions:**
+- Verified the task is at `review` with submission-gate boxes ticked, `Complexity-actual: 2` (valid 1–5),
+  `Completed-at` correctly blank. Read the TASK-008-005 spec + its SDET-Review focus areas +
+  `.orchestration/DEMO-POLICY.md` (the canonical demo policy; SDET reviews `@demo` for scope + truthfulness — it
+  is **never** an acceptance gate).
+- **Independent tree-state check:** `git status --short` confirms the working tree holds ONLY EPIC-008 artifacts
+  (`apps/admin/e2e/demo/onboarding-completion.demo.spec.ts`, `apps/portal/e2e/demo/onboarding-completion.demo.spec.ts`,
+  `docs/demos/EPIC-008/` [3 PNGs + DEMO.md]) + the task/PROGRESS files + the untracked `BUG-008-001` file. **No
+  EPIC-001..007 PNG churn remains** — main session's revert is confirmed clean. No production code in the tree.
+- Composed the **non-gating @demo SDET review dispatch** with five binding focus areas: (1) **scope discipline** —
+  demo specs write ONLY to `docs/demos/EPIC-008/`, re-confirm via `git status` the tree is clean of EPIC-001..007
+  churn (main session reverted it; SDET independently re-verifies), and no production code touched (only e2e demo
+  specs + docs + task files); (2) **truthfulness (DEMO-POLICY core)** — every PNG corresponds to a real asserted
+  screen the running container app actually reached, the BUG-008-001 portal-positive gap is honestly noted in
+  `DEMO.md` and NOT faked/mocked — reject if any screenshot is fabricated/hand-edited; (3) **AC-tag + convention**
+  — PNG filenames ordered + AC-tagged, `DEMO.md` has persona/flow links (jane-accountant, sarah-returning-client;
+  flow-onboarding) + one section per screenshot + a regenerate footer; (4) **`@demo` isolation** — the specs are
+  excluded from the required `e2e:run` gate (run only under `e2e:demo`); (5) **metadata gate** —
+  `Complexity-actual` in 1–5, `Completed-at` blank until close. Atomic close on approval (tick SDET box,
+  decision + notes, author `Completed-at`, flip `review → done`); **SDET does NOT commit** (main session commits
+  005 after approval).
+- Phase-transition reflex: rewrote `## Current initiative` task status (001–004 done/committed; BUG-008-001
+  filed; 005 → review, SDET dispatch composed); appended this entry. (No prior-session sweep needed — all
+  trailing entries are BRIEF-008/Dispatch hot-state for the active slice.)
+**End:** Dispatch continues — **TASK-008-005 routed to SDET review** (non-gating @demo). This is the **LAST**
+task in the slice's dependency chain. On APPROVE: main session commits 005 (specs + docs + close edit), and the
+slice's Dispatch exit condition is met (every TASK-008-* at `done`) → IO enters **Review** (Overwatch Audit
+already cross-referenced through the per-task SDET gates; then the IO design scan over the integrated
+`git diff` vs. the brief), then Smoke, Validate, Close-prep. On REJECT: IO routes the enumerated fixes back to
+the `[webapp-developer]`. BUG-008-001 rides as a tracked non-blocking follow-up (carried to RETRO-008).
 
 ---
 
