@@ -256,12 +256,19 @@ gate_readiness() {
     report_gate "readiness:coverage-rows" fail "no COVERAGE rows mention ${EPIC}" "{\"coverage_mentions\":0}" "${EPIC}:coverage:none"
   fi
 
-  # C7 — git tree clean + feature branch free
+  # C7 — git tree clean + feature branch free.
+  # The Conductor's OWN working files are expected to change during a run and are
+  # not a reason to block a new slice — counting them is the "predictably benign,
+  # recurrent false-fail = mis-specified gate" trap (NORTH-STAR § Why #4; it was
+  # 2 of 3 Phase-2 git-clean FAILs). Allowlist them: STATE.md (the run ledger the
+  # sequencer rewrites every phase) and runs/ (verdict logs + scratch).
   if [[ "$NO_GIT" -eq 1 ]]; then
     report_gate "readiness:git-clean-branch-free" pass "skipped (--no-git)" "{\"skipped\":true}" "${EPIC}:git:skipped"
   else
     local dirty num branch_hit
-    dirty="$(git -C "$REPO_ROOT" status --porcelain | wc -l | tr -d ' ')"
+    dirty="$(git -C "$REPO_ROOT" status --porcelain \
+              | grep -vE '\.orchestration/(STATE\.md|runs/)' \
+              | grep -c . || true)"
     num="$(printf '%s' "$EPIC" | grep -oE '[0-9]+' | head -1)"
     branch_hit="$(git -C "$REPO_ROOT" branch --list "*${num}*" | wc -l | tr -d ' ')"
     # git state is legitimately volatile run-to-run; digest only the boolean
