@@ -8,6 +8,15 @@ middleware, role-gated routing, invitation → client account creation). Reconci
 "Epic 001 scope" label predated the current numbering — EPIC-001 is the anonymous front door; auth is
 EPIC-004). The invitation that triggers the CLIENT path is issued by **EPIC-003** (accept → invite).
 
+**Provider note (2026-06-20):** EPIC-004 delivered this flow against the **mocked** auth seam
+(`AUTH_PROVIDER=mock`). **EPIC-009** (Phase 3) is the **PoC two-role sign-in lane** — it realizes the
+**sign-in entry** of this flow under the mock seam (a dev sign-in page + role/user switcher over
+`/api/mock-session`), so the PoC is demoable as the Accountant or a Client; it does **not** wire real Clerk.
+**All real-provider work** — real Clerk sign-in (re-validating the ACCOUNTANT/CLIENT sign-in + redirect
+portions against the live provider), the **real invitation → sign-up** path, and **mandatory ACCOUNTANT MFA /
+2FA** — lives in the end-of-cycle **Phase 5 — Production Readiness** placeholder. The journey is unchanged;
+only the provider behind it changes.
+
 ---
 
 ## Actors

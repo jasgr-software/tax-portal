@@ -27,6 +27,7 @@
 <This slice completed **Phase <N>** — walkthrough video produced/refreshed: `docs/demos/phase-<N>/` —
 `phase-<N>-walkthrough.mp4` (<duration>, <n> chapters) · shipped in the docs-lane PR (`DEMO-POLICY.md` § Part B)>
 | <n/a (phase in progress — <k>/<m> epics of Phase <N> delivered)>
+| <⚠ **phase-closeout gap** — Phase <N> closed but walkthrough video NOT produced (<cause: spec missing / e2e:video matched 0 @video tests / …>). Follow-up filed to author the `@video` spec + record the video.>
 
 ## Outcome
 

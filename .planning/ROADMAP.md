@@ -7,6 +7,20 @@
 
 ## Status / amendment history
 
+- **2026-06-20 (EPIC-009 = PoC two-role sign-in lane; all real-provider/production work → end-of-cycle Production Readiness placeholder)** —
+  Project stance confirmed (user): this product is built **only in a development capacity as a proof of
+  concept**; **production readiness is a single end-of-cycle follow-up**, and external providers stay
+  **mocked as long as possible**. Accordingly: (1) **EPIC-009 is reshaped** (it never shipped — an in-session
+  draft) from the earlier "real Clerk login enablement" into a **PoC two-role sign-in lane**: a dev sign-in
+  page + role/user switcher over the existing mock-session seam (`AUTH_PROVIDER=mock`), wired to the demo seed
+  accounts and **inert under the real binding**, so the PoC can be driven and demoed as both the Accountant
+  and a Client without the devtools hack. It owns **no product AC** (a dev-capacity enabler) and has no
+  dependency on the LIFE/FILE work — it can be built first. (2) New **Phase 5 — Production Readiness**
+  *(placeholder)* collects ALL real-provider / go-live work at the end of the cycle: real Clerk login + 2FA +
+  real invitations, real Docuseal e-sign, real malware scanner, real email, the production host (ADR-007),
+  and hardening — **none minted as epics yet**. The Deferred 2FA item and the COVERAGE "Provider
+  re-validation" note are re-pointed from EPIC-009 to Phase 5.
+
 - **2026-06-20 (EPIC-008 delivered — Phase-2 capstone ships; 🎉 PHASE 2 COMPLETE)** — the onboarding-completion
   slice shipped (PR #55, squash merge `7fe2872`). All **8 in-scope AC** signed off `verified` in `COVERAGE.md`:
   AC-ONBD-005-01/-02 (onboarding complete iff all three steps done; no transition while any step is unsatisfied),
@@ -286,11 +300,46 @@ data RLS isolation — its enabling slice + per-policy test were built in Phase 
 AC are signed off here), REQ-AUTH-002/007/008, REQ-DOOR-009/010, and the REQ-FILE-001 remainder
 (AC-FILE-001-01/-03/-04).
 
+**Placed so far (the LIFE/FILE lifecycle epics are still to decompose):**
+
+| Epic | Slice | Status | Depends on |
+|---|---|---|---|
+| **EPIC-009** | PoC two-role sign-in lane (dev mock auth) — a usable in-browser sign-in page + role/user switcher over the existing mock-session seam (`AUTH_PROVIDER=mock`), wired to the demo seed accounts, **inert under the real provider**. Lets a tester drive/demo the PoC as the Accountant or any seeded Client without the devtools hack. **Owns no product AC** (dev-capacity enabler). | `planned` | EPIC-004 ✅ |
+| *LIFE pipeline + FILE-remainder epics* | New → In Progress → Review → Complete (manual transitions, client labels); per-engagement folder document exchange (accountant upload, both-party download, versioning, retention); the carried-in AUTH/DOOR placements above | *to decompose* | — |
+
+> **EPIC-009 is a cross-cutting PoC enabler**, placed in Phase 3 per user direction (2026-06-20) but with **no
+> dependency on the LIFE/FILE work** — it can (and should) be built first so every later PoC slice is
+> human-demoable as both roles. It uses only the mock seam; **all real-provider / production auth work** (real
+> Clerk login, 2FA, real invitations) lives in **Phase 5 — Production Readiness** (placeholder).
+
 ## Phase 4 — Messaging, notifications & the accountant dashboard *(to decompose)*
 
 Per-engagement plain-text threads with attachments and unread indicators; the real-time in-portal
 notification system and email digest fallback; the accountant's activity feed / needs-action dashboard
 and admin UI; portal identity & settings. Requirement themes: MSG, DASH, IDNT.
+
+## Phase 5 — Production readiness *(end-of-cycle placeholder)*
+
+> **Placeholder, not yet decomposed.** Project stance (user, 2026-06-20): this product is built **only in a
+> development capacity as a proof of concept**; **production readiness is a single end-of-cycle follow-up**,
+> and external providers stay **mocked as long as possible** until here. This phase is intentionally *not*
+> sliced into epics yet — it is the bucket every "real provider / go-live" concern collects into, to be
+> decomposed when the feature cycle (Phases 3–4) is complete and a **go-live decision** is taken (a
+> release-timing decision reserved to the user).
+
+Collects (each becomes an epic when this phase is decomposed):
+- **Real authentication** — flip `AUTH_PROVIDER` mock→clerk: real Clerk login (re-validate EPIC-004's
+  AUTH-001/009/010 against the live provider), **2FA enablement** (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01),
+  and **real invitations** (real Clerk invitation + invite email, re-validating AUTH-006-* / the AUTH-005-02
+  sign-up half).
+- **Real third-party providers** — real **Docuseal** e-sign (re-validate EPIC-005 ONBD-002 / IDNT-007), real
+  **malware scanner** (re-validate EPIC-007 NFR-009), real **email** delivery (replacing Mailhog).
+- **Production platform (ADR-007)** — choose + stand up the production host; real domains, secrets, object
+  storage (replacing Azurite), and the deploy / CI promotion path.
+- **Hardening** — security review, performance / NFR validation against the real stack, and the go-live gate.
+
+> See `COVERAGE.md` § Provider re-validation and § Deferred for the specific AC each real-provider item
+> re-validates or enables.
 
 ## Backlog / unphased
 
