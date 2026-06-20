@@ -14,37 +14,40 @@
 
 ## Current run
 
-### EPIC-008 — BRIEF-008 (onboarding completion — gate close, auto New→In Progress, accountant notified)
+_No active run._ EPIC-008 delivered + validated 2026-06-20 (run closed → collapsed to `## Recent outcomes`).
+**Phase 2 (the onboarding gate) is COMPLETE** (EPIC-005/006/007/008). The next ready slice is the first epic of
+**Phase 3 (engagement lifecycle, LIFE domain)** — **Phase 3 is not yet decomposed**: run `/planning` to author it
+before `/orchestrate` has a ready epic. See `## Pending closeout follow-ups` for the two non-blocking carries.
 
-- **Status: ⏸ PAUSED (mid-Implement)** — paused 2026-06-19 by user direction to land **Increment 2** (durable
-  bounded contracts; branch `orchestration-increment-2-durable-contracts`). Deliberate, not blocked.
-- **Phase reached:** Select ✓ → Gate ✓ (GO 7/7) → Compose ✓ → **Implement (in progress).** IO Plan done + first
-  task committed — `ae3b20c` (TASK-008-001, onboarding-completion engine WIP) on branch
-  `brief-008-onboarding-completion-transition`, **draft PR** open.
-- **Slice (Phase-2 capstone):** the completion predicate over the three existing onboarding step signals
-  (letter ∧ questionnaire ∧ documents), the **single automatic** New→In Progress transition (fire-once, audited
-  per ADR-019, atomic with the notification), and the reused EPIC-003 accountant `Notification` with a new `type`.
-  **No net-new entity / policy / provider seam** — behavior over existing shapes. Smallest Phase-2 slice (8 AC).
-- **In-scope AC (8):** AC-ONBD-005-01/-02, AC-ONBD-006-01/-02/-03, AC-ONBD-007-01/-02, AC-MSG-013-04.
-- **Brief:** `.implementation/briefs/BRIEF-008-onboarding-completion-transition.md` (`status: ready`).
-- **Gate evidence:** readiness run_id `EPIC-008-20260619T203553Z` (5/5 PASS) + engine-clear `run-20260619T203553Z`
-  (both PASS) — all `source: code` in `runs/gate-log.jsonl`.
-- **Parked-state note:** the EPIC-008 Compose/parked STATE narration was uncommitted at pause and is **stashed**
-  (`git stash list` → "EPIC-008 parked STATE.md narration"); reconcile/drop it on resume (this bounded entry
-  supersedes it).
-- **Resume:** `/orchestrate EPIC-008` (or `/io` on the brief) on `brief-008-onboarding-completion-transition`
-  → resumes at Implement (the IO reads `.implementation/tasks/PROGRESS.md` and continues). **Delivering it closes
-  Phase 2** (44/44 AC) → the Report phase must run the phase-closeout (Phase-2 walkthrough video per
-  `DEMO-POLICY.md` § Part B; ship `docs/demos/phase-2/`).
-- **Phase-2 close-out follow-up (deferred, user-directed 2026-06-19):** triage the four C4 backfill
-  as-built-vs-ADR drifts (commit `9900d6a`) with `/planning` + `/architecture` — esp. the ADR-005/009/010
-  schema-lag (table-set ahead of `prisma/schema.prisma`). Not slice-blocking; addressed at Phase-2 wrap-up.
+## Pending closeout follow-ups
+
+> Non-blocking; do not gate the next slice. Tracked here so they are not lost when the run collapsed.
+
+- **[Phase-2 walkthrough video — DEFERRED, needs two follow-ups]** The Phase-2 closeout video
+  (`DEMO-POLICY.md` § Part B; `docs/demos/phase-2/`) was **not produced** this run. Blockers: (1) the
+  `apps/admin/e2e/demo/phase-2-walkthrough.demo.spec.ts` **`@video` spec was never authored** — it is
+  application code that should have ridden the phase-completing slice's PR (#55) but did not; the Conductor
+  cannot author application code (only an engine task can). (2) **BUG-008-001** (Azurite SAS-URL
+  host-unreachable from the host Playwright browser) would break the document-upload scene of a full Phase-2
+  walkthrough even once the spec exists. **The video is non-gating** (DEMO-POLICY: "Neither is ever a gate") —
+  Phase 2 is delivered regardless. **Resume:** commission an engine slice to author the `@video` spec + fix/work
+  around BUG-008-001, then run `pnpm --filter admin e2e:video` + `node scripts/make-phase-video.mjs 2`, eyeball,
+  write `docs/demos/phase-2/README.md`, and ship it via a docs-lane PR.
+- **[C4 drift triage — DEFERRED, user-directed 2026-06-19]** triage the four C4 backfill as-built-vs-ADR drifts
+  (commit `9900d6a`) with `/planning` + `/architecture` — esp. the ADR-005/009/010 schema-lag (table-set ahead
+  of `prisma/schema.prisma`). Not slice-blocking; a Phase-2-wrap-up task.
 
 ## Recent outcomes
 
 > One line per delivered run, newest first. Full detail: `.planning/ROADMAP.md` + `COVERAGE.md` (per-AC), the
 > merged PR, `.implementation/tasks/RETRO-NNN.md` + `HANDOFF-NNN.md`, and `tasks/done/` (per-task).
 
+- **EPIC-008** ✅ DELIVERED 2026-06-20 · PR #55 → `7fe2872` · 8/8 AC · onboarding completion — gate close →
+  automatic New→In Progress (the single automatic lifecycle transition) → accountant-only notification; **ZERO
+  schema migration** (behavior over existing shapes). **🎉 Phase-2 capstone — closes Phase 2 (the onboarding
+  gate: EPIC-005/006/007/008); 44/44 Phase-2 AC, 95/95 Phase-1+2 AC verified.** Panel APPROVE (0 blocker/major;
+  7 threads dispositioned+resolved). BUG-008-001 (Azurite infra) stays OPEN. Phase-2 video deferred (see Pending).
+  RETRO-008/HANDOFF-008.
 - **EPIC-007** ✅ DELIVERED 2026-06-19 · PR #52 → `eaa5875` (close-out #53 → `d49c984`) · 19/19 AC · initial
   document upload — first secure malware-scanned, non-public file-storage path; `FileStorage`+`FileScanner` ports;
   third client-isolation policy `0007`. Panel found+fixed 2 majors (headline: `completeUpload` cross-tenant gap).
