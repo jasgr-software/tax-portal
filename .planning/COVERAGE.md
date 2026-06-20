@@ -340,6 +340,23 @@ Requirements whose AC span more than one epic (or one epic + orphans/deferred) �
     targeted at **Phase 3** (the file-exchange epic) — accountant upload and download are the broader
     exchange surface, not onboarding's "client provides documents" step.
 
+## Provider re-validation (mock → real enablement slices)
+
+Per the standing mock-first directive, some AC are **delivered/`verified` against a mocked provider** by
+their owning epic, then **re-validated against the real provider** by a later "enablement" slice. The
+enablement slice **owns no new coverage rows** — it re-runs the same AC-id-tagged tests against the real
+seam; the owning epic's rows stay `verified`, and the real-provider confirmation is recorded here.
+
+- **Real Clerk login + invitations + 2FA → Phase 5 (Production Readiness, placeholder).** Re-validates
+  **AC-AUTH-001-01/-02/-03, AC-AUTH-009-01, AC-AUTH-010-01/-02/-03** (owned by EPIC-004, verified-against-mock)
+  against **live Clerk** when the production-readiness phase is decomposed; plus the invitation AC
+  (**AC-AUTH-006-01/-02/-03** + the sign-up half of **AC-AUTH-005-02**) and 2FA (see § Deferred). **Not
+  minted as an epic yet.** *(Note: the Phase-3 **EPIC-009 "PoC two-role sign-in lane" is NOT this** — it makes
+  the existing MOCK seam human-usable for the proof of concept, owns no AC, and neither wires nor re-validates
+  the real provider.)*
+- *(Same pattern, also Phase 5: real Docuseal e-sign re-validates EPIC-005's ONBD-002 / IDNT-007 e-sign AC;
+  real malware scanner re-validates EPIC-007's NFR-009 AC; real email replaces Mailhog.)*
+
 ## Orphans
 
 Source AC not yet decomposed into any epic. This is the v1 work remaining — each becomes `planned` when a
@@ -389,12 +406,14 @@ AC explicitly out of current scope, with rationale. Distinct from orphaned — d
 decision, not pending v1 work.
 
 - **2FA (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01)** — Deferred 2026-06-15 per user direction — 2FA is not
-  ready to deploy; the auth spine (EPIC-004) ships without it. Targeted at a future Phase-1 "2FA enablement"
-  slice that stands up real Clerk test-mode and re-validates these AC against the live provider (EPIC-004
-  mocks the auth provider for e2e). REQ-AUTH-004 (mandatory accountant 2FA) leaves EPIC-004 entirely;
-  REQ-AUTH-005 keeps only its no-2FA path (AC-AUTH-005-02) in EPIC-004, with the enrollment path
-  (AC-AUTH-005-01) deferred to the same slice. The requirements (`.requirements/REQ-AUTH-004/005.md`) are
-  unchanged — this is a planning-level deferral of the AC, not a requirement deletion.
+  ready to deploy; the auth spine (EPIC-004) ships without it. **Re-scoped 2026-06-20 (per user direction):**
+  this item is **2FA-only** and now lives in the end-of-cycle **Phase 5 — Production Readiness** placeholder,
+  alongside the real-Clerk login standup it depends on (real Clerk must exist before 2FA enforcement can be
+  validated). *(The Phase-3 **EPIC-009 "PoC sign-in lane"** is a mock-only dev affordance — unrelated to 2FA.)*
+  REQ-AUTH-004 (mandatory accountant 2FA) leaves EPIC-004 entirely; REQ-AUTH-005 keeps only its no-2FA path
+  (AC-AUTH-005-02) in EPIC-004, with the enrollment path (AC-AUTH-005-01) deferred to Phase 5. The
+  requirements (`.requirements/REQ-AUTH-004/005.md`) are unchanged — a planning-level deferral of the AC, not
+  a requirement deletion.
 - **REQ-IDNT-005 (permanent client hard-delete)** — descoped from v1 per requirements `OQ-004` (hard-delete
   vs. 7-year retention precedence; the wholesale-erasure deferral was **not** reversed by the 2026-06-14
   purge decision). To be carried as `deferred` when the IDNT domain is decomposed; recorded now so the

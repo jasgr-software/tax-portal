@@ -131,7 +131,8 @@ screenshot run:
 
 | Phase (who) | Phase-video action |
 |---|---|
-| **Implement** (developer, on the phase-completing slice) | If this slice completes the phase, author/refresh the `phase-<N>-walkthrough.demo.spec.ts` `@video` spec (application code → rides that slice's PR), covering the phase's full feature set. |
+| **Compose** (Conductor) | **Phase-completion check:** read `.planning/ROADMAP.md` — is this slice's epic the *last* `planned` epic of its phase? If yes, set the brief's `demo.phase_walkthrough` (`{ phase, spec }`) and a `## Deliverables` line obligating the developer to author/refresh the `@video` spec. If no, omit. Without this, the spec is never written and Report's `e2e:video` matches nothing. |
+| **Implement** (developer, on the phase-completing slice) | When the brief carries `demo.phase_walkthrough`, author/refresh the `phase-<N>-walkthrough.demo.spec.ts` `@video` spec (application code → rides that slice's PR), covering the phase's full feature set. |
 | **Report / closeout** (Conductor) | Detect phase completion (all phase epics `delivered`). Bring the stack up, run `pnpm --filter <app> e2e:video`, run `scripts/make-phase-video.mjs <N>`, eyeball it, and write `docs/demos/phase-<N>/README.md`. Ship the `docs/demos/phase-<N>/` artifact in the **post-delivery docs fast-lane PR** (`MERGE-POLICY.md` — docs lane, no panel), alongside the epic sign-off records. Reference it (path · duration · chapter count) in the run report's **Phase closeout** line. |
 
 > The `@video` **spec** is application code (rides the phase-completing slice's PR, application lane). The

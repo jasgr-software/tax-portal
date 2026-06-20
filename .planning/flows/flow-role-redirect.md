@@ -7,6 +7,12 @@
 ADR-010; AC-AUTH-010-01/-02/-03). Reconciled 2026-06-14 (the old "Epic 001 scope" label predated the
 current numbering — auth and the redirect matrix are EPIC-004, not EPIC-001).
 
+**Provider note (2026-06-20):** EPIC-004 delivered this redirect matrix against the **mocked** auth seam.
+The Phase-3 **EPIC-009 "PoC two-role sign-in lane"** lets a tester sign in as either role (over the mock
+seam) and thus exercise this matrix by hand in the PoC. **Real-Clerk re-validation** of AC-AUTH-010-01/-02/-03
+against the live provider moves to the end-of-cycle **Phase 5 — Production Readiness** placeholder. The
+journey is unchanged; only the provider behind the session changes.
+
 ---
 
 ## Actors
