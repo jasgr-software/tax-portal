@@ -31,7 +31,7 @@
 import { headers } from "next/headers";
 import { getAuthProvider } from "@tax-portal/auth";
 import { DocumentRequestEditor } from "./_components/DocumentRequestEditor";
-import { listDocumentRequestsAction } from "./actions";
+import { listDocumentRequestsAction, getEngagementStatusAction } from "./actions";
 
 // ─── Route params ─────────────────────────────────────────────────────────────
 
@@ -81,6 +81,12 @@ export default async function DocumentRequestsPage({
 
   const initialRequests = requestsResult.success ? requestsResult.data : [];
   const dbError = requestsResult.success ? null : requestsResult.error;
+
+  // AC-ONBD-006-01 (UI observable): Load the engagement status (admin pool, read-only badge).
+  // DECISION (TASK-008-003): Minimal additive read — no new entity/column; reads existing
+  //   Engagement.status via getEngagementStatusForAdmin (admin pool, ADR-003 §7).
+  const statusResult = await getEngagementStatusAction(engagementId);
+  const engagementStatus = statusResult.success ? statusResult.status : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -137,6 +143,27 @@ export default async function DocumentRequestsPage({
           <p className="mt-1 text-xs text-gray-400 font-mono">
             Engagement: {engagementId}
           </p>
+
+          {/* AC-ONBD-006-01 (UI observable): Minimal read-only engagement status display.
+              Admin-side only — NOT a client-facing lifecycle label (Phase 3 out of scope).
+              Shows "New" or "In Progress" once the completion engine has transitioned it.
+              XSS-safe: engagementStatus is a DB-constrained enum value, rendered as text. */}
+          {engagementStatus && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs text-gray-500 font-medium">Status:</span>
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  engagementStatus === "In Progress"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-gray-100 text-gray-700"
+                }`}
+                data-testid="engagement-status"
+                data-status={engagementStatus}
+              >
+                {engagementStatus}
+              </span>
+            </div>
+          )}
         </div>
 
         {dbError && (

@@ -86,6 +86,7 @@ export { getAdminPool, closeAdminPool } from "./admin-connection.js";
 // getEngagementForClient        — request pool read (sec.pol_Engagement FILTER enforces client isolation)
 // getMyEngagement               — no-arg request pool read (FILTER returns caller's own row; TASK-005-006)
 // recordLetterSignatureAsClient — REQUEST POOL signature write (BLOCK-governed; production path)
+// getEngagementStatusForAdmin   — admin pool status-only read for admin surface (TASK-008-003, AC-ONBD-006-01 UI)
 //
 // NOT on this barrel (substrate/test-only):
 //   recordLetterSignature — admin-pool write that bypasses BLOCK; import from the source module directly.
@@ -100,6 +101,8 @@ export {
   getEngagementForClient,
   getMyEngagement,
   recordLetterSignatureAsClient,
+  // Admin-pool status-only read for the admin per-engagement surface (TASK-008-003, AC-ONBD-006-01 UI)
+  getEngagementStatusForAdmin,
 } from "./repositories/engagement.js";
 
 // Onboarding read model (EPIC-005 / TASK-005-005)
@@ -215,3 +218,21 @@ export type {
   ChecklistReadModel,
 } from "./checklist.js";
 export { resolveChecklist } from "./checklist.js";
+
+// Onboarding completion engine (EPIC-008 / TASK-008-001)
+// isOnboardingComplete           — pure predicate: true iff all three step done flags are true
+//                                  (AC-ONBD-005-01/-02). Consumes OnboardingReadModel from onboarding.ts.
+// processOnboardingCompletion    — privileged, server-authoritative, fire-once seam (ADR-003).
+//                                  Evaluates completion, transitions New → In Progress, inserts
+//                                  accountant-only Notification, and records the ADR-019 audit event —
+//                                  atomically in ONE transaction (AC-ONBD-006-01/-02/-03,
+//                                  AC-ONBD-007-01/-02, AC-MSG-013-04).
+// NOTIFICATION_TYPE_ONBOARDING_COMPLETE — "onboarding_completed" type constant; imported by
+//                                          TASK-008-003 for the admin notification feed.
+// ENGAGEMENT_TRANSITION_ACTION   — "engagement.transition" audit action constant.
+export {
+  isOnboardingComplete,
+  processOnboardingCompletion,
+  NOTIFICATION_TYPE_ONBOARDING_COMPLETE,
+  ENGAGEMENT_TRANSITION_ACTION,
+} from "./onboarding-completion.js";

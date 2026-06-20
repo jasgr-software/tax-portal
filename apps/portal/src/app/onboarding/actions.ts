@@ -61,6 +61,7 @@ import {
   authorizeEngagementForUpload,
   resolveChecklist,
   listDocumentRequestsForEngagement,
+  processOnboardingCompletion,
 } from "@tax-portal/db";
 // NOT on the barrel — import directly from the source module (TASK-007-004 constraint)
 // Mirrors createDocumentRequestAsAccountant import pattern in admin actions.ts.
@@ -600,6 +601,24 @@ export async function submitQuestionnaireAction(
   // Step 7: revalidate so the read model re-computes the step as done.
   revalidatePath("/onboarding");
 
+  // Step 8 (TASK-008-002): best-effort completion trigger (AC-ONBD-006-01, AC-ONBD-007-01 path).
+  //
+  // DECISION (TASK-008-002): processOnboardingCompletion runs AFTER the step's own commit has
+  // succeeded and revalidatePath has been called. This preserves D5 (best-effort-after-commit):
+  // a failure here must NOT roll back or fail the already-committed questionnaire submission.
+  // The fire-once guard in TASK-008-001 (D2: UPDATE WHERE status='New' + @@ROWCOUNT) makes a
+  // later retry idempotent — if this call fails transiently, a re-submission of the questionnaire
+  // will retrigger it safely. We use the server-resolved engagement.id (never client-supplied,
+  // ADR-003). Error is logged server-side only — no client leak.
+  try {
+    await processOnboardingCompletion(engagement.id);
+  } catch (completionErr: unknown) {
+    console.error(
+      "[submitQuestionnaireAction] processOnboardingCompletion failed (best-effort, step still committed):",
+      completionErr,
+    );
+  }
+
   return { success: true };
 }
 
@@ -1072,6 +1091,24 @@ export async function completeUploadAction(
   // resolveOnboarding(engagement, allRequiredProvided) needs the fresh checklist.
   // revalidatePath causes the page to re-fetch the read model including resolveChecklist.
   revalidatePath("/onboarding");
+
+  // Step 7 (TASK-008-002): best-effort completion trigger (AC-ONBD-006-01, AC-ONBD-007-01 path).
+  //
+  // DECISION (TASK-008-002): processOnboardingCompletion runs AFTER the step's own commit has
+  // succeeded and revalidatePath has been called. This preserves D5 (best-effort-after-commit):
+  // a failure here must NOT roll back or fail the already-committed upload completion result.
+  // The fire-once guard in TASK-008-001 (D2: UPDATE WHERE status='New' + @@ROWCOUNT) makes a
+  // later retry idempotent — if this call fails transiently, re-completing the upload will
+  // retrigger it safely. We use the server-resolved engagement.id (never client-supplied,
+  // ADR-003). Error is logged server-side only — no client leak.
+  try {
+    await processOnboardingCompletion(engagement.id);
+  } catch (completionErr: unknown) {
+    console.error(
+      "[completeUploadAction] processOnboardingCompletion failed (best-effort, step still committed):",
+      completionErr,
+    );
+  }
 
   return {
     success: true,

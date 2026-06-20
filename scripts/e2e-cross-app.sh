@@ -14,11 +14,12 @@
 #   pnpm e2e:cross-app
 #
 # Specs included:
-#   apps/portal/e2e/specs/cross-app-redirect.spec.ts             (AC-AUTH-010-* cross-app redirect matrix)
-#   apps/portal/e2e/specs/onboarding-cross-app.spec.ts           (AC-IDNT-007-03 edit→sign cross-surface loop)
-#   apps/portal/e2e/specs/questionnaire-cross-app.spec.ts        (EPIC-006 admin author→portal completion loop)
-#   apps/portal/e2e/specs/document-upload-cross-app.spec.ts      (EPIC-007 admin authors request → client fulfills)
-#   apps/admin/e2e/specs/cross-app-redirect.spec.ts              (AC-AUTH-010-01 admin cross-app redirect matrix)
+#   apps/portal/e2e/specs/cross-app-redirect.spec.ts                    (AC-AUTH-010-* cross-app redirect matrix)
+#   apps/portal/e2e/specs/onboarding-cross-app.spec.ts                  (AC-IDNT-007-03 edit→sign cross-surface loop)
+#   apps/portal/e2e/specs/questionnaire-cross-app.spec.ts               (EPIC-006 admin author→portal completion loop)
+#   apps/portal/e2e/specs/document-upload-cross-app.spec.ts             (EPIC-007 admin authors request → client fulfills)
+#   apps/portal/e2e/specs/onboarding-completion-cross-app.spec.ts       (EPIC-008 client completes → admin In Progress + notification)
+#   apps/admin/e2e/specs/cross-app-redirect.spec.ts                     (AC-AUTH-010-01 admin cross-app redirect matrix)
 
 set -euo pipefail
 
@@ -49,7 +50,8 @@ pnpm --filter portal exec playwright test \
   e2e/specs/cross-app-redirect.spec.ts \
   e2e/specs/onboarding-cross-app.spec.ts \
   e2e/specs/questionnaire-cross-app.spec.ts \
-  e2e/specs/document-upload-cross-app.spec.ts
+  e2e/specs/document-upload-cross-app.spec.ts \
+  e2e/specs/onboarding-completion-cross-app.spec.ts
 
 # ─── Run admin cross-app specs ────────────────────────────────────────────────
 
