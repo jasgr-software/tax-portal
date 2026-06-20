@@ -86,7 +86,7 @@ AC-ONBD-007-01 path). The fire-once guard (TASK-008-001 D2) makes double-invocat
 
 ## Work Log
 
-**2026-06-19T22:09:59Z** — Status → in-progress. Starting TDD: write tests first in actions.test.ts, then wire processOnboardingCompletion into submitQuestionnaireAction and completeUploadAction. Complexity-estimate: 2 (additive trigger-wiring only, no new DB layer). Next: add mocks + tests, then implement.
+**2026-06-19T22:09:59Z** — Status → in-progress. Starting implementation (TDD): write tests first in actions.test.ts, then wire processOnboardingCompletion into submitQuestionnaireAction and completeUploadAction. Complexity-estimate: 2 (additive trigger-wiring only, no new DB layer). Next: add mocks + tests, then implement.
 
 **2026-06-19T22:22:00Z** — Status → review. Implementation complete.
 - TDD: wrote 4 failing tests first (3 failed, 1 passed immediately for scope discipline); then implemented.
