@@ -25,6 +25,8 @@
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:policies:apply": "tsx scripts/db-migrate.ts --track-b-only",
     "db:seed": "tsx scripts/db-seed.ts",
+    "db:seed:demo": "tsx scripts/db-seed.ts --demo",
+    "demo:stage": "tsx scripts/demo-stage.ts",
     "db:reset": "docker compose down -v && docker compose up -d && tsx scripts/db-migrate.ts"
   },
   "devDependencies": {
