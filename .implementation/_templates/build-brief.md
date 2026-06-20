@@ -21,6 +21,9 @@ demo:                            # OPTIONAL — per-epic UI demo (see .orchestra
   apps: []                       #   [portal] | [admin] | [portal, admin] — which surface(s) the demo covers
   personas: []                   #   persona slug(s) whose journey the demo walks (.planning/personas/)
   flows: []                      #   flow slug(s) the demo realizes (.planning/flows/)
+  phase_walkthrough:             #   OMIT unless this slice closes a roadmap phase (Compose phase-completion check).
+                                 #   When set, the developer MUST author/refresh the phase @video spec (Part B):
+                                 #   { phase: <N>, spec: apps/<app>/e2e/demo/phase-<N>-walkthrough.demo.spec.ts }
 source: []                       # OPTIONAL soft refs; read if present, ignored if absent. Graceful degradation.
                                  #   - planning:     .planning/EPIC-NNN-*.md
                                  #   - requirements: .requirements/REQ-<DOMAIN>-NNN.md

@@ -94,6 +94,7 @@ Map the GO epic into a brief honoring the engine's `brief contract` (`seed/sourc
 | testing strategy (`.architecture/strategy/TESTING.md`) + epic **Traceability & sign-off contract** | `methodology` block — `tdd`, `e2e`, `coverage_target`, `extra_gates` per the strategy + contract |
 | `source:` + the epic path | `source: [planning: EPIC-…, requirements: REQ-…, architecture: ADR-…]` |
 | UI surface (`architecture: ADR-006` + `apps/portal`/`apps/admin`) + linked persona(s) + flow(s) + e2e/component AC | `demo:` block — `applicable` (yes if all hold, else no), `apps`, `personas`, `flows` (see `DEMO-POLICY.md`) |
+| **phase-completion check** — read `.planning/ROADMAP.md`: is this slice's epic the **last** `planned` epic of its roadmap phase (every *other* epic under that phase already `delivered`)? | `demo.phase_walkthrough` — when yes, set `{ phase: <N>, spec: apps/<app>/e2e/demo/phase-<N>-walkthrough.demo.spec.ts }` and carry an explicit `## Deliverables` line obligating the developer to **author/refresh** that `@demo @video` spec (covers *every* feature the phase delivered, all surfaces — `DEMO-POLICY.md` § Part B). When no, omit. **This is the seam that makes the Report-time video possible** — without it the spec is never written and Report's `e2e:video` matches nothing. |
 
 **Brief invariants:**
 - The brief is **self-contained** — readable and buildable on its own; `source:` refs are soft context.
@@ -173,11 +174,20 @@ not applicable, the report records `UI demo: skipped (backend-only)`.
 **Phase-closeout check (every Report).** After the validate write-back rolls the epic to `delivered`, read
 `.planning/ROADMAP.md` and ask: **did this slice complete its roadmap phase** (is *every* epic listed under that
 phase now `delivered`)? If yes, produce/refresh the phase's **walkthrough video** per `DEMO-POLICY.md` § Part B —
-bring the stack up, run `pnpm --filter <app> e2e:video`, `node scripts/make-phase-video.mjs <N>`, eyeball it,
-write `docs/demos/phase-<N>/README.md`, and **include `docs/demos/phase-<N>/` in the same docs-lane PR**.
+**first confirm the `@video` spec exists** (`apps/<app>/e2e/demo/phase-<N>-walkthrough.demo.spec.ts`, the one
+the Compose phase-completion check obligated on this slice's brief). Then bring the stack up, run
+`pnpm --filter <app> e2e:video`, `node scripts/make-phase-video.mjs <N>`, eyeball it, write
+`docs/demos/phase-<N>/README.md`, and **include `docs/demos/phase-<N>/` in the same docs-lane PR**.
 Reference it in the run report's **Phase closeout** line (path · duration · chapters). If the slice did **not**
 complete a phase, record `Phase closeout: n/a (phase in progress)`. The `@video` spec itself is application
 code authored on the phase-completing slice's PR; only the generated video + README ride the docs lane.
+
+> **Fail loudly, never silently skip.** If the phase closed but the `@video` spec is **missing** (Compose
+> failed to obligate it, or the developer didn't author it), or `e2e:video` produces no recording, do **not**
+> record a clean closeout. Report it as an explicit **phase-closeout gap** in the run report's **Phase
+> closeout** line (`⚠ phase closed but walkthrough video not produced — <cause>`) and surface a follow-up to
+> author the spec + record the video. A produced-nothing `e2e:video` (zero `@video` tests matched) is this
+> gap, not a pass — EPIC-008 closed Phase 2 this way and the miss went unrecorded.
 
 ## Hard rules (recap)
 

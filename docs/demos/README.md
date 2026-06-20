@@ -17,6 +17,10 @@ reviewable at a glance.
 | EPIC-004 — Auth & two-role model | `apps/portal` + `apps/admin` | [EPIC-004/DEMO.md](EPIC-004/DEMO.md) |
 | EPIC-002 — Services-catalog management | `apps/admin` | [EPIC-002/DEMO.md](EPIC-002/DEMO.md) |
 | EPIC-003 — Accountant request inbox | `apps/admin` | [EPIC-003/DEMO.md](EPIC-003/DEMO.md) |
+| EPIC-005 — Engagement-letter e-sign gate | `apps/portal` | [EPIC-005/DEMO.md](EPIC-005/DEMO.md) |
+| EPIC-006 — Intake questionnaire | `apps/portal` | [EPIC-006/DEMO.md](EPIC-006/DEMO.md) |
+| EPIC-007 — Initial document upload | `apps/portal` + `apps/admin` | [EPIC-007/DEMO.md](EPIC-007/DEMO.md) |
+| EPIC-008 — Onboarding completion | `apps/portal` + `apps/admin` | [EPIC-008/DEMO.md](EPIC-008/DEMO.md) |
 
 ## Phase reviews
 
@@ -26,3 +30,4 @@ phase across both surfaces (for human sign-off). Produced by the `@video`-tagged
 | Phase | Covers | Walkthrough |
 |---|---|---|
 | Phase 1 — MVP front-door spine | EPIC-001 · EPIC-004 · EPIC-002 · EPIC-003 | [phase-1/README.md](phase-1/README.md) |
+| Phase 2 — Onboarding gate | EPIC-005 · EPIC-006 · EPIC-007 · EPIC-008 | [phase-2/README.md](phase-2/README.md) |
