@@ -13,18 +13,45 @@
 **BRIEF-008 / EPIC-008 — Onboarding completion (gate close → automatic New→In Progress transition → accountant
 notified) — Phase: DISPATCH.** Branch `brief-008-onboarding-completion-transition` (off `main` @ `d49c984`).
 
-> **Task status (2026-06-19, Dispatch — 003 implemented → routed to SDET review):** TASK-008-001
+> **Task status (2026-06-19, Dispatch — 001/002/003 done+committed; dispatching 004 e2e):** TASK-008-001
 > **`done`** (SDET-APPROVED 22:11:00Z; committed `bac39eb`, code `ae3b20c`). TASK-008-002 **`done`**
-> (SDET-APPROVED 17:17:00Z; gates re-run independently — lint/type-check clean, `actions.test.ts` 55/55, portal
-> 172/172, zero regressions; scope-disciplined — only the two portal files; `Complexity-actual: 1`). **Main
-> session committed 002 (code + SDET close) as `f443307`.** **TASK-008-003 → `in-progress`** (admin surface —
-> render `onboarding_completed` in the feed + minimal engagement-status observable; D6; depends only on 001;
-> file-disjoint from the now-committed 002). **TASK-008-003 → `review`** (developer completed; submission gate
-> ticked; `Complexity-actual: 2`; `Completed-at` blank; changes uncommitted in working tree) — **routed to SDET
-> gate-2 review this invocation.** TASK-008-004 (e2e; Docker pre-flight), -005 (@demo) **`backlog`** (gated
-> behind 002+003 / 004). **Resume:** re-invoke `/io` with the SDET 003 result inline → on APPROVE, main session
-> commits 003, IO dispatches 004 (e2e — Docker pre-flight here); on REJECT, IO routes the enumerated fixes back
-> to the developer. Conductor STATE.md mirrors this.
+> (SDET-APPROVED 17:17:00Z; committed `f443307`; `Complexity-actual: 1`). TASK-008-003 **`done`**
+> (SDET-APPROVED 17:40:00Z — additive no-schema admin-pool read + notification-feed extension + status
+> observable; all 6 binding focus areas passed; lint/type-check clean, admin 246/246, portal 172/172;
+> `Complexity-actual: 2`; main session committed code + close; branch now current with main via merge
+> `921fd1a`). **TASK-008-004 → `in-progress`** (e2e + cross-app — the full completion path across both
+> surfaces; binds the epic's 8 gherkin scenarios; depends on 002+003, both done). **Docker pre-flight (IO
+> side): PASS** — `docker info` OK; full stack up & healthy (portal :3000, admin :13001 [neighbor-squat
+> remap], azurite :10000, sqlserver :14330). E2e is runnable here — no defer. TASK-008-005 (@demo)
+> **`backlog`** (gated behind 004). **Resume:** re-invoke `/io` with the SDET 004 result inline → on APPROVE,
+> main session commits 004, IO dispatches 005 (@demo); on REJECT, IO routes the enumerated fixes back to the
+> developer. Conductor STATE.md mirrors this.
+>
+> **TASK-008-004 ESCALATION (2026-06-19, Review-phase intake):** developer flipped 004 → `review`
+> (`Complexity-actual: 4`) and escalated a **pre-existing blocking defect**: the ADR-009 two-phase upload
+> pipeline (browser PUT to Azurite → `completeUploadAction`) does not complete in this environment — checklist
+> items stay `data-status="outstanding"` — blocking the **AC-ONBD-005-01 portal positive path** + the **EPIC-008
+> cross-app spec** + 4 committed **EPIC-007** upload specs (`document-upload.spec.ts` 22–24,
+> `document-upload-cross-app.spec.ts` 18). What DID pass: admin EPIC-008 4/4 (In Progress badge + notification
+> identifying engagement+client), portal negative path 1/1 (incomplete stays New / no notification), security
+> fail-closed (completion notif NOT visible to CLIENT), lint+type-check. **IO disposition: PROCEED-WITH-DISPOSITION
+> (not a STOP).** Rationale: (1) **structural pre-existing proof** — `git diff origin/main...HEAD` shows the
+> EPIC-007 upload specs are committed on `main` @ `eaa5875` and **unmodified by this branch**, and NO BRIEF-008
+> code is in the upload-delivery path (the only `actions.ts` change is the +37-line contained best-effort
+> `processOnboardingCompletion` trigger, SDET-verified at 17:17:00Z to NOT alter the upload success branch; the
+> `packages/db` engine is additive new files). (2) **AC-ONBD-005-01 has tier-3 proof** —
+> `onboarding-completion.integration.test.ts:485` "fulfilled DocumentRequest → document-upload step done →
+> transitions" PASSED on the real container (SDET re-ran 14/14 @ 22:11:00Z); only the **browser-e2e tier** is
+> env-blocked, and the block is in the EPIC-007 upload-delivery mechanism, not BRIEF-008. (3) **e2e is NOT a
+> per-PR required CI check** (CLAUDE.md — pre-deploy gate only; required checks are `lint-and-typecheck` +
+> `security-scan`), so an env-blocked e2e path does not block this slice's merge. **The "pre-existing" claim is
+> load-bearing and is NOT accepted on the developer's word** — an SDET verification+review dispatch is composed to
+> independently confirm (a) pre-existing vs regression, (b) environment vs code, and (c) whether the passing e2e
+> (admin + negative + security) plus AC-ONBD-005-01's tier-3 proof suffice to approve 004, with the upload block
+> dispositioned as a separate pre-existing infra **BUG-008-001** carried to retro. **STOP conditions** (would flip
+> to needs-user-direction): SDET finds the upload failure IS a BRIEF-008 regression, OR finds a code (not
+> environment) defect introduced this slice, OR cannot reproduce the failure on the committed tree with 004 specs
+> stashed.
 **Phase-2 capstone; the smallest Phase-2 slice (8 AC).** Goal: when an engagement's three onboarding steps are
 all satisfied (letter signed — EPIC-005; questionnaire submitted — EPIC-006; required documents uploaded —
 EPIC-007), the **system** marks onboarding complete, **automatically transitions the engagement New → In
@@ -484,3 +511,99 @@ committed `bac39eb`/`f443307`).
 + close edit), IO dispatches TASK-008-004 (e2e + cross-app — **Docker pre-flight fires here**, the first
 e2e-gated task). On REJECT: IO routes the enumerated fixes back to the `[webapp-developer]`. Composing ONE
 `## Next Dispatch` for the SDET review of TASK-008-003.
+
+---
+
+### IO Dispatch (TASK-008-003 approved + committed; dispatching TASK-008-004 — e2e + cross-app) — BRIEF-008 / EPIC-008 — 2026-06-19
+**Start:** Re-invoked with the SDET TASK-008-003 result inline: **APPROVED** (17:40:00Z). All 6 binding focus
+areas passed — additive no-schema admin-pool read (ADR-003; zero Prisma/migration/policy/schema change via
+diff); notification-feed extension minimal + non-regressing + XSS-safe (two-known-type set, no implicit
+default, React-escaped text); AC dual-tags assert real counterfactuals
+(AC-ONBD-007-01/AC-MSG-013-04, -007-02, -006-01 New+In Progress); scope discipline (no Phase-3 UI,
+`apps/portal` untouched, 001/002 untouched); gates re-run independently (lint/type-check clean, admin 246/246,
+portal 172/172); metadata gate clean (`Complexity-actual: 2`). SDET atomic close done; **main session
+committed 003 (code + close)**; branch now current with `main` via merge `921fd1a`. Tasks 001/002/003 are
+all `done` and committed. **TASK-008-004 (the only e2e-gated task) is unblocked.**
+**Actions:**
+- Read the TASK-008-004 spec + the brief's methodology block (`acceptance_format: gherkin`, `e2e: required`,
+  tier map per ADR-012) + the epic's **8 gherkin acceptance scenarios** (`.planning/EPIC-008…#acceptance-scenarios`).
+  Per CLAUDE.md § Executable gherkin tooling the binder is not yet chosen → the task authors **`.spec.ts`**
+  covering the 8 scenarios (each AC-tagged), and may add human-readable `.feature` files mirroring them; no
+  Cucumber wiring is invented this slice.
+- Surveyed the e2e surface: `scripts/e2e-cross-app.sh` runs an explicit spec list (portal cross-app specs +
+  admin `cross-app-redirect`) and auto-detects the admin host port via `docker inspect tax-portal-admin`
+  (handles the `:13001` neighbor-squat remap). The completion cross-app spec must be **added to that script's
+  list** to run under `pnpm e2e:cross-app`. Reuse anchors confirmed: portal e2e fixtures
+  (`apps/portal/e2e/fixtures/{auth,db}.ts`), the EPIC-005/006/007 post-letter-gate onboarding specs
+  (`onboarding.spec.ts`, `onboarding-questionnaire.spec.ts`, `document-upload*.spec.ts`,
+  `*-cross-app.spec.ts`), and the admin notification/status observables landed by TASK-008-003
+  (`data-notification-type`, `data-testid="engagement-status"` / `data-status`).
+- **Docker pre-flight (IO side): PASS.** `docker info` succeeds; full compose stack up & healthy
+  (`tax-portal-portal` :3000, `tax-portal-admin` :13001, `tax-portal-azurite` :10000, `tax-portal-sqlserver`
+  :14330). Docuseal/mailhog not load-bearing for this slice (no e-sign/email path — letter-sign is reached via
+  the existing post-letter-gate fixture). **E2e is runnable in this environment — no defer.** The dispatch
+  re-asserts the developer-side `docker info` pre-flight + STOP-and-escalate-on-failure per ENGINE § Docker
+  Pre-Flight regardless (the agent must not fake/skip e2e).
+- Phase-transition reflex: updated `## Current initiative` task status (001/002/003 done+committed; 004
+  in-progress; Docker pre-flight PASS recorded); flipped TASK-008-004 → `in-progress`; appended this entry.
+**End:** Dispatch continues. Composing ONE `## Next Dispatch` for **TASK-008-004** (`[webapp-developer]`,
+`Impl: developer`, `E2e-required: yes`). On its SDET approval: main session commits 004, IO dispatches
+TASK-008-005 (@demo gallery). On REJECT: IO routes the enumerated fixes back to the `[webapp-developer]`.
+On a developer-side Docker-unavailable STOP: the IO defers the e2e and surfaces it (the Conductor handles).
+
+---
+
+### SDET Verification + Review — TASK-008-004 (e2e + cross-app, combined verification + gate-2) — 2026-06-20T01:15:00Z
+**Start:** TASK-008-004 at `review` (`Complexity-actual: 4`). Combined dispatch: (A) Docker pre-flight, (B) independently establish pre-existing vs regression, (C) classify environment vs code, (D) gate-2 review and 3× flake check.
+**Actions:**
+- **A — Docker pre-flight: PASS.** Docker 29.4.1 available. Stack: portal :3000 (healthy), admin :13001 (healthy), azurite :10000 (healthy), sqlserver :14330 (healthy). E2e runnable.
+- **B — Pre-existing vs regression: OBJECTIVELY PRE-EXISTING.** (1) `git diff origin/main...HEAD -- apps/portal/e2e/specs/document-upload.spec.ts apps/portal/e2e/specs/document-upload-cross-app.spec.ts` → empty output. EPIC-007 upload specs are byte-identical to main, untouched by this branch. (2) `git diff origin/main...HEAD -- apps/portal/src/app/onboarding/ packages/db/` → only 3 hunks in `actions.ts` (import + two best-effort try/catch appended AFTER `submitQuestionnaire`/`completeUpload` success branches; `completeUploadAction` body untouched) + additive `getEngagementStatusForAdmin` in `engagement.ts`. NO upload-PUT/completeUpload path code was modified. (3) Three uncommitted 004 specs temporarily moved to `/tmp/` (untracked files, not stash-compatible). Ran `pnpm --filter portal e2e:run -- --grep document-upload` on the committed-only tree. RESULT: **4 failures** — exactly EPIC-007 `document-upload.spec.ts` tests 22/23/24 + `document-upload-cross-app.spec.ts` test 18. Same `data-status="outstanding"` → `"fulfilled"` timeout failure mode. Upload specs fail WITH THE 004 SPECS ABSENT. PRE-EXISTING ESTABLISHED OBJECTIVELY. Specs restored after run.
+- **C — Environment vs code: ENVIRONMENT (networking/Azurite).** `docker compose logs azurite` during upload-spec run: **zero blob-level PUT requests** (`PUT /devstoreaccount1/tax-portal-documents/<blob-key>`) in Azurite logs. Only CORS setup + idempotent container create (409) appear. The browser Playwright Chromium process on the host cannot reach Azurite at `127.0.0.1:10000` — the SAS PUT never lands. No production code was changed by this branch that touches the upload path. VERDICT: **ENVIRONMENT/NETWORKING defect** (Azurite SAS URL host unreachable from Playwright browser process).
+- **D — Gate-2 review (3× flake check + scope + spec quality):**
+  - Scope: `git status --short` confirms 3 untracked new specs + `scripts/e2e-cross-app.sh` + task/PROGRESS files. Zero production code in diff. PASS.
+  - Admin EPIC-008 specs 3×: tests 14–17 (AC-ONBD-006-01/-02/-07-01/-02/-MSG-013-04 + security) PASS all 3 runs. Zero flakes. Pre-existing Mailhog/questionnaire failures unrelated.
+  - Portal negative path (`[AC-ONBD-005-02][AC-ONBD-006-03]` test 27) PASS on targeted run. Zero flakes.
+  - Spec authoring: Notification INSERT schema verified correct `([type],[title],[body],[engagementRequestId])`; title/body verbatim from `processOnboardingCompletion`. Gherkin scenarios verbatim from epic (8 scenarios, all AC-tagged).
+  - AC-ONBD-005-01 tier-3 proof: `onboarding-completion.integration.test.ts:485` confirmed present + correct. SDET-verified 14/14 PASS at TASK-008-001 (22:11:00Z). Behavior proven at tier-3; only browser-e2e tier env-blocked.
+  - Metadata: `Complexity-actual: 4` valid; `Completed-at` blank at review; `Started-at` + `Complexity-estimate` set; pre-impl Work Log entry present; required spec fields present; `Introduces-gate: no`.
+  - Lint + type-check independently re-run: CLEAN (zero warnings/errors).
+- **Atomic close edit: PERFORMED.** SDET Review box ticked, Decision: approved-with-disposition, comprehensive notes + B/C evidence, approval breadcrumb appended to Work Log, `Completed-at: 2026-06-20T01:15:00Z`, `Status: done`.
+- **Upload-pipeline defect disposition:** classified as **BUG-008-001** (pre-existing EPIC-007-owned Azurite/browser-PUT environment defect; not a BRIEF-008 regression). IO to file. AC-ONBD-005-01 browser-e2e tier deferred to BUG-008-001; tier-3 proof carries it for Validate.
+**End:** **TASK-008-004 APPROVED-WITH-DISPOSITION.** TASK-008-005 (@demo) is now unblocked (gated behind 004). Main session should commit 004 code + close edit; IO files BUG-008-001; IO dispatches TASK-008-005.
+
+---
+
+### IO Escalation triage — TASK-008-004 (e2e + cross-app) — 2026-06-19
+**Start:** Re-invoked with the TASK-008-004 resume-developer result inline: 004 flipped `in-progress → review`
+(`Complexity-actual: 4`); 4 admin-spec schema-authoring errors fixed (non-existent Notification columns
+`relatedEntityId`/`userId`/`updatedAt` + wrong title/body → corrected to `processOnboardingCompletion`'s actual
+output + columns `([type],[title],[body],[engagementRequestId])`); **escalation raised**: ADR-009 two-phase
+upload pipeline (browser PUT → Azurite → `completeUploadAction`) does not complete here, blocking the
+AC-ONBD-005-01 portal positive path + the EPIC-008 cross-app spec + 4 committed EPIC-007 upload specs;
+developer claims pre-existing (not a BRIEF-008 regression, not a spec error), no production code patched.
+**Actions (IO independent analysis — Read/Grep/Bash, did NOT accept the claim on the developer's word):**
+- **Branch-vs-main diff (`git diff --name-only origin/main...HEAD` + `--stat`):** confirmed the EPIC-007 upload
+  specs (`document-upload.spec.ts`, `document-upload-cross-app.spec.ts`) are NOT in the branch diff — committed
+  on `main` @ `eaa5875` (PR #52), unmodified here. The branch's only `apps/portal` production change is
+  `onboarding/actions.ts` (+37 lines = TASK-008-002's contained best-effort trigger, NOT upload-delivery code);
+  the `packages/db` engine is additive new files. **No BRIEF-008 code sits in the upload-PUT/completeUpload path.**
+- **AC-ONBD-005-01 tier-3 proof located:** `packages/db/src/onboarding-completion.integration.test.ts:485`
+  ("fulfilled DocumentRequest → document-upload step done → transitions") PASSED on the real SQL Server container
+  (SDET independently re-ran 14/14 @ 22:11:00Z). The AC's *behavior* is proven at integration tier with no
+  dependency on the browser→Azurite PUT; only the browser-e2e tier is env-blocked.
+- **CLAUDE.md check:** e2e is NOT a per-PR required CI check (pre-deploy gate); required checks are
+  `lint-and-typecheck` + `security-scan`. An env-blocked e2e path does not block this slice's merge.
+- **Read the two onboarding-completion specs + the failing upload assertion** (portal spec L703 — expects
+  `data-status="fulfilled"`, gets `"outstanding"` after the PUT). Consistent with an upload-delivery
+  (Azurite/CORS/container) failure, not a completion-engine failure.
+- **Disposition: PROCEED-WITH-DISPOSITION (not a STOP)** — contingent on SDET independent verification of the
+  pre-existing/regression and environment/code questions. Composed the SDET verification+review dispatch (below).
+- Phase-transition reflex: recorded the escalation triage block in `## Current initiative`; appended this entry.
+  (Phase is Review — the SDET gate-2 review of 004 is folded into the same dispatch as the pre-existing
+  verification, since the verification finding determines the review verdict.)
+**End:** Composing ONE `## Next Dispatch` — the **SDET TASK-008-004 verification + gate-2 review**. On SDET
+APPROVE-with-disposition: main session commits 004, IO files **BUG-008-001** (pre-existing upload-pipeline
+env defect, carried to retro / Validate-disposition), then dispatches TASK-008-005 (@demo). On SDET finding a
+**regression or this-slice code defect**: this flips to a **STOP** (needs-user-direction) — the IO surfaces it
+to the Conductor and halts. On SDET REJECT for a spec-quality reason: IO routes enumerated fixes back to the
+`[webapp-developer]`.
