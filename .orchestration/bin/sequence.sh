@@ -238,6 +238,7 @@ do_report() {
   say "$out" | sed 's/^/    /'
   code report "verdict log snapshotted → runs/gate-history.jsonl"
   code report "write the run report (_templates/run-report.md) + set STATE outcome"
+  code report "collapse the run: orchestrate-state.sh collapse-run --headline \"<one-line summary>\" (prepends ## Recent outcomes)"
   advance done
 }
 
@@ -290,7 +291,7 @@ step() {
                   "sequence.sh --set brief=<path>" ;;
     implement)  agent_node implement review 'v_pr' \
                   "Invoke the engine: /io ${S[brief]:-<brief>} — drive to its limbo-ledger signal (PR URL in PROGRESS.md). Defer on any inner stop (--halt)." \
-                  "sequence.sh --set pr=<N>" ;;
+                  "bash .orchestration/bin/orchestrate-state.sh derive-pr --apply   # derives PR# from PROGRESS.md (or: sequence.sh --set pr=<N>)" ;;
     review)     agent_node review fix-route 'v_verdict' \
                   "Invoke /pr-review ${S[pr]:-<N>}; save the pr-review-verdict payload to runs/PR-${S[pr]:-N}-verdict.json." \
                   "sequence.sh --set verdict_file=runs/PR-${S[pr]:-N}-verdict.json" ;;
@@ -300,7 +301,7 @@ step() {
                   "sequence.sh --set fix_done=yes" ;;
     merge)      agent_node merge validate 'v_merge' \
                   "Let the engine merge + finalize per MERGE-POLICY.md (merge is the engine's, not the Conductor's). Surface — do not satisfy — any LGTM/governance hold (--halt). Capture the merged SHA." \
-                  "sequence.sh --set merge_sha=<sha>" ;;
+                  "bash .orchestration/bin/orchestrate-state.sh derive-merge --pr ${S[pr]:-<N>} --apply   # derives merge SHA via gh (or: sequence.sh --set merge_sha=<sha>)" ;;
     validate)   agent_node validate report 'v_validated' \
                   "Invoke /planning validate ${S[epic]} with CI evidence ${S[merge_sha]:-<sha>}; the planning agent flips COVERAGE rows + rolls the epic. If validate returns incomplete/failing, --halt." \
                   "sequence.sh --set validated=yes" ;;

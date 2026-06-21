@@ -156,7 +156,8 @@ planning layer / user to resolve, **not** a gate to relax. Logged here; not fixe
 
 ## Phase 2 — bookkeeping derivers (auto-fill the yield artifacts)
 
-> **Status:** planned (design recorded 2026-06-21; not yet built). Docs/tooling-lane, `.orchestration/**`.
+> **Status:** **Implemented 2026-06-21** (`id-alloc.sh` 17/17, `orchestrate-state.sh` 10/10; sequencer
+> regression 34/34 after the hint rewire). Docs/tooling-lane, `.orchestration/**`.
 > **Framing:** an Increment-3 *follow-up*, not a new increment — it extends the sequencer's yield/`--set`
 > handshake; the Increment-4 slot stays the (deferred, data-starved) AC-testability judge.
 
@@ -245,6 +246,15 @@ semantic ones; the mechanical record steps become one scripted command each.
   from the existing verdict fixtures; `derive-validation` from a fixture `COVERAGE.md`; `collapse-run` prepends a
   well-formed bullet under `## Recent outcomes`.
 - `sequence.sh` agent-node hints updated to call the derivers; full happy-path test still green.
+
+### As built (phase 2 — 2026-06-21)
+
+| Piece | Landed as |
+| --- | --- |
+| Id allocator | `.orchestration/bin/id-alloc.sh` — buckets `task`/`bug`/`epic`/`cs`/`pq`/`sq`; re-derives next-free from file names / ledger contents (basename scan ignores prose mentions); `--check`, `--width`, `--repo-root`. Test `id-alloc.test.sh` **17/17**. |
+| State derivers | `.orchestration/bin/orchestrate-state.sh` — `derive-pr` (PROGRESS.md awaiting-merge; **fails loud on 0/>1**), `derive-merge` (gh / `--json-file`), `derive-review` (verdict counts), `derive-validation` (COVERAGE verified/total), `collapse-run` (prepends the `## Recent outcomes` bullet — the only write it owns). `--apply` delegates to `sequence.sh --set` (single writer of the machine block). Test `orchestrate-state.test.sh` **10/10**. |
+| Sequencer wiring | `sequence.sh` yield hints for `implement` / `merge` now call the derivers (`derive-pr --apply` / `derive-merge --pr … --apply`); the report node references `collapse-run`. State-machine logic unchanged → **34/34** regression holds. |
+| Seam upheld | id-alloc + the derivers live under `.orchestration/bin/`; no standalone-layer `AGENT.md` references them (the one-way dependency from § Seam). |
 
 ### Out of scope for phase 2 (push later)
 
