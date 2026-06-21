@@ -56,7 +56,6 @@ import {
   parseComplexity,
   isEmptyField,
   atomicWriteFile,
-  appendMetricsRecord,
   deriveTaskId,
   formatBreadcrumb,
   appendToWorkLog,
@@ -331,7 +330,6 @@ describe("cmdReview — in-progress → review", () => {
       complexityActual: 3,
       note: "gates pass",
       repoRoot: tmpRepo,
-      nowFn: fixedNow(),
     });
 
     expect(result.changed).toBe(true);
@@ -621,7 +619,6 @@ describe("cmdArchive — move done tasks to tasks/done/", () => {
     copyFixture(tmpRepo, "TASK-TST-002-inprogress-fixture.md"); // status: in-progress → stay
 
     const result = cmdArchive({
-      allDone: true,
       repoRoot: tmpRepo,
     });
 
@@ -788,6 +785,199 @@ describe("atomicWriteFile — temp + rename, no partial write", () => {
     const entries = fs.readdirSync(tmpDir);
     const tmpFiles = entries.filter((e) => e.startsWith(".tmp-"));
     expect(tmpFiles).toHaveLength(0);
+  });
+});
+
+// ─── appendToWorkLog — closed-comment skip (correctness: minor) ──────────────
+//
+// Finding 2: the while-loop precedence fix ensures the bounds check governs BOTH
+// the blank-line branch and the closed-comment branch, so a Work Log header
+// followed immediately by a <!-- ... --> comment does not misplace the breadcrumb.
+// CS-GEN-003: AC-LOE-011-02
+
+describe("appendToWorkLog — breadcrumb insertion with closed <!-- --> comment", () => {
+  it("inserts entry below a closed <!-- --> comment that follows ## Work Log", () => {
+    // This is the real fixture shape used in the project task files:
+    //   ## Work Log
+    //   <!-- entries newest-first -->
+    //   - prior entry
+    const content = [
+      "---",
+      "status: in-progress",
+      "---",
+      "",
+      "# Task",
+      "",
+      "## Work Log",
+      "<!-- entries newest-first -->",
+      "- 2026-06-20 [devops] Prior entry | What's next: more | Blockers: none",
+    ].join("\n");
+
+    const breadcrumb = "- 2026-06-21 [sdet] New entry | What's next: done | Blockers: none";
+    const result = appendToWorkLog(content, breadcrumb);
+    const lines = result.split("\n");
+
+    // The breadcrumb must appear after the closed comment, before the prior entry
+    const commentIdx = lines.findIndex((l) => l.includes("<!-- entries newest-first -->"));
+    const breadcrumbIdx = lines.findIndex((l) => l === breadcrumb);
+    const priorIdx = lines.findIndex((l) => l.includes("Prior entry"));
+
+    expect(commentIdx).toBeGreaterThanOrEqual(0);
+    expect(breadcrumbIdx).toBeGreaterThan(commentIdx);
+    expect(breadcrumbIdx).toBeLessThan(priorIdx);
+  });
+
+  it("does not skip a partial (unclosed) <!-- comment (only skips closed ones)", () => {
+    // An unclosed <!-- comment should NOT be skipped — breadcrumb goes before it
+    const content = [
+      "---",
+      "status: in-progress",
+      "---",
+      "",
+      "## Work Log",
+      "<!-- entries newest-first",
+      "- 2026-06-20 [devops] Prior | What's next: more | Blockers: none",
+    ].join("\n");
+
+    const breadcrumb = "- 2026-06-21 [sdet] New | What's next: done | Blockers: none";
+    const result = appendToWorkLog(content, breadcrumb);
+    const lines = result.split("\n");
+
+    // The unclosed comment is NOT a blank line, so the breadcrumb should appear
+    // immediately after the ## Work Log header (insertIdx stays at workLogIdx+1)
+    const workLogIdx = lines.findIndex((l) => l.trim() === "## Work Log");
+    const breadcrumbIdx = lines.findIndex((l) => l === breadcrumb);
+    expect(breadcrumbIdx).toBe(workLogIdx + 1);
+  });
+});
+
+// ─── cmdDone — completed_at >= started_at enforcement (correctness: minor) ────
+//
+// Finding 3: cmdDone now rejects a nowTs that precedes started_at. This test
+// exercises the guard by injecting a nowFn that returns a timestamp earlier than
+// the fixture's started_at field, confirming the error fires.
+// CS-GEN-003: AC-LOE-011-02 / TASK-006-002 metric-integrity principle
+
+describe("cmdDone — completed_at >= started_at enforced", () => {
+  let tmpRepo: string;
+
+  beforeEach(() => {
+    tmpRepo = makeTempRepo();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it("rejects done when nowFn returns a timestamp before started_at (clock skew)", () => {
+    // TASK-TST-003 has started_at: 2026-06-21T10:00:00Z; inject a nowFn that
+    // returns an earlier timestamp so completed_at < started_at.
+    copyFixture(tmpRepo, "TASK-TST-003-review-fixture.md");
+
+    expect(() =>
+      cmdDone({
+        taskId: "TASK-TST-003",
+        role: "sdet",
+        repoRoot: tmpRepo,
+        nowFn: () => "2026-06-21T09:00:00Z", // before started_at
+      })
+    ).toThrow(/before started_at|clock skew/i);
+
+    // File must be unchanged (never partial-write on error)
+    const fm = readFm(
+      path.join(tmpRepo, ".implementation", "tasks", "TASK-TST-003-review-fixture.md")
+    );
+    expect(fm["status"]).toBe("review");
+  });
+
+  it("accepts done when nowFn returns exactly started_at (boundary condition: >=)", () => {
+    // started_at: 2026-06-21T10:00:00Z; nowFn returns the same timestamp → OK
+    copyFixture(tmpRepo, "TASK-TST-003-review-fixture.md");
+
+    const result = cmdDone({
+      taskId: "TASK-TST-003",
+      role: "sdet",
+      repoRoot: tmpRepo,
+      nowFn: () => "2026-06-21T10:00:00Z", // equal to started_at → valid
+    });
+
+    expect(result.changed).toBe(true);
+    const fm = readFm(result.filePath);
+    expect(fm["status"]).toBe("done");
+    expect(fm["completed_at"]).toBe("2026-06-21T10:00:00Z");
+  });
+});
+
+// ─── resolveTaskFile — path-traversal confinement regression (security: minor) ─
+//
+// Finding 4: lock the confinement invariant — resolveTaskFile must return null
+// for any attempt to escape the allowed root (absolute paths, ../ traversal,
+// --brief-style traversal args). No production change; these tests prevent
+// accidental future regressions. CS-GEN-003: security confinement, task.ts:122-138
+
+describe("resolveTaskFile — path-traversal confinement", () => {
+  let tmpRepo: string;
+
+  beforeEach(() => {
+    tmpRepo = makeTempRepo();
+    // Place a real task fixture so we know the resolve machinery works normally
+    copyFixture(tmpRepo, "TASK-TST-003-review-fixture.md");
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it("returns null for ../../../etc/passwd traversal attempt", () => {
+    const result = resolveTaskFile("../../../etc/passwd", tmpRepo);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for absolute /etc/passwd path attempt", () => {
+    const result = resolveTaskFile("/etc/passwd", tmpRepo);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for ../../scripts/task traversal", () => {
+    const result = resolveTaskFile("../../scripts/task", tmpRepo);
+    expect(result).toBeNull();
+  });
+
+  it("still resolves a legitimate task ID after checking traversal inputs", () => {
+    // Confirm normal resolution still works — confinement must not break happy path
+    const result = resolveTaskFile("TASK-TST-003", tmpRepo);
+    expect(result).not.toBeNull();
+    expect(result).toContain("TASK-TST-003");
+  });
+});
+
+describe("cmdArchive and cmdList — traversal task ID / brief args match nothing", () => {
+  let tmpRepo: string;
+
+  beforeEach(() => {
+    tmpRepo = makeTempRepo();
+    copyFixture(tmpRepo, "TASK-TST-007-done-fixture.md");
+    copyFixture(tmpRepo, "TASK-TST-003-review-fixture.md");
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it("cmdArchive with --brief '../foo' matches nothing (no traversal escape)", () => {
+    const result = cmdArchive({ brief: "../foo", repoRoot: tmpRepo });
+    // No task file starts with TASK-../FOO- so nothing is moved
+    expect(result.moved).toHaveLength(0);
+    // The done task must still be in the active directory (not moved)
+    expect(
+      fs.existsSync(path.join(tmpRepo, ".implementation", "tasks", "TASK-TST-007-done-fixture.md"))
+    ).toBe(true);
+  });
+
+  it("cmdList with brief '/etc' returns no tasks (absolute traversal matches nothing)", () => {
+    // cmdList filters by brief prefix; no task has TASK-/ETC- prefix
+    const result = cmdList({ brief: "/etc", repoRoot: tmpRepo });
+    expect(result.entries).toHaveLength(0);
   });
 });
 
@@ -1063,7 +1253,6 @@ describe("End-to-end lifecycle: start → log → review → done → archive", 
       complexityActual: 2,
       note: "tests pass",
       repoRoot: tmpRepo,
-      nowFn: fixedNow("2026-06-21T11:00:00Z"),
     });
     expect(reviewResult.changed).toBe(true);
     fm = readFm(reviewResult.filePath);
@@ -1091,7 +1280,6 @@ describe("End-to-end lifecycle: start → log → review → done → archive", 
 
     // Step 5: archive
     const archiveResult = cmdArchive({
-      allDone: true,
       repoRoot: tmpRepo,
     });
     expect(archiveResult.moved).toContain("TASK-TST-001-backlog-fixture.md");
@@ -2148,7 +2336,6 @@ describe("AC-LOE-011-09: End-to-end CLI-driven slice verified by validate-gates.
       note: "all gates pass",
       repoRoot: fixtureTreeDir,
       metricsPath,
-      nowFn: fixedNow("2026-06-21T15:00:00Z"),
     });
 
     expect(reviewResult.changed).toBe(true);
@@ -2185,7 +2372,6 @@ describe("AC-LOE-011-09: End-to-end CLI-driven slice verified by validate-gates.
     // ─── Step 5: archive ──────────────────────────────────────────────────────
     // PROPOSAL-scripted-bookkeeping.md §3.1 — task archive (move done → tasks/done/)
     const archiveResult = cmdArchive({
-      allDone: true,
       repoRoot: fixtureTreeDir,
     });
 

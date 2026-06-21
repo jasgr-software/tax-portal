@@ -32,8 +32,8 @@
  */
 
 // CS-INFRA-004: Zero new runtime npm dependencies — Node built-ins only.
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolve as resolvePath } from "node:path";
@@ -44,7 +44,6 @@ import {
   extractFrontMatter,
   serializeFrontMatter,
   verifyFrontMatter,
-  parseFrontMatter,
   type FrontMatter,
 } from "./task-frontmatter.js";
 
@@ -185,10 +184,13 @@ export function datePart(isoString: string): string {
 export function atomicWriteFile(targetPath: string, content: string): void {
   const dir = path.dirname(targetPath);
   const base = path.basename(targetPath);
-  // Use a temp file in the same directory so rename is same-filesystem
-  const tmpPath = path.join(dir, `.tmp-${base}-${process.pid}`);
+  // Randomize suffix to avoid collision under concurrent runs or reused pids.
+  // "wx" flag: exclusive open — fails if file already exists (incl. a symlink
+  // target), preventing symlink-redirect writes. (security: minor finding)
+  const rand = crypto.randomBytes(6).toString("hex");
+  const tmpPath = path.join(dir, `.tmp-${base}-${rand}`);
   try {
-    fs.writeFileSync(tmpPath, content, "utf8");
+    fs.writeFileSync(tmpPath, content, { encoding: "utf8", flag: "wx" });
     fs.renameSync(tmpPath, targetPath);
   } catch (err) {
     // Clean up temp file if rename fails
@@ -297,13 +299,15 @@ export function appendToWorkLog(content: string, breadcrumb: string): string {
   }
 
   // Insert after the Work Log header line (and skip any blank comment lines)
-  // Find the insertion point: after any comment line immediately following the header
+  // Find the insertion point: after any comment line immediately following the header.
+  // DECISION: parenthesize so the bounds check governs BOTH the blank-line branch and
+  // the closed-comment branch, making the bound explicit and robust. (correctness: minor)
   let insertIdx = workLogIdx + 1;
-  // Skip the optional comment line
+  // Skip blank lines and closed <!-- ... --> comment lines
   while (
     insertIdx < lines.length &&
-    lines[insertIdx]?.trim() === "" ||
-    (lines[insertIdx]?.trim().startsWith("<!--") && (lines[insertIdx]?.includes("-->") ?? false))
+    (lines[insertIdx]!.trim() === "" ||
+      (lines[insertIdx]!.trim().startsWith("<!--") && lines[insertIdx]!.includes("-->")))
   ) {
     insertIdx++;
   }
@@ -346,7 +350,8 @@ export function parseComplexity(value: string | string[] | undefined): number | 
   if (isEmptyField(value)) return null;
   if (Array.isArray(value)) return NaN;
   const s = String(value).trim();
-  if (!s || s === "—" || s === "-") return null;
+  // NOTE: the ""/"-"/"—" cases are already excluded by isEmptyField above;
+  // no redundant re-check here. (nit: dead branch removed)
   const n = parseInt(s, 10);
   if (isNaN(n)) return NaN;
   return n;
@@ -503,7 +508,8 @@ export function cmdReview(
     note?: string;
     repoRoot?: string;
     metricsPath?: string;
-    nowFn?: () => string;
+    // NOTE: no nowFn — cmdReview stamps no timestamp; injectable clock seam
+    // belongs only on cmdStart/cmdDone which do. (over-engineering: minor)
   }
 ): WriteResult {
   const repoRoot = opts.repoRoot ?? findRepoRoot();
@@ -637,6 +643,22 @@ export function cmdDone(
 
   const nowTs = opts.nowFn ? opts.nowFn() : nowIso();
 
+  // Enforce completed_at >= started_at (correctness: minor finding).
+  // The docstring asserts this invariant; enforce it here rather than relying
+  // on the monotonic wall clock being correct in all execution environments.
+  const startedAtRaw = task.fm["started_at"] as string | undefined;
+  if (startedAtRaw && !isEmptyField(startedAtRaw)) {
+    const startedMs = new Date(startedAtRaw).getTime();
+    const completedMs = new Date(nowTs).getTime();
+    if (!isNaN(startedMs) && completedMs < startedMs) {
+      throw new TaskCliError(
+        `Cannot mark done: completed_at (${nowTs}) is before started_at (${startedAtRaw}) — clock skew detected. ` +
+        `Do not silently write an inverted timestamp (TASK-006-002 metric integrity).`,
+        1
+      );
+    }
+  }
+
   // Build mutated front matter
   const newFm: FrontMatter = { ...task.fm };
   newFm["status"] = "done";
@@ -683,7 +705,7 @@ export function cmdReject(
     note?: string;
     repoRoot?: string;
     metricsPath?: string;
-    nowFn?: () => string;
+    // NOTE: no nowFn — cmdReject stamps no timestamp. (over-engineering: minor)
   }
 ): WriteResult {
   const repoRoot = opts.repoRoot ?? findRepoRoot();
@@ -760,7 +782,7 @@ export function cmdLog(
     blockers?: string;
     repoRoot?: string;
     metricsPath?: string;
-    nowFn?: () => string;
+    // NOTE: no nowFn — cmdLog stamps no timestamp. (over-engineering: minor)
   }
 ): WriteResult {
   const repoRoot = opts.repoRoot ?? findRepoRoot();
@@ -809,7 +831,9 @@ export function cmdLog(
 export function cmdArchive(
   opts: {
     brief?: string;
-    allDone?: boolean;
+    // NOTE: allDone removed — cmdArchive never reads it; bare archive (no --brief)
+    // already means "all done tasks". The CLI dispatcher uses !brief && !allDone as
+    // its usage guard, but the function itself only cares about brief. (over-engineering: minor)
     repoRoot?: string;
   }
 ): { moved: string[]; skipped: string[]; errors: string[] } {
@@ -1661,6 +1685,17 @@ function extractAcText(briefContent: string, acId: string): string | null {
  *   acceptance_criteria:
  *     - id: AC-LOE-011-06
  *       text: "..."
+ *
+ * DECISION: This hand-rolls a nested-object YAML scanner for the acceptance_criteria
+ * block, which is in tension with the file's "no re-implemented YAML parsing"
+ * constraint (line 21 / CS-GEN-003). The constraint holds for front-matter I/O
+ * (all of which goes through task-frontmatter.ts); this function reads the YAML
+ * text *after* task-frontmatter has already parsed it out. It handles only
+ * single-line double-quoted text: "..." scalars — the real brief shape — and
+ * is not a general YAML parser. A future maintainer should be aware that embedded
+ * double quotes in text: values, or block-scalar (| or >) text fields, will not
+ * parse correctly. Pulling in a YAML library here is a deliberate follow-up, not
+ * in scope for this fix pass. (over-engineering/correctness: panel noted, accept-with-note)
  */
 function extractAcFromYamlBlock(yamlText: string, acId: string): string | null {
   const lines = yamlText.split("\n");
@@ -1682,9 +1717,19 @@ function extractAcFromYamlBlock(yamlText: string, acId: string): string | null {
       // Look for "text: ..." on the next (possibly indented) line
       if (trimmed.startsWith("text:")) {
         const textContent = trimmed.slice(5).trim();
+        // Defensive guard: block-scalar indicators (| or >) are not handled by this
+        // simple scanner — return raw so a future maintainer sees something rather
+        // than a mis-stripped value. (per DECISION comment above)
+        if (textContent === "|" || textContent === ">") {
+          return textContent;
+        }
         // Handle quoted text: "..." (strip outer quotes)
         if (textContent.startsWith('"') && textContent.endsWith('"')) {
-          return textContent.slice(1, -1);
+          // Guard: if the outer-stripped content itself contains a bare `"`, that
+          // signals an escape sequence we don't handle — return raw.
+          const inner = textContent.slice(1, -1);
+          if (inner.includes('"')) return textContent;
+          return inner;
         }
         if (textContent.startsWith('"')) {
           // Multi-line quoted text — collect until closing quote
@@ -2161,7 +2206,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
           die("archive requires --brief NNN or --all-done");
         }
 
-        const result = cmdArchive({ brief: parsed.brief, allDone: parsed.allDone });
+        const result = cmdArchive({ brief: parsed.brief });
         if (result.errors.length > 0) {
           console.error(`Errors during archive:`);
           for (const e of result.errors) console.error(`  ${e}`);
