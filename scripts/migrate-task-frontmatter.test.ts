@@ -97,11 +97,6 @@ describe("migrateFileContent — current-variant task", () => {
     if (!extracted.found) throw new Error("unreachable");
     const bodyAfterFm = extracted.bodyAfterFm;
 
-    // Original body started at the --- separator; the content below it is unchanged
-    const originalBodyStart = input.indexOf("\n---\n");
-    expect(originalBodyStart).toBeGreaterThan(0);
-    const originalBody = input.slice(originalBodyStart + 5); // skip \n---\n
-
     // Key sections that must survive verbatim
     expect(bodyAfterFm).toContain("## Quality Gates");
     expect(bodyAfterFm).toContain("- [x] **Work Log complete**");

@@ -38,7 +38,6 @@ import * as path from "node:path";
 import * as url from "node:url";
 
 import {
-  FIELD_MAP,
   lookupByBoldKey,
   serializeFrontMatter,
   extractFrontMatter,
