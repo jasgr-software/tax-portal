@@ -319,8 +319,15 @@ read-only and low-risk), and `ledger-check` / `phase-transition` in **Phase 2**.
    CLI writes self-report to `.claude/metrics/`, so the CLI-vs-raw ratio is observable without
    polluting the file. Revisit a hard CLI-mandate only if that ratio stays high after a slice or
    two — "format-only" is the default philosophy, not a temporary stance.
-3. **`--role` source:** explicit flag, or inferred from an env var the dispatch prompt sets?
-   Recommendation: flag required, env fallback.
+3. **`--role` source? — RESOLVED: required flag, validated against the roster; no env fallback,
+   no inference.** Each agent knows its own role, so `--role` is free and makes the metrics
+   record + Work Log breadcrumb self-documenting. Env fallback is unreliable (shell state doesn't
+   persist between Bash calls per CLAUDE.md, so it'd have to be re-exported every call).
+   Inferring from the task's `assigned_to` is wrong in the cases that matter — the SDET writes the
+   `done` transition on a developer's task, the IO writes `Impl: io` tasks — and per-command
+   defaults break on the "or IO" path. The CLI rejects any value outside the known set
+   (`webapp-developer`, `devops`, `sdet`, `overwatch`, `io`) so a typo fails loudly instead of
+   drifting the tag.
 4. **Phase-2 scope confirmation:** is automating the PROGRESS.md sweep desirable, or is that
    file deliberately kept hand-curated for IO oversight? This is the one place automation
    touches the human-readable narrative ledger.
