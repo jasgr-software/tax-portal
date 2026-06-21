@@ -7,6 +7,29 @@
 
 ## Status / amendment history
 
+- **2026-06-21 (EPIC-009 delivered — the PoC two-role sign-in lane ships; mock realization)** — the dev
+  sign-in lane realizing **REQ-AUTH-013** against the `AUTH_PROVIDER=mock` seam (a usable in-browser sign-in
+  page + role/user switcher over the existing mock-session seam, wired to the demo seed accounts, **inert under
+  the real provider**) — plus the consolidated **REQ-AUTH-010** role-based-redirect AC — shipped (PR #71, squash
+  merge `169b09e`). **All 5 in-scope AC `verified` in `COVERAGE.md`:** the 2 net-new sign-in/sign-out AC
+  (AC-AUTH-013-01 sign-in → role-appropriate landing; AC-AUTH-013-02 global sign-out → unauthenticated, re-auth
+  on both surfaces) flipped `planned`→`verified` this slice, and the 3 redirect AC (AC-AUTH-010-01/-02/-03,
+  consolidated from EPIC-004) stay `verified` with PR #71 confirmation appended (no double-count). **EPIC-009 →
+  `delivered`.** **Honest-accounting scope (no over-claim):** this is a **dev-lane PoC against the MOCK
+  provider** — AC-AUTH-013-01/-02 are verified *vs the mock*; the **real-provider (Clerk) realization stays
+  outstanding at Phase 5** (Production Readiness), and the **2FA AC remain deferred to Phase 5** (REQ-AUTH-004/
+  005). The dev-lane affordances (seeded-account picker, role/user switcher, inert-under-`clerk` guard) are
+  EPIC-009 dev-acceptance tooling, not product AC. **Phase context:** EPIC-009 is a **cross-cutting PoC sign-in
+  slice — it does NOT close or advance Phase 3 proper**; the engagement-lifecycle + FILE work (EPIC-010..015) is
+  still entirely `planned`. It makes every later PoC slice human-demoable as either role. Sign-off basis [B]
+  (COVERAGE): reviewed application-code lane — code-standards audit `approve` (0 violations) → `/pr-review`
+  panel (1 major + 5 minor + 2 nit; blockers/majors fixed in `5551052`, 1 minor deferred as a tracked
+  follow-up) → `/pr-fix` green → merged on green required CI (`lint-and-typecheck` + `security-scan`), plus the
+  SDET's independent re-run of the in-scope auth e2e against the live docker-compose stack (portal/admin
+  `sign-in-lane.spec.ts` 6/6 + 5/5, global-sign-out tier-6 both surfaces, `cross-app-redirect.spec.ts` 5/5).
+  **Totals: 190 placed / 97 verified / 93 planned.** **Next:** Phase 3 proper begins — `/orchestrate EPIC-010`
+  (its `depends_on` EPIC-005 ✅ + EPIC-008 ✅ are satisfied).
+
 - **2026-06-21 (EPIC-009 re-decomposed — the sign-in lane now carries acceptance criteria; REQ-AUTH-010 consolidated)** —
   Per user direction, **EPIC-009 is no longer an "owns-no-product-AC" enabler** — it is the **dev-capacity
   realization of the login requirement**, and login must carry acceptance criteria (the **2FA slice stays the
@@ -364,7 +387,7 @@ the FILE domain remain for the follow-up pass.
 
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
-| **EPIC-009** | Sign-in lane — realizes the **sign-in/sign-out capability** (REQ-AUTH-013) and the consolidated **role-based landing** (REQ-AUTH-010) — **5 AC** (2 new sign-in/sign-out, realized vs the mock provider; 3 redirect already verified). In the PoC it ships as a usable in-browser sign-in page + role/user switcher over the mock-session seam (`AUTH_PROVIDER=mock`), wired to the demo seed accounts, **inert under the real provider**, so a tester can drive/demo as the Accountant or any seeded Client without the devtools hack. Real Clerk + 2FA → Phase 5. | `planned` | EPIC-004 ✅ |
+| **EPIC-009** | Sign-in lane — realizes the **sign-in/sign-out capability** (REQ-AUTH-013) and the consolidated **role-based landing** (REQ-AUTH-010) — **5 AC** (2 new sign-in/sign-out, realized vs the mock provider; 3 redirect already verified). In the PoC it ships as a usable in-browser sign-in page + role/user switcher over the mock-session seam (`AUTH_PROVIDER=mock`), wired to the demo seed accounts, **inert under the real provider**, so a tester can drive/demo as the Accountant or any seeded Client without the devtools hack. Real Clerk + 2FA → Phase 5. | `delivered` (PR #71, `169b09e`, 2026-06-21) — 5/5 in-scope AC `verified` **vs the mock provider** (real-Clerk re-validation → Phase 5) | EPIC-004 ✅ |
 | **EPIC-010** | Engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete pipeline, manual transitions, simplified client-facing labels (Review hidden), two-confirmation completion gate, accountant-only reopen, accountant full visibility + client own-data isolation + indefinite post-completion access (25 AC: LIFE-001/002/003/004/005/006, AUTH-002/003/008) | `planned` | EPIC-005 ✅, EPIC-008 ✅ |
 | **EPIC-011** | Engagement attributes — accountant-set due date, accountant-only internal notes, priority/flag marker (9 AC: LIFE-007/008/009) | `planned` | EPIC-010 |
 | **EPIC-012** | Engagement creation paths & multi-participant — returning-client request (DOOR-009), accountant-initiated engagement (DOOR-010), duplicate guard per (client, service, tax year) with warn+override (LIFE-011), multiple concurrent engagements (LIFE-010), multi-participant engagements / separate accounts (LIFE-012, AUTH-007); introduces the engagement **tax-year** attribute (20 AC) | `planned` | EPIC-010, EPIC-002 ✅, EPIC-003 ✅ |
@@ -384,7 +407,9 @@ the FILE domain remain for the follow-up pass.
 > EPIC-008 ✅ are satisfied). **EPIC-011** and **EPIC-012** both build on EPIC-010 and are independent of each
 > other (parallelizable). The **FILE chain** is linear and follows the lifecycle core: **EPIC-013** (needs
 > EPIC-010 + EPIC-012's tax-year + EPIC-007 ✅) → **EPIC-014** (needs EPIC-013) → **EPIC-015** (needs
-> EPIC-014). EPIC-009 is independent and can be built first/anytime.
+> EPIC-014). **EPIC-009 is delivered** (PR #71, `169b09e`, 2026-06-21 — the PoC sign-in lane, 5/5 AC verified
+> vs the mock provider); it was independent of the LIFE/FILE chain, so the rest of Phase 3 (EPIC-010..015) is
+> still entirely `planned` and EPIC-009's delivery does **not** advance Phase 3 proper.
 >
 > **Scope split (recorded 2026-06-21):** **REQ-FILE-012** (overdue document-request flagging + configurable
 > reminder cadence) is routed to **Phase 4**, not the Phase-3 FILE epics — it depends on the

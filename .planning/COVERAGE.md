@@ -34,8 +34,8 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-013 (secure file exchange) | 13 |
 | &nbsp;&nbsp;— EPIC-014 (file deletion, soft-delete & retention) | 10 |
 | &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 |
-| AC `verified` (signed off) | **95** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ 3 Phase-3 AC consolidated into EPIC-009** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership moved to the sign-in epic 2026-06-21; tests still pass). **Phase 1 + Phase 2 complete.** |
-| AC still `planned` (placed, not yet verified) | **95** — all 93 Phase-3 lifecycle/FILE AC (EPIC-010 25, EPIC-011 9, EPIC-012 20, EPIC-013 13, EPIC-014 10, EPIC-015 16, placed 2026-06-21) **+ EPIC-009's 2 new sign-in AC** (AC-AUTH-013-01/-02, the sign-in/sign-out capability realized vs the mock), awaiting build + CI sign-off. |
+| AC `verified` (signed off) | **97** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization). NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
+| AC still `planned` (placed, not yet verified) | **93** — all 93 Phase-3 lifecycle/FILE AC (EPIC-010 25, EPIC-011 9, EPIC-012 20, EPIC-013 13, EPIC-014 10, EPIC-015 16, placed 2026-06-21), awaiting build + CI sign-off. *(EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped `planned`→`verified` 2026-06-21 via PR#71 — see Verified row.)* |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -159,6 +159,37 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > per-PR-CI-tier follow-up tracked for EPIC-001 applies here. The 6 advisory PR-review panel minors/nit are
 > dispositioned non-blocking (3 carried to `RETRO-008 § Post-Merge Addendum`); none affect AC sign-off.
 >
+> **EPIC-009 (5 AC) signed off 2026-06-21 — the PoC two-role sign-in lane ships (mock realization).** The dev
+> sign-in lane realizing **REQ-AUTH-013** against the `AUTH_PROVIDER=mock` seam — plus the consolidated
+> **REQ-AUTH-010** role-based-redirect AC — shipped (PR #71, squash merge `169b09e`); see basis note [B].
+> **All 5 in-scope AC now `verified`:** the 2 net-new sign-in/sign-out AC (**AC-AUTH-013-01** sign-in → role-
+> appropriate landing; **AC-AUTH-013-02** global sign-out → unauthenticated, re-auth required on both surfaces)
+> flipped `planned`→`verified` this slice, and the 3 redirect AC (**AC-AUTH-010-01/-02/-03**, consolidated from
+> EPIC-004) stay `verified` with PR #71 confirmation appended (no double-count — they remain owned by EPIC-009).
+> **Honest-accounting scope:** this slice is a **dev-lane PoC against the mock provider** — AC-AUTH-013-01/-02
+> are verified **vs the mock**; the **real-provider (Clerk) realization stays outstanding at Phase 5** (§ Provider
+> re-validation), and the **2FA AC remain deferred to Phase 5** (REQ-AUTH-004/005). The dev-lane affordances
+> (seeded-account picker, role/user switcher, the inert-under-`AUTH_PROVIDER=clerk` guard) are EPIC-009
+> **dev-acceptance** tooling, not product AC — they have their own automated tests but no COVERAGE rows.
+> **EPIC-009 → `delivered`.** **Phase context:** EPIC-009 is a **cross-cutting PoC sign-in slice placed in
+> Phase 3 but with no LIFE/FILE dependency** — it does **not** close or advance Phase 3 proper (the
+> engagement-lifecycle + FILE work, EPIC-010..015, is still entirely `planned`). It makes every later PoC slice
+> human-demoable as either role.
+>
+> **[B] Evidence basis for the EPIC-009 sign-off (2026-06-21).** Same user-accepted CI-as-the-gate basis as
+> [A] — the required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on PR #71 and on the
+> post-merge `main` squash `169b09e`. EPIC-009 took the **reviewed application-code lane**: code-standards
+> audit `approve` (0 violations) → `/pr-review` 3-lens panel (1 major + 5 minor + 2 nit; all blockers/majors
+> fixed in `5551052`, 1 minor deferred as a tracked follow-up) → `/pr-fix` green → merged on green required CI.
+> Each in-scope AC has automated test(s) tagged with its AC id, **independently re-run by the SDET against the
+> live docker-compose stack**: AC-AUTH-013-01 — portal `sign-in-lane.spec.ts` 6/6 + admin `sign-in-lane.spec.ts`
+> 5/5 (tier-6, both surfaces) + tier-2/3 server-set-role assertions; AC-AUTH-013-02 — tier-6 global-sign-out e2e
+> both surfaces (host-only `__mock_session` cookie cleared → both apps re-auth) + tier-2/3; AC-AUTH-010-01/-02/-03
+> — `pnpm e2e:cross-app` `cross-app-redirect.spec.ts` 5/5 (mechanism not rebuilt; re-exercised through the new
+> sign-in path). **Slice-specific caveat (the honest-accounting boundary):** the auth provider is **mocked** for
+> this slice — AC-AUTH-013-01/-02 + AUTH-010-* are verified **vs the mock**; real Clerk re-validation + 2FA are
+> Phase 5 (§ Provider re-validation, § Deferred). The same per-PR-CI-tier follow-up tracked for EPIC-001 applies.
+>
 > **[A] applied to the EPIC-006 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
 > EPIC-001/002/003/004/005 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging
 > gate does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on the
@@ -277,11 +308,11 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-AUTH-006 | AC-AUTH-006-02 | EPIC-004 | 1 | `AC-AUTH-006-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-006 | AC-AUTH-006-03 | EPIC-004 | 1 | `AC-AUTH-006-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-009 | AC-AUTH-009-01 | EPIC-004 | 1 | `AC-AUTH-009-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
-| REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-009 | 3 | `AC-AUTH-010-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) |
-| REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-009 | 3 | `AC-AUTH-010-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) |
-| REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-009 | 3 | `AC-AUTH-010-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) |
-| REQ-AUTH-013 | AC-AUTH-013-01 | EPIC-009 | 3 | `AC-AUTH-013-01` | planned | — (sign-in lands on role-appropriate surface; realized vs mock) |
-| REQ-AUTH-013 | AC-AUTH-013-02 | EPIC-009 | 3 | `AC-AUTH-013-02` | planned | — (sign-out → unauthenticated state) |
+| REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-009 | 3 | `AC-AUTH-010-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) · confirmed under EPIC-009 by PR#71 `169b09e` (2026-06-21) — `pnpm e2e:cross-app` `cross-app-redirect.spec.ts` 5/5, re-exercised through the new sign-in lane |
+| REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-009 | 3 | `AC-AUTH-010-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) · confirmed under EPIC-009 by PR#71 `169b09e` (2026-06-21) — `cross-app-redirect.spec.ts` 5/5 |
+| REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-009 | 3 | `AC-AUTH-010-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) · confirmed under EPIC-009 by PR#71 `169b09e` (2026-06-21) — `cross-app-redirect.spec.ts` 5/5 |
+| REQ-AUTH-013 | AC-AUTH-013-01 | EPIC-009 | 3 | `AC-AUTH-013-01` | verified | [B] PR#71 `169b09e` (2026-06-21) — verified **vs the MOCK provider**: portal `sign-in-lane.spec.ts` 6/6 (CLIENT→portal, ACCOUNTANT→admin) + admin `sign-in-lane.spec.ts` 5/5 + tier-2/3 server-set-role assertions; real-provider (Clerk) re-validation outstanding → Phase 5 |
+| REQ-AUTH-013 | AC-AUTH-013-02 | EPIC-009 | 3 | `AC-AUTH-013-02` | verified | [B] PR#71 `169b09e` (2026-06-21) — verified **vs the MOCK provider**: tier-6 e2e both surfaces (global sign-out clears the host-only `__mock_session` cookie → both apps re-auth) + tier-2/3; real-provider (Clerk) re-validation outstanding → Phase 5 |
 | REQ-MSG-013 | AC-MSG-013-01 | EPIC-003 | 1 | `AC-MSG-013-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
 | REQ-ONBD-001 | AC-ONBD-001-01 | EPIC-005 | 2 | `AC-ONBD-001-01` | verified | PR#48 `f879da2` (2026-06-18) · SDET+CI [A] |
 | REQ-ONBD-001 | AC-ONBD-001-02 | EPIC-005 | 2 | `AC-ONBD-001-02` | verified | PR#48 `f879da2` (2026-06-18) · SDET+CI [A] |

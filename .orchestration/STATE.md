@@ -14,10 +14,10 @@
 
 ## Current run
 
-_No active run._ EPIC-008 delivered + validated 2026-06-20 (run closed → collapsed to `## Recent outcomes`).
-**Phase 2 (the onboarding gate) is COMPLETE** (EPIC-005/006/007/008). The next ready slice is the first epic of
-**Phase 3 (engagement lifecycle, LIFE domain)** — **Phase 3 is not yet decomposed**: run `/planning` to author it
-before `/orchestrate` has a ready epic. See `## Pending closeout follow-ups` for the two non-blocking carries.
+_No active run._ EPIC-009 delivered + validated 2026-06-21 (run closed → collapsed to `## Recent outcomes`).
+The next ready slice is **EPIC-010** (Phase 3, engagement lifecycle / LIFE domain) — `depends_on` EPIC-005 ✅ +
+EPIC-008 ✅ satisfied; build order 010 → (011, 012) → 013 → 014 → 015. Re-invoke `/orchestrate EPIC-010` (or
+`/orchestrate` to auto-select). See `## Pending closeout follow-ups` for the non-blocking carries.
 
 ## Pending closeout follow-ups
 
@@ -36,12 +36,29 @@ before `/orchestrate` has a ready epic. See `## Pending closeout follow-ups` for
 - **[C4 drift triage — DEFERRED, user-directed 2026-06-19]** triage the four C4 backfill as-built-vs-ADR drifts
   (commit `9900d6a`) with `/planning` + `/architecture` — esp. the ADR-005/009/010 schema-lag (table-set ahead
   of `prisma/schema.prisma`). Not slice-blocking; a Phase-2-wrap-up task.
+- **[Cross-surface-parity sunset counter TRIPPED 3-of-3 — needs user/Overwatch ratification]** RETRO-009 recorded
+  the third consecutive clean cross-surface-parity pass (CLAUDE.md § Platform-frontend scope sunset trigger). The
+  rule's keep/remove review is now due. RETRO-009 recommends **KEEP** (the admin-lane mirror in EPIC-009 was a real
+  parity obligation, not a no-op). **Resume:** ratify keep-or-remove with the user/Overwatch; if KEEP, reset the
+  counter annotation; if REMOVE, strike the rule from CLAUDE.md § Platform-frontend scope. Non-gating.
+- **[Dev-lane shared-component / manifest single-source-of-truth — DEFERRED, tracked in RETRO-009]** the two dev-lane
+  demo-account manifests + the two `DevBannerClient` components are duplicated byte-for-byte across `apps/portal` +
+  `apps/admin` (two separate Next builds). Durable fix = one shared `packages/*` manifest + presentational component
+  sourced from the demo seed (NOT a cross-app import). The `/pr-review` `DevBannerClient`-dup thread was resolved on
+  PR #71 with this deferral documented. **Resume:** fold into a future seed/shared-`packages` task. Non-gating.
 
 ## Recent outcomes
 
 > One line per delivered run, newest first. Full detail: `.planning/ROADMAP.md` + `COVERAGE.md` (per-AC), the
 > merged PR, `.implementation/tasks/RETRO-NNN.md` + `HANDOFF-NNN.md`, and `tasks/done/` (per-task).
 
+- **EPIC-009** ✅ DELIVERED 2026-06-21 · PR #71 → `169b09e` · 5/5 in-scope AC (vs **mock** provider) · PoC dev
+  sign-in lane — REQ-AUTH-013 (sign-in/sign-out) + consolidated REQ-AUTH-010 (role-based landing); dev-only
+  `(dev)/dev-sign-in/` on both surfaces + role/user switcher + global sign-out, **inert under `AUTH_PROVIDER=clerk`**
+  (HARD gate, counterfactual-proven). Reviewed lane: standards `approve` → panel request-changes (1 major guard-
+  predicate divergence + 5 minor + 2 nit) → `/pr-fix` `5551052` (fixed 5/6; shared fail-closed `isMockAuthSanctioned()`;
+  1 minor `DevBannerClient`-dup deferred). Zero net-new schema/policy/provider seam. **Real-Clerk re-validation + 2FA
+  deferred to Phase 5; does NOT advance Phase 3 proper.** RETRO-009/HANDOFF-009.
 - **EPIC-008** ✅ DELIVERED 2026-06-20 · PR #55 → `7fe2872` · 8/8 AC · onboarding completion — gate close →
   automatic New→In Progress (the single automatic lifecycle transition) → accountant-only notification; **ZERO
   schema migration** (behavior over existing shapes). **🎉 Phase-2 capstone — closes Phase 2 (the onboarding

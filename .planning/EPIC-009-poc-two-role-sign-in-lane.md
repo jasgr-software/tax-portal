@@ -2,7 +2,7 @@
 id: EPIC-009
 title: Sign-in lane (sign-in/sign-out capability, PoC mock realization)
 phase: 3
-status: planned   # 2026-06-21 — re-decomposed: owns the sign-in/sign-out capability AC (REQ-AUTH-013) + the consolidated landing AC (REQ-AUTH-010); 2FA + real provider stay deferred (Phase 5)
+status: delivered   # 2026-06-21 — delivered (PR #71, squash `169b09e`): all 5 in-scope AC verified vs the MOCK provider (AC-AUTH-013-01/-02 flipped planned→verified; AC-AUTH-010-01/-02/-03 stay verified, PR#71 confirmation appended). Real-provider (Clerk) re-validation + 2FA stay deferred to Phase 5. Re-decomposed earlier this day: owns the sign-in/sign-out capability AC (REQ-AUTH-013) + the consolidated landing AC (REQ-AUTH-010).
 slice: A user opens the sign-in surface, authenticates as their role, and lands on the surface for that role; a signed-in user can sign out back to an unauthenticated state. Realized against the mock auth provider in the PoC (a dev sign-in lane with a role/user switcher); the real provider is Phase 5.
 requirements:
   - REQ-AUTH-013: [AC-AUTH-013-01, AC-AUTH-013-02]   # the sign-in/sign-out capability — the new product AC this slice realizes (against the mock)
@@ -91,43 +91,49 @@ human.
 ## Acceptance scenarios
 > Product behavior, tagged with the AC each scenario covers. In the PoC these run against the mock provider
 > via the dev sign-in lane.
+>
+> **✅ VALIDATED (mock realization) 2026-06-21 — PR #71, squash `169b09e`.** All scenarios below are bound to
+> passing AC-id-tagged tests, independently re-run by the SDET against the live docker-compose stack (see
+> `COVERAGE.md` basis note [B]): AC-AUTH-013-01 — portal/admin `sign-in-lane.spec.ts` 6/6 + 5/5; AC-AUTH-013-02 —
+> tier-6 global-sign-out e2e both surfaces; AC-AUTH-010-01/-02/-03 — `cross-app-redirect.spec.ts` 5/5. Verified
+> **vs the mock provider**; the real-provider (Clerk) re-validation of these scenarios is outstanding at Phase 5.
 
-### AC-AUTH-013-01 — Sign in as the accountant and land on the admin surface
+### ✅ AC-AUTH-013-01 — Sign in as the accountant and land on the admin surface
 ```gherkin
 Given a PoC build under AUTH_PROVIDER=mock with the demo accounts seeded
 When the tester opens the sign-in lane and signs in as the Accountant
 Then a session for the ACCOUNTANT is established and they land authenticated on the Tax Portal (admin) dashboard without further navigation
 ```
 
-### AC-AUTH-013-01 — Sign in as a seeded client and land on the client surface
+### ✅ AC-AUTH-013-01 — Sign in as a seeded client and land on the client surface
 ```gherkin
 Given a PoC build under AUTH_PROVIDER=mock with seeded clients
 When the tester opens the sign-in lane and signs in as a named client
 Then a session for that CLIENT is established and they land authenticated on that client's Client Portal home without further navigation
 ```
 
-### AC-AUTH-013-02 — Sign out returns to an unauthenticated state
+### ✅ AC-AUTH-013-02 — Sign out returns to an unauthenticated state
 ```gherkin
 Given a tester signed in through the lane as either role
 When they sign out
 Then their session ends and any subsequent request to a protected surface requires signing in again
 ```
 
-### AC-AUTH-010-01 — Client is redirected away from the admin surface
+### ✅ AC-AUTH-010-01 — Client is redirected away from the admin surface
 ```gherkin
 Given a signed-in CLIENT
 When they navigate to a route on the accountant (admin) surface
 Then they are redirected to the client surface and no admin content is rendered
 ```
 
-### AC-AUTH-010-02 — Accountant is redirected away from client-only routes
+### ✅ AC-AUTH-010-02 — Accountant is redirected away from client-only routes
 ```gherkin
 Given a signed-in ACCOUNTANT
 When they navigate to a CLIENT-only route on the client surface
 Then they are redirected to the admin surface and no client-only content is rendered
 ```
 
-### AC-AUTH-010-03 — Public client routes stay reachable for any role
+### ✅ AC-AUTH-010-03 — Public client routes stay reachable for any role
 ```gherkin
 Given a signed-in user of either role (or an anonymous visitor)
 When they navigate to a public, non-client-only route on the client surface
