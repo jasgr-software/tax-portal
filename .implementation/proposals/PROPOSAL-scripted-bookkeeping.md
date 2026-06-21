@@ -278,7 +278,7 @@ whole-file.
 | Existing mechanism | Where | Nature |
 | --- | --- | --- |
 | `/compact` request at Plan start | `ENGINE.md` § Phase 0 (lines 121–122) | **Reactive** — user-driven, fires after context is already heavy |
-| Bounded-ledger rule (NORTH-STAR #7) | `ENGINE.md` (lines 328–335) | **Discipline** — relies on the IO to sweep prose to `PROGRESS-ARCHIVE.md` each transition. **§9 removes the need entirely** (structured state can't accumulate prose). |
+| Bounded-ledger rule (NORTH-STAR #7) | `ENGINE.md` (lines 328–335) | **Discipline** — relies on the IO to sweep prose to `PROGRESS-ARCHIVE.md` each transition. **§9 *fulfills* #7's cold-derivable contract** and retires this manual workaround (structured state can't accumulate prose). |
 | `Impl: io` to "preserve context" | `PHASES.md` (line 15) | **Heuristic** — IO absorbs small tasks rather than spawning |
 | Spawn-prompt context delivery | `PHASES.md` (line 4) | **Manual** — IO hand-packs each subagent's context from large source files |
 
@@ -303,14 +303,16 @@ Bounded **projections** so agents stop reading whole files:
 **deterministic projection** rather than a manual gather, which shrinks both the IO's working
 context *and* what each subagent receives — directly reinforcing `PHASES.md:4`.
 
-### 8.3 The bounded-ledger rule is dissolved, not merely automated (see §9)
+### 8.3 The bounded-ledger *workaround* is retired by fulfilling #7 (see §9, §11)
 
 The original draft proposed a `ledger-check` budget gate to police PROGRESS.md hot-state size.
-The §9 decision to make state **structured** removes the need:
+The §9 decision to make state **structured** is the better move — it doesn't *remove*
+NORTH-STAR conclusion #7, it **satisfies it**:
 
-- A fixed-shape `state.json` object **cannot accumulate prose** — there is no growing blob to
-  bound, so NORTH-STAR #7's bounded-ledger rule and `ledger-check` both become unnecessary
-  (this is also what dissolves Q6).
+- A fixed-shape, cold-derivable `state.json` object **cannot accumulate prose** — it *is* the
+  "durable, bounded, cold-derivable contract" #7 calls for. So the **manual bounded-ledger
+  house-rule** (a workaround for prose accretion) and the proposed `ledger-check` both become
+  unnecessary — #7 is met structurally, not policed by discipline (this is also what dissolves Q6).
 - History lives in append-only `events.jsonl` + git, queried by slice — never loaded whole — so
   the `PROGRESS-ARCHIVE.md` "thin index" sweep disappears too.
 - `task history --slice <X>` resolves a slice to its durable artifacts (PR/sha/`HANDOFF-NNN`)
@@ -360,7 +362,8 @@ each fact lives:
 
 - **PROGRESS.md** as a curated narrative ledger → replaced by `state.json` + on-demand `report`.
 - **PROGRESS-ARCHIVE.md** + the phase-transition prose sweep → replaced by `events.jsonl`.
-- **NORTH-STAR #7 bounded-ledger rule** and any `ledger-check` budget → unnecessary (§8.3).
+- The **manual bounded-ledger house-rule** (NORTH-STAR #7's workaround) and any `ledger-check`
+  budget → retired; #7's cold-derivable contract is instead *fulfilled* structurally (§8.3, §11).
 - The IO's prose-curation beat → replaced by inspecting a **structured state diff** at each
   transition (more reliable oversight than re-reading prose, not less).
 
@@ -427,3 +430,36 @@ the PHASES.md phase-transition reflex. Scoped to `.implementation/**` + `scripts
 6. **`ledger-check` budget? — RESOLVED (dissolved):** §9's structured state has fixed shape and
    cannot accumulate prose, so there is no hot-state budget to police and no `ledger-check` gate.
    `/compact` remains the backstop; steady-state read footprint is low by construction.
+
+---
+
+## 11. Relationship to the NORTH-STAR program
+
+This proposal is the **implementation-layer instance of the same thesis** that
+`.orchestration/design/NORTH-STAR.md` pursues for the Conductor: *script-vs-agent and
+contract-erosion are one problem; scripting is the erosion detector* (NORTH-STAR conclusion #1).
+NORTH-STAR makes the **orchestration** layer deterministic; this makes the **implementation**
+layer's bookkeeping deterministic. The conclusions transfer directly:
+
+| NORTH-STAR conclusion | How this proposal honors it |
+| --- | --- |
+| **#1** scripting reveals loose contracts | front-matter schema + `verify` surface drift instead of papering over typos (the `BUG-000-00x` class) |
+| **#2** intelligence in the nodes, dumb composition | §6 judgment line — agents decide, scripts record |
+| **#3** re-derive from primary sources, never from ledger verdicts | §9 one-fact-one-home; "active bugs" is a query; git is authoritative history |
+| **#5/#6** data-driven promotion; never script an unexercised branch | rollout scripts only the **exercised** mechanical paths; judgment + unexercised branches stay agent-owned, codified later as they prove stable |
+| **#7** durable, **bounded, cold-derivable** contract per seam | §9 `state.json`/`events.jsonl` **fulfills** #7 structurally (correcting an earlier draft that said it *removed* #7) |
+
+**It does not literally fold into the NORTH-STAR doc — by NORTH-STAR's own rule.** Line 40 there
+keeps the implementation engine a *swappable backend behind the build-brief contract*: the
+sequencer must not couple to `.implementation` internals. So this is a **sibling effort**, not a
+sub-item of the orchestration migration. The decoupling is preserved because `.implementation`
+scripts **its own** internals here; orchestration still treats it as a black box.
+
+**Precedent to mirror, not reinvent.** NORTH-STAR's Increment-3 Phase-2 already shipped the
+analogous "bookkeeping derivers" one layer up — `orchestrate-state.sh` (derive `pr`/`merge_sha`/
+AC-count/review-counts from primary sources) and `id-alloc.sh` (cross-layer next-free-id). The
+`task.ts` CLI should follow their conventions (derive-from-source, one scripted command per
+mechanical step, structured verdicts) so the two layers share idioms.
+
+**Tracking.** Registered in NORTH-STAR.md § Migration path → *Cross-layer extension —
+implementation-engine bookkeeping (designated next)*, status **design complete; build pending**.
