@@ -20,7 +20,8 @@
 
 | Slice | Delivered | PR → sha | Durable record |
 | --- | --- | --- | --- |
-| **BRIEF-008 / EPIC-008** | ⏳ Close-prep → `## Awaiting PR merge` | #55 (draft→ready), head `06119e2` | `RETRO-008` · `HANDOFF-008` · `done/TASK-008-*`; BUG-008-001 (open, tracked) |
+| **BRIEF-009 / EPIC-009** | ⏳ Close-prep → `## Awaiting PR merge` (2026-06-21) | PR pending, branch `brief-009-sign-in-lane` | `RETRO-009` · `HANDOFF-009` · `done/TASK-009-*` (PoC dev sign-in lane; 5/5 AC; HARD inert-under-`clerk` gate; 3-of-3 cross-surface-parity sunset trip) |
+| **BRIEF-008 / EPIC-008** | 2026-06-20 | #55 → `7fe2872` | `RETRO-008` · `HANDOFF-008` · `done/TASK-008-*`; BUG-008-001 (open, tracked) |
 | **BRIEF-007 / EPIC-007** | 2026-06-19 | #52 → `eaa5875` | `RETRO-007` · `HANDOFF-007` · `done/TASK-007-*` |
 | **BRIEF-006 / EPIC-006** | 2026-06-18 | #50 → `e55f8c5` | `RETRO-006` · `HANDOFF-006` · `done/TASK-006-*` |
 | **BRIEF-005 / EPIC-005** | 2026-06-18 | #48 → `f879da2` | `RETRO-005` · `HANDOFF-005` · `done/TASK-005-*` |
@@ -34,6 +35,9 @@
 
 ## Sweep pointers (one line per swept phase-block)
 
+- **BRIEF-009 Plan→Dispatch session entries** (IO Plan→Dispatch; 5× SDET Review TASK-009-001..005; IO
+  Audit/Dispatch checkpoints across the 001→{003,002}→004→005 chain) swept at the Dispatch→Close-prep transition
+  (2026-06-21). Durable in `done/TASK-009-*.md`, `HANDOFF-009.md`, `RETRO-009.md`, and `git log -p PROGRESS.md`.
 - **BRIEF-008 Plan→Validate session entries** (IO Plan, 5× SDET Review, IO Dispatch/Audit/Review/Smoke/Validate
   checkpoints, SDET Smoke + Acceptance-Validation gates, the TASK-008-004 escalation triage) swept at the
   Validate→Close-prep transition (2026-06-20). Durable in `done/TASK-008-*.md`, `HANDOFF-008.md`, `RETRO-008.md`,

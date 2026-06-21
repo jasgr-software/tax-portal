@@ -33,6 +33,13 @@ import type { Role } from "./port.js";
  *
  * Matching is prefix-based: `/sign-in` also matches `/sign-in/anything`.
  * This covers Clerk's sub-paths (e.g. `/sign-in/factor-one`).
+ *
+ * DECISION (TASK-009-001): `/dev-sign-in` is a dev-only lane for the mock provider.
+ * It is added here so unauthenticated testers can reach it. The route page itself
+ * returns 404 when AUTH_PROVIDER=clerk (the inert-under-real-binding guard — TASK-009-003).
+ * ADR-001: the lane must be inert under the real provider; adding the path here does
+ * not change production behavior because the page 404s under AUTH_PROVIDER=clerk.
+ * // ADR-001 // CS-GEN-002
  */
 export const PORTAL_PUBLIC_PATHS: readonly string[] = [
   "/",
@@ -40,6 +47,7 @@ export const PORTAL_PUBLIC_PATHS: readonly string[] = [
   "/request",
   "/sign-in",
   "/sign-up",
+  "/dev-sign-in", // TASK-009-001: dev sign-in lane (mock binding only; 404 under clerk — TASK-009-003)
 ];
 
 /**

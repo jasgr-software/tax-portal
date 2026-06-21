@@ -11,10 +11,15 @@
  * // layout (with Clerk provider, user context, nav links) lands in TASK-004-002.
  *
  * Tailwind CSS is loaded globally here via globals.css.
+ *
+ * TASK-009-002: AdminDevBanner (dev-only role/user switcher + sign-out) is injected here.
+ *   CS-TS-003: present on BOTH apps/admin (here) and apps/portal (mirrored).
+ *   ADR-001: banner is inert under AUTH_PROVIDER=clerk — zero production impact.
  */
 
 import type { Metadata } from "next";
 import "@/styles/globals.css";
+import { AdminDevBanner } from "@/app/(dev)/_components/DevBanner";
 
 export const metadata: Metadata = {
   title: {
@@ -39,6 +44,12 @@ export default function RootLayout({
          * ADR-010: All routes in apps/admin require ACCOUNTANT auth.
          */}
         <main>{children}</main>
+        {/*
+         * Dev-only role/user switcher + sign-out banner (TASK-009-002).
+         * ADR-001: AdminDevBanner.isMockActive() guard — null under AUTH_PROVIDER=clerk.
+         * CS-TS-003: also wired in apps/portal/src/app/layout.tsx.
+         */}
+        <AdminDevBanner />
       </body>
     </html>
   );

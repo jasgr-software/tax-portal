@@ -1,14 +1,14 @@
 # TASK-009-004: E2e — bind the epic's gherkin scenarios (sign-in-as-each-role + landing, switcher, sign-out, inert guard, redirect matrix) across both apps + cross-app
 
 **Brief**: BRIEF-009
-**Status**: review
+**Status**: done
 **Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
+**Updated-by**: sdet
 **Depends on**: TASK-009-002, TASK-009-003
 **Impl**: developer
 **E2e-required**: yes <!-- brief methodology.e2e: required; auth/sign-in flow — CLAUDE.md IO e2e default -->
 **Started-at**: 2026-06-21T15:25:13Z
-**Completed-at**: 2026-06-21T11:10:00Z
+**Completed-at**: 2026-06-21T19:20:00Z
 **Complexity-estimate**: 3
 **Complexity-actual**: 4
 
@@ -28,7 +28,7 @@
 - [x] **Submission gate** — lint + type-check + build + `pnpm --filter portal test` + `pnpm --filter admin test` pass
 - [x] **Targeted e2e** — actual execution output in Work Log: `pnpm --filter portal e2e:run` + `pnpm --filter admin e2e:run` + `pnpm e2e:cross-app` (Docker pre-flight required)
 - [x] **Security review** — the e2e exercises sign-in through the lane's server-set-role path (not a forged client role); sign-out global re-auth is asserted
-- [ ] **SDET Review** — approved
+- [x] **SDET Review** — approved
 
 ## SDET Review focus areas
 
@@ -170,11 +170,13 @@ AC-AUTH-010-01/-02/-03 coverage in cross-app-redirect.spec.ts: 5/5 passed:
 
 **What's next:** SDET review. | Blockers: none
 
+### 2026-06-21 [sdet] APPROVED — all gates pass; atomic close. | What was done: independent e2e re-run (portal sign-in-lane 6/6 PASS; admin sign-in-lane 5/5 PASS; cross-app AC-AUTH-010 5/5 PASS); branch-diff confirmed 0-line diff on all 15 failing out-of-scope specs (BUG-008-001 Azurite / Mailhog pre-existing); all 5 in-scope AC have passing AC-tagged e2e on correct surfaces; seed change (seedAccountant() MERGE-upsert, CS-TS-001/CS-GEN-002/ADR-005 honored); switcher dev-acceptance exercised both directions; gherkin scenarios bound in prose per CLAUDE.md § Executable gherkin tooling; CS-TS-001/003/CS-GEN-003 verified; metadata contract satisfied (Completed-at overwritten to real close clock 2026-06-21T19:20:00Z, Updated-by: sdet). | What's next: IO — TASK-009-005 dispatch. | Blockers: none
+
 ## Attempt Log
 
 **Attempt count**: 0
 
 ## SDET Review
 
-**Decision**: pending
-**Notes**:
+**Decision**: approved
+**Notes**: All mandatory checks pass. (1) **Independent e2e re-run**: portal `sign-in-lane.spec.ts` 6/6 PASS; admin `sign-in-lane.spec.ts` 5/5 PASS; `pnpm e2e:cross-app` AC-AUTH-010 coverage (`cross-app-redirect.spec.ts`) 5/5 PASS. (2) **Failing-e2e attribution independently confirmed**: `git diff origin/main...HEAD` returns 0 lines on all 6 failing spec files — byte-identical to main; all 15 failures are pre-existing BUG-008-001 (Azurite SAS-URL host-unreachable) or Mailhog ECONNREFUSED. NONE of the auth/redirect/sign-in specs are red. (3) **AC↔test traceability**: AC-AUTH-013-01 tagged in both portal and admin sign-in-lane specs (accountant landing + client landing, both passing); AC-AUTH-013-02 tagged in both portal and admin sign-in-lane specs (global sign-out, both passing); AC-AUTH-010-01/-02/-03 tagged in pre-existing `cross-app-redirect.spec.ts` and confirmed green. (4) **Gherkin bind**: each spec block maps to the corresponding Given/When/Then scenario from EPIC-009 § Acceptance scenarios + § Dev-acceptance scenarios in the file header JSDoc — no drift from mandated scenarios. (5) **Seed change**: `seedAccountant()` MERGE-upsert keyed on `clerkId=demo_usr_jane_accountant`, role hardcoded `N'ACCOUNTANT'` server-side (ADR-005), uses `getAdminPool()` (CS-TS-001), additive only (CS-GEN-002), wired as Step 2a in `index.ts`. (6) **CS standards**: CS-TS-001 `required` — honored (`getAdminPool()`, no Prisma direct); CS-TS-003 and CS-GEN-003 `recommended` — both met (both-surface specs, AC ids in titles, governing-key citations in all files). (7) **Switcher dev-acceptance**: both switch directions exercised e2e (CLIENT→ACCOUNTANT lands admin; ACCOUNTANT→CLIENT lands portal). (8) **Metadata**: `Complexity-actual: 4` ∈ 1–5; `Started-at` present; Dispatch-Checkpoint "Starting implementation" pre-impl entry present; `Completed-at` corrected from developer-written 11:10:00Z (clock-inversion) to real SDET-close value 2026-06-21T19:20:00Z; `Updated-by: sdet`.

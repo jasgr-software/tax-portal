@@ -10,109 +10,33 @@
 
 ## Current initiative
 
-**BRIEF-008 / EPIC-008 — Onboarding completion (gate close → automatic New→In Progress transition → accountant
-notified) — DELIVERED · CLOSE-FINALIZE COMPLETE 2026-06-20.** Merged to `main` via squash commit **`7fe2872`**
-(PR #55, `https://github.com/jasgr-software/tax-portal/pull/55`; branch deleted). **All 9 gates resolved:** 1–7
-GREEN (Close-prep), **gate 8 post-merge CI GREEN** @ `7fe2872` (CI run `27870105845` + CodeQL `27870105586`
-both `completed/success`; required `lint-and-typecheck` + `security-scan` green), **gate 9 N/A** (`Brief-deploys:
-no`). 7 review threads dispositioned+resolved before merge (Lane B; no `--admin`/protection toggle). HANDOFF-008
-+ RETRO-008 (incl. Post-Merge Addendum) written; all 5 tasks in `tasks/done/`; **BUG-008-001 stays OPEN** (tracked
-non-blocking infra follow-up). **The Phase-2 capstone — Phase 2 (EPIC-005/006/007/008, the onboarding gate) is
-complete at the engine level.**
+_None active — BRIEF-009 in PR limbo (see `## Awaiting PR merge`)._ The IO is **between slices**: Close-prep
+complete for BRIEF-009, awaiting the Conductor's PR push + reviewed-lane gates + merge → Close-finalize. No new
+Plan may start while a slice sits in `## Awaiting PR merge` (ENGINE.md § Autonomy Ceiling item 5 / slice-start
+gate).
 
-> **Next (Conductor):** `/planning validate EPIC-008 with CI evidence 7fe2872` (flip 8 AC `planned → verified`,
-> roll EPIC-008 → `delivered`) → **Phase-2 closeout** (DEMO-POLICY § Part B walkthrough video + `docs/demos/phase-2/`)
-> → docs-lane sign-off PR → run report. **IO Close-finalize ends here.**
-
-> **(Prior Plan→Validate phase-status notes swept to `PROGRESS-ARCHIVE.md` § Sweep pointers at the
-> Validate→Close-prep transition. The detailed AC↔test traceability table is durable in `HANDOFF-008.md`; the
-> gate scorecard in `RETRO-008.md`.)**
-
-> **(Superseded BRIEF-008 phase/task-status checkpoint notes — Validate / Smoke / Audit / Review / Dispatch —
-> collapsed at the Validate→Close-prep transition under the bounded-ledger rule. The full gate detail is durable
-> in `RETRO-008.md` (9-gate scorecard + finding classification), the AC↔test traceability in `HANDOFF-008.md`,
-> per-task records in `done/TASK-008-*.md`, and `BUG-008-001-*.md`. Recover the collapsed prose via
-> `git log -p PROGRESS.md`.)**
-**Phase-2 capstone; the smallest Phase-2 slice (8 AC).** Goal: when an engagement's three onboarding steps are
-all satisfied (letter signed — EPIC-005; questionnaire submitted — EPIC-006; required documents uploaded —
-EPIC-007), the **system** marks onboarding complete, **automatically transitions the engagement New → In
-Progress** (the single automatic transition in the lifecycle), and emits an **accountant-only in-portal
-notification** identifying the engagement + client. Gated. `Brief-type: feature` · `Brief-deploys: no`.
-Methodology: gherkin (8 epic scenarios) · e2e required (portal + admin + cross-app).
-
-**Key design property — ZERO schema migration.** This slice introduces **no net-new entity, no new column, no
-new RLS policy, no new provider seam**. It is **behavior over existing shapes**:
-- `Engagement.status` already exists (`@default("New")`, `'New' | 'In Progress'`; schema comment already
-  reserves the transition for EPIC-008). The transition is `New → In Progress`, fired once.
-- The onboarding read model (`packages/db/src/onboarding.ts` `resolveOnboarding`) already computes all three
-  step `done` flags (letter `letterSignedAt`; questionnaire `questionnaireSubmittedAt`; document-upload
-  `allRequiredProvided` from `resolveChecklist`). **Onboarding complete = all three `done` flags true.** No
-  re-derivation, no fork.
-- The EPIC-003 `Notification` entity + the accountant-only `db/policies/0004-notification-policy.sql` +
-  the admin notification feed already exist. The completion notification is a **new `type` value**
-  (`onboarding_completed`), inserted on the admin pool (mirror EPIC-003's inlined `createEngagementRequest`
-  notification INSERT), reusing the existing nullable `engagementRequestId` FK (Engagement is 1:1 with
-  EngagementRequest) + a denormalized client-name title/body to identify engagement + client (AC-ONBD-007-02).
-- The audit seam (`packages/db/src/audit.ts` `recordAuthEvent` / `withAuditTransaction`) already anticipates
-  an `'engagement.transition'` action; the transition is recorded there (ADR-019).
-
-**Design DECISIONS (IO Plan — see the IO Plan session entry below):**
-- **D1 — completion is derived, not a stored flag.** No `onboardingCompletedAt` column. "Complete" = the three
-  existing `done` flags all true; the persistent fire-once record IS the `status='In Progress'` value.
-- **D2 — fire-once guard via the status precondition.** The privileged write is `UPDATE Engagement SET
-  status='In Progress' WHERE id=@id AND status='New'`; only when `@@ROWCOUNT=1` do the notification INSERT +
-  audit fire — so a re-evaluation of an already-In-Progress engagement is a guaranteed no-op (AC-ONBD-006-03),
-  even under concurrency. The whole privileged step is ONE `withAuditTransaction` (atomic: transition +
-  notification + audit commit/rollback together).
-- **D3 — server-authoritative re-evaluation.** The privileged seam `processOnboardingCompletion(engagementId)`
-  re-evaluates completion itself under the admin pool (loads engagement + checklist by id) — it does NOT trust
-  a caller-passed boolean (EPIC-007 M1 lesson: re-assert server-side).
-- **D4 — notification identifies engagement + client via the EngagementRequest 1:1 link + denormalized name**
-  (no `engagementId` FK migration; mirrors EPIC-003's proven pattern; the prospect→client name is always
-  present from EPIC-001's `EngagementRequest`).
-- **D5 — trigger points.** `processOnboardingCompletion(engagement.id)` is invoked from the two portal actions
-  that can be the *completing* step (`submitQuestionnaireAction`, `completeUploadAction`) — never letter-sign
-  (steps 2/3 are still pending after the letter). The D2 guard makes double-invocation safe/idempotent.
-  Completion processing is attempted after the step's own commit and best-effort (errors logged, not
-  rolling back the committed step; the D2 guard makes a later retry idempotent).
-- **D6 — admin notification surface.** `apps/admin/.../NotificationsIndicator.tsx` currently HARD-FILTERS to
-  `new_engagement_request`; it is extended to also render `onboarding_completed` (AC-ONBD-007-01/-02,
-  AC-MSG-013-04). A minimal read-only engagement-status display ("In Progress") is added to the existing admin
-  per-engagement surface (`engagements/[engagementId]/document-requests/page.tsx`) so AC-ONBD-006-01 has a UI
-  observable for the e2e — admin-side only (client-facing lifecycle labels remain Phase-3 out-of-scope).
-
-**Tasks (5; dependency chain 001 → {002, 003} → 004 → 005):**
-- **TASK-008-001** `[webapp-developer]` `Impl: developer` — **the completion engine** (`packages/db`): new
-  `onboarding-completion.ts` — `isOnboardingComplete(model)` pure predicate (tier-2 truth table) +
-  `processOnboardingCompletion(engagementId)` privileged atomic fire-once seam (admin-pool re-evaluation →
-  status UPDATE WHERE status='New' → notification INSERT → audit, all in one `withAuditTransaction`) + the
-  `onboarding_completed` type constant; barrel export. Tier-3 integration vs. the real DB (truth table;
-  transition+notification+audit on complete; no-op on incomplete; fire-once no duplicate; accountant-only read
-  / client+anon ZERO). **AC: AC-ONBD-005-01/-02, -006-01/-02/-03, -007-01/-02, AC-MSG-013-04.** Depends: none.
-- **TASK-008-002** `[webapp-developer]` `Impl: developer` — **portal triggers**: invoke
-  `processOnboardingCompletion(engagement.id)` from `submitQuestionnaireAction` + `completeUploadAction` after
-  their success (D5). Additive; preserves each step's existing behavior + the EPIC-005 letter gate. Integration
-  test that completing the last step drives the transition. **AC: AC-ONBD-006-01/-02, -007-01 (path).**
-  Depends: 001.
-- **TASK-008-003** `[webapp-developer]` `Impl: developer` — **admin surface**: render `onboarding_completed` in
-  the notification feed (D6) + minimal engagement-status display. Component tests. **AC: AC-ONBD-006-01 (UI
-  observable), -007-01/-02, AC-MSG-013-04.** Depends: 001.
-- **TASK-008-004** `[webapp-developer]` `Impl: developer` — **e2e + cross-app**: bind the epic's 8 gherkin
-  scenarios; the full path complete-three-steps (portal) → In Progress + accountant notification (admin) →
-  cross-app. `E2e-required: yes`. **AC: all 8 (tier-6 coverage).** Depends: 002, 003.
-- **TASK-008-005** `[webapp-developer]` `Impl: developer` — **@demo gallery** `docs/demos/EPIC-008/`
-  (non-gating, DEMO-POLICY). **AC: none (demo artifact; justification: non-gating UI walkthrough).** Depends: 004.
-
-**Backlog-triage gate (slice-kickoff): PASS** — `## Awaiting PR merge` empty; `## Active bugs` none; `## Open
-retro action items` all carried as observations with explicit reasons (none block this slice).
-
-**Cross-surface-parity sunset counter (CLAUDE.md § Platform-frontend scope):** **2 of 3** consecutive
-zero-finding slices (BRIEF-007 first clean; **BRIEF-008 Audit CLEAN — both surfaces exercised** — advances to
-2 of 3). One more zero-parity-finding Close-prep retro trips the keep/remove review.
+> **BRIEF-009 / EPIC-009 collapsed per the bounded-ledger rule** (Close-prep transition). Durable detail:
+> `HANDOFF-009.md` (5 AC ↔ test traceability), `RETRO-009.md` (9-gate scorecard + carry-forward + the 3-of-3
+> cross-surface-parity sunset trip), `tasks/done/TASK-009-001..005`, the branch `brief-009-sign-in-lane` (1
+> committed + working-tree slice source), and `git log -p PROGRESS.md` for the full Plan→Dispatch prose. Headline:
+> the **PoC dev sign-in lane** — sign-in/sign-out capability (REQ-AUTH-013, mock realization) + consolidated
+> role-based landing (REQ-AUTH-010), inert under `clerk`, zero net-new infrastructure; all 5 in-scope AC green;
+> the HARD inert-under-`clerk` security gate proven with a demonstrated counterfactual.
 
 ## Awaiting PR merge
 
-_Empty — no slice in PR limbo._
+**BRIEF-009 / EPIC-009 — PoC dev sign-in lane (sign-in/sign-out capability + consolidated role-based landing).**
+Branch `brief-009-sign-in-lane`. **Brief-type:** feature · **Brief-deploys:** no. **Status: Close-prep COMPLETE
+2026-06-21 — awaiting the Conductor's PR push + reviewed-lane gates (application-code PR → Standards-review →
+`/pr-review` panel → fix → resolve threads → merge on green required CI, Lane B, no `--admin`/protection toggle)
+→ Close-finalize.** Pre-merge gates 1–7 GREEN (per RETRO-009 § 9-gate scorecard): 5/5 tasks SDET-approved, zero
+rejections; IO consistency gate PASS (no drift, 0 fix-forward); SDET independent live-stack e2e green (portal 6/6,
+admin 5/5, cross-app 5/5); HARD inert-under-`clerk` gate proven with demonstrated counterfactual; all 5 in-scope
+AC validated under the bound gherkin prose-bind. Gate 8 (post-merge CI) pending; gate 9 N/A (`Brief-deploys: no`).
+5 task files in `tasks/done/`; `HANDOFF-009.md` + `RETRO-009.md` written. **Conductor next:** push branch + open
+PR (package handed off by the IO) → reviewed-lane gates → merge → re-invoke IO for Close-finalize →
+`/planning validate EPIC-009`. **Do NOT stage `.orchestration/STATE.md` on this PR** (Conductor-owned docs-lane,
+same convention as BRIEF-008).
 
 _Prior limbo cleared:_ **BRIEF-008 / EPIC-008** (Phase-2 capstone) merged **PR #55 → `main` @ `7fe2872`**
 (Lane B; 7 review threads dispositioned+resolved; no `--admin`/protection toggle); **Close-finalize COMPLETE
@@ -282,41 +206,43 @@ Carried to RETRO-008 + Validate-disposition.
 
 ---
 
-### IO Close-prep — BRIEF-008 / EPIC-008 (onboarding completion — Phase-2 capstone) — 2026-06-20
+### IO Close-prep — BRIEF-009 / EPIC-009 (PoC dev sign-in lane) — 2026-06-21
 
-**Start:** Validate EXIT met — gate-6 (SDET acceptance-validation, 8/8 in-scope AC, APPROVED 05:30:00Z) +
-gate-7 (CI green on PR #55 @ head `06119e2` — run `27856606320` `completed/success`, both required checks green
-after the `check_work_log_content` Work-Log-wording fix commit `06119e2`). Phase-transition reflex performed
-(prior Plan→Validate session entries swept to `PROGRESS-ARCHIVE.md` § Sweep pointers; `## Current initiative` +
-`## Awaiting PR merge` updated; this entry appended).
+**Start:** All 5 BRIEF-009 tasks `done` (001 lane core, 002 switcher+global-sign-out, 003 inert-under-`clerk`
+HARD gate, 004 e2e both apps + cross-app, 005 @demo gallery). Dispatch exited. Entered Close-prep: consistency
+gate → prior-epic PNG revert → archive → HANDOFF/RETRO → move to PR limbo → hand the Conductor a ready-to-run PR
+package.
 
-**Consistency gate — PASS:**
-- All **5** tasks `done` (TASK-008-001/002/003/004/005) with valid `Complexity-actual` ∈ 1–5 and completed SDET
-  review sections; archived to `tasks/done/`.
-- BUG-008-001 is a **dispositioned, non-blocking, tracked follow-up** (pre-existing EPIC-007/ADR-009 infra
-  defect; OPEN; stays in `tasks/` per the Post-Close Protocol — open bugs are not archived). Not slice-blocking.
-- `## Awaiting PR merge` was empty at entry (BRIEF-007 cleared limbo 2026-06-19). Working tree clean intent;
-  branch `brief-008-onboarding-completion-transition` @ `06119e2`.
+**Actions:**
+- **Consistency gate / integrated design scan — PASS, no drift, 0 fix-forward.** Read the integrated diff
+  (committed `1e930fd` TASK-009-004 e2e+seed + working-tree TASK-009-001/002/003/005 lane source). The 5 tasks
+  compose into ONE coherent working lane: shared `@tax-portal/auth` mock-session seam (NOT forked — both apps
+  import `createMockSessionCookie`/`MOCK_SESSION_COOKIE_NAME`); inert-under-`clerk` guard at page + action layer
+  on BOTH surfaces; server-set-role honored (browser submits only `accountId`, role manifest-resolved server-side
+  — ADR-005); `/dev-sign-in` additive to `PORTAL_PUBLIC_PATHS`; redirect specs additive (+58/-0); both demo-account
+  manifests carry byte-identical records (the tracked single-source-of-truth observation); `seedAccountant()`
+  MERGE-upsert keyed on `demo_usr_jane_accountant` matches both manifests; governing-key citations intact in every
+  new file; **zero** debug leftovers / `console.log` / `debugger` / `.only` / TODO/FIXME / dead code (grep-clean).
+- **CRITICAL — prior-epic PNG byte-churn reverted before PR.** `git checkout -- docs/demos/EPIC-001..008` restored
+  the 33 sibling-`@demo`-rerendered PNGs (RETRO-006 item 4 recurrence; not a TASK-009-005 change). Verified:
+  `git status --short -- 'docs/demos/**'` shows ONLY `?? docs/demos/EPIC-009/` (the new gallery this slice ships);
+  zero `M` under prior epics.
+- **Archived all 5 task files** to `tasks/done/TASK-009-001..005`. Metadata contract verified: all four fields
+  (`Started-at`/`Completed-at`/`Complexity-estimate`/`Complexity-actual`) present + ∈ 1–5 on every task. Slice-close
+  metadata gate PASS. (One blemish: TASK-009-003 `Completed-at` < `Started-at` — recurring developer
+  clock-inversion; not gate-blocking; carried to RETRO-009 § item 3.)
+- **Wrote `HANDOFF-009.md`** (5 AC ↔ test traceability, what shipped, out-of-scope honored, zero upstream raised,
+  carry-forward, docs-lane closeout) **+ `RETRO-009.md`** (9-gate scorecard all pre-merge green; 4 carry-forward
+  observations; the **3-of-3 cross-surface-parity sunset trip** with a KEEP recommendation surfaced for
+  Conductor/Overwatch ratification; the two Rule-Sunset KEEP candidates; Post-Merge Addendum stub).
+- **Collapsed `## Current initiative`** to a bounded-ledger pointer (BRIEF-009 + superseded BRIEF-008 inline prose
+  + superseded dispatch notes); **moved the slice to `## Awaiting PR merge`**; swept BRIEF-009 Plan→Dispatch
+  session entries to `PROGRESS-ARCHIVE.md` (per-slice index row + sweep pointer).
 
-**Artifacts written (working-tree only — main session commits):**
-- `HANDOFF-008.md` — AC ledger (8/8 in-scope; 7 fully validated across tiers; AC-ONBD-005-01 tier-3 validated +
-  browser-e2e tier deferred to BUG-008-001), what shipped (the zero-schema-migration completion engine), the
-  COVERAGE write-back instruction (`/planning validate EPIC-008`), Phase-2-capstone note.
-- `RETRO-008.md` — 9-gate scorecard (1–7 green; 8 pending Close-finalize; 9 N/A `Brief-deploys: no`); finding
-  classification (item 1 gated-path-fix = the `check_work_log_content` gate-7 event + IO `06119e2` fix; item 2
-  ungated-fix = clock-domain inversion **9th+ recurrence** on TASK-008-002/003, carried off-PR; item 1a sister
-  `Updated-by`-staleness on all 5 tasks; item 3 gate-vs-wording brittleness; item 4 honest interrupted-resume
-  process note; item 5 BUG-008-001); cross-surface parity CLEAN → **sunset 2 of 3, KEEP**.
-- `tasks/done/TASK-008-001..005` — archived.
-- `PROGRESS-ARCHIVE.md` — BRIEF-008 index row updated + sweep pointer added.
-
-**Slice moved to `## Awaiting PR merge`** with PR #55 (`https://github.com/jasgr-software/tax-portal/pull/55`),
-head `06119e2`, the gate scorecard, and gate-7 CI evidence (run `27856606320`).
-
-**End / hand-off to main session:** de-WIP'd PR title + body composed (below, in the report) for the main session
-to apply — PR #55 needs `gh pr ready 55` (un-draft) + the title/body update. **This is an application-code PR →
-MERGE-POLICY Lane B (reviewed lane):** the Conductor runs `/pr-review 55` → `/pr-fix` if needed → merge on green
-required CI (no `--admin`, no protection toggle). After merge, re-invoke the IO for **Close-finalize** (gate 8
-post-merge CI; gate 9 N/A; archive BUG-008-001 if no POST bug; Post-Merge Addendum to RETRO-008). **Phase-2
-capstone:** the Conductor's Report phase must run the Phase-2 closeout (walkthrough video per DEMO-POLICY § Part
-B; `docs/demos/phase-2/`) + `/planning validate EPIC-008` to close Phase 2. **IO invocation ends here.**
+**End:** **Close-prep COMPLETE.** Slice in PR limbo. Handed the Conductor a ready-to-run PR package (branch,
+conventional-commit title, PR body, file/path list excluding the reverted prior-epic PNGs and the Conductor-owned
+`.orchestration/STATE.md`). **Application-code PR → reviewed lane** (Standards-review → `/pr-review` panel → fix →
+resolve threads → merge on green required CI, Lane B). Most slice source is **uncommitted working-tree** (only
+TASK-009-004's `1e930fd` is committed) — the Conductor stages + commits the rest, pushes, opens the PR. After
+merge: re-invoke the IO for Close-finalize (gate 8 post-merge CI; gate 9 N/A) → `/planning validate EPIC-009`. IO
+ends the invocation.

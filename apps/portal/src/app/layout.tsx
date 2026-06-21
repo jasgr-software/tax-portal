@@ -6,10 +6,15 @@
  *               Clerk auth wiring is deferred to EPIC-004.
  *
  * Tailwind CSS is loaded globally here via globals.css.
+ *
+ * TASK-009-002: DevBanner (dev-only role/user switcher + sign-out) is injected here.
+ *   CS-TS-003: present on BOTH apps/portal (here) and apps/admin (mirrored).
+ *   ADR-001: banner is inert under AUTH_PROVIDER=clerk — zero production impact.
  */
 
 import type { Metadata } from "next";
 import "@/styles/globals.css";
+import { DevBanner } from "@/app/(dev)/_components/DevBanner";
 
 export const metadata: Metadata = {
   title: {
@@ -53,6 +58,12 @@ export default function RootLayout({
             reserved.
           </div>
         </footer>
+        {/*
+         * Dev-only role/user switcher + sign-out banner (TASK-009-002).
+         * ADR-001: DevBanner.isMockActive() guard — null under AUTH_PROVIDER=clerk.
+         * CS-TS-003: also wired in apps/admin/src/app/layout.tsx.
+         */}
+        <DevBanner />
       </body>
     </html>
   );
