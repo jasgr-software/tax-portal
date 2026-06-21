@@ -1,7 +1,8 @@
 # Increment 3 — Deterministic Sequencer
 
-> **Status:** in progress — branch `orchestration-increment-3-sequencer` (2026-06-20). Docs-lane (every changed
-> file is under `.orchestration/**`, main-session-owned tooling).
+> **Status:** phase 1 implemented (branch `orchestration-increment-3-sequencer`, 2026-06-20; `sequence.sh` +
+> 34/34 test). **Phase 2 (bookkeeping derivers) — design recorded 2026-06-21, not yet built** (see § Phase 2).
+> Docs-lane (every changed file is under `.orchestration/**`, main-session-owned tooling).
 > **Owner:** main session (`.orchestration/**`).
 > **Builds on:** Increment 1 (gate rails), Increment 2 (durable bounded contracts + cold-start protocol), and
 > the verdict-log durability follow-up (`inputs_digest` + committed `gate-history.jsonl`, PR #60). Those are the
@@ -152,6 +153,106 @@ Exit codes: **0** run complete / status; **10** agent action required (yield); *
 sequencer halted-and-escalated exactly as designed rather than proceeding. This is a genuine
 **readiness-contract question** — should a no-AC enabler epic be exempt from `coverage-rows`? — for the
 planning layer / user to resolve, **not** a gate to relax. Logged here; not fixed in this increment.
+
+## Phase 2 — bookkeeping derivers (auto-fill the yield artifacts)
+
+> **Status:** planned (design recorded 2026-06-21; not yet built). Docs/tooling-lane, `.orchestration/**`.
+> **Framing:** an Increment-3 *follow-up*, not a new increment — it extends the sequencer's yield/`--set`
+> handshake; the Increment-4 slot stays the (deferred, data-starved) AC-testability judge.
+
+### The gap phase 1 left
+
+Phase 1 took control flow and gate verdicts from the agent, but the agent still **hand-extracts the artifact
+values it records** at each yield: `pr=<N>` read off `PROGRESS.md`, `merge_sha=<sha>` from `gh pr view`, the AC
+count from `COVERAGE.md`, and it hand-writes the `## Recent outcomes` one-liner at close. Those extractions are
+pure mechanics with recurrent failure modes (typo'd SHA/run-id, off-by-one AC count, malformed close-out line) —
+the same "advance on **data**, never on narration" (§ Why #3) should govern *recording* the data, not just
+routing on it. Phase 2 scripts the derivation so the handshake becomes **derive → `--set`** with no human in the
+extraction loop, leaving the agent only the genuinely semantic yields (ac-check, compose, `/io`, `/pr-review`,
+`/pr-fix`).
+
+It also closes the cross-layer **id-allocation** chore: agents hand-pick the next `TASK-BBB-NNN` / `EPIC-NNN` /
+`CS-<LANG>-NNN` by eyeballing the highest existing one — off-by-one + zero-pad-typo + parallel-collision prone.
+
+### Two scripts (both in `.orchestration/bin/`)
+
+> Home note: `scripts/` is devops-owned **application code** (not main-session-modifiable per CLAUDE.md), so the
+> cross-layer `id-alloc.sh` lives in `.orchestration/bin/` alongside the existing tooling, not in `scripts/`.
+
+**1. `id-alloc.sh <bucket> [scope]` — deterministic next-free-id (cross-layer).**
+Re-derives the next id from the **primary source** (the file *names* / ledger that already hold the ids), never
+from a stored counter (§ Why #3). Allocates the id only — the agent still authors the file; `--check <ID>`
+verifies an id is unused before writing. Buckets: `task <brief>`, `bug <brief>`, `epic`, `cs <LANG>`, `pq`, `sq`.
+
+**2. `orchestrate-state.sh <verb>` — the sequencer's artifact derivers + the one prose write.**
+
+| Verb | Reads (primary source) | Emits | Replaces (agent hand-work) |
+|---|---|---|---|
+| `derive-pr` | `PROGRESS.md` `## Awaiting PR merge` | `pr=<N>` | eyeballing the awaiting bullet |
+| `derive-merge` | `gh pr view <N> --json mergeCommit` | `merge_sha=<sha>` | running `gh` + copying the SHA |
+| `derive-review` | the `pr-review-verdict/v1` JSON | counts + decision | re-counting blocker/major/… |
+| `derive-validation` | `COVERAGE.md` rows for the epic | `ac=<verified>/<total>` | hand-counting verified AC |
+| `collapse-run` | machine state + the above | writes the `## Recent outcomes` bullet | hand-writing the close-out one-liner |
+
+### Seam: `id-alloc` dependency direction (keep it one-way)
+
+`id-alloc.sh` is cross-layer **shared pipeline tooling**, so it lives with the integrator (`.orchestration/bin/`),
+not inside any one agent-service layer — and not in `scripts/` (devops-owned application code, outside the
+main-session modify-scope; that same governance boundary is why cross-layer tooling belongs under
+`.orchestration/`). The hard rule that keeps the seam clean — **the dependency stays one-way**:
+
+- The standalone layers (`.implementation/`, `.planning/`, `.code-standards/`) are **workflow-decoupled** and must
+  not depend on the Conductor. Their `AGENT.md` files therefore **never reference `id-alloc.sh`**; they describe
+  allocation abstractly ("the next free `NNN` in the bucket") and keep their existing manual max+1 fallback. Run
+  standalone via their own `/command`, each layer still works with `.orchestration/` absent. *(The test Agent B
+  posed — "would `/planning` work if `.orchestration/` didn't exist?" — must stay YES.)*
+- Only the **orchestration-side wiring** invokes the tool: the sequencer (for ids it allocates directly) and the
+  `.claude/` dispatch adapters / build briefs the Conductor composes. For the code-standards Audit specifically,
+  the call belongs in the orchestration-invoked **`.claude/agents/code-standards-review.md` adapter**, *not* in the
+  decoupled `.code-standards/AGENT.md` (which is forbidden from reading `.orchestration/`). See
+  `~/.claude/plans/linear-skipping-cocoa.md` § Decisions locked (cross-reference, **not** a merge — separate strands).
+
+Net: id-alloc is consumed *through* `.orchestration`, never *upward into* it — "tied together by `.orchestration`"
+with the standalone property intact.
+
+### Design invariants (inherited from the series)
+
+- **Single writer of the machine block.** `orchestrate-state.sh` emits `key=val` and (with `--apply`) feeds
+  `sequence.sh --set` — it does **not** write the `<!-- conductor-state/v1 -->` block itself. `sequence.sh` stays
+  the sole writer; no two writers, no format drift. (`collapse-run` writes only the **prose** `## Recent outcomes`
+  bullet — the one bookkeeping write nothing else owns.)
+- **Re-derive from primary sources (§ Why #3).** Every verb reads the source the agent read; none trusts a
+  recorded marker.
+- **Halt on ambiguity, never guess (§ Why #4).** `derive-pr` finding 0 or >1 awaiting PRs **fails loudly**
+  rather than picking one — a deriver that quietly guesses is the false-pass trap.
+- **Derivers, not deciders.** They fill artifacts; they never route or gate. The gate rails
+  (`orchestrate-gates.sh`) keep all decision authority.
+- **Judgment stays the agent's.** `collapse-run` takes the one-line **headline** as a required arg (prose); only
+  the mechanical fields (epic, date, PR, SHA, AC count) are derived. Compose, the review/fix invocations, and the
+  RETRO/HANDOFF + run-report *prose* remain agent work.
+
+### Wiring payoff
+
+The sequencer's yield record-hints shrink from *"agent: extract N, then `--set pr=N`"* to *"run
+`orchestrate-state.sh derive-pr --apply`"*. After phase 2 the only yields that need an agent are the irreducibly
+semantic ones; the mechanical record steps become one scripted command each.
+
+### Acceptance (Increment 3, phase 2)
+
+- Fixtures-based `id-alloc.test.sh` + `orchestrate-state.test.sh` (mirroring `orchestrate-gates.test.sh`): empty
+  bucket → `001`; existing → max+1 with correct zero-pad; `--check` taken/free; brief-scoped `task`; `cs <LANG>`;
+  `pq` ledger; `derive-pr` single→ok / none·multi→fail; `derive-merge` from a JSON fixture; `derive-review` counts
+  from the existing verdict fixtures; `derive-validation` from a fixture `COVERAGE.md`; `collapse-run` prepends a
+  well-formed bullet under `## Recent outcomes`.
+- `sequence.sh` agent-node hints updated to call the derivers; full happy-path test still green.
+
+### Out of scope for phase 2 (push later)
+
+- **Full run-report templating** (`render-report` from `_templates/run-report.md`) — the report's prose narrative
+  is judgment; only field-fill is mechanical. Separate later step.
+- **Generalized `ledger-append`** (Work Log, COVERAGE row *flips*) — those are written by the IO / `/planning`
+  agents in other layers; `COVERAGE.md` flipping stays the `/planning` validate write-back. `orchestrate-state.sh`
+  only **reads** `COVERAGE.md`.
 
 ## Out of scope (Increment 4+ / Ongoing)
 
