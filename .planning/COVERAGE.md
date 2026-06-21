@@ -15,7 +15,7 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 
 | Measure | Count |
 |---|---|
-| AC placed in an epic (Phase 1 + Phase 2) | 95 |
+| AC placed in an epic (Phase 1 + Phase 2 + Phase 3 lifecycle core) | 149 |
 | — Phase 1 (EPIC-001/004/002/003) | 51 |
 | &nbsp;&nbsp;— EPIC-001 (public front door) | 13 |
 | &nbsp;&nbsp;— EPIC-004 (auth & two-role model) | 11 |
@@ -26,8 +26,12 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-006 (intake questionnaire) | 7 |
 | &nbsp;&nbsp;— EPIC-007 (initial document upload) | 19 |
 | &nbsp;&nbsp;— EPIC-008 (onboarding completion → In Progress) | 8 |
+| — Phase 3 lifecycle core (EPIC-010/011/012) — *placed 2026-06-21, not yet verified* | 54 |
+| &nbsp;&nbsp;— EPIC-010 (lifecycle pipeline & visibility) | 25 |
+| &nbsp;&nbsp;— EPIC-011 (engagement attributes) | 9 |
+| &nbsp;&nbsp;— EPIC-012 (creation paths & multi-participant) | 20 |
 | AC `verified` (signed off) | **95** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10, 2026-06-18 · EPIC-006 7, 2026-06-18 · EPIC-007 19, 2026-06-19 · **EPIC-008 8, 2026-06-20** — the capstone). **Phase 2 (the onboarding gate) complete.** |
-| AC still `planned` (placed, not yet verified) | **0** — every placed Phase-1 + Phase-2 AC is `verified`. |
+| AC still `planned` (placed, not yet verified) | **54** — the Phase-3 lifecycle-core AC (EPIC-010 25, EPIC-011 9, EPIC-012 20), placed 2026-06-21, awaiting build + CI sign-off. Every Phase-1 + Phase-2 AC is `verified`. |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -314,6 +318,60 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-ONBD-007 | AC-ONBD-007-01 | EPIC-008 | 2 | `AC-ONBD-007-01` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-3 `integration.test.ts:597/639/653/666` (accountant-only read, ADR-005 §6) + component `NotificationsIndicator.test.tsx` + admin e2e `:429` |
 | REQ-ONBD-007 | AC-ONBD-007-02 | EPIC-008 | 2 | `AC-ONBD-007-02` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — tier-3 `integration.test.ts:615` (client name in title/body) + component `:126/137` + admin e2e `:453` |
 | REQ-MSG-013 | AC-MSG-013-04 | EPIC-008 | 2 | `AC-MSG-013-04` | verified | [A] PR#55 `7fe2872` (2026-06-20) / CI 27870105845 — dual-tagged with AC-ONBD-007-01 at tier-3 `integration.test.ts:597` + component `:76` + admin e2e `:391` |
+| REQ-LIFE-001 | AC-LIFE-001-01 | EPIC-010 | 3 | `AC-LIFE-001-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-001 | AC-LIFE-001-02 | EPIC-010 | 3 | `AC-LIFE-001-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-001 | AC-LIFE-001-03 | EPIC-010 | 3 | `AC-LIFE-001-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-002 | AC-LIFE-002-01 | EPIC-010 | 3 | `AC-LIFE-002-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-002 | AC-LIFE-002-02 | EPIC-010 | 3 | `AC-LIFE-002-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-002 | AC-LIFE-002-03 | EPIC-010 | 3 | `AC-LIFE-002-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-003 | AC-LIFE-003-01 | EPIC-010 | 3 | `AC-LIFE-003-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-003 | AC-LIFE-003-02 | EPIC-010 | 3 | `AC-LIFE-003-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-003 | AC-LIFE-003-03 | EPIC-010 | 3 | `AC-LIFE-003-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-004 | AC-LIFE-004-01 | EPIC-010 | 3 | `AC-LIFE-004-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-004 | AC-LIFE-004-02 | EPIC-010 | 3 | `AC-LIFE-004-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-004 | AC-LIFE-004-03 | EPIC-010 | 3 | `AC-LIFE-004-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-005 | AC-LIFE-005-01 | EPIC-010 | 3 | `AC-LIFE-005-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-005 | AC-LIFE-005-02 | EPIC-010 | 3 | `AC-LIFE-005-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-005 | AC-LIFE-005-03 | EPIC-010 | 3 | `AC-LIFE-005-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-006 | AC-LIFE-006-01 | EPIC-010 | 3 | `AC-LIFE-006-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-006 | AC-LIFE-006-02 | EPIC-010 | 3 | `AC-LIFE-006-02` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-002 | AC-AUTH-002-01 | EPIC-010 | 3 | `AC-AUTH-002-01` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-002 | AC-AUTH-002-02 | EPIC-010 | 3 | `AC-AUTH-002-02` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-002 | AC-AUTH-002-03 | EPIC-010 | 3 | `AC-AUTH-002-03` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-003 | AC-AUTH-003-01 | EPIC-010 | 3 | `AC-AUTH-003-01` | planned | — (placed 2026-06-21); isolation mechanism built Phase 2 (EPIC-005/007), feature AC signed off here |
+| REQ-AUTH-003 | AC-AUTH-003-02 | EPIC-010 | 3 | `AC-AUTH-003-02` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-003 | AC-AUTH-003-03 | EPIC-010 | 3 | `AC-AUTH-003-03` | planned | — (placed 2026-06-21); direct-reference isolation path |
+| REQ-AUTH-008 | AC-AUTH-008-01 | EPIC-010 | 3 | `AC-AUTH-008-01` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-008 | AC-AUTH-008-02 | EPIC-010 | 3 | `AC-AUTH-008-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-007 | AC-LIFE-007-01 | EPIC-011 | 3 | `AC-LIFE-007-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-007 | AC-LIFE-007-02 | EPIC-011 | 3 | `AC-LIFE-007-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-007 | AC-LIFE-007-03 | EPIC-011 | 3 | `AC-LIFE-007-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-008 | AC-LIFE-008-01 | EPIC-011 | 3 | `AC-LIFE-008-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-008 | AC-LIFE-008-02 | EPIC-011 | 3 | `AC-LIFE-008-02` | planned | — (placed 2026-06-21); accountant-only notes — hard RLS test |
+| REQ-LIFE-008 | AC-LIFE-008-03 | EPIC-011 | 3 | `AC-LIFE-008-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-009 | AC-LIFE-009-01 | EPIC-011 | 3 | `AC-LIFE-009-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-009 | AC-LIFE-009-02 | EPIC-011 | 3 | `AC-LIFE-009-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-009 | AC-LIFE-009-03 | EPIC-011 | 3 | `AC-LIFE-009-03` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-009 | AC-DOOR-009-01 | EPIC-012 | 3 | `AC-DOOR-009-01` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-009 | AC-DOOR-009-02 | EPIC-012 | 3 | `AC-DOOR-009-02` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-009 | AC-DOOR-009-03 | EPIC-012 | 3 | `AC-DOOR-009-03` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-009 | AC-DOOR-009-04 | EPIC-012 | 3 | `AC-DOOR-009-04` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-010 | AC-DOOR-010-01 | EPIC-012 | 3 | `AC-DOOR-010-01` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-010 | AC-DOOR-010-02 | EPIC-012 | 3 | `AC-DOOR-010-02` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-010 | AC-DOOR-010-03 | EPIC-012 | 3 | `AC-DOOR-010-03` | planned | — (placed 2026-06-21) |
+| REQ-DOOR-010 | AC-DOOR-010-04 | EPIC-012 | 3 | `AC-DOOR-010-04` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-010 | AC-LIFE-010-01 | EPIC-012 | 3 | `AC-LIFE-010-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-010 | AC-LIFE-010-02 | EPIC-012 | 3 | `AC-LIFE-010-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-011 | AC-LIFE-011-01 | EPIC-012 | 3 | `AC-LIFE-011-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-011 | AC-LIFE-011-02 | EPIC-012 | 3 | `AC-LIFE-011-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-011 | AC-LIFE-011-03 | EPIC-012 | 3 | `AC-LIFE-011-03` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-011 | AC-LIFE-011-04 | EPIC-012 | 3 | `AC-LIFE-011-04` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-012 | AC-LIFE-012-01 | EPIC-012 | 3 | `AC-LIFE-012-01` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-012 | AC-LIFE-012-02 | EPIC-012 | 3 | `AC-LIFE-012-02` | planned | — (placed 2026-06-21) |
+| REQ-LIFE-012 | AC-LIFE-012-03 | EPIC-012 | 3 | `AC-LIFE-012-03` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-007 | AC-AUTH-007-01 | EPIC-012 | 3 | `AC-AUTH-007-01` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-007 | AC-AUTH-007-02 | EPIC-012 | 3 | `AC-AUTH-007-02` | planned | — (placed 2026-06-21) |
+| REQ-AUTH-007 | AC-AUTH-007-03 | EPIC-012 | 3 | `AC-AUTH-007-03` | planned | — (placed 2026-06-21); each participant sees the shared engagement, unrelated client ZERO |
 
 ## Split requirements
 
@@ -362,19 +420,20 @@ seam; the owning epic's rows stay `verified`, and the real-provider confirmation
 Source AC not yet decomposed into any epic. This is the v1 work remaining — each becomes `planned` when a
 Planning Agent run places it in an epic. (v2 AC are tracked separately under Deferred, not here.)
 
-**MVP-adjacent (deferred for lack of an MVP home — reconciled this run, with target phase):**
-- **REQ-DOOR-009** (returning client requests from inside the portal) — AC-DOOR-009-01..04 → **Phase 3**.
-  *(Now newly buildable: Phase 2 introduces an authenticated client portal home. Kept Phase 3 because it is
-  a distinct feature, not part of the onboarding gate — to be placed when Phase 3 is decomposed.)*
-- **REQ-DOOR-010** (accountant initiates an engagement for an existing client) — AC-DOOR-010-01..04 →
-  **Phase 3** (needs the engagement entity / lifecycle).
-- **REQ-AUTH-002** (accountant full visibility) — AC-AUTH-002-01..03 → **Phase 3** (needs engagements + a
-  client list to exercise).
-- **REQ-AUTH-003** (client sees only their own data — RLS isolation) — AC-AUTH-003-01..03 → **Phase 3** (the
-  per-policy CLIENT-A-vs-CLIENT-B test needs client-owned rows).
-- **REQ-AUTH-007** (multiple participants per engagement) — AC-AUTH-007-01..03 → **Phase 3**.
-- **REQ-AUTH-008** (indefinite access after completion) — AC-AUTH-008-01..02 → **Phase 3** (needs completed
-  engagements).
+**MVP-adjacent (deferred for lack of an MVP home — with target phase):**
+- ✅ **REQ-DOOR-009** (returning client requests from inside the portal) — AC-DOOR-009-01..04 → **placed in
+  EPIC-012 (Phase 3)** 2026-06-21.
+- ✅ **REQ-DOOR-010** (accountant initiates an engagement for an existing client) — AC-DOOR-010-01..04 →
+  **placed in EPIC-012 (Phase 3)** 2026-06-21.
+- ✅ **REQ-AUTH-002** (accountant full visibility) — AC-AUTH-002-01..03 → **placed in EPIC-010 (Phase 3)**
+  2026-06-21.
+- ✅ **REQ-AUTH-003** (client sees only their own data — RLS isolation feature AC) — AC-AUTH-003-01..03 →
+  **placed in EPIC-010 (Phase 3)** 2026-06-21 (mechanism built Phase 2 EPIC-005/007; the feature AC sign off
+  here, incl. the direct-reference path).
+- ✅ **REQ-AUTH-007** (multiple participants per engagement) — AC-AUTH-007-01..03 → **placed in EPIC-012
+  (Phase 3)** 2026-06-21.
+- ✅ **REQ-AUTH-008** (indefinite access after completion) — AC-AUTH-008-01..02 → **placed in EPIC-010
+  (Phase 3)** 2026-06-21.
 - **REQ-MSG-013** remainder — AC-MSG-013-02..06 → **Phase 4**.
 - **REQ-MSG-014** (all client notification types) — AC-MSG-014-01..07 → **Phase 4** (the client notification
   feed; in the MVP accept/decline reach the account-less prospect by email, not a feed).
@@ -383,12 +442,19 @@ Planning Agent run places it in an epic. (v2 AC are tracked separately under Def
 see `ROADMAP.md` Phases 3–4):
 - **ONBD** — ✅ **fully placed in Phase 2** (EPIC-005/006/007/008): REQ-ONBD-001..007. No ONBD orphans
   remain. *(REQ-ONBD-008 is v2 → Deferred.)*
-- **LIFE** (Phase 3) — REQ-LIFE-001..012 (v1). The *minimal* Engagement substrate (New / In Progress) is
-  introduced in Phase 2, but no LIFE AC are claimed there — the full pipeline AC are Phase 3.
+- **LIFE** (Phase 3) — ✅ **fully placed in the Phase-3 lifecycle core** (EPIC-010/011/012), 2026-06-21:
+  REQ-LIFE-001..012 (v1). No LIFE orphans remain. The *minimal* Engagement substrate (New / In Progress) was
+  introduced in Phase 2 (no LIFE AC claimed there); the **full pipeline, attributes, creation paths, and
+  multi-participant** AC land in EPIC-010 (001..006), EPIC-011 (007/008/009), EPIC-012 (010/011/012).
   *(REQ-LIFE-013/014 are v2 → Deferred.)*
-- **FILE** (Phase 3) — REQ-FILE-004/005/006/009..015 (v1), plus the **REQ-FILE-001 remainder**
-  (AC-FILE-001-01/-03/-04 — see Split requirements). **Placed in Phase 2 (EPIC-007):** FILE-002, FILE-003,
-  FILE-007, FILE-008 in full, and the FILE-001 client-upload/isolation subset. *(REQ-FILE-016 is v2 →
+- **FILE** (Phase 3 — *follow-up `/planning` pass*) — REQ-FILE-004/005/006/009/010/011/013/014/015 (v1), plus
+  the **REQ-FILE-001 remainder** (AC-FILE-001-01/-03/-04 — see Split requirements). These are the
+  FILE-exchange + retention/legal-governance epics, **deliberately deferred from the 2026-06-21 lifecycle-core
+  pass** (user direction) to a follow-up Phase-3 decomposition. **Placed in Phase 2 (EPIC-007):** FILE-002,
+  FILE-003, FILE-007, FILE-008 in full, and the FILE-001 client-upload/isolation subset. **Re-routed to
+  Phase 4 (2026-06-21): REQ-FILE-012** (overdue document-request flagging + configurable reminder cadence,
+  AC-FILE-012-01..04) — it depends on the reminder/notification engine (REQ-MSG-018, REQ-DASH-008), so it is
+  decomposed with the Phase-4 notification feed, not the Phase-3 FILE epics. *(REQ-FILE-016 is v2 →
   Deferred.)*
 - **MSG** (Phase 4) — REQ-MSG-001..012, -015..018 (v1), plus the MSG-013 remainder (**-02/-03/-05/-06** —
   -01 in EPIC-003, **-04 in EPIC-008**) and the MSG-014 remainder above. *(REQ-MSG-019 is v2 → Deferred.)*

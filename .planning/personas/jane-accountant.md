@@ -77,7 +77,8 @@ She is the only user who can see all client data, manage the services catalog, a
 
 - `flow-first-sign-in` — ACCOUNTANT sign-in path and landing on `apps/admin`
 - `flow-role-redirect` — redirect behavior when ACCOUNTANT navigates to `apps/portal` client-only routes
-- `flow-engagement-request` — reviewing and actioning incoming requests
+- `flow-engagement-request` — reviewing and actioning incoming requests; the returning-client + accountant-initiated creation branches (EPIC-012)
+- `flow-engagement-lifecycle` — advancing an engagement through the pipeline, the two-confirmation completion gate, reopen, and the attribute-management branch (EPIC-010/011)
 - `flow-onboarding` — monitoring client onboarding progress and receiving completion notification
 - `flow-message-exchange` — sending and receiving messages within engagements
 - `flow-file-exchange` — uploading and downloading documents
