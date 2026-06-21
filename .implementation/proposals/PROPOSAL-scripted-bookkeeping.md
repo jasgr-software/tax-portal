@@ -389,10 +389,15 @@ the PHASES.md phase-transition reflex. Scoped to `.implementation/**` + `scripts
    truth.** Per §9, orchestration state becomes structured (`state.json` + `events.jsonl`),
    optimized for agents; the human narrative is generated on demand (`task report`). There is no
    prose sweep to automate. Oversight moves to the structured state diff at each transition.
-5. **Output format for read commands (§8.2):** human-readable tables, `--json` for agent
-   consumption, or both? Recommendation: default human-readable, `--json` flag for programmatic
-   use (e.g. the IO building a spawn prompt); `task brief-context` defaults to the paste-ready
-   bundle. *(Still open.)*
+5. **Output format for read commands (§8.2)? — RESOLVED: default compact text/tables (token-
+   cheap, readable by agent *and* human); `--json` opt-in for programmatic callers.** The
+   agent-first lens (§9) does *not* argue for default JSON: JSON's structural overhead (braces,
+   quotes, repeated keys) costs more context tokens than a compact table carrying the same facts,
+   and agents parse tables fine — so the token-optimal default *is* compact text, which happens to
+   be human-readable too. `--json` is for callers that will *parse* the output (e.g. the IO
+   assembling a spawn prompt). Exception: `task brief-context` defaults to the **paste-ready
+   markdown bundle** (its consumer almost always pastes it into a spawn prompt), with `--json`
+   available. So: compact-text default everywhere, `--json` opt-in, `brief-context` paste-ready.
 6. **`ledger-check` budget? — RESOLVED (dissolved):** §9's structured state has fixed shape and
    cannot accumulate prose, so there is no hot-state budget to police and no `ledger-check` gate.
    `/compact` remains the backstop; steady-state read footprint is low by construction.
