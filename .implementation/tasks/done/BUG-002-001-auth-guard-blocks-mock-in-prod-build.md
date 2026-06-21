@@ -1,21 +1,26 @@
+---
+brief: BRIEF-002 (rides BRIEF-002's PR) — **defect is in EPIC-004-delivered code**; fixing it is required to deliver BRIEF-002's e2e gate (TASK-002-004).
+status: done
+assigned_to: webapp-developer (auth code) + devops (compose/.env/ops wiring)
+updated_by: webapp-developer
+impl: developer
+started_at: 2026-06-16T14:17:04Z
+completed_at: 2026-06-16T09:45:00Z
+complexity_estimate: 2
+complexity_actual: 2
+brief_type: feature
+brief_deploys: "no"
+introduces_gate: no (modifies an existing guard's mechanism; the new `select.test.ts` case is its own evidence, not a new required gate).
+acceptance_criteria: [AC-DOOR-002-01/-02/-03, AC-DASH-010-01/-02/-03, "AC-DOOR-002-05 (UI surface) — indirect: this bug blocks every e2e AC in TASK-002-004; unblocking it is the gate to validate them. The bugs own correctness is verified by the regression tests below."]
+upstream_refs: ADR-001 (auth-provider-selection seam), ADR-006 (two frontends), ADR-007 (long-lived Node container), ADR-010 (admin all-auth). The F1/F6 security finding (EPIC-004 PR-review) is the intent this fix preserves and strengthens.
+severity: blocker (hard-blocks the TASK-002-004 e2e execution gate; both prod-built containers return HTTP 500 on every request)
+---
+
+
+
+
+
 # BUG-002-001 — Auth fail-closed guard blocks mock provider in any prod-built container (admin + portal 500)
-
-**Status:** done
-**Assigned to:** webapp-developer (auth code) + devops (compose/.env/ops wiring)
-**Impl:** developer
-**Brief:** BRIEF-002 (rides BRIEF-002's PR) — **defect is in EPIC-004-delivered code**; fixing it is required to deliver BRIEF-002's e2e gate (TASK-002-004).
-**Brief-type:** feature · **Brief-deploys:** no
-**Severity:** blocker (hard-blocks the TASK-002-004 e2e execution gate; both prod-built containers return HTTP 500 on every request)
-**Updated-by:** webapp-developer
-
-**Started-at:** 2026-06-16T14:17:04Z
-**Complexity-estimate:** 2
-**Complexity-actual:** 2
-**Completed-at:** 2026-06-16T09:45:00Z
-
-**Acceptance criteria:** AC-DOOR-002-01/-02/-03, AC-DASH-010-01/-02/-03, AC-DOOR-002-05 (UI surface) — indirect: this bug blocks every e2e AC in TASK-002-004; unblocking it is the gate to validate them. The bug's own correctness is verified by the regression tests below.
-**Upstream refs:** ADR-001 (auth-provider-selection seam), ADR-006 (two frontends), ADR-007 (long-lived Node container), ADR-010 (admin all-auth). The F1/F6 security finding (EPIC-004 PR-review) is the intent this fix preserves and strengthens.
-**Introduces-gate:** no (modifies an existing guard's mechanism; the new `select.test.ts` case is its own evidence, not a new required gate).
 
 ---
 

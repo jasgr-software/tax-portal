@@ -1,9 +1,18 @@
 # Proposal: Move mechanical bookkeeping from agents to a task-state CLI
 
-**Status:** Draft (for review)
+**Status:** Approved — Phase 0 in build (ratified by user 2026-06-21; build via `TASK-LOE-010` on the reviewed engine lane)
 **Scope:** `.implementation/**` (engine, phases, agent docs), `scripts/`, `package.json`
 **Author:** main session
 **Date:** 2026-06-21
+
+> **Ratification (2026-06-21):** user approved the proposal and authorized **Phase 0** (the YAML
+> front-matter migration — §5 Phase 0). Because Phase 0's deliverables land in `scripts/`
+> (`migrate-task-frontmatter.ts`, `validate-gates.sh`) and `package.json` — **application-code
+> scope** the main session may not edit directly — the build runs through the **implementation
+> engine** on the reviewed merge lane (Standards audit → panel → fix → merge), as an
+> engine-tooling chore under epic `chore/lights-out-enablement` (`TASK-LOE-010`), the same lane
+> that produced `validate-gates.sh` (TASK-LOE-003). Phases 1–2 remain pending, each ratified
+> separately after Phase 0 lands.
 
 ---
 

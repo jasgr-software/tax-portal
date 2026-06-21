@@ -1,11 +1,17 @@
-# BUG-001-002: Feature file missing AC-DOOR-004-04 scenario (12 of 13 scenarios mirrored)
+---
+brief: BRIEF-001
+status: closed
+severity: blocking (gherkin scenario drift — SDET rejection criterion)
+task: TASK-005
+raised_by: sdet
+raised_at: 2026-06-15
+---
 
-**Brief**: BRIEF-001
-**Task**: TASK-005
-**Status**: closed
-**Severity**: blocking (gherkin scenario drift — SDET rejection criterion)
-**Raised by**: sdet
-**Raised at**: 2026-06-15
+
+
+
+
+# BUG-001-002: Feature file missing AC-DOOR-004-04 scenario (12 of 13 scenarios mirrored)
 
 ---
 

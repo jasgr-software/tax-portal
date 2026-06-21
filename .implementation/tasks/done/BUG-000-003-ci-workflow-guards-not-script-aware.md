@@ -1,16 +1,22 @@
-# BUG-000-003: CI workflow lint/type-check guards check for package.json existence, not script presence — fails when package.json exists without those scripts
+---
+epic: cross-cutting (BUG-000-NNN)
+status: closed
+assigned_to: devops
+updated_by: devops
+started_at: 2026-04-28T01:39:55Z
+completed_at: 2026-04-27T00:00:00Z
+complexity_estimate: 2
+complexity_actual: 2
+found_in: "PR #8 CI run (chore-close PR for lights-out enablement) — interaction between TASK-LOE-001 (CI workflow) and TASK-LOE-003 (`gates:validate` package.json script)"
+category: code-quality
+severity: "major — `lint-and-typecheck` job fails on PR #8; blocks the chore from merging with green CI"
+---
 
-**Epic**: cross-cutting (BUG-000-NNN)
-**Status**: closed
-**Found in**: PR #8 CI run (chore-close PR for lights-out enablement) — interaction between TASK-LOE-001 (CI workflow) and TASK-LOE-003 (`gates:validate` package.json script)
-**Category**: code-quality
-**Severity**: major — `lint-and-typecheck` job fails on PR #8; blocks the chore from merging with green CI
-**Assigned to**: devops
-**Updated-by**: devops
-**Started-at**: 2026-04-28T01:39:55Z
-**Completed-at**: 2026-04-27T00:00:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
+
+
+
+
+# BUG-000-003: CI workflow lint/type-check guards check for package.json existence, not script presence — fails when package.json exists without those scripts
 
 ---
 

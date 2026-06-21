@@ -40,7 +40,7 @@ Your job is to monitor agent behavior and report findings. You **cannot** modify
 
 ### Category 1: Rule Violations (process compliance)
 
-- Did the developer update **Status**, **Updated-by**, and **Work Log** on every status change?
+- Did the developer update `status`, `updated_by`, and **Work Log** on every status change?
 - Does the Work Log have breadcrumbs: **what was done**, **what's next**, **blockers**?
 - Is there evidence the **submission gate** was run before marking as `review`? (lint/test output in Work Log)
 - Are **role tags** present at the start of agent responses? (Check Work Log entries for `[role-tag]` format)

@@ -1,22 +1,25 @@
+---
+brief: BRIEF-008
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-008-001
+impl: developer
+e2e_required: "no"
+started_at: 2026-06-19T22:27:08Z
+completed_at: 2026-06-19T17:40:00Z
+complexity_estimate: 2
+complexity_actual: 2
+introduces_gate: "no"
+acceptance_criteria: [AC-ONBD-006-01, AC-ONBD-007-01, AC-ONBD-007-02, AC-MSG-013-04]
+upstream_refs: REQ-ONBD-006, REQ-ONBD-007, REQ-MSG-013; ADR-005, ADR-006
+---
+
+
+
+
+
 # TASK-008-003: Admin surface — render the onboarding-complete notification + a minimal engagement-status observable
-
-**Brief**: BRIEF-008
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-008-001
-**Impl**: developer
-**E2e-required**: no
-**Started-at**: 2026-06-19T22:27:08Z
-**Completed-at**: 2026-06-19T17:40:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-
-**Acceptance criteria:** AC-ONBD-006-01, AC-ONBD-007-01, AC-ONBD-007-02, AC-MSG-013-04
-**Upstream refs:** REQ-ONBD-006, REQ-ONBD-007, REQ-MSG-013; ADR-005, ADR-006
-**Introduces-gate:** no
-
-<!-- Brief-type: feature · Brief-deploys: no -->
 
 ---
 

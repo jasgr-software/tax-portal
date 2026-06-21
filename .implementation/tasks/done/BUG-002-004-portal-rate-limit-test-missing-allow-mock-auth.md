@@ -1,21 +1,26 @@
+---
+brief: BRIEF-002 (rides BRIEF-002's PR)
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+impl: developer
+started_at: 2026-06-16T00:00:00Z
+completed_at: 2026-06-16T00:10:00Z
+complexity_estimate: 1
+complexity_actual: 1
+brief_type: feature
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: The `pnpm -r test` suite exits 0 on the BRIEF-002 branch; `apps/portal/src/app/(public)/sign-in/sign-in-rate-limit.integration.test.ts` 7/7 PASS in a clean Vitest run without an externally-set `ALLOW_MOCK_AUTH` env var.
+upstream_refs: ADR-001 (auth-provider-selection seam); BUG-002-001 (the `ALLOW_MOCK_AUTH` guard that changed the contract); ENGINE.md § Bug Fixes.
+severity: blocker (blocks the SDET CI gate — `pnpm -r test` exits non-zero; `test-portal` CI job shows 7 failures)
+---
+
+
+
+
+
 # BUG-002-004 — Portal sign-in rate-limit integration test missing ALLOW_MOCK_AUTH=true (BUG-002-001 contract breakage)
-
-**Status:** done
-**Assigned to:** webapp-developer
-**Impl:** developer
-**Brief:** BRIEF-002 (rides BRIEF-002's PR)
-**Brief-type:** feature · **Brief-deploys:** no
-**Severity:** blocker (blocks the SDET CI gate — `pnpm -r test` exits non-zero; `test-portal` CI job shows 7 failures)
-**Updated-by:** webapp-developer
-
-**Started-at:** 2026-06-16T00:00:00Z
-**Complexity-estimate:** 1
-**Complexity-actual:** 1
-**Completed-at:** 2026-06-16T00:10:00Z
-
-**Acceptance criteria:** The `pnpm -r test` suite exits 0 on the BRIEF-002 branch; `apps/portal/src/app/(public)/sign-in/sign-in-rate-limit.integration.test.ts` 7/7 PASS in a clean Vitest run without an externally-set `ALLOW_MOCK_AUTH` env var.
-**Upstream refs:** ADR-001 (auth-provider-selection seam); BUG-002-001 (the `ALLOW_MOCK_AUTH` guard that changed the contract); ENGINE.md § Bug Fixes.
-**Introduces-gate:** no
 
 ---
 

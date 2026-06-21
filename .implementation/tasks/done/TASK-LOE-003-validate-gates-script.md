@@ -1,19 +1,25 @@
-# TASK-LOE-003: scripts/validate-gates.sh + pre-push hook
+---
+epic: chore/lights-out-enablement
+status: done
+assigned_to: devops
+updated_by: devops
+depends_on: none (independent of TASK-LOE-001 — the script is the backstop, not a CI consumer)
+e2e_required: "no"
+started_at: 2026-04-26T12:00:00Z
+completed_at: 2026-04-27T09:15:00Z
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "yes"
+affected_flows: "none (justification: chore touches CI/git infrastructure, not user-facing behavior)"
+affected_requirements: "none (justification: chore touches workflow infrastructure, not SRS requirements)"
+relevant_adrs: none
+---
 
-**Epic**: chore/lights-out-enablement
-**Status**: done
-**Assigned to**: devops
-**Updated-by**: devops
-**Depends on**: none (independent of TASK-LOE-001 — the script is the backstop, not a CI consumer)
-**E2e-required**: no
-**Started-at**: 2026-04-26T12:00:00Z
-**Completed-at**: 2026-04-27T09:15:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-**Affected flows:** none (justification: chore touches CI/git infrastructure, not user-facing behavior)
-**Affected requirements:** none (justification: chore touches workflow infrastructure, not SRS requirements)
-**Introduces-gate:** yes
-**Relevant ADRs:** none
+
+
+
+
+# TASK-LOE-003: scripts/validate-gates.sh + pre-push hook
 
 ---
 

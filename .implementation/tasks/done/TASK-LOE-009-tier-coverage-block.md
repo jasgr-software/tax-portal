@@ -1,20 +1,26 @@
-# TASK-LOE-009: Add Tier coverage block to task template + SDET review walk
+---
+epic: chore/lights-out-enablement (Bundle A of ADR-012 follow-up rollout)
+status: done
+assigned_to: sdet
+updated_by: sa
+depends_on: ADR-012 (`docs/decisions/ADR-012-testing-pyramid.md`, accepted)
+e2e_required: "no"
+started_at: 2026-04-29T00:00:00Z
+completed_at: 2026-04-29T12:16:37Z
+complexity_estimate: 2
+complexity_actual: 2
+introduces_gate: no (the `Tier coverage:` block is a *task-spec field* like `**Affected flows:**`, not a `scripts/validate-gates.sh` check. The SDET rejection on a missing/malformed block is an extension of an existing rejection-check list, not a new structurally-required gate. Bundle B — a separate later task — introduces the actual filesystem-verification gate that reads this block; that task will carry `**Introduces-gate:** yes` and the three-item evidence per `.claude/agent-stack.md` § Gate Authoring Rules.)
+affected_flows: "none (justification: workflow-rule + task-template change; not user-facing behavior, no flow steps to exercise)"
+affected_requirements: "none (justification: not on the SRS — process artifact, not product surface)"
+relevant_adrs: ADR-012 (testing pyramid — § Codification mechanisms § Mechanism 2 specifies the block format)
+quad_review: yes (touches `agents/sdet.md` per `.claude/agent-stack.md` § Main Session Rules / "Agent workflow file changes require quad review")
+---
 
-**Epic**: chore/lights-out-enablement (Bundle A of ADR-012 follow-up rollout)
-**Status**: done <!-- backlog | in-progress | review | done | needs-user-direction -->
-**Assigned to**: sdet <!-- SDET-self-edit: the rule being authored is the SDET's own rejection check; agents/sdet.md is workflow-coherence territory, not webapp-developer domain (apps/packages/prisma/db). The mechanical scope is small enough that SDET-implementer + SA-reviewer is cleanly defensible. -->
-**Updated-by**: sa
-**Depends on**: ADR-012 (`docs/decisions/ADR-012-testing-pyramid.md`, accepted)
-**E2e-required**: no
-**Started-at**: 2026-04-29T00:00:00Z <!-- ISO 8601 UTC, set when status first leaves backlog -->
-**Completed-at**: 2026-04-29T12:16:37Z <!-- ISO 8601 UTC, set in the atomic close edit when status → done -->
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-**Affected flows:** none (justification: workflow-rule + task-template change; not user-facing behavior, no flow steps to exercise)
-**Affected requirements:** none (justification: not on the SRS — process artifact, not product surface)
-**Introduces-gate:** no (the `Tier coverage:` block is a *task-spec field* like `**Affected flows:**`, not a `scripts/validate-gates.sh` check. The SDET rejection on a missing/malformed block is an extension of an existing rejection-check list, not a new structurally-required gate. Bundle B — a separate later task — introduces the actual filesystem-verification gate that reads this block; that task will carry `**Introduces-gate:** yes` and the three-item evidence per `.claude/agent-stack.md` § Gate Authoring Rules.)
-**Relevant ADRs:** ADR-012 (testing pyramid — § Codification mechanisms § Mechanism 2 specifies the block format)
-**Quad-review:** yes (touches `agents/sdet.md` per `.claude/agent-stack.md` § Main Session Rules / "Agent workflow file changes require quad review")
+
+
+
+
+# TASK-LOE-009: Add Tier coverage block to task template + SDET review walk
 
 ---
 

@@ -1,24 +1,28 @@
+---
+brief: BRIEF-009
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: TASK-009-004
+impl: developer
+e2e_required: "no"
+started_at: 2026-06-21T16:21:45Z
+completed_at: 2026-06-21T20:15:00Z
+complexity_estimate: 2
+complexity_actual: 2
+brief_type: feature
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none (demo artifact; justification: non-gating UI walkthrough — the e2e gate (TASK-009-004) is the gate; the demo gallery captures an AC-tagged screenshot story per DEMO-POLICY, no COVERAGE rows)"
+upstream_refs: REQ-AUTH-013, ADR-006
+code_standards: CS-GEN-002 (recommended — additive, scope screenshot output to `docs/demos/EPIC-009/` only; do not rewrite prior-epic PNGs), CS-GEN-003 (recommended — cite the AC id in the @demo annotations)
+---
+
+
+
+
+
 # TASK-009-005: @demo gallery — `docs/demos/EPIC-009/` sign-in lane walkthrough (non-gating)
-
-**Brief**: BRIEF-009
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: TASK-009-004
-**Impl**: developer
-**E2e-required**: no <!-- @demo Playwright walkthrough is a non-gating screenshot capture, not an e2e gate -->
-**Started-at**: 2026-06-21T16:21:45Z
-**Completed-at**: 2026-06-21T20:15:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-
-**Brief-type:** feature
-**Brief-deploys:** no
-
-**Acceptance criteria:** none (demo artifact; justification: non-gating UI walkthrough — the e2e gate (TASK-009-004) is the gate; the demo gallery captures an AC-tagged screenshot story per DEMO-POLICY, no COVERAGE rows)
-**Upstream refs:** REQ-AUTH-013, ADR-006
-**Code standards:** CS-GEN-002 (recommended — additive, scope screenshot output to `docs/demos/EPIC-009/` only; do not rewrite prior-epic PNGs), CS-GEN-003 (recommended — cite the AC id in the @demo annotations)
-**Introduces-gate:** no
 
 ---
 

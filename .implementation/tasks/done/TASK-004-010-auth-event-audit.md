@@ -1,20 +1,25 @@
+---
+brief: BRIEF-004
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: 002 (✓ done) — consumes the `packages/auth` sign-in / invitation seams + mock binding; 005 (✓ done) — the client-account-creation-from-invitation path the audit seam attaches to; 007 (✓ done) — the `packages/db` `$extends`/`withRequestContext` request-scoped path the in-transaction write rides on. (Was 003; -003 deferred.)
+impl: webapp-developer
+e2e_required: "no"
+started_at: 2026-06-15T23:31:26Z
+completed_at: 2026-06-15T23:58:00Z
+complexity_estimate: 4
+complexity_actual: 4
+introduces_gate: "no"
+acceptance_criteria: "none (security gate; justification: ADR-019 audit-trail extra-gate carried by the brief as a Constraint — no user-facing AC maps to it. The brief frames it: \\\"Security-significant auth events — **accountant sign-in** and **client account creation from invitation** — are recorded in the audit trail, with an integration test proving the write.\\\" Trace tag is the **ADR id** `[ADR-019]`, not an AC id.)"
+upstream_refs: ADR-019 (audit trail — SQL Server 2022 **append-only ledger** table for tamper-evidence; audit write **in the same DB transaction as the mutation**, fail-closed; **RLS** read restricted to accountant/admin only, **CLIENT denied entirely**; raw-SQL track for the ledger DDL since it is not Prisma-expressible), ADR-003 (the request context that supplies the **actor** identity — `clerkUserId` + `role` from SESSION_CONTEXT, the "who"), ADR-005 (the RLS trust boundary the audit-read predicate plugs into — `SESSION_CONTEXT(N'role')`, admin principal exempt, fail-closed when null), ADR-002 (`DATETIMEOFFSET` storage; raw-SQL migration track).
+---
+
+
+
+
+
 # TASK-004-010: Auth-event audit (ADR-019) — append-only ledger table + accountant/admin-only RLS predicate (denies CLIENT) + audit-write seam for the two auth events + integration test proving the write
-
-**Brief**: BRIEF-004
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: 002 (✓ done) — consumes the `packages/auth` sign-in / invitation seams + mock binding; 005 (✓ done) — the client-account-creation-from-invitation path the audit seam attaches to; 007 (✓ done) — the `packages/db` `$extends`/`withRequestContext` request-scoped path the in-transaction write rides on. (Was 003; -003 deferred.)
-**Impl**: webapp-developer
-**E2e-required**: no <!-- ADR-019 mandates an *integration* test proving the audit write; the brief lists this as an integration obligation, not an e2e one. But this task touches `db/` (raw-SQL ledger DDL + an RLS policy) → **Docker pre-flight + a live SQL Server container integration test is REQUIRED** (real engine, not a mock/in-memory stand-in). Do NOT run/tick the Playwright e2e gate. -->
-**Started-at**: 2026-06-15T23:31:26Z
-**Completed-at**: 2026-06-15T23:58:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 4
-
-**Acceptance criteria:** none (security gate; justification: ADR-019 audit-trail extra-gate carried by the brief as a Constraint — no user-facing AC maps to it. The brief frames it: "Security-significant auth events — **accountant sign-in** and **client account creation from invitation** — are recorded in the audit trail, with an integration test proving the write." Trace tag is the **ADR id** `[ADR-019]`, not an AC id.)
-**Upstream refs:** ADR-019 (audit trail — SQL Server 2022 **append-only ledger** table for tamper-evidence; audit write **in the same DB transaction as the mutation**, fail-closed; **RLS** read restricted to accountant/admin only, **CLIENT denied entirely**; raw-SQL track for the ledger DDL since it is not Prisma-expressible), ADR-003 (the request context that supplies the **actor** identity — `clerkUserId` + `role` from SESSION_CONTEXT, the "who"), ADR-005 (the RLS trust boundary the audit-read predicate plugs into — `SESSION_CONTEXT(N'role')`, admin principal exempt, fail-closed when null), ADR-002 (`DATETIMEOFFSET` storage; raw-SQL migration track).
-**Introduces-gate:** no <!-- Adds the first ADR-019 audit obligation PROVEN BY ITS OWN INTEGRATION TEST against the live SQL Server container (the test is its own evidence per ENGINE.md § Gate Authoring Rules "Does not apply to: unit tests"). It introduces NO new *required CI status check*, NO blocking DoD checkbox beyond this task's own, NO pre-push hook, and NO new always-on cross-slice SDET reject-on-fail criterion. The "CLIENT cannot read the audit ledger" per-policy isolation test is a hard REQUIREMENT here (CLAUDE.md SDET RLS rule) but it is the task's own integration test, not a new always-on gate other slices must pass. If the dev instead promotes any of this to a new *required CI gate*, the three Gate-Authoring evidence items become mandatory — but the intended shape is self-evidencing integration tests, so `no`. -->
 
 ---
 

@@ -90,29 +90,62 @@ skip() {
 # ---------------------------------------------------------------------------
 # Check 1: check_task_file_completion
 #
-# All tasks with Status: done must have all 4 metadata fields filled:
-#   Started-at, Completed-at, Complexity-estimate, Complexity-actual
+# All tasks with status: done must have all 4 metadata fields filled:
+#   started_at, completed_at, complexity_estimate, complexity_actual
+#
+# DECISION (TASK-LOE-010-002): Field extraction reads YAML front-matter keys
+# directly in bash using a targeted grep of the front-matter block (lines
+# between the opening --- and closing --- fences). This is scoped to the
+# same 4 fields the pre-migration check verified (started_at, completed_at,
+# complexity_estimate, complexity_actual) — preserving identical verdicts
+# (AC-LOE-010-04) without importing the full TS schema checker (which validates
+# additional fields like introduces_gate enum that the old check didn't touch).
+#
+# yq is NOT on PATH (Plan-verified; adding a system binary to CI is fragile).
+# The TS library (scripts/task-frontmatter.ts) is the authoritative schema
+# parser — it is exercised by scripts/migrate-task-frontmatter.test.ts (unit
+# tests + YAML-validity regression oracle) and is reserved for Phase 1 gate
+# wiring. Check 1 here reads only the 4 lifecycle fields it has always checked,
+# keeping the blast radius minimal.
+#
+# Named code path (Gate Authoring evidence Item 2):
+#   _check_done_metadata_fm() uses grep -qE '^started_at: "?[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+#   (the optional "? tolerates the quoted scalar form the migration emits — see
+#   TASK-LOE-010-004; equivalent patterns guard the other 3 fields) on the
+#   front-matter block extracted from the task file via awk.
 # ---------------------------------------------------------------------------
+
+# Extract the front-matter block (between the two --- fences) from a task file.
+# Outputs the lines between the fences; caller greps them.
+_extract_fm_block() {
+  local f="$1"
+  # awk: skip the opening --- line, then print until the closing --- line
+  awk 'NR==1 && /^---$/{found=1; next} found && /^---$/{exit} found{print}' "$f"
+}
 
 check_task_file_completion() {
   local check_name="check_task_file_completion"
   local found_any=0
   local all_pass=1
 
-  # Check done/ subdirectory (completed tasks)
+  # Check done/ subdirectory (completed tasks).
+  # Scope: TASK-*.md only — matches the pre-migration check behavior.
+  # BUG-*.md files in done/ use status: closed (not done) and lack the
+  # lifecycle metadata fields this check requires; they are intentionally excluded.
   if [[ -d "$TASKS_DONE_DIR" ]]; then
     while IFS= read -r -d '' f; do
       found_any=1
-      _check_done_metadata "$f" "$check_name" || all_pass=0
+      _check_done_metadata_fm "$f" "$check_name" || all_pass=0
     done < <(find "$TASKS_DONE_DIR" -maxdepth 1 -name "TASK-*.md" -print0 2>/dev/null)
   fi
 
-  # Also check active tasks that carry Status: done
+  # Also check active tasks that carry status: done (front-matter form).
+  # Scope: TASK-*.md only — matches the pre-migration check behavior.
   if [[ -d "$TASKS_DIR" ]]; then
     while IFS= read -r -d '' f; do
-      if grep -q "^\*\*Status\*\*: done" "$f" 2>/dev/null; then
+      if grep -q "^status: done$" "$f" 2>/dev/null; then
         found_any=1
-        _check_done_metadata "$f" "$check_name" || all_pass=0
+        _check_done_metadata_fm "$f" "$check_name" || all_pass=0
       fi
     done < <(find "$TASKS_DIR" -maxdepth 1 -name "TASK-*.md" -print0 2>/dev/null)
   fi
@@ -126,34 +159,42 @@ check_task_file_completion() {
   fi
 }
 
-_check_done_metadata() {
+_check_done_metadata_fm() {
   local f="$1"
   local check_name="$2"
   local fname
   fname="$(basename "$f")"
   local ok=1
+  local fm_block
+  fm_block="$(_extract_fm_block "$f")"
 
-  # Started-at must not be blank/dash
-  if ! grep -qE "^\*\*Started-at\*\*: [0-9]{4}-[0-9]{2}-[0-9]{2}T" "$f"; then
-    fail "$check_name" "$fname: Started-at missing or not ISO 8601"
+  # started_at must be present in the front-matter block and be ISO 8601.
+  # Accept both unquoted (started_at: 2026-06-21T18:52:52Z) and quoted
+  # (started_at: "2026-06-21T18:52:52Z") forms — the migration may serialize
+  # either form. Mirror the quoted/unquoted tolerance already used for complexity_*.
+  if ! echo "$fm_block" | grep -qE '^started_at: "?[0-9]{4}-[0-9]{2}-[0-9]{2}T'; then
+    fail "$check_name" "$fname: started_at missing or not ISO 8601"
     ok=0
   fi
 
-  # Completed-at must not be blank/dash
-  if ! grep -qE "^\*\*Completed-at\*\*: [0-9]{4}-[0-9]{2}-[0-9]{2}T" "$f"; then
-    fail "$check_name" "$fname: Completed-at missing or not ISO 8601"
+  # completed_at must be present in the front-matter block and be ISO 8601.
+  # Accept both unquoted and quoted forms (same rationale as started_at above).
+  if ! echo "$fm_block" | grep -qE '^completed_at: "?[0-9]{4}-[0-9]{2}-[0-9]{2}T'; then
+    fail "$check_name" "$fname: completed_at missing or not ISO 8601"
     ok=0
   fi
 
-  # Complexity-estimate must be 1-5
-  if ! grep -qE "^\*\*Complexity-estimate\*\*: [1-5]$" "$f"; then
-    fail "$check_name" "$fname: Complexity-estimate missing or not 1-5"
+  # complexity_estimate must be 1-5.
+  # Accept both unquoted (complexity_estimate: 2) and quoted (complexity_estimate: "2")
+  # forms — the migration may serialize either form.
+  if ! echo "$fm_block" | grep -qE '^complexity_estimate: "?[1-5]"?$'; then
+    fail "$check_name" "$fname: complexity_estimate missing or not 1-5"
     ok=0
   fi
 
-  # Complexity-actual must be 1-5
-  if ! grep -qE "^\*\*Complexity-actual\*\*: [1-5]$" "$f"; then
-    fail "$check_name" "$fname: Complexity-actual missing or not 1-5"
+  # complexity_actual must be 1-5 (same quoted/unquoted tolerance as above)
+  if ! echo "$fm_block" | grep -qE '^complexity_actual: "?[1-5]"?$'; then
+    fail "$check_name" "$fname: complexity_actual missing or not 1-5"
     ok=0
   fi
 
@@ -184,11 +225,11 @@ check_bug_files_present_for_done() {
     while IFS= read -r -d '' f; do
       local fname
       fname="$(basename "$f")"
-      # Only check done tasks
-      if ! grep -q "^\*\*Status\*\*: done" "$f" 2>/dev/null; then
+      # Only check done tasks — front-matter form (post TASK-LOE-010-001 migration)
+      if ! grep -q "^status: done$" "$f" 2>/dev/null; then
         continue
       fi
-      # Check if SDET Review Decision includes "reject"
+      # Check if SDET Review Decision includes "reject" (body prose — unchanged)
       if grep -qiE "^\*\*Decision\*\*:.*reject" "$f" 2>/dev/null; then
         # Must reference a BUG- file somewhere in the task body
         if ! grep -qE "BUG-[0-9]+-[0-9]+" "$f" 2>/dev/null; then
@@ -339,6 +380,9 @@ check_gated_path_accountability() {
 # Every done task must have:
 #   - At least one "Starting implementation" breadcrumb (Dispatch Checkpoint)
 #   - At least one "review" breadcrumb (indicating status was flipped to review)
+#
+# Field read: status (front-matter key, post TASK-LOE-010-001 migration)
+# Body checks: grep the full file (body prose preserved byte-for-byte by migration)
 # ---------------------------------------------------------------------------
 
 check_work_log_content() {
@@ -352,7 +396,8 @@ check_work_log_content() {
 
   for dir in "${search_dirs[@]}"; do
     while IFS= read -r -d '' f; do
-      if ! grep -q "^\*\*Status\*\*: done" "$f" 2>/dev/null; then
+      # Front-matter form (post TASK-LOE-010-001 migration)
+      if ! grep -q "^status: done$" "$f" 2>/dev/null; then
         continue
       fi
       found_any=1
@@ -385,8 +430,11 @@ check_work_log_content() {
 # ---------------------------------------------------------------------------
 # Check 6: check_playwright_artifacts
 #
-# Tasks with E2e-required: yes and Status: done must have e2e execution output
+# Tasks with e2e_required: yes and status: done must have e2e execution output
 # in their Work Log (pass/fail counts or test names).
+#
+# Fields read: status, e2e_required (front-matter keys, post TASK-LOE-010-001)
+# Body checks: grep the full file (body prose preserved byte-for-byte by migration)
 # ---------------------------------------------------------------------------
 
 check_playwright_artifacts() {
@@ -400,11 +448,11 @@ check_playwright_artifacts() {
 
   for dir in "${search_dirs[@]}"; do
     while IFS= read -r -d '' f; do
-      # Only care about done tasks with E2e-required: yes
-      if ! grep -q "^\*\*Status\*\*: done" "$f" 2>/dev/null; then
+      # Front-matter form (post TASK-LOE-010-001 migration)
+      if ! grep -q "^status: done$" "$f" 2>/dev/null; then
         continue
       fi
-      if ! grep -q "^\*\*E2e-required\*\*: yes" "$f" 2>/dev/null; then
+      if ! grep -q "^e2e_required: yes$" "$f" 2>/dev/null; then
         continue
       fi
       found_any=1
@@ -432,11 +480,14 @@ check_playwright_artifacts() {
 # ---------------------------------------------------------------------------
 # Check 7: check_ci_evidence
 #
-# Done tasks with Introduces-gate: yes must have all three Gate Authoring
+# Done tasks with introduces_gate: yes must have all three Gate Authoring
 # Rules evidence items in their Work Log:
 #   1. A run URL (https://github.com/.../runs/...)
 #   2. A named code path (file reference)
 #   3. A counterfactual (the word "counterfactual" or "if ... were changed")
+#
+# Fields read: status, introduces_gate (front-matter keys, post TASK-LOE-010-001)
+# Body checks: grep the full file (body prose preserved byte-for-byte by migration)
 # ---------------------------------------------------------------------------
 
 check_ci_evidence() {
@@ -450,10 +501,11 @@ check_ci_evidence() {
 
   for dir in "${search_dirs[@]}"; do
     while IFS= read -r -d '' f; do
-      if ! grep -q "^\*\*Status\*\*: done" "$f" 2>/dev/null; then
+      # Front-matter form (post TASK-LOE-010-001 migration)
+      if ! grep -q "^status: done$" "$f" 2>/dev/null; then
         continue
       fi
-      if ! grep -q "^\*\*Introduces-gate:\*\* yes" "$f" 2>/dev/null; then
+      if ! grep -q "^introduces_gate: yes$" "$f" 2>/dev/null; then
         continue
       fi
       found_any=1

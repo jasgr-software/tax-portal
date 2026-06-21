@@ -1,20 +1,26 @@
+---
+brief: BRIEF-004 — Authentication & the two-role model
+status: done
+assigned_to: webapp-developer
+impl: developer
+e2e_required: yes (non-gating — DEMO-POLICY). Drives the persona/flow happy-path against the **live docker-compose container stack** with the **mock auth provider** (`AUTH_PROVIDER=mock`), the same SUT the e2e gate uses — never a dev server. Docker pre-flight required.
+started_at: 2026-06-15T20:00:00Z
+completed_at: 2026-06-15T20:30:00Z
+complexity_estimate: 2
+complexity_actual: 2
+brief_type: feature
+brief_deploys: "no"
+introduces_gate: "no (justification: the `@demo` spec is **excluded** from `e2e:run`/`e2e:smoke` via `--grep-invert @demo` and runs only through the separate `e2e:demo` script — it is never a CI gate, never a required check, never a blocking DoD beyond its own. It asserts each screen is visible so a broken UI fails the demo loudly, but a failed/missing demo never blocks delivery.)"
+acceptance_criteria: "none (justification: a UI demo is **non-gating** per `.orchestration/DEMO-POLICY.md` — it is evidence a human can see, not a pass/fail. The e2e/acceptance gates are the gates. The `@demo` spec re-exercises already-delivered AC surfaces and tags each screenshot with the AC id it evidences, but introduces no new acceptance obligation.)"
+upstream_refs: "ADR-010 (redirect matrix), ADR-006 (two-surface platform), ADR-001/ADR-005 (role server-side). Behavior contract: `.planning/personas/jane-accountant.md`, `.planning/personas/tom-prospective-client.md`, `.planning/flows/flow-first-sign-in.md`, `.planning/flows/flow-role-redirect.md`. Policy: `.orchestration/DEMO-POLICY.md`."
+reviewer: sdet
+---
+
+
+
+
+
 # TASK-004-011 — `@demo` walkthrough (EPIC-004 identity-spine gallery)
-
-**Status:** done
-**Assigned to:** webapp-developer
-**Impl:** developer · **Reviewer:** sdet
-**Brief:** BRIEF-004 — Authentication & the two-role model
-**Brief-type:** feature · **Brief-deploys:** no
-
-**Acceptance criteria:** none (justification: a UI demo is **non-gating** per `.orchestration/DEMO-POLICY.md` — it is evidence a human can see, not a pass/fail. The e2e/acceptance gates are the gates. The `@demo` spec re-exercises already-delivered AC surfaces and tags each screenshot with the AC id it evidences, but introduces no new acceptance obligation.)
-**Upstream refs:** ADR-010 (redirect matrix), ADR-006 (two-surface platform), ADR-001/ADR-005 (role server-side). Behavior contract: `.planning/personas/jane-accountant.md`, `.planning/personas/tom-prospective-client.md`, `.planning/flows/flow-first-sign-in.md`, `.planning/flows/flow-role-redirect.md`. Policy: `.orchestration/DEMO-POLICY.md`.
-**Introduces-gate:** no (justification: the `@demo` spec is **excluded** from `e2e:run`/`e2e:smoke` via `--grep-invert @demo` and runs only through the separate `e2e:demo` script — it is never a CI gate, never a required check, never a blocking DoD beyond its own. It asserts each screen is visible so a broken UI fails the demo loudly, but a failed/missing demo never blocks delivery.)
-**E2e-required:** yes (non-gating — DEMO-POLICY). Drives the persona/flow happy-path against the **live docker-compose container stack** with the **mock auth provider** (`AUTH_PROVIDER=mock`), the same SUT the e2e gate uses — never a dev server. Docker pre-flight required.
-
-**Started-at**: 2026-06-15T20:00:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-**Completed-at**: 2026-06-15T20:30:00Z
 
 ---
 

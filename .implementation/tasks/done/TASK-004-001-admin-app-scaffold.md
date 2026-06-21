@@ -1,20 +1,25 @@
+---
+brief: BRIEF-004
+status: done
+assigned_to: devops
+updated_by: sdet
+depends_on: none
+impl: developer
+e2e_required: "yes"
+started_at: 2026-06-15T00:00:00Z
+completed_at: 2026-06-15T06:00:00Z
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "no"
+acceptance_criteria: "none (scaffold/enabling-infra task; justification: this stands up the `apps/admin` shell + its e2e infrastructure that the auth AC tasks build on — it delivers no user-facing behavior of its own. Brief AC are owned by TASK-004-002+.)"
+upstream_refs: ADR-006 (monorepo, two apps; admin = Tax Portal on port 3001), ADR-007 (per-app deploy-agnostic image; production platform deferred), ADR-010 (`apps/admin` has **no public routes** — every path requires an authenticated ACCOUNTANT; redirect destinations use `PORTAL_APP_URL`/`ADMIN_APP_URL`).
+---
+
+
+
+
+
 # TASK-004-001: Scaffold `apps/admin` (Tax Portal) as a mirror of `apps/portal`
-
-**Brief**: BRIEF-004
-**Status**: done
-**Assigned to**: devops
-**Updated-by**: sdet
-**Depends on**: none
-**Impl**: developer
-**E2e-required**: yes <!-- per CLAUDE.md: an app is not "scaffolded" without working e2e infrastructure -->
-**Started-at**: 2026-06-15T00:00:00Z
-**Completed-at**: 2026-06-15T06:00:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** none (scaffold/enabling-infra task; justification: this stands up the `apps/admin` shell + its e2e infrastructure that the auth AC tasks build on — it delivers no user-facing behavior of its own. Brief AC are owned by TASK-004-002+.)
-**Upstream refs:** ADR-006 (monorepo, two apps; admin = Tax Portal on port 3001), ADR-007 (per-app deploy-agnostic image; production platform deferred), ADR-010 (`apps/admin` has **no public routes** — every path requires an authenticated ACCOUNTANT; redirect destinations use `PORTAL_APP_URL`/`ADMIN_APP_URL`).
-**Introduces-gate:** no <!-- adds an app's test/e2e infra mirroring the existing portal gates; does not introduce a NEW required quality gate. The new `test-admin` CI job already exists (advisory) and `pnpm e2e:cross-app` is introduced later (TASK-004-008). -->
 
 ---
 

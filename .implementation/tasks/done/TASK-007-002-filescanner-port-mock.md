@@ -1,22 +1,27 @@
+---
+brief: BRIEF-007
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: none
+impl: developer
+e2e_required: "no"
+started_at: 2026-06-19T12:08:25Z
+completed_at: 2026-06-19T07:34:00Z
+complexity_estimate: 2
+complexity_actual: 2
+brief_type: feature
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none directly (justification: this task delivers the `FileScanner` seam + the MIME/size validation helper that AC-NFR-009-01/-02 and AC-FILE-002-01 are *proven against* in TASK-007-004 / TASK-007-006; it has no user-facing behavior of its own). The seam is load-bearing for AC-NFR-009-01, AC-NFR-009-02, AC-FILE-002-01."
+upstream_refs: ADR-021 (scan-before-available; `FileScanner` capability contract; verdict `clean｜infected｜indeterminate`; fail-closed unbound binding; MIME/magic-byte validation is a *safety* check NOT a type allow-list; size cap), ADR-013/020 (no vendor scanner SDK in app code; port discipline), REQ-NFR-009 (the requirement the seam satisfies), REQ-FILE-002 (any type accepted — validation must not reject for an uncommon type).
+---
+
+
+
+
+
 # TASK-007-002: `FileScanner` port (mock-first) + fail-closed select + MIME/size validation helper
-
-**Brief**: BRIEF-007
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: none
-**Impl**: developer
-**E2e-required**: no <!-- port + mock binding + validation helper; the scan-before-available behavior is proven at tier-3 in TASK-007-004 and tier-6 in TASK-007-006 -->
-**Started-at**: 2026-06-19T12:08:25Z
-**Completed-at**: 2026-06-19T07:34:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-
-**Acceptance criteria:** none directly (justification: this task delivers the `FileScanner` seam + the MIME/size validation helper that AC-NFR-009-01/-02 and AC-FILE-002-01 are *proven against* in TASK-007-004 / TASK-007-006; it has no user-facing behavior of its own). The seam is load-bearing for AC-NFR-009-01, AC-NFR-009-02, AC-FILE-002-01.
-**Upstream refs:** ADR-021 (scan-before-available; `FileScanner` capability contract; verdict `clean｜infected｜indeterminate`; fail-closed unbound binding; MIME/magic-byte validation is a *safety* check NOT a type allow-list; size cap), ADR-013/020 (no vendor scanner SDK in app code; port discipline), REQ-NFR-009 (the requirement the seam satisfies), REQ-FILE-002 (any type accepted — validation must not reject for an uncommon type).
-**Introduces-gate:** no <!-- port + mock binding; unit-tested (test-is-its-own-evidence). The scan-before-available *promotion* gate is exercised end-to-end in TASK-007-004's tier-3 pipeline. -->
 
 ---
 

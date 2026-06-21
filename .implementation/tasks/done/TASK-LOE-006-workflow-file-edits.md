@@ -1,19 +1,25 @@
-# TASK-LOE-006: Workflow file edits — PushNotification + RA-decides-CLARIFs + stuck-loop killswitch + SDET ADR-011 alignment
+---
+epic: chore/lights-out-enablement
+status: done
+assigned_to: "sa (Impl: sa)"
+updated_by: sa
+depends_on: TASK-LOE-005 (the SDET text update in § (e) below cites ADR-011, which TASK-LOE-005 creates)
+e2e_required: "no"
+started_at: 2026-04-27T10:24:49Z
+completed_at: 2026-04-27T16:30:00Z
+complexity_estimate: 4
+complexity_actual: 4
+introduces_gate: "yes"
+affected_flows: "none (justification: chore touches workflow rules + agent specs, not user-facing behavior)"
+affected_requirements: "none (justification: chore touches workflow rules + agent specs, not SRS requirements)"
+relevant_adrs: ADR-011 (created in TASK-LOE-005, referenced by § (e))
+---
 
-**Epic**: chore/lights-out-enablement
-**Status**: done
-**Assigned to**: sa (Impl: sa)
-**Updated-by**: sa
-**Depends on**: TASK-LOE-005 (the SDET text update in § (e) below cites ADR-011, which TASK-LOE-005 creates)
-**E2e-required**: no
-**Started-at**: 2026-04-27T10:24:49Z
-**Completed-at**: 2026-04-27T16:30:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 4
-**Affected flows:** none (justification: chore touches workflow rules + agent specs, not user-facing behavior)
-**Affected requirements:** none (justification: chore touches workflow rules + agent specs, not SRS requirements)
-**Introduces-gate:** yes
-**Relevant ADRs:** ADR-011 (created in TASK-LOE-005, referenced by § (e))
+
+
+
+
+# TASK-LOE-006: Workflow file edits — PushNotification + RA-decides-CLARIFs + stuck-loop killswitch + SDET ADR-011 alignment
 
 ---
 

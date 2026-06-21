@@ -1,19 +1,25 @@
-# TASK-LOE-008: Extend `scripts/validate-gates.sh` with condition-(d) verifier
+---
+epic: chore/validate-gates-condition-d-check (post-PR-#13 follow-up item 1)
+status: done
+assigned_to: devops
+updated_by: sdet (SDET review 2026-04-28)
+depends_on: none (script is the consumer; no other tasks land first)
+e2e_required: "no"
+started_at: 2026-04-28T18:00:00Z
+completed_at: 2026-04-28T22:30:46Z
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "yes"
+affected_flows: "none (justification: chore touches CI/gate validation infrastructure, not user-facing behavior)"
+affected_requirements: "none (justification: chore extends validate-gates.sh — a pre-push and CI gate script — not SRS requirements)"
+relevant_adrs: none
+---
 
-**Epic**: chore/validate-gates-condition-d-check (post-PR-#13 follow-up item 1)
-**Status**: done
-**Assigned to**: devops
-**Updated-by**: sdet (SDET review 2026-04-28)
-**Depends on**: none (script is the consumer; no other tasks land first)
-**E2e-required**: no
-**Started-at**: 2026-04-28T18:00:00Z
-**Completed-at**: 2026-04-28T22:30:46Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-**Affected flows:** none (justification: chore touches CI/gate validation infrastructure, not user-facing behavior)
-**Affected requirements:** none (justification: chore extends validate-gates.sh — a pre-push and CI gate script — not SRS requirements)
-**Introduces-gate:** yes
-**Relevant ADRs:** none
+
+
+
+
+# TASK-LOE-008: Extend `scripts/validate-gates.sh` with condition-(d) verifier
 
 ---
 

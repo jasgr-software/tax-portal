@@ -1,16 +1,22 @@
-# BUG-000-002: validate-gates.sh check_ci_evidence Item 1 regex rejects prose-form red-then-green evidence authorized by Gate Authoring Rules
+---
+epic: cross-cutting (BUG-000-NNN)
+status: closed
+assigned_to: devops
+updated_by: devops
+started_at: 2026-04-27T11:02:14Z
+completed_at: 2026-04-27T12:45:00Z
+complexity_estimate: 2
+complexity_actual: 2
+found_in: TASK-LOE-006 (surfaced during quad-review against the chore branch; affects TASK-LOE-003 also)
+category: code-quality
+severity: major — `lint-and-typecheck` CI job fails on the lights-out enablement chore PR; blocks the chore from shipping with green CI
+---
 
-**Epic**: cross-cutting (BUG-000-NNN)
-**Status**: closed
-**Found in**: TASK-LOE-006 (surfaced during quad-review against the chore branch; affects TASK-LOE-003 also)
-**Category**: code-quality
-**Severity**: major — `lint-and-typecheck` CI job fails on the lights-out enablement chore PR; blocks the chore from shipping with green CI
-**Assigned to**: devops
-**Updated-by**: devops
-**Started-at**: 2026-04-27T11:02:14Z
-**Completed-at**: 2026-04-27T12:45:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
+
+
+
+
+# BUG-000-002: validate-gates.sh check_ci_evidence Item 1 regex rejects prose-form red-then-green evidence authorized by Gate Authoring Rules
 
 ---
 

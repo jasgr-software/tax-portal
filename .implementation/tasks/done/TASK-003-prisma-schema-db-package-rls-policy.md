@@ -1,22 +1,27 @@
+---
+brief: BRIEF-001
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-001, TASK-002
+impl: developer
+e2e_required: "yes"
+started_at: 2026-06-15T00:00:00Z
+completed_at: 2026-06-15T16:00:00Z
+complexity_estimate: 5
+complexity_actual: 5
+brief_type: feature
+brief_deploys: "no"
+introduces_gate: "yes"
+acceptance_criteria: [AC-DOOR-004-03 (request persisted in pending/awaiting-review state), AC-DOOR-004-04 (no account row created at submission), AC-DOOR-002-04 / AC-DOOR-001-02 / AC-DOOR-003-04 (only **active** services surface — the data-layer query that filters inactive services), plus the **accountant-only-read security-policy test** for `engagement_request` (anonymous/client cannot read; accountant can). These are the **tier-3 service-integration** obligations (Prisma + real SQL Server).]
+upstream_refs: ADR-002 (SQL Server entity schema; `UNIQUEIDENTIFIER NEWSEQUENTIALID()` PKs; `DATETIMEOFFSET` timestamps; no native arrays → join table; two pools), ADR-004 (Prisma single-track; raw-SQL escape hatch in `packages/db/sql`), ADR-003 (two pools `db`/`adminDb`; `$extends` SESSION_CONTEXT set-on-acquire; `withClerkIdentity` test helper; admin-pool import boundary; anonymous write runs under the **admin pool**, no SESSION_CONTEXT identity), ADR-005 (security policy `sec.pol_EngagementRequest` accountant-only read; predicate skeleton; **per-policy `.rls.test.ts` is a hard gate, not advisory**; `db/policies/` raw SQL), ADR-020 (prospect PII stored under encryption-at-rest posture)
+---
+
+
+
+
+
 # TASK-003: Prisma schema + packages/db (two pools + SESSION_CONTEXT) + accountant-only-read RLS policy + tier-3 integration test
-
-**Brief**: BRIEF-001
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-001, TASK-002
-**Impl**: developer
-**E2e-required**: yes
-**Started-at**: 2026-06-15T00:00:00Z
-**Completed-at**: 2026-06-15T16:00:00Z
-**Complexity-estimate**: 5
-**Complexity-actual**: 5
-
-**Acceptance criteria:** AC-DOOR-004-03 (request persisted in pending/awaiting-review state), AC-DOOR-004-04 (no account row created at submission), AC-DOOR-002-04 / AC-DOOR-001-02 / AC-DOOR-003-04 (only **active** services surface — the data-layer query that filters inactive services), plus the **accountant-only-read security-policy test** for `engagement_request` (anonymous/client cannot read; accountant can). These are the **tier-3 service-integration** obligations (Prisma + real SQL Server).
-**Upstream refs:** ADR-002 (SQL Server entity schema; `UNIQUEIDENTIFIER NEWSEQUENTIALID()` PKs; `DATETIMEOFFSET` timestamps; no native arrays → join table; two pools), ADR-004 (Prisma single-track; raw-SQL escape hatch in `packages/db/sql`), ADR-003 (two pools `db`/`adminDb`; `$extends` SESSION_CONTEXT set-on-acquire; `withClerkIdentity` test helper; admin-pool import boundary; anonymous write runs under the **admin pool**, no SESSION_CONTEXT identity), ADR-005 (security policy `sec.pol_EngagementRequest` accountant-only read; predicate skeleton; **per-policy `.rls.test.ts` is a hard gate, not advisory**; `db/policies/` raw SQL), ADR-020 (prospect PII stored under encryption-at-rest posture)
-**Introduces-gate:** yes
 
 ---
 

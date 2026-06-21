@@ -1,22 +1,25 @@
+---
+brief: BRIEF-008
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer (resume 2026-06-19)
+depends_on: TASK-008-002, TASK-008-003
+impl: developer
+e2e_required: "yes"
+started_at: 2026-06-19T22:43:48Z
+completed_at: 2026-06-20T01:15:00Z
+complexity_estimate: 4
+complexity_actual: 4
+introduces_gate: "no"
+acceptance_criteria: [AC-ONBD-005-01, AC-ONBD-005-02, AC-ONBD-006-01, AC-ONBD-006-02, AC-ONBD-006-03, AC-ONBD-007-01, AC-ONBD-007-02, AC-MSG-013-04]
+upstream_refs: REQ-ONBD-005, REQ-ONBD-006, REQ-ONBD-007, REQ-MSG-013; ADR-006, ADR-012
+---
+
+
+
+
+
 # TASK-008-004: E2E — full onboarding-completion path (portal complete-three-steps → admin In Progress + notification) + cross-app
-
-**Brief**: BRIEF-008
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer (resume 2026-06-19)
-**Depends on**: TASK-008-002, TASK-008-003
-**Impl**: developer
-**E2e-required**: yes
-**Started-at**: 2026-06-19T22:43:48Z
-**Completed-at**: 2026-06-20T01:15:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 4
-
-**Acceptance criteria:** AC-ONBD-005-01, AC-ONBD-005-02, AC-ONBD-006-01, AC-ONBD-006-02, AC-ONBD-006-03, AC-ONBD-007-01, AC-ONBD-007-02, AC-MSG-013-04
-**Upstream refs:** REQ-ONBD-005, REQ-ONBD-006, REQ-ONBD-007, REQ-MSG-013; ADR-006, ADR-012
-**Introduces-gate:** no
-
-<!-- Brief-type: feature · Brief-deploys: no -->
 
 ---
 

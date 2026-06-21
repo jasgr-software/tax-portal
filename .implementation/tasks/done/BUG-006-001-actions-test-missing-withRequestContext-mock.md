@@ -1,11 +1,17 @@
-# BUG-006-001: actions.test.ts mock missing `withRequestContext` after TASK-006-006 bug fix
+---
+brief: BRIEF-006
+status: closed
+severity: blocking (submission gate failure — `pnpm --filter admin test` 1 failed / 183 passed)
+task: TASK-006-006
+found_by: sdet
+filed_at: 2026-06-18T23:58:00Z
+---
 
-**Brief**: BRIEF-006
-**Task**: TASK-006-006
-**Status**: closed
-**Severity**: blocking (submission gate failure — `pnpm --filter admin test` 1 failed / 183 passed)
-**Filed by**: sdet
-**Filed at**: 2026-06-18T23:58:00Z
+
+
+
+
+# BUG-006-001: actions.test.ts mock missing `withRequestContext` after TASK-006-006 bug fix
 
 ---
 

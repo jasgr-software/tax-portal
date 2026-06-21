@@ -1,19 +1,25 @@
-# TASK-LOE-007: Bump GitHub Actions to Node.js 24-compatible versions
+---
+epic: "chore/lights-out-enablement (follow-up from PR #8)"
+status: done
+assigned_to: devops
+updated_by: devops
+depends_on: none
+e2e_required: "no"
+started_at: 2026-04-28T23:52:21Z
+completed_at: 2026-04-29T11:01:40Z
+complexity_estimate: 2
+complexity_actual: 1
+introduces_gate: "no"
+affected_flows: "none (justification: chore touches CI infrastructure only, not user-facing behavior)"
+affected_requirements: "none (justification: chore touches CI infrastructure, not SRS requirements)"
+relevant_adrs: none
+---
 
-**Epic**: chore/lights-out-enablement (follow-up from PR #8)
-**Status**: done
-**Assigned to**: devops
-**Updated-by**: devops
-**Depends on**: none
-**E2e-required**: no
-**Started-at**: 2026-04-28T23:52:21Z
-**Completed-at**: 2026-04-29T11:01:40Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 1
-**Affected flows:** none (justification: chore touches CI infrastructure only, not user-facing behavior)
-**Affected requirements:** none (justification: chore touches CI infrastructure, not SRS requirements)
-**Introduces-gate:** no
-**Relevant ADRs:** none
+
+
+
+
+# TASK-LOE-007: Bump GitHub Actions to Node.js 24-compatible versions
 
 ---
 

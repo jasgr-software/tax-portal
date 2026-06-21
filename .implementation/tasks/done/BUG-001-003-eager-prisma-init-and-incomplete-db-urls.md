@@ -1,11 +1,17 @@
-# BUG-001-003: Eager Prisma client construction + incomplete DB URLs break clean-slate container smoke
+---
+brief: BRIEF-001
+status: closed
+severity: blocking (Smoke gate FAIL on clean-slate bring-up)
+task: BUG-001-003 (fix task — see Definition of Done below)
+raised_by: sdet (container-smoke gate) → IO (root-cause confirmed, fix scoped)
+raised_at: 2026-06-15
+---
 
-**Brief**: BRIEF-001
-**Task**: BUG-001-003 (fix task — see Definition of Done below)
-**Status**: closed
-**Severity**: blocking (Smoke gate FAIL on clean-slate bring-up)
-**Raised by**: sdet (container-smoke gate) → IO (root-cause confirmed, fix scoped)
-**Raised at**: 2026-06-15
+
+
+
+
+# BUG-001-003: Eager Prisma client construction + incomplete DB URLs break clean-slate container smoke
 
 ---
 

@@ -1,21 +1,18 @@
-# TASK-TEST-001: Fixture task — done with no Work Log
-
-**Epic**: test
-**Status**: done
-**Assigned to**: devops
-**Updated-by**: devops
-**Depends on**: none
-**E2e-required**: no
-**Started-at**: 2026-04-26T10:00:00Z
-**Completed-at**: 2026-04-26T11:00:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-**Affected flows:** none (justification: fixture)
-**Affected requirements:** none (justification: fixture)
-**Introduces-gate:** no
-**Relevant ADRs:** none
-
 ---
+epic: test
+status: done
+assigned_to: devops
+updated_by: devops
+depends_on: none
+e2e_required: no
+started_at: 2026-04-26T10:00:00Z
+completed_at: 2026-04-26T11:00:00Z
+complexity_estimate: 2
+complexity_actual: 2
+introduces_gate: no
+---
+
+# TASK-TEST-001: Fixture task — done with no Work Log
 
 ## Quality Gates
 

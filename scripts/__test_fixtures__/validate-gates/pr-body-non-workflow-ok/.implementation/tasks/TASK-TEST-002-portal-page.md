@@ -1,12 +1,14 @@
-# TASK-TEST-002: Portal home page
+---
+status: in-progress
+assigned_to: webapp-developer
+e2e_required: no
+started_at: 2026-04-26T10:00:00Z
+complexity_estimate: 1
+complexity_actual: —
+introduces_gate: no
+---
 
-**Status**: in-progress
-**Assigned to**: webapp-developer
-**E2e-required**: no
-**Started-at**: 2026-04-26T10:00:00Z
-**Complexity-estimate**: 1
-**Complexity-actual**: —
-**Introduces-gate:** no
+# TASK-TEST-002: Portal home page
 
 ## Files to Create or Modify
 

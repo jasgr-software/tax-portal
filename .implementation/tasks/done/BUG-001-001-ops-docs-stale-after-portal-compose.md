@@ -1,11 +1,17 @@
-# BUG-001-001: Operations docs stale after TASK-004 portal compose service addition
+---
+brief: BRIEF-001
+status: closed
+severity: blocking (SDET rejection criterion per CLAUDE.md § DevOps)
+task: TASK-004
+raised_by: sdet
+raised_at: 2026-06-15
+---
 
-**Brief**: BRIEF-001
-**Task**: TASK-004
-**Status**: closed
-**Severity**: blocking (SDET rejection criterion per CLAUDE.md § DevOps)
-**Raised by**: sdet
-**Raised at**: 2026-06-15
+
+
+
+
+# BUG-001-001: Operations docs stale after TASK-004 portal compose service addition
 
 ---
 

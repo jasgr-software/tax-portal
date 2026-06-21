@@ -73,7 +73,10 @@ contract; the implementation engine independently scripts **its own** internals 
 does not reach in. Approach mirrors the Increment-3 Phase-2 derivers (`orchestrate-state.sh`,
 `id-alloc.sh`): derive from primary sources, one scripted command per mechanical step, under the
 #5/#6 promotion discipline (script the exercised mechanical paths; leave judgment and unexercised
-branches to agents). **Status: design complete (proposal); build pending.**
+branches to agents). **Status: proposal ratified 2026-06-21; Phase 0 (YAML front-matter migration)
+in build via `TASK-LOE-010` on the reviewed engine lane (deliverables in `scripts/` + `package.json`
+are application-scope, so it runs through the implementation engine, not the main session). Phases
+1–2 pending, ratified separately after Phase 0 lands.**
 
 ## Per-phase evaluation
 

@@ -1,21 +1,26 @@
+---
+brief: BRIEF-005
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-005-003 (engagement on accept), TASK-005-004 (template edit), TASK-005-005 (gate + sign), TASK-005-006 (onboarding UI)
+impl: developer
+e2e_required: "**yes**"
+started_at: 2026-06-18T15:23:48Z
+completed_at: 2026-06-18T19:47:00Z
+complexity_estimate: 4
+complexity_actual: 4
+brief_deploys: "no"
+introduces_gate: "**advisory** — the e-sign mock e2e is a new e2e surface. Provide gate-authoring-style evidence in the Work Log (the green run + the named code path the e2e covers + a counterfactual); it lands advisory (e2e is not a per-PR required check — CLAUDE.md)."
+acceptance_criteria: [AC-ONBD-001-01, AC-ONBD-001-03 (sequence rendered, position shown — e2e tier 6), AC-ONBD-002-03 (sign → unlock happy path — e2e), AC-IDNT-007-03 (edited template shown to the client — cross-app edit→sign). (The tier-3 server-side ACs — ONBD-001-02, ONBD-002-01/-02/-04 — are proven in TASK-005-001/-005; this task adds their e2e where the briefs tier map places them at tier 6.)]
+upstream_refs: ADR-012 (testing pyramid — tier-6 e2e for the end-to-end sign path), ADR-006 (cross-app edit→sign spans admin + portal), ADR-023/024 (e2e runs against the **mock** e-sign binding via `ALLOW_MOCK_ESIGN=true` in the e2e container).
+---
+
+
+
+
+
 # TASK-005-007: E2e + gherkin binding + cross-app (portal onboarding + admin template edit)
-
-**Brief**: BRIEF-005
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-005-003 (engagement on accept), TASK-005-004 (template edit), TASK-005-005 (gate + sign), TASK-005-006 (onboarding UI)
-**Impl**: developer
-**E2e-required**: **yes**
-**Brief-deploys**: no
-**Started-at**: 2026-06-18T15:23:48Z
-**Completed-at**: 2026-06-18T19:47:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 4
-
-**Acceptance criteria:** AC-ONBD-001-01, AC-ONBD-001-03 (sequence rendered, position shown — e2e tier 6), AC-ONBD-002-03 (sign → unlock happy path — e2e), AC-IDNT-007-03 (edited template shown to the client — cross-app edit→sign). (The tier-3 server-side ACs — ONBD-001-02, ONBD-002-01/-02/-04 — are proven in TASK-005-001/-005; this task adds their e2e where the brief's tier map places them at tier 6.)
-**Upstream refs:** ADR-012 (testing pyramid — tier-6 e2e for the end-to-end sign path), ADR-006 (cross-app edit→sign spans admin + portal), ADR-023/024 (e2e runs against the **mock** e-sign binding via `ALLOW_MOCK_ESIGN=true` in the e2e container).
-**Introduces-gate:** **advisory** — the e-sign mock e2e is a new e2e surface. Provide gate-authoring-style evidence in the Work Log (the green run + the named code path the e2e covers + a counterfactual); it lands advisory (e2e is not a per-PR required check — CLAUDE.md).
 
 ---
 
