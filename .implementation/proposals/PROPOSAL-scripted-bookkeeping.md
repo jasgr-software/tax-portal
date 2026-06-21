@@ -181,7 +181,76 @@ The CLI never decides any of these — it only records the agent's decision in c
 
 ---
 
-## 8. Open questions for the reviewer
+## 8. Context-management dimension
+
+The §3 commands cover the **write** side of bookkeeping. The larger, often-overlooked win is
+the **read** side: today agents pull whole markdown files into context to extract a handful of
+facts, and the engine already treats context as a scarce, managed resource. A scripted task
+layer is the natural place to make those reads **bounded and structured** instead of
+whole-file.
+
+### 8.1 What the engine already does (and where it's reactive)
+
+| Existing mechanism | Where | Nature |
+| --- | --- | --- |
+| `/compact` request at Plan start | `ENGINE.md` § Phase 0 (lines 121–122) | **Reactive** — user-driven, fires after context is already heavy |
+| Bounded-ledger rule (NORTH-STAR #7) | `ENGINE.md` (lines 328–335) | **Discipline** — relies on the IO to sweep prose to `PROGRESS-ARCHIVE.md` correctly each transition |
+| `Impl: io` to "preserve context" | `PHASES.md` (line 15) | **Heuristic** — IO absorbs small tasks rather than spawning |
+| Spawn-prompt context delivery | `PHASES.md` (line 4) | **Manual** — IO hand-packs each subagent's context from large source files |
+
+The pattern: context management is a *first-class goal* but is currently enforced by agent
+discipline (remember to sweep, remember to compact, remember to pack tightly). The CLI can
+convert several of these from "remember to" into "mechanically so."
+
+### 8.2 Add the read/query side to the CLI
+
+Bounded **projections** so agents stop reading whole files:
+
+| Command | Returns | Replaces (today's context cost) |
+| --- | --- | --- |
+| `task show <ID> [--fields status,complexity-actual,...]` | just the metadata block | reading the entire task file to check one field |
+| `task list --brief NNN [--status review]` | a compact table of IDs + status | opening every task file to find what's in `review` |
+| `task next [--brief NNN]` | the next actionable task id + one-line scope | scanning the tasks dir |
+| `task summary --brief NNN` | computed rollup (counts by status, open gates, missing-metadata flags) | IO re-reading every task at phase boundaries to recompute state |
+| `task progress` | the `## Current initiative` hot-state **only** | reading PROGRESS.md including the session-entry tail |
+| `task brief-context <ID>` | the exact bounded bundle a subagent needs (task spec + cited ACs + cited `CS-*`) | IO copy-pasting from large source files into the spawn prompt |
+
+`task brief-context` is the highest-leverage item: it makes the IO's spawn-prompt packing a
+**deterministic projection** rather than a manual gather, which shrinks both the IO's working
+context *and* what each subagent receives — directly reinforcing `PHASES.md:4`.
+
+### 8.3 Make the bounded-ledger rule mechanical, not disciplinary
+
+- `task phase-transition` (already in §3.2) **is** the NORTH-STAR #7 sweep. Scripting it
+  converts the bounded-ledger rule from "IO remembers to sweep prose to a one-line pointer"
+  into a guaranteed operation — the single biggest source of PROGRESS.md context drift.
+- Add `task ledger-check`: fails (and can become a `validate-gates.sh` check) if PROGRESS.md
+  hot-state exceeds a line/token budget — turning "ledgers carry bounded hot-state only"
+  (`ENGINE.md:328`) from prose into a **verifiable gate**. This is proactive where `/compact`
+  is reactive: it flags bloat at the source instead of after the window fills.
+- `task history --slice <X>`: resolve an archive pointer to its durable artifacts
+  (PR/sha/`HANDOFF-NNN`) without the agent reading all of `PROGRESS-ARCHIVE.md` (which is, by
+  design, "a thin index" — `ENGINE.md:335`).
+
+### 8.4 Net effect on context
+
+- **Reads shrink from whole-file to field-level.** A status check costs a CLI line, not a
+  full task file in the window.
+- **Spawn prompts get smaller and more uniform** (`task brief-context`), reducing context for
+  both IO and every subagent it dispatches.
+- **Bounded-ledger discipline becomes enforced**, so PROGRESS.md stops being a slow context
+  leak between `/compact` calls.
+- **`/compact` stays as the backstop**, but should fire far less often because the steady-state
+  read footprint is lower by construction.
+
+This dovetails with the write-side plan: the same `scripts/task.ts` owns both the canonical
+*write* format and the bounded *read* projections, so there's one source of truth for the task
+schema. Recommend adding the read commands in **Phase 1** alongside the writes (they're
+read-only and low-risk), and `ledger-check` / `phase-transition` in **Phase 2**.
+
+---
+
+## 9. Open questions for the reviewer
 
 1. **`task.ts` vs `task.sh`?** TS matches `db-migrate`/`db-seed`/`metrics-report` tooling and
    gives real arg-parsing + testability; bash matches `validate-gates.sh`. Recommendation: TS.
@@ -193,3 +262,9 @@ The CLI never decides any of these — it only records the agent's decision in c
 4. **Phase-2 scope confirmation:** is automating the PROGRESS.md sweep desirable, or is that
    file deliberately kept hand-curated for IO oversight? This is the one place automation
    touches the human-readable narrative ledger.
+5. **Output format for read commands (§8.2):** human-readable tables, `--json` for agent
+   consumption, or both? Recommendation: default human-readable, `--json` flag for programmatic
+   use (e.g. the IO building a spawn prompt).
+6. **`ledger-check` budget (§8.3):** what's the hot-state line/token budget, and should
+   breaching it be a hard `validate-gates.sh` failure or an advisory warning? Recommendation:
+   advisory first, promote to hard gate once a real budget is calibrated from history.
