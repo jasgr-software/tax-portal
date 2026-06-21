@@ -10,9 +10,10 @@ current epic numbering (the old "Epic 002 (Front Door)" label predated it):
 - **Catalog supply** behind the public services list → **EPIC-002** (services-catalog management).
 - **Review → accept/decline → invite / decline-reason** → **EPIC-003** (accountant request inbox).
 - **Invitation → account creation** handoff → **EPIC-004** (auth & two-role model); see `flow-first-sign-in`.
-- **Returning-client path** (DOOR-009) and the **accountant-initiated branch** (DOOR-010) below are
-  **deferred beyond the MVP** (need a client portal home / the engagement entity) — documented here for
-  continuity but not realized by a Phase-1 epic.
+- **Returning-client path** (DOOR-009) and the **accountant-initiated branch** (DOOR-010) below are realized
+  by **EPIC-012** (Phase 3 — engagement creation paths & multi-participant), now that the client portal home
+  and the first-class Engagement (EPIC-010) exist. The duplicate guard per (client, service type, tax year)
+  (REQ-LIFE-011) also lands in EPIC-012 at the point of creation.
 
 ---
 
@@ -103,7 +104,7 @@ current epic numbering (the old "Epic 002 (Front Door)" label predated it):
 3. **[System] Notifies accountant.** _(same as anonymous path step 3)_
 
 4. **[Accountant] Reviews and accepts.** _(same as anonymous path steps 4–5, with the distinction that the invitee already has an account — Clerk invitation may not be needed; Jane may trigger a notification instead)_
-   - Note for Epic 002: if the returning client already has an account, the acceptance flow should notify the existing CLIENT user rather than sending a Clerk invitation. This detail is to be resolved during Epic 002 design.
+   - Note for EPIC-012: if the returning client already has an account, the acceptance flow notifies the existing CLIENT user rather than sending a new-account invitation. This detail is resolved during EPIC-012 (returning-client creation path). Participant invitations (a second account on a shared engagement, REQ-AUTH-007/REQ-LIFE-012) ride the same path.
 
 ---
 

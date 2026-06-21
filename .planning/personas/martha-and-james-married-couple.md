@@ -84,7 +84,8 @@ This scenario is important because it surfaces the multi-participant model: two 
 
 - `flow-first-sign-in` — both Martha and James go through this flow (on separate occasions, separate invitations)
 - `flow-role-redirect` — if either navigates to `apps/admin`, redirect to `apps/portal`
-- `flow-engagement-request` — Martha's initial request submission
+- `flow-engagement-request` — Martha's initial request submission; James linked as a second participant (EPIC-012, REQ-AUTH-007/REQ-LIFE-012)
+- `flow-engagement-lifecycle` — both participants see the shared engagement's simplified status label (EPIC-010)
 - `flow-onboarding` — both participate in the three-step onboarding gate
 - `flow-file-exchange` — separate uploads from both participants to the same engagement
 - `flow-message-exchange` — shared engagement message thread accessible by both
