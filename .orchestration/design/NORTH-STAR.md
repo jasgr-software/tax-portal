@@ -56,6 +56,25 @@ The implementation engine stays a **swappable backend behind the build-brief con
 | **Increment 4 — First judge** | Build the AC-testability gate-judge against the typed slot — **deferred until the first non-verbatim AC appears** (data-starved across 4 epics; do not build speculatively). | Deferred (blocked on data) |
 | **Ongoing — Promotion** | As the log proves a gate mechanical, move it `judge → code`. As a deferred branch fires and proves stable, codify it. Default lifecycle is **code-first, judge-on-demand** (Phase 2: 0 judges, all-code gates). | Continuous |
 
+### Cross-layer extension — implementation-engine bookkeeping (designated next)
+
+The thesis (#1–#3, #7) is not orchestration-specific. The **implementation engine has its own
+hand-done bookkeeping** — task status/metadata writes, Work Log breadcrumbs, the PROGRESS.md
+prose ledger, `tasks/ → tasks/done/` archival, AC↔test traceability. The proposal at
+[`.implementation/proposals/PROPOSAL-scripted-bookkeeping.md`](../../.implementation/proposals/PROPOSAL-scripted-bookkeeping.md)
+applies the same conclusions one layer down: a tested task CLI over **YAML front matter**
+(parse/validate, not regex-scrape), and a **cold-derivable structured state store** (`state.json`
++ `events.jsonl`, human view generated on demand) that *fulfills* #7's bounded/cold-derivable
+contract instead of policing prose accretion by hand.
+
+This is the **designated next initiative** for the program. It **preserves the decoupling above**:
+the sequencer still treats `.implementation` as a swappable backend behind the build-brief
+contract; the implementation engine independently scripts **its own** internals — orchestration
+does not reach in. Approach mirrors the Increment-3 Phase-2 derivers (`orchestrate-state.sh`,
+`id-alloc.sh`): derive from primary sources, one scripted command per mechanical step, under the
+#5/#6 promotion discipline (script the exercised mechanical paths; leave judgment and unexercised
+branches to agents). **Status: design complete (proposal); build pending.**
+
 ## Per-phase evaluation
 
 At each delivery-phase close-out (the same moment `.planning/COVERAGE.md` is signed off), score advancement against the objective and record one line in § Advancement log:
