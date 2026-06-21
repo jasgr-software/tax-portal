@@ -3,7 +3,14 @@
 **Flow ID:** `flow-file-exchange`  
 **One-line summary:** An accountant or client uploads or downloads a file within an engagement; files are stored via signed-URL object storage, access is authorized per SQL Server Security Policies, and a version history is maintained.
 
-**Status:** Phase 4 stub — covers Epic 004 (Secure File Exchange) scope. Authored here for flow-gate completeness; to be refined during Epic 004 pre-planning.
+**Status:** Realized across the file-storage epics — reconciled 2026-06-21 from its stale "Phase 4 stub / Epic 004" label:
+
+- **Client upload** against the onboarding checklist + the secure, malware-scanned, non-public storage path → **EPIC-007** (Phase 2, delivered).
+- **Accountant upload + both-party download + accountant-managed folders + top-level org by engagement & tax year + version history** → **EPIC-013** (Phase 3).
+- **Accountant soft-delete + 7-year retention** (branch B2) → **EPIC-014** (Phase 3); see `flow-document-lifecycle`.
+- **Overdue document-request auto-reminder** (branch B4) → **Phase 4** (the reminder/notification engine — REQ-FILE-012/REQ-MSG-018).
+
+This legacy flow is a richer, product-wide document; the **targeted per-slice** convention governs the *new* `flow-document-lifecycle`. The mermaid/step detail below is retained for continuity and refined as each epic is built.
 
 ---
 

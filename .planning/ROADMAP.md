@@ -7,6 +7,27 @@
 
 ## Status / amendment history
 
+- **2026-06-21 (Phase 3 FILE remainder decomposed — the follow-up pass; Phase 3 now fully sliced)** —
+  Authored the deferred **FILE-exchange + retention/legal-governance** epics, completing the Phase-3
+  decomposition. Three epics, all `planned`: **EPIC-013** (secure file exchange — accountant upload,
+  both-party download, accountant-managed folders, top-level organization by engagement & tax year, version
+  history; the REQ-FILE-001 remainder + FILE-009/010/011; 13 AC), **EPIC-014** (file deletion, soft-delete &
+  7-year retention — accountant-only delete, soft-delete, the in-window retention floor; FILE-004/006/005 +
+  NFR-006; 10 AC), **EPIC-015** (post-retention purge & legal hold — accountant-confirmed/never-automatic
+  purge, legal hold, retention-vs-erasure precedence, audit-survives-purge; FILE-013/014/015 + NFR-010-07;
+  16 AC). **39 AC newly placed.** **FILE domain now fully placed** (no FILE orphans except REQ-FILE-012, which
+  is Phase 4). **NFR placements:** AC-NFR-006-01 (system-enforced retention) → EPIC-014; AC-NFR-010-07
+  (audit survives purge) → EPIC-015 — the two NFR AC these slices *exclusively* demonstrate. The **rest of
+  REQ-NFR-010** (the audit-trail feature — document-access/transition logging, the accountant-only audit
+  *read* surface, audit retention) stays orphaned for a **dedicated audit-trail slice (Phase 4)**; these
+  epics **emit** the relevant audit events per ADR-019 as an adherence obligation but do not claim those AC
+  (avoids fragmenting one AC across un-built surfaces). Behavior contract: authored `flow-document-lifecycle`
+  (EPIC-014/015); reconciled `flow-file-exchange`'s stale "Phase 4 stub / Epic 004" label → EPIC-007/013/014
+  + Phase-4 (B4); added `flow-document-lifecycle` to jane's linked flows. **Dependencies:** EPIC-013 needs
+  EPIC-007 ✅ + EPIC-010 + EPIC-012 (tax-year); EPIC-014 needs EPIC-013 + EPIC-010; EPIC-015 needs EPIC-014 +
+  EPIC-010 — a linear chain after the lifecycle core. **Next:** Phase 3 is fully decomposed (EPIC-009..015);
+  ready for `/orchestrate` (EPIC-010 first; the FILE chain EPIC-013→014→015 follows EPIC-010/012).
+
 - **2026-06-21 (Phase 3 lifecycle-core decomposed — LIFE epics authored; FILE-exchange + retention/governance deferred to a follow-up pass)** —
   Per user direction (this run: "lifecycle core first"), Phase 3 is decomposed in two passes. **This pass authors the
   engagement-lifecycle (LIFE) core** as three vertical slices, all `planned`:
@@ -310,7 +331,7 @@ checklist + secure upload (FILE, NFR malware scan). Depends on Phase 1's accept�
 > "enablement" slice. This implies a provider-seam / deferred-real-integration **architecture strategy the
 > architecture layer should own**.
 
-## Phase 3 — Engagement lifecycle & secure file exchange *(lifecycle core decomposed; FILE remainder to decompose)*
+## Phase 3 — Engagement lifecycle & secure file exchange *(fully decomposed — EPIC-009..015)*
 
 Builds the **full** New → In Progress → Review → Complete pipeline (manual transitions, client-facing
 labels) on top of the *minimal* Engagement substrate Phase 2 introduced, plus the per-engagement folder-
@@ -330,22 +351,28 @@ the FILE domain remain for the follow-up pass.
 | **EPIC-010** | Engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete pipeline, manual transitions, simplified client-facing labels (Review hidden), two-confirmation completion gate, accountant-only reopen, accountant full visibility + client own-data isolation + indefinite post-completion access (25 AC: LIFE-001/002/003/004/005/006, AUTH-002/003/008) | `planned` | EPIC-005 ✅, EPIC-008 ✅ |
 | **EPIC-011** | Engagement attributes — accountant-set due date, accountant-only internal notes, priority/flag marker (9 AC: LIFE-007/008/009) | `planned` | EPIC-010 |
 | **EPIC-012** | Engagement creation paths & multi-participant — returning-client request (DOOR-009), accountant-initiated engagement (DOOR-010), duplicate guard per (client, service, tax year) with warn+override (LIFE-011), multiple concurrent engagements (LIFE-010), multi-participant engagements / separate accounts (LIFE-012, AUTH-007); introduces the engagement **tax-year** attribute (20 AC) | `planned` | EPIC-010, EPIC-002 ✅, EPIC-003 ✅ |
-| *FILE-exchange + retention/governance epics* | Accountant upload + both-party download + folders + tax-year org + versioning (FILE-001 remainder, FILE-009/010/011); accountant-only delete + soft-delete + 7-year retention (FILE-004/006/005); post-retention purge + legal hold + precedence (FILE-013/014/015) | *to decompose (follow-up `/planning` pass)* | EPIC-010, EPIC-012, EPIC-007 ✅ |
+| **EPIC-013** | Secure file exchange — accountant upload + both-party download + accountant-managed folders + top-level org by engagement & tax year + version history (13 AC: FILE-001 remainder, FILE-009/010/011) | `planned` | EPIC-007 ✅, EPIC-010, EPIC-012 |
+| **EPIC-014** | File deletion, soft-delete & 7-year retention — accountant-only delete, soft-delete, the in-window retention floor (10 AC: FILE-004/006/005, NFR-006) | `planned` | EPIC-013, EPIC-010 |
+| **EPIC-015** | Post-retention purge & legal hold — accountant-confirmed/never-automatic purge, legal hold, retention-vs-erasure precedence, audit-survives-purge (16 AC: FILE-013/014/015, NFR-010-07) | `planned` | EPIC-014, EPIC-010 |
 
 > **EPIC-009 is a cross-cutting PoC enabler**, placed in Phase 3 per user direction (2026-06-20) but with **no
 > dependency on the LIFE/FILE work** — it can (and should) be built first so every later PoC slice is
 > human-demoable as both roles. It uses only the mock seam; **all real-provider / production auth work** (real
 > Clerk login, 2FA, real invitations) lives in **Phase 5 — Production Readiness** (placeholder).
 >
-> **Build order (lifecycle core):** **EPIC-010** first (no un-delivered Phase-3 predecessor — its
-> `depends_on` EPIC-005 ✅ + EPIC-008 ✅ are satisfied). **EPIC-011** and **EPIC-012** both build on EPIC-010
-> and are independent of each other (parallelizable). EPIC-009 is independent and can be built first/anytime.
+> **Build order:** **EPIC-010** first (no un-delivered Phase-3 predecessor — its `depends_on` EPIC-005 ✅ +
+> EPIC-008 ✅ are satisfied). **EPIC-011** and **EPIC-012** both build on EPIC-010 and are independent of each
+> other (parallelizable). The **FILE chain** is linear and follows the lifecycle core: **EPIC-013** (needs
+> EPIC-010 + EPIC-012's tax-year + EPIC-007 ✅) → **EPIC-014** (needs EPIC-013) → **EPIC-015** (needs
+> EPIC-014). EPIC-009 is independent and can be built first/anytime.
 >
 > **Scope split (recorded 2026-06-21):** **REQ-FILE-012** (overdue document-request flagging + configurable
 > reminder cadence) is routed to **Phase 4**, not the Phase-3 FILE epics — it depends on the
 > reminder/notification engine (REQ-MSG-018, REQ-DASH-008). The engagement **tax-year** attribute first
-> emerges in **EPIC-012** (the duplicate-guard identity tuple) and is consumed by the later FILE-org slice
-> (REQ-FILE-011).
+> emerges in **EPIC-012** (the duplicate-guard identity tuple) and is consumed by **EPIC-013** (REQ-FILE-011
+> top-level org). **REQ-NFR-010** (audit trail): AC-NFR-010-07 (audit survives purge) is owned by EPIC-015;
+> the rest of the audit-trail feature (incl. the accountant-only audit *read* surface) is a **dedicated
+> audit-trail slice in Phase 4** — these Phase-3 epics emit audit events (ADR-019) without claiming those AC.
 
 ## Phase 4 — Messaging, notifications & the accountant dashboard *(to decompose)*
 
