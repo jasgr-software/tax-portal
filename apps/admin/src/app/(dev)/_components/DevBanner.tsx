@@ -15,32 +15,26 @@
  * // ADR-001 // ADR-005 // ADR-010 // CS-TS-003 // CS-GEN-003
  */
 
+import { isMockAuthSanctioned } from "@tax-portal/auth";
 import { ADMIN_DEMO_ACCOUNTS } from "../dev-sign-in/demo-accounts";
 import { adminDevGlobalSignOut, adminDevSwitchAccount } from "../dev-sign-in/actions";
 import { AdminDevBannerClient } from "./DevBannerClient";
 
 /**
- * Guard: only active under the mock binding.
- * ADR-001: inert (returns null) under AUTH_PROVIDER=clerk.
- */
-function isMockActive(): boolean {
-  // ADR-001: default is "mock" in local dev; explicitly "clerk" in production
-  return (process.env["AUTH_PROVIDER"] ?? "mock") === "mock";
-}
-
-/**
  * AdminDevBanner — server-side wrapper that gates the client banner component.
  *
- * Drop into the admin root layout. Returns null in any non-mock build.
- * The client component handles the interactive switcher + sign-out.
+ * Drop into the admin root layout. Returns null unless ALLOW_MOCK_AUTH=true AND
+ * AUTH_PROVIDER=mock — zero cost in production. The client component handles the
+ * interactive switcher + sign-out.
  *
+ * Guard: isMockAuthSanctioned() from @tax-portal/auth — single source of truth.
  * CS-TS-003: present on both apps/portal (mirrored) and apps/admin (this file).
  *
- * // CS-TS-003 // ADR-001 // ADR-005 // ADR-010
+ * // CS-TS-003 // ADR-001 // ADR-005 // ADR-010 // ADR-012
  */
 export function AdminDevBanner() {
-  // ADR-001: inert under AUTH_PROVIDER=clerk — banner absent in any real build
-  if (!isMockActive()) {
+  // ADR-001 / ADR-012: banner absent unless ALLOW_MOCK_AUTH=true AND AUTH_PROVIDER=mock
+  if (!isMockAuthSanctioned()) {
     return null;
   }
 

@@ -27,6 +27,7 @@
 
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { isMockAuthSanctioned } from "@tax-portal/auth";
 import { devSignInAsAccount } from "./actions";
 import { getDemoAccountsByRole } from "./demo-accounts";
 
@@ -38,23 +39,16 @@ export const metadata: Metadata = {
 // Force dynamic rendering — this page reads env at request time (isMockActive check)
 export const dynamic = "force-dynamic";
 
-// ─── Inert guard ──────────────────────────────────────────────────────────────
-
-/**
- * Returns true only when AUTH_PROVIDER=mock (or unset — defaults to mock in local dev).
- * ADR-001: the lane must be absent/404 under AUTH_PROVIDER=clerk.
- * TASK-009-003 owns the proving gate; this is the runtime guard.
- */
-function isMockActive(): boolean {
-  return (process.env["AUTH_PROVIDER"] ?? "mock") === "mock";
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
+// Guard uses the shared isMockAuthSanctioned() from @tax-portal/auth — the single
+// source of truth for the mock-active condition. Requires ALLOW_MOCK_AUTH=true AND
+// AUTH_PROVIDER=mock; fails closed (returns false) otherwise.
+// ADR-001 / ADR-012 / CS-GEN-003
 
 export default function DevSignInPage() {
-  // ADR-001: inert-under-real-binding guard — 404 when not under the mock provider.
-  // TASK-009-003 owns the proving gate test for this guard.
-  if (!isMockActive()) {
+  // ADR-001 / ADR-012: inert-under-real-binding guard — 404 unless ALLOW_MOCK_AUTH=true
+  // AND AUTH_PROVIDER=mock. TASK-009-003 owns the proving gate test for this guard.
+  if (!isMockAuthSanctioned()) {
     notFound();
   }
 

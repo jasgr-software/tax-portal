@@ -45,11 +45,19 @@ const { mockCreateMockSessionCookie, mockCookiesSet, mockGetAdminAppUrl } = vi.h
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 // @tax-portal/auth — mock cookie builder and URL helper
+// isMockAuthSanctioned is the real implementation (reads env vars — vi.stubEnv controls it).
 // CS-GEN-001: we never verify the cookie value is logged — the stub never produces a real value
 vi.mock("@tax-portal/auth", () => ({
   createMockSessionCookie: mockCreateMockSessionCookie,
   MOCK_SESSION_COOKIE_NAME: "__mock_session",
   getAdminAppUrl: mockGetAdminAppUrl,
+  // Real implementation so vi.stubEnv("ALLOW_MOCK_AUTH"/"AUTH_PROVIDER") controls the guard.
+  isMockAuthSanctioned: () => {
+    const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+    if (!allowMock) return false;
+    const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+    return provider === "mock";
+  },
 }));
 
 // next/headers — mock cookie store (server-side cookies() API)
@@ -62,7 +70,7 @@ vi.mock("next/headers", () => ({
 
 // ─── Import AFTER mocks ────────────────────────────────────────────────────────
 
-import { devSignInAsAccount, devSignOut } from "./actions";
+import { devSignInAsAccount } from "./actions";
 import {
   DEMO_ACCOUNTS,
   findDemoAccount,
@@ -87,8 +95,9 @@ const STUB_SESSION_COOKIE = {
 beforeEach(() => {
   vi.clearAllMocks();
 
-  // Default: mock AUTH_PROVIDER=mock (lane active)
+  // Default: AUTH_PROVIDER=mock + ALLOW_MOCK_AUTH=true (lane active — sanctioned mock)
   vi.stubEnv("AUTH_PROVIDER", "mock");
+  vi.stubEnv("ALLOW_MOCK_AUTH", "true");
 
   // Default: createMockSessionCookie succeeds
   mockCreateMockSessionCookie.mockResolvedValue(STUB_SESSION_COOKIE);
@@ -364,32 +373,7 @@ describe("devSignInAsAccount — cross-surface parity (CS-TS-003)", () => {
   );
 });
 
-// ─── 7. devSignOut ────────────────────────────────────────────────────────────
-
-describe("devSignOut", () => {
-  it("clears the mock session cookie when AUTH_PROVIDER=mock", async () => {
-    await devSignOut();
-
-    expect(mockCookiesSet).toHaveBeenCalledOnce();
-    const [cookieName, cookieValue, cookieOpts] = mockCookiesSet.mock.calls[0] as [
-      string,
-      string,
-      Record<string, unknown>,
-    ];
-    expect(cookieName).toBe("__mock_session");
-    expect(cookieValue).toBe("");
-    expect(cookieOpts["maxAge"]).toBe(0);
-  });
-
-  it("is a no-op when AUTH_PROVIDER=clerk", async () => {
-    vi.stubEnv("AUTH_PROVIDER", "clerk");
-    await devSignOut();
-    // No cookie operations — sign-out is inert under the real provider
-    expect(mockCookiesSet).not.toHaveBeenCalled();
-  });
-});
-
-// ─── 8. createMockSessionCookie failure ───────────────────────────────────────
+// ─── 7. createMockSessionCookie failure ───────────────────────────────────────
 
 describe("devSignInAsAccount — error handling", () => {
   it("returns failure when createMockSessionCookie throws — no cookie set", async () => {

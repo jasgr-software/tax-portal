@@ -89,8 +89,9 @@ const STUB_SESSION_COOKIE = {
 beforeEach(() => {
   vi.clearAllMocks();
 
-  // Default: AUTH_PROVIDER=mock (lane active)
+  // Default: AUTH_PROVIDER=mock + ALLOW_MOCK_AUTH=true (lane active — sanctioned mock)
   vi.stubEnv("AUTH_PROVIDER", "mock");
+  vi.stubEnv("ALLOW_MOCK_AUTH", "true");
 
   // Default: createMockSessionCookie succeeds
   mockCreateMockSessionCookie.mockResolvedValue(STUB_SESSION_COOKIE);

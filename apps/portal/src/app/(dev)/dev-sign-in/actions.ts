@@ -3,9 +3,11 @@
  *
  * Dev sign-in lane server actions — one-click sign-in for the mock provider.
  *
- * ONLY ACTIVE under AUTH_PROVIDER=mock (same contract as /api/mock-session).
- * In production (AUTH_PROVIDER=clerk) these actions are never reachable — the
- * page itself returns 404 (TASK-009-003 owns the proving gate).
+ * ONLY ACTIVE under ALLOW_MOCK_AUTH=true + AUTH_PROVIDER=mock (same contract as
+ * /api/mock-session). In production (AUTH_PROVIDER=clerk or ALLOW_MOCK_AUTH unset)
+ * these actions are never reachable — the page itself returns 404.
+ * Guard is the shared isMockAuthSanctioned() from @tax-portal/auth — single source
+ * of truth for the mock-active condition (TASK-009-003 owns the proving gate).
  *
  * D1 (ADR-005, HARD):
  *   The browser submits ONLY the accountId (a display key).
@@ -26,6 +28,7 @@
  * // ADR-001 (mock-binding only — inert under AUTH_PROVIDER=clerk)
  * // ADR-005 (role server-resolved from manifest; D1 — no client-trusted path)
  * // ADR-010 (role-appropriate landing: ACCOUNTANT → admin, CLIENT → portal)
+ * // ADR-012 (security guard: fail-closed — requires ALLOW_MOCK_AUTH=true)
  * // CS-TS-001 (no direct Prisma access; justified dev-only manifest — DECISION in demo-accounts.ts)
  * // CS-TS-003 (cross-surface parity — both roles reachable from the lane)
  * // CS-GEN-001 (no cookie value or MOCK_SESSION_SECRET in logs)
@@ -39,6 +42,7 @@ import {
   createMockSessionCookie,
   MOCK_SESSION_COOKIE_NAME,
   getAdminAppUrl,
+  isMockAuthSanctioned,
 } from "@tax-portal/auth";
 import { findDemoAccount } from "./demo-accounts";
 
@@ -53,17 +57,11 @@ export interface DevSignInResult {
 }
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
-
-/**
- * Guard: only active under mock binding.
- * ADR-001 / TASK-009-003: the page 404s under AUTH_PROVIDER=clerk.
- * This action-level guard provides defense-in-depth — the action is a no-op
- * if called by any mechanism while under the real provider.
- */
-function isMockActive(): boolean {
-  // ADR-001: default is "mock" in local dev; explicitly "clerk" in production
-  return (process.env["AUTH_PROVIDER"] ?? "mock") === "mock";
-}
+// isMockAuthSanctioned() is the single shared predicate from @tax-portal/auth.
+// ADR-001 / ADR-012: lane is inactive unless ALLOW_MOCK_AUTH=true AND
+// AUTH_PROVIDER=mock (or unset). Unset ALLOW_MOCK_AUTH → inactive (fail-closed).
+// All call sites in this file use this imported predicate so the gate cannot drift.
+// // ADR-001 // ADR-012 // CS-GEN-003
 
 // ─── Landing URL Resolution ────────────────────────────────────────────────────
 
@@ -109,7 +107,7 @@ export async function devSignInAsAccount(
 ): Promise<DevSignInResult> {
   // Guard: defense-in-depth — action is inert under the real provider
   // ADR-001: only active under AUTH_PROVIDER=mock
-  if (!isMockActive()) {
+  if (!isMockAuthSanctioned()) {
     return { success: false, error: "Dev sign-in lane is not active." };
   }
 
@@ -137,10 +135,11 @@ export async function devSignInAsAccount(
       role: account.role,               // server-resolved — ADR-005; D1 satisfied
     });
   } catch (err) {
-    // Log error context WITHOUT the cookie value (CS-GEN-001)
+    // Log error context WITHOUT the cookie value (CS-GEN-001).
+    // Log account.accountId (server-resolved) rather than the raw browser input (CS-GEN-001).
     console.error(
       "[dev-sign-in] createMockSessionCookie failed for accountId:",
-      accountId,
+      account.accountId,
       "error:",
       err instanceof Error ? err.message : "unknown",
     );
@@ -169,30 +168,6 @@ export async function devSignInAsAccount(
 }
 
 /**
- * Server Action: clear the dev session (dev sign-out from the lane).
- *
- * Clears MOCK_SESSION_COOKIE_NAME by setting max-age=0.
- * AC-AUTH-013-02 (sign-out) is owned by TASK-009-002 (the switcher/sign-out affordance);
- * this is a minimal clear-cookie helper for the lane page.
- *
- * ADR-001: guard consistent with the page-level isMockActive() check.
- * CS-GEN-001: no cookie value is logged.
- *
- * // ADR-001 // CS-GEN-001 // CS-GEN-003
- */
-export async function devSignOut(): Promise<void> {
-  if (!isMockActive()) return;
-
-  const cookieStore = await cookies();
-  cookieStore.set(MOCK_SESSION_COOKIE_NAME, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
-}
-
-/**
  * Server Action: global sign-out — clear the mock session cookie, leaving the
  * user in an unauthenticated state on BOTH surfaces.
  *
@@ -206,7 +181,8 @@ export async function devSignOut(): Promise<void> {
  *   Reuses the clearSessionCookie pattern from /api/mock-session DELETE.
  *   No parallel sign-out mechanism introduced.
  *
- * ADR-001: guard consistent with isMockActive() — inert under AUTH_PROVIDER=clerk.
+ * ADR-001 / ADR-012: guard is isMockAuthSanctioned() — inert unless ALLOW_MOCK_AUTH=true
+ *   AND AUTH_PROVIDER=mock. Inert under AUTH_PROVIDER=clerk.
  * CS-GEN-001: no cookie value is logged.
  * CS-TS-003: this action is the shared sign-out path used by the DevBanner on BOTH
  *   apps/portal and apps/admin — the same pattern is mirrored in admin's dev actions.
@@ -214,16 +190,20 @@ export async function devSignOut(): Promise<void> {
  * // ADR-010 // ADR-001 // CS-TS-003 // CS-GEN-001 // CS-GEN-003
  */
 export async function devGlobalSignOut(): Promise<{ redirectTo: string }> {
-  if (!isMockActive()) {
+  if (!isMockAuthSanctioned()) {
     // ADR-001: no-op under the real provider; return portal sign-in as a safe fallback
     return { redirectTo: "/sign-in" };
   }
 
   // Clear the signed mock-session cookie (max-age=0) — AC-AUTH-013-02 / ADR-010
-  // CS-GEN-001: cookie value is never logged here
+  // Mirror the set-time attributes so deletion is robust under HTTPS.
+  // The cookie was set with secure: NODE_ENV !== "development" (mock-session-api.ts:79);
+  // the clear must carry the same secure flag or it won't match the browser's cookie jar
+  // on an HTTPS deployment. CS-GEN-001: cookie value is never logged here.
   const cookieStore = await cookies();
   cookieStore.set(MOCK_SESSION_COOKIE_NAME, "", {
     httpOnly: true,
+    secure: process.env["NODE_ENV"] !== "development",
     sameSite: "lax",
     path: "/",
     maxAge: 0, // ADR-010: max-age=0 signals browser to delete the cookie globally

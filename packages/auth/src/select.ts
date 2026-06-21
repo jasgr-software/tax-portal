@@ -111,3 +111,35 @@ export function createAuthProvider(): AuthProvider {
 export function resetAuthProviderForTesting(): void {
   _provider = null;
 }
+
+// ─── Dev-lane guard predicate ─────────────────────────────────────────────────
+
+/**
+ * Returns true only when the mock auth provider is explicitly sanctioned by the
+ * deployment configuration — i.e. ALLOW_MOCK_AUTH=true AND AUTH_PROVIDER is
+ * "mock" (or absent, which defaults to "mock" for local dev).
+ *
+ * This is the SINGLE source of truth for the dev sign-in lane guard.
+ * All four lane guard call sites (portal/admin actions.ts, page.tsx, DevBanner.tsx)
+ * must call this function rather than inlining the check, so the gates cannot drift.
+ *
+ * Security contract (mirrors the fail-closed logic in createAuthProvider()):
+ *   - ALLOW_MOCK_AUTH unset / not "true" → false (lane is inactive, fail-closed)
+ *   - AUTH_PROVIDER=clerk → false (lane is inactive under the real binding)
+ *   - ALLOW_MOCK_AUTH=true + AUTH_PROVIDER=clerk → false (contradiction — inert)
+ *   - ALLOW_MOCK_AUTH=true + AUTH_PROVIDER=mock (or unset) → true (sanctioned)
+ *
+ * The lane mints ACCOUNTANT-level sessions, so it uses the STRICTEST possible gate:
+ * unset ALLOW_MOCK_AUTH → inactive (not "default-to-mock") — ADR-001 / ADR-012.
+ *
+ * // ADR-001 (mock-binding only — inert under AUTH_PROVIDER=clerk)
+ * // ADR-012 (security-relevant guard — fails closed unless ALLOW_MOCK_AUTH explicitly set)
+ * // ADR-005 (dev lane mints sessions — must use the strictest guard)
+ */
+export function isMockAuthSanctioned(): boolean {
+  const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+  if (!allowMock) return false;
+  // Contradiction: clerk + ALLOW_MOCK_AUTH=true is insecure — treat as inactive
+  const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+  return provider === "mock";
+}

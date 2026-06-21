@@ -31,6 +31,7 @@
 import { cookies } from "next/headers";
 import {
   createMockSessionCookie,
+  isMockAuthSanctioned,
   MOCK_SESSION_COOKIE_NAME,
   getAdminAppUrl,
   getPortalAppUrl,
@@ -46,14 +47,10 @@ export interface AdminSwitchResult {
 }
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
-
-/**
- * Guard: only active under mock binding.
- * ADR-001: inert under AUTH_PROVIDER=clerk — all actions are no-ops.
- */
-function isMockActive(): boolean {
-  return (process.env["AUTH_PROVIDER"] ?? "mock") === "mock";
-}
+// isMockAuthSanctioned() is the single shared predicate from @tax-portal/auth.
+// ADR-001 / ADR-012: all actions are no-ops unless ALLOW_MOCK_AUTH=true AND
+// AUTH_PROVIDER=mock. Fails closed (false) when ALLOW_MOCK_AUTH is unset.
+// // ADR-001 // ADR-012 // CS-GEN-003
 
 // ─── Landing URL Resolution ───────────────────────────────────────────────────
 
@@ -92,16 +89,20 @@ function resolveLandingUrl(role: "ACCOUNTANT" | "CLIENT"): string {
  * // AC-AUTH-013-02 // ADR-010 // ADR-001 // CS-TS-003 // CS-GEN-001 // CS-GEN-003
  */
 export async function adminDevGlobalSignOut(): Promise<{ redirectTo: string }> {
-  if (!isMockActive()) {
+  if (!isMockAuthSanctioned()) {
     // ADR-001: no-op under real provider; return portal sign-in as safe fallback
     return { redirectTo: getPortalAppUrl() + "/sign-in" };
   }
 
   // Clear the signed mock-session cookie (max-age=0) — AC-AUTH-013-02 / ADR-010
-  // CS-GEN-001: cookie value is NEVER logged
+  // Mirror the set-time attributes so deletion is robust under HTTPS.
+  // The cookie was set with secure: NODE_ENV !== "development" (mock-session-api.ts:79);
+  // the clear must carry the same secure flag to match the browser's cookie jar.
+  // CS-GEN-001: cookie value is NEVER logged.
   const cookieStore = await cookies();
   cookieStore.set(MOCK_SESSION_COOKIE_NAME, "", {
     httpOnly: true,
+    secure: process.env["NODE_ENV"] !== "development",
     sameSite: "lax",
     path: "/",
     maxAge: 0, // ADR-010: max-age=0 signals browser to delete the cookie globally
@@ -129,7 +130,7 @@ export async function adminDevGlobalSignOut(): Promise<{ redirectTo: string }> {
  */
 export async function adminDevSwitchAccount(accountId: string): Promise<AdminSwitchResult> {
   // ADR-001: guard — inert under the real provider
-  if (!isMockActive()) {
+  if (!isMockAuthSanctioned()) {
     return { success: false, error: "Dev switcher is not active." };
   }
 
@@ -155,10 +156,11 @@ export async function adminDevSwitchAccount(accountId: string): Promise<AdminSwi
       role: account.role,               // server-resolved — ADR-005; D1 satisfied
     });
   } catch (err) {
-    // Log error context WITHOUT the cookie value (CS-GEN-001)
+    // Log error context WITHOUT the cookie value (CS-GEN-001).
+    // Log account.accountId (server-resolved) rather than the raw browser input (CS-GEN-001).
     console.error(
       "[admin-dev-sign-in] createMockSessionCookie failed for accountId:",
-      accountId,
+      account.accountId,
       "error:",
       err instanceof Error ? err.message : "unknown",
     );

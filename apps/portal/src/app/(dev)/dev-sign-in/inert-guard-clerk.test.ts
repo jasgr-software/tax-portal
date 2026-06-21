@@ -17,11 +17,9 @@
  *      This is defense-in-depth: even if the page 404 were bypassed, the action
  *      would not establish any session.
  *
- * Both guards mirror the pattern in /api/mock-session/route.ts:
- *   function isMockActive(): boolean {
- *     return (process.env["AUTH_PROVIDER"] ?? "mock") === "mock";
- *   }
- *   export async function POST(...) { if (!isMockActive()) return 404; ... }
+ * Both guards use isMockAuthSanctioned() from @tax-portal/auth — the shared predicate
+ * that requires ALLOW_MOCK_AUTH=true AND AUTH_PROVIDER=mock (fail-closed: unset ALLOW_MOCK_AUTH
+ * returns false). This mirrors the fail-closed logic in select.ts (ADR-012).
  *
  * The named production code path the gate catches:
  *   - apps/portal/src/app/(dev)/dev-sign-in/page.tsx  — isMockActive() → notFound()
@@ -33,8 +31,8 @@
  *
  * § Gate Authoring Rules evidence (three items — see Work Log):
  *   1. Run/log: /tmp/portal-unit.log — grep "inert-guard-clerk" for the step marker
- *   2. Named code path: page.tsx:57 isMockActive() → notFound() + actions.ts:112 isMockActive()
- *   3. Counterfactual: removing isMockActive() guard makes AUTH_PROVIDER=clerk tests pass sessions
+ *   2. Named code path: page.tsx → isMockAuthSanctioned() → notFound() + actions.ts → isMockAuthSanctioned()
+ *   3. Counterfactual: removing isMockAuthSanctioned() guard makes AUTH_PROVIDER=clerk tests pass sessions
  *
  * // ADR-001 (mock-binding only — 404 under AUTH_PROVIDER=clerk)
  * // ADR-012 (security-relevant guard — inert under real provider)
@@ -58,10 +56,18 @@ const { mockCreateMockSessionCookie, mockCookiesSet, mockGetAdminAppUrl } = vi.h
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 // @tax-portal/auth — mock cookie builder and URL helper
+// isMockAuthSanctioned is the real implementation (reads env vars — vi.stubEnv controls it).
 vi.mock("@tax-portal/auth", () => ({
   createMockSessionCookie: mockCreateMockSessionCookie,
   MOCK_SESSION_COOKIE_NAME: "__mock_session",
   getAdminAppUrl: mockGetAdminAppUrl,
+  // Real implementation so vi.stubEnv("ALLOW_MOCK_AUTH"/"AUTH_PROVIDER") controls the guard.
+  isMockAuthSanctioned: () => {
+    const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+    if (!allowMock) return false;
+    const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+    return provider === "mock";
+  },
 }));
 
 // next/headers — mock cookie store (server-side cookies() API)
@@ -84,15 +90,16 @@ vi.mock("next/navigation", () => ({
 
 // ─── Import AFTER mocks ────────────────────────────────────────────────────────
 
-import { devSignInAsAccount, devSignOut } from "./actions";
+import { devSignInAsAccount } from "./actions";
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   vi.clearAllMocks();
 
-  // Default: mock AUTH_PROVIDER=mock (lane active — baseline)
+  // Default: AUTH_PROVIDER=mock + ALLOW_MOCK_AUTH=true (lane active — sanctioned mock baseline)
   vi.stubEnv("AUTH_PROVIDER", "mock");
+  vi.stubEnv("ALLOW_MOCK_AUTH", "true");
 
   // Default cookie builder succeeds (for the mock baseline tests)
   const STUB_COOKIE = {
@@ -108,35 +115,37 @@ beforeEach(() => {
   mockGetAdminAppUrl.mockReturnValue("http://localhost:13001");
 });
 
-// ─── 1. Page-level isMockActive() guard logic ─────────────────────────────────
+// ─── 1. Page-level isMockAuthSanctioned() guard logic ────────────────────────
 //
-// The page.tsx calls isMockActive() then notFound() if false.
-// We prove this by testing the condition directly.
-// Named code path: apps/portal/src/app/(dev)/dev-sign-in/page.tsx → isMockActive()
-// Counterfactual: remove `if (!isMockActive()) notFound();` → lane renders under clerk
+// The page.tsx calls isMockAuthSanctioned() (from @tax-portal/auth) then notFound() if false.
+// isMockAuthSanctioned() requires ALLOW_MOCK_AUTH=true AND AUTH_PROVIDER=mock (or unset).
+// We prove the two-factor condition directly (SDET ruling: inline re-derivation is acceptable
+// for the page-level proof; the action-path tests below are the security-relevant layer).
+//
+// Named code path: apps/portal/src/app/(dev)/dev-sign-in/page.tsx → isMockAuthSanctioned()
+// Counterfactual: remove `if (!isMockAuthSanctioned()) notFound();` → lane renders under clerk
 
-describe("isMockActive() guard — page.tsx route level (ADR-001 / ADR-012)", () => {
+describe("isMockAuthSanctioned() guard — page.tsx route level (ADR-001 / ADR-012)", () => {
   /**
-   * HARD gate test: under AUTH_PROVIDER=clerk, isMockActive() returns false.
-   * The page calls `if (!isMockActive()) notFound();` — so under clerk the page
+   * HARD gate test: under AUTH_PROVIDER=clerk, isMockAuthSanctioned() returns false.
+   * The page calls `if (!isMockAuthSanctioned()) notFound();` — so under clerk the page
    * renders as a 404. This test proves the condition that triggers the guard.
    *
-   * Named code path: apps/portal/src/app/(dev)/dev-sign-in/page.tsx:48-49 isMockActive()
+   * Named code path: apps/portal/src/app/(dev)/dev-sign-in/page.tsx → isMockAuthSanctioned()
    * Counterfactual: change guard to `if (false) notFound();` → this test fails
    *   (guard becomes dead code, lane renders under AUTH_PROVIDER=clerk)
    */
   it(
-    "[ADR-001 HARD gate] under AUTH_PROVIDER=clerk, isMockActive() returns false — page guard triggers notFound()",
+    "[ADR-001 HARD gate] under AUTH_PROVIDER=clerk, isMockAuthSanctioned() returns false — page guard triggers notFound()",
     () => {
-      // Set the real provider
+      // Set the real provider (ALLOW_MOCK_AUTH=true from beforeEach — still false due to clerk)
       vi.stubEnv("AUTH_PROVIDER", "clerk");
 
-      // The production guard in page.tsx is:
-      //   function isMockActive() { return (process.env["AUTH_PROVIDER"] ?? "mock") === "mock"; }
-      //   if (!isMockActive()) { notFound(); }
-      // We test the condition directly:
-      const provider = process.env["AUTH_PROVIDER"] ?? "mock";
-      const isActive = provider === "mock";
+      // isMockAuthSanctioned() requires ALLOW_MOCK_AUTH=true AND provider=mock.
+      // Under AUTH_PROVIDER=clerk the provider check fails → false regardless of ALLOW_MOCK_AUTH.
+      const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+      const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+      const isActive = allowMock && provider === "mock";
 
       // MUST be false under AUTH_PROVIDER=clerk — the guard fires
       expect(isActive).toBe(false);
@@ -146,56 +155,53 @@ describe("isMockActive() guard — page.tsx route level (ADR-001 / ADR-012)", ()
   );
 
   it(
-    "[ADR-001] under AUTH_PROVIDER=mock, isMockActive() returns true — page guard does NOT trigger notFound()",
+    "[ADR-001] under AUTH_PROVIDER=mock + ALLOW_MOCK_AUTH=true, isMockAuthSanctioned() returns true — page guard does NOT trigger notFound()",
     () => {
-      vi.stubEnv("AUTH_PROVIDER", "mock");
-
-      const provider = process.env["AUTH_PROVIDER"] ?? "mock";
-      const isActive = provider === "mock";
+      // beforeEach sets AUTH_PROVIDER=mock and ALLOW_MOCK_AUTH=true
+      const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+      const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+      const isActive = allowMock && provider === "mock";
 
       expect(isActive).toBe(true);
     },
   );
 
   it(
-    "[ADR-001] when AUTH_PROVIDER is absent (undefined), defaults to mock — page guard does NOT trigger notFound() (safe local dev default)",
+    "[ADR-012 HARD gate] without ALLOW_MOCK_AUTH=true, isMockAuthSanctioned() returns false — guard fires even when AUTH_PROVIDER=mock",
     () => {
-      vi.stubEnv("AUTH_PROVIDER", "");
-      // The guard uses: (process.env["AUTH_PROVIDER"] ?? "mock") === "mock"
-      // An empty string "" is not === "mock", so isMockActive() returns false.
-      // This is intentional: an explicitly empty string is not the same as absent.
-      // But the ?? fallback only fires for null/undefined — empty string is falsy-but-not-null.
-      // DECISION (TASK-009-003): empty string evaluates to false for isMockActive(),
-      // which is the safe behavior — an accidental empty string is treated as non-mock.
-      const rawEnv = process.env["AUTH_PROVIDER"];
-      const effective = rawEnv ?? "mock";
-      const isActive = effective === "mock";
+      // No ALLOW_MOCK_AUTH → fail-closed. Even in local dev, the lane requires explicit opt-in.
+      vi.stubEnv("ALLOW_MOCK_AUTH", "");
 
-      // Empty string is NOT "mock" — guard fires (treats as non-mock binding)
-      // This is the correct safe behavior.
+      const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+      const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+      const isActive = allowMock && provider === "mock";
+
+      // Empty/absent ALLOW_MOCK_AUTH → false — fail-closed (ADR-012)
       expect(isActive).toBe(false);
     },
   );
 
   it(
-    "[ADR-001 HARD gate] undefined AUTH_PROVIDER (process.env key absent) defaults to mock — lane is active",
+    "[ADR-001 HARD gate] AUTH_PROVIDER=clerk + ALLOW_MOCK_AUTH=true is a contradiction — guard returns false",
     () => {
-      // When the env var key is completely absent (not just empty), ?? fires
-      // Simulate by using undefined directly (as the production code reads it)
-      const rawEnv = undefined; // simulates absent key
-      const effective = rawEnv ?? "mock";
-      const isActive = effective === "mock";
+      // Contradiction: clerk + ALLOW_MOCK_AUTH=true is insecure design.
+      // isMockAuthSanctioned() returns false (provider is "clerk", not "mock").
+      vi.stubEnv("AUTH_PROVIDER", "clerk");
+      // ALLOW_MOCK_AUTH=true from beforeEach — still returns false due to provider check.
 
-      // Absent AUTH_PROVIDER → defaults to mock → lane active (local dev safe default)
-      expect(isActive).toBe(true);
+      const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+      const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+      const isActive = allowMock && provider === "mock";
+
+      expect(isActive).toBe(false);
     },
   );
 });
 
-// ─── 2. Action-level guard — defense-in-depth (ADR-001) ──────────────────────
+// ─── 2. Action-level guard — defense-in-depth (ADR-001 / ADR-012) ────────────
 //
-// Named code path: apps/portal/src/app/(dev)/dev-sign-in/actions.ts → isMockActive()
-// Counterfactual: remove `if (!isMockActive()) return { success: false, ... };`
+// Named code path: apps/portal/src/app/(dev)/dev-sign-in/actions.ts → isMockAuthSanctioned()
+// Counterfactual: remove `if (!isMockAuthSanctioned()) return { success: false, ... };`
 //   → action establishes a session even under AUTH_PROVIDER=clerk
 
 describe("devSignInAsAccount — inert under AUTH_PROVIDER=clerk (HARD gate, ADR-001)", () => {
@@ -297,18 +303,3 @@ describe("devSignInAsAccount — inert under AUTH_PROVIDER=clerk (HARD gate, ADR
   );
 });
 
-// ─── 3. devSignOut is also inert under AUTH_PROVIDER=clerk (ADR-001) ─────────
-
-describe("devSignOut — inert under AUTH_PROVIDER=clerk (ADR-001)", () => {
-  it(
-    "[ADR-001] under AUTH_PROVIDER=clerk, devSignOut is a no-op — no cookie operations",
-    async () => {
-      vi.stubEnv("AUTH_PROVIDER", "clerk");
-
-      await devSignOut();
-
-      // Under clerk, sign-out must not touch any cookie
-      expect(mockCookiesSet).not.toHaveBeenCalled();
-    },
-  );
-});

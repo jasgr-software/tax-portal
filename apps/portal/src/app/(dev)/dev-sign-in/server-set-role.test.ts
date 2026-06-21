@@ -102,6 +102,7 @@ const STUB_SESSION_COOKIE = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("AUTH_PROVIDER", "mock");
+  vi.stubEnv("ALLOW_MOCK_AUTH", "true");
   mockCreateMockSessionCookie.mockResolvedValue(STUB_SESSION_COOKIE);
   mockGetAdminAppUrl.mockReturnValue("http://localhost:13001");
   vi.stubEnv("PORTAL_APP_URL", "http://localhost:3000");

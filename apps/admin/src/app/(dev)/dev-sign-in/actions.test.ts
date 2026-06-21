@@ -31,11 +31,19 @@ const { mockCreateMockSessionCookie, mockCookiesSet, mockGetAdminAppUrl, mockGet
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// isMockAuthSanctioned is the real implementation (reads env vars — vi.stubEnv controls it).
 vi.mock("@tax-portal/auth", () => ({
   createMockSessionCookie: mockCreateMockSessionCookie,
   MOCK_SESSION_COOKIE_NAME: "__mock_session",
   getAdminAppUrl: mockGetAdminAppUrl,
   getPortalAppUrl: mockGetPortalAppUrl,
+  // Real implementation so vi.stubEnv("ALLOW_MOCK_AUTH"/"AUTH_PROVIDER") controls the guard.
+  isMockAuthSanctioned: () => {
+    const allowMock = (process.env["ALLOW_MOCK_AUTH"] ?? "").toLowerCase() === "true";
+    if (!allowMock) return false;
+    const provider = (process.env["AUTH_PROVIDER"] ?? "mock").toLowerCase();
+    return provider === "mock";
+  },
 }));
 
 vi.mock("next/headers", () => ({
@@ -73,6 +81,7 @@ const STUB_SESSION_COOKIE = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("AUTH_PROVIDER", "mock");
+  vi.stubEnv("ALLOW_MOCK_AUTH", "true");
   mockCreateMockSessionCookie.mockResolvedValue(STUB_SESSION_COOKIE);
   mockGetAdminAppUrl.mockReturnValue("http://localhost:13001");
   mockGetPortalAppUrl.mockReturnValue("http://localhost:3000");

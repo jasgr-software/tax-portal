@@ -131,7 +131,7 @@ This realizes **AC-AUTH-010-01/-02/-03** (kept green) plus the inert-guard + ser
 
 **§ Gate Authoring Rules — three-item evidence for the inert-under-`AUTH_PROVIDER=clerk` HARD gate:**
 
-1. **Run/log marker:** Foreground test run output shows:
+1. **Run/log marker:** Local run captured to `/tmp/portal-unit.log`. Grep the log for `inert-guard-clerk` to locate the step marker. Output shows:
    `✓ src/app/(dev)/dev-sign-in/inert-guard-clerk.test.ts (9 tests)` in the portal test suite.
    Specific step that ran the gate on the real production code path:
    `[ADR-001 HARD gate] under AUTH_PROVIDER=clerk, devSignInAsAccount establishes NO mock session cookie`
