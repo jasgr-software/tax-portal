@@ -102,10 +102,11 @@ skip() {
 # additional fields like introduces_gate enum that the old check didn't touch).
 #
 # yq is NOT on PATH (Plan-verified; adding a system binary to CI is fragile).
-# The TS library (scripts/task-frontmatter.ts) is still the authoritative schema
-# parser — it is invoked separately by the malformed-frontmatter gate and by
-# the full verify CLI — but check 1 reads only the 4 lifecycle fields it
-# has always checked, keeping the blast radius minimal.
+# The TS library (scripts/task-frontmatter.ts) is the authoritative schema
+# parser — it is exercised by scripts/migrate-task-frontmatter.test.ts (unit
+# tests + YAML-validity regression oracle) and is reserved for Phase 1 gate
+# wiring. Check 1 here reads only the 4 lifecycle fields it has always checked,
+# keeping the blast radius minimal.
 #
 # Named code path (Gate Authoring evidence Item 2):
 #   _check_done_metadata_fm() uses grep -qE '^started_at: "?[0-9]{4}-[0-9]{2}-[0-9]{2}T'

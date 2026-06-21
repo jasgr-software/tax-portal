@@ -5,16 +5,20 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: 002 (✓ done — `packages/auth` provider port + mock binding + per-app `middleware.ts` + the ADR-010 redirect helper/allow-list; the seam-proof `auth-redirect.spec.ts` in both apps), 005 (✓ done — `apps/portal` client sign-up/sign-in + the portal auth e2e fixtures)
 impl: webapp-developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-15T00:00:00Z
 completed_at: 2026-06-15T12:00:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
-introduces_gate: yes
-acceptance_criteria: [AC-AUTH-010-01 (signed-in CLIENT → any `apps/admin` route ⇒ redirect to portal home), AC-AUTH-010-02 (signed-in ACCOUNTANT → a portal CLIENT-only route ⇒ redirect to admin home), AC-AUTH-010-03 (signed-in ACCOUNTANT → a portal public route ⇒ served, no redirect). Plus the ADR-010 §8 mandatory cross-app behaviors: session continuity (one session covers both apps) and global sign-out (sign out of one ⇒ the other redirects to its sign-in).]
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "yes"
+acceptance_criteria: [AC-AUTH-010-01 (signed-in CLIENT → any `apps/admin` route ⇒ redirect to portal home), AC-AUTH-010-02 (signed-in ACCOUNTANT → a portal CLIENT-only route ⇒ redirect to admin home), AC-AUTH-010-03 (signed-in ACCOUNTANT → a portal public route ⇒ served, "no redirect). Plus the ADR-010 §8 mandatory cross-app behaviors: session continuity (one session covers both apps) and global sign-out (sign out of one ⇒ the other redirects to its sign-in)."]
 upstream_refs: ADR-010 (§1 redirect matrix, §3 session sharing / global sign-out, §8 mandatory cross-app e2e), ADR-005 (role is the server-evaluated trust boundary — never client-asserted), ADR-001 (one Clerk app / two surfaces — modeled by the mock binding's shared signed-cookie session).
 reviewer: sdet
 ---
+
+
+
+
 
 # TASK-004-008: Cross-app redirect matrix `pnpm e2e:cross-app` suite (ADR-010 §8 hard gate) — exhaustive AC-AUTH-010-01/-02/-03 + session continuity + global sign-out
 

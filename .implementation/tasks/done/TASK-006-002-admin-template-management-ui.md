@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-006-001
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T20:15:00Z
 completed_at: 2026-06-18T20:06:28Z
-complexity_estimate: "3"
-complexity_actual: "3"
+complexity_estimate: 3
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
+brief_deploys: "no"
+introduces_gate: "no"
 acceptance_criteria: [AC-DASH-012-01, AC-DASH-012-02, AC-DASH-012-03, AC-ONBD-003-02 (dual-tagged — same admin capability from the onboarding side; see brief § Dual-tag note)]
 upstream_refs: ADR-006, ADR-003, ADR-005, REQ-DASH-012
 ---
+
+
+
+
 
 # TASK-006-002: Admin questionnaire-template management UI + actions (create / bind-to-service / edit)
 

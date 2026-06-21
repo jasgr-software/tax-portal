@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-19T12:08:25Z
 completed_at: 2026-06-19T07:34:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: none directly (justification: this task delivers the `FileScanner` seam + the MIME/size validation helper that AC-NFR-009-01/-02 and AC-FILE-002-01 are *proven against* in TASK-007-004 / TASK-007-006; it has no user-facing behavior of its own). The seam is load-bearing for AC-NFR-009-01, AC-NFR-009-02, AC-FILE-002-01.
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none directly (justification: this task delivers the `FileScanner` seam + the MIME/size validation helper that AC-NFR-009-01/-02 and AC-FILE-002-01 are *proven against* in TASK-007-004 / TASK-007-006; it has no user-facing behavior of its own). The seam is load-bearing for AC-NFR-009-01, AC-NFR-009-02, AC-FILE-002-01."
 upstream_refs: ADR-021 (scan-before-available; `FileScanner` capability contract; verdict `clean｜infected｜indeterminate`; fail-closed unbound binding; MIME/magic-byte validation is a *safety* check NOT a type allow-list; size cap), ADR-013/020 (no vendor scanner SDK in app code; port discipline), REQ-NFR-009 (the requirement the seam satisfies), REQ-FILE-002 (any type accepted — validation must not reject for an uncommon type).
 ---
+
+
+
+
 
 # TASK-007-002: `FileScanner` port (mock-first) + fail-closed select + MIME/size validation helper
 

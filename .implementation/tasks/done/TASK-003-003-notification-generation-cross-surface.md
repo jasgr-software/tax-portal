@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-003-001
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-17T00:00:00Z
 completed_at: 2026-06-17T06:58:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
-introduces_gate: no
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "no"
 acceptance_criteria: [AC-DOOR-005-01 (submission generates an in-portal notification for the accountant), AC-DOOR-005-02 (notification identifies the new request and leads to it), AC-MSG-013-01 (accountant receives a notification when a new service request is submitted)]
 upstream_refs: REQ-DOOR-005, REQ-MSG-013, ADR-003 (SESSION_CONTEXT), ADR-005 (notification read boundary — TASK-003-001), ADR-006 (cross-surface — generation on portal, consumption on admin)
 ---
+
+
+
+
 
 # TASK-003-003: New-request notification — generation on submission (portal) + accountant read/surface (admin)
 

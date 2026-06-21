@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-19T20:51:28Z
 completed_at: 2026-06-19T22:11:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
-introduces_gate: no
+complexity_estimate: 4
+complexity_actual: 4
+introduces_gate: "no"
 acceptance_criteria: [AC-ONBD-005-01, AC-ONBD-005-02, AC-ONBD-006-01, AC-ONBD-006-02, AC-ONBD-006-03, AC-ONBD-007-01, AC-ONBD-007-02, AC-MSG-013-04]
 upstream_refs: REQ-ONBD-005, REQ-ONBD-006, REQ-ONBD-007, REQ-MSG-013; ADR-003, ADR-005, ADR-012, ADR-019
 ---
+
+
+
+
 
 # TASK-008-001: Onboarding-completion engine (predicate + privileged fire-once transition/notification/audit seam)
 

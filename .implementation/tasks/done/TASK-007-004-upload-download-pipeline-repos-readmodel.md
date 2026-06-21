@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-007-001, TASK-007-002, TASK-007-003
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-19T12:56:34Z
 completed_at: 2026-06-19T08:45:00Z
-complexity_estimate: "5"
-complexity_actual: "5"
+complexity_estimate: 5
+complexity_actual: 5
 brief_type: feature
-brief_deploys: no
-introduces_gate: yes
-acceptance_criteria: [AC-FILE-001-02 (client upload stored in the engagement's set), AC-ONBD-004-04 (step satisfied when required items provided), AC-FILE-008-01 (checklist reflects requests — the read model), AC-FILE-003-01 (encrypted at rest — tier-3 proof against Azurite), AC-FILE-003-02 (retrieval requires authz check), AC-FILE-003-03 (no anonymous/public path), AC-FILE-003-04 (grant time-limited, expires), AC-NFR-009-01 (scanned before available).]
-upstream_refs: ADR-009 (two-phase upload: authorize on request pool → `pending` insert on admin pool step 2d → signed upload URL → complete → promote; authorize-then-sign download for `active` only; signed URLs never persisted; TTL caps), ADR-021 (scan-before-available inside `pending`→`active`/`infected`; `indeterminate` stays `pending` fail-closed; MIME/size validation), ADR-008 (FileStorage port; storage-key pattern), ADR-003 (request-pool SESSION_CONTEXT for authorize; admin pool for pending insert; Amendment 1), ADR-005 (`0007` policy is the authz gate), ADR-019 (upload is an audited event — reuse `recordAuthEvent`/`withAuditTransaction`), ADR-022 (upload path rate-limited — reuse the `RateLimiter` seam), ADR-020 (encryption-at-rest is the adapter contract).
+brief_deploys: "no"
+introduces_gate: "yes"
+acceptance_criteria: ["AC-FILE-001-02 (client upload stored in the engagements set), AC-ONBD-004-04 (step satisfied when required items provided), AC-FILE-008-01 (checklist reflects requests — the read model), AC-FILE-003-01 (encrypted at rest — tier-3 proof against Azurite), AC-FILE-003-02 (retrieval requires authz check), AC-FILE-003-03 (no anonymous/public path), AC-FILE-003-04 (grant time-limited, expires), AC-NFR-009-01 (scanned before available)."]
+upstream_refs: "ADR-009 (two-phase upload: authorize on request pool → `pending` insert on admin pool step 2d → signed upload URL → complete → promote; authorize-then-sign download for `active` only; signed URLs never persisted; TTL caps), ADR-021 (scan-before-available inside `pending`→`active`/`infected`; `indeterminate` stays `pending` fail-closed; MIME/size validation), ADR-008 (FileStorage port; storage-key pattern), ADR-003 (request-pool SESSION_CONTEXT for authorize; admin pool for pending insert; Amendment 1), ADR-005 (`0007` policy is the authz gate), ADR-019 (upload is an audited event — reuse `recordAuthEvent`/`withAuditTransaction`), ADR-022 (upload path rate-limited — reuse the `RateLimiter` seam), ADR-020 (encryption-at-rest is the adapter contract)."
 ---
+
+
+
+
 
 # TASK-007-004: Two-phase authorize-then-sign upload/download pipeline + checklist read model + onboarding-step satisfaction
 

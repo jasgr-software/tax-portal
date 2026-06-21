@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: TASK-003-004, TASK-003-005, TASK-003-006
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-17T14:14:47Z
 completed_at: 2026-06-17T20:30:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
-introduces_gate: no
-acceptance_criteria: none (justification: non-gating UI-demo artifact per `.orchestration/DEMO-POLICY.md`; it walks the AC the slice already verifies — AC-DOOR-005/006/007/008 + AC-DASH-011 — but adds no new acceptance obligation)
+complexity_estimate: 2
+complexity_actual: 2
+introduces_gate: "no"
+acceptance_criteria: "none (justification: non-gating UI-demo artifact per `.orchestration/DEMO-POLICY.md`; it walks the AC the slice already verifies — AC-DOOR-005/006/007/008 + AC-DASH-011 — but adds no new acceptance obligation)"
 upstream_refs: ADR-006 (admin surface), personas jane-accountant + tom-prospective-client, flows flow-engagement-request + flow-first-sign-in
 ---
+
+
+
+
 
 # TASK-003-007: @demo walkthrough — AC-tagged screenshot gallery of the request-inbox journey
 

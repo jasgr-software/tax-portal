@@ -5,16 +5,20 @@ assigned_to: —
 updated_by: —
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: —
 completed_at: —
 complexity_estimate: —
 complexity_actual: —
 introduces_gate:
-acceptance_criteria: [<!-- the brief AC ids this task satisfies (e.g. AC-007-01, AC-007-03), "or \"none — <justification>\" -->"]
+acceptance_criteria: [<!-- the brief AC ids this task satisfies (e.g. AC-007-01, AC-007-03), or \none — <justification>\ -->]
 upstream_refs:
-code_standards: <!-- the brief's code_standards: ids this task must honor + tag via `// CS-<LANG>-NNN` (CS-GEN-003), or "none". SDET checks each cited standard's verification hook; a failing `required` standard is a rejection. -->
+code_standards: "<!-- the brief's code_standards: ids this task must honor + tag via `// CS-<LANG>-NNN` (CS-GEN-003), or \\\"none\\\". SDET checks each cited standard's verification hook; a failing `required` standard is a rejection. -->"
 ---
+
+
+
+
 
 # TASK-NNN: Title
 

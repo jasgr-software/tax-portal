@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-006-003
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T20:27:00Z
 completed_at: 2026-06-18T20:38:52Z
-complexity_estimate: "3"
-complexity_actual: "3"
+complexity_estimate: 3
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: [AC-ONBD-003-01 (UI: correct questionnaire shown), AC-ONBD-003-03 (UI: step not satisfied until submit — renders unsatisfied/submitted affordance)]
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: ["AC-ONBD-003-01 (UI: correct questionnaire shown)", "AC-ONBD-003-03 (UI: step not satisfied until submit — renders unsatisfied/submitted affordance)"]
 upstream_refs: ADR-006, ADR-001, ADR-005, REQ-ONBD-003
 ---
+
+
+
+
 
 # TASK-006-004: Portal questionnaire step UI (render correct template behind the letter gate)
 

@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-003-001
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-17T11:39:13Z
 completed_at: 2026-06-17T06:50:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
-introduces_gate: no
-acceptance_criteria: [AC-DASH-011-01 (view all engagement requests from the admin UI), AC-DASH-011-02 (distinguishable by state: pending/accepted/declined), AC-DASH-011-03 (identify which are pending a decision), AC-DOOR-006-01 (view each pending request and its submitted details)]
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "no"
+acceptance_criteria: [AC-DASH-011-01 (view all engagement requests from the admin UI), "AC-DASH-011-02 (distinguishable by state: pending/accepted/declined)", AC-DASH-011-03 (identify which are pending a decision), AC-DOOR-006-01 (view each pending request and its submitted details)]
 upstream_refs: REQ-DASH-011, REQ-DOOR-006, ADR-006 (admin-only surface), ADR-003 (SESSION_CONTEXT — reads via the request pool under accountant identity)
 ---
+
+
+
+
 
 # TASK-003-004: Request inbox UI (admin) — list all requests by state + view submitted details
 

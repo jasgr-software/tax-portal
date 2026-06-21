@@ -3,12 +3,16 @@ brief: BRIEF-003
 status: done
 started_at: 2026-06-17T13:30:33Z
 completed_at: 2026-06-17T14:05:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 severity: high — blocks 3× zero-flake requirement; masks AC-DOOR-007-01 and AC-DOOR-008-02 email-delivery proof
 task: TASK-003-006
 owner: webapp-developer
 ---
+
+
+
+
 
 # BUG-003-001: E2e email-delivery assertions flake on run 3 — rate-limiter not reliably reset between sequential pnpm e2e:run invocations
 

@@ -1,12 +1,16 @@
 ---
 brief: BRIEF-004
 status: resolved
-assigned_to: IO (fix-forward — IO self-implemented, `Impl: io`)
+assigned_to: "IO (fix-forward — IO self-implemented, `Impl: io`)"
 severity: medium (maintenance hazard; gate evidence is valid but repo carries dead files)
 task: TASK-004-002
 reported_by: SDET (2026-06-15T22:00:00Z)
 resolved_by: IO (2026-06-15)
 ---
+
+
+
+
 
 # BUG-004-001: Orphan root-level `middleware.ts` in both apps (dead file; Next.js uses `src/middleware.ts`)
 

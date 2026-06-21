@@ -8,13 +8,17 @@ impl: developer
 e2e_required: no (the `@demo` spec is excluded from `e2e:run`; non-gating per DEMO-POLICY)
 started_at: 2026-06-18T17:16:50Z
 completed_at: 2026-06-18T18:45:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: none (non-gating demo artifact — justification: produces the AC-tagged screenshot gallery for the upstream demo/coverage absorb; the e2e gate, not this, gates delivery — brief § UI demo).
+complexity_estimate: 3
+complexity_actual: 3
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none (non-gating demo artifact — justification: produces the AC-tagged screenshot gallery for the upstream demo/coverage absorb; the e2e gate, not this, gates delivery — brief § UI demo)."
 upstream_refs: ADR-006 (both surfaces); personas `tom-prospective-client` (post-signup client onboarding) + `jane-accountant` (template editing); flows `flow-onboarding` + `flow-first-sign-in`.
 ---
+
+
+
+
 
 # TASK-005-008: @demo gallery — admin template edit + portal sign→unlock walkthrough
 

@@ -5,16 +5,20 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: none (dependency-free root)
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T12:45:29Z
 completed_at: 2026-06-18T08:15:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
-brief_deploys: no
-introduces_gate: **yes** — the FIRST client-owned-rows security policy (`sec.pol_Engagement`). The three-item Gate-Authoring evidence (§ Gate Authoring Rules) is **mandatory** in the Work Log: a green run on the real DB path proving the policy, the named production code path it protects, and a counterfactual.
+complexity_estimate: 4
+complexity_actual: 4
+brief_deploys: "no"
+introduces_gate: "**yes** — the FIRST client-owned-rows security policy (`sec.pol_Engagement`). The three-item Gate-Authoring evidence (§ Gate Authoring Rules) is **mandatory** in the Work Log: a green run on the real DB path proving the policy, the named production code path it protects, and a counterfactual."
 acceptance_criteria: [AC-ONBD-001-02, AC-ONBD-002-01, AC-ONBD-002-02, AC-ONBD-002-04 (the **DB/server-side enforcement layer** — UI/e2e surfaces land in TASK-005-005/-006/-007). Also the substrate (schema + isolation) every later task builds on.]
 upstream_refs: ADR-002 (field-shape conventions), ADR-003 (+ Amendment 1, SESSION_CONTEXT), ADR-005 (RLS via security policies — FIRST client-owned rows), ADR-006 (entities are platform-shared in `packages/db`/`prisma`).
 ---
+
+
+
+
 
 # TASK-005-001: Engagement + onboarding-state + LetterTemplate schema + FIRST client-isolation RLS policy
 

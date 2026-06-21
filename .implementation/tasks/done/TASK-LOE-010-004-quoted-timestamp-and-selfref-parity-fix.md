@@ -6,16 +6,20 @@ assigned_to: devops
 updated_by: sdet
 depends_on: TASK-LOE-010-002
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-21T19:17:47Z
 completed_at: 2026-06-21T21:45:00Z
 complexity_estimate: 2
 complexity_actual: 2
-introduces_gate: no
+introduces_gate: "no"
 acceptance_criteria: [AC-LOE-010-04, AC-LOE-010-05]
 upstream_refs: none (fix-forward task created at IO Review/Smoke design scan)
-code_standards: none (brief `code_standards: []`)
+code_standards: "none (brief `code_standards: []`)"
 ---
+
+
+
+
 
 # TASK-LOE-010-004: fix backstop quoted-timestamp false-reject + self-referential metrics-parity test
 

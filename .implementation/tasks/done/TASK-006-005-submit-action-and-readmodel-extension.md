@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer (2026-06-18T21:00:00Z)
 depends_on: TASK-006-001, TASK-006-003, TASK-006-004
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T20:44:42Z
 completed_at: 2026-06-18T22:15:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
+complexity_estimate: 4
+complexity_actual: 4
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
+brief_deploys: "no"
+introduces_gate: "no"
 acceptance_criteria: [AC-ONBD-003-03 (step satisfied only on submit — server-side), AC-ONBD-003-04 (answers recorded against the engagement), AC-ONBD-003-01 (submit only against the resolved correct template)]
 upstream_refs: ADR-003 (+Amendment 1), ADR-005, ADR-012, REQ-ONBD-003
 ---
+
+
+
+
 
 # TASK-006-005: Submit action (record answers + satisfy step) + onboarding read-model extension (tier-3)
 

@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-19T12:27:38Z
 completed_at: 2026-06-19T08:10:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
+complexity_estimate: 4
+complexity_actual: 4
 brief_type: feature
-brief_deploys: no
-introduces_gate: yes
+brief_deploys: "no"
+introduces_gate: "yes"
 acceptance_criteria: [AC-FILE-008-01 (each engagement has a checklist reflecting its document requests — the schema relationship), AC-FILE-001-05 (a file in engagement A is not exposed to other engagements — proven by the `0007` FILTER predicate), AC-FILE-003-02 (retrieval requires an authorization check — the FILTER predicate is that gate at the data layer).]
 upstream_refs: ADR-005 (RLS via security policies; THIRD client-isolation policy after `0005`/`0006`; HARD §6 per-policy integration test; ITVF+SCHEMABINDING; shallow predicate), ADR-002 (UNIQUEIDENTIFIER PK NEWSEQUENTIALID(), DATETIMEOFFSET, two-track migrations), ADR-009 (storage-key columns + `pending｜active｜infected` state column), ADR-003 (null SESSION_CONTEXT → ZERO; Amendment 1 — no `@read_only`).
 ---
+
+
+
+
 
 # TASK-007-003: DocumentRequest + Document Prisma models + `0007` RLS policy (third client-isolation policy) + cross-engagement isolation test
 

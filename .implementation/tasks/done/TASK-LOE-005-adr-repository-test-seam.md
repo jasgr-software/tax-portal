@@ -1,19 +1,23 @@
 ---
 epic: chore/lights-out-enablement
 status: done
-assigned_to: sa (Impl: sa)
+assigned_to: "sa (Impl: sa)"
 updated_by: sa
 depends_on: none
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-04-27T10:07:59Z
 completed_at: 2026-04-27T11:30:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
-introduces_gate: no
-affected_flows: none (justification: ADR documents an architectural pattern, not user-facing behavior)
-affected_requirements: none (justification: ADR codifies a test-seam convention; SRS requirements are unaffected)
+complexity_estimate: 2
+complexity_actual: 2
+introduces_gate: "no"
+affected_flows: "none (justification: ADR documents an architectural pattern, not user-facing behavior)"
+affected_requirements: "none (justification: ADR codifies a test-seam convention; SRS requirements are unaffected)"
 relevant_adrs: ADR-003 (identity propagation via SESSION_CONTEXT), ADR-004 (Prisma single-track ORM), ADR-005 (RLS via security policies), ADR-006 (monorepo layout)
 ---
+
+
+
+
 
 # TASK-LOE-005: ADR — Repository interface as test seam (Prisma + SQL Server adaptation)
 

@@ -41,6 +41,7 @@ import {
   FIELD_MAP,
   lookupByBoldKey,
   serializeFrontMatter,
+  extractFrontMatter,
   type FrontMatter,
 } from "./task-frontmatter.js";
 
@@ -51,6 +52,8 @@ export interface MigrateResult {
   changed: boolean;
   /** The output text (always set) */
   output: string;
+  /** Unknown header keys found during migration (not in FIELD_MAP); empty when none or on skip */
+  unknownKeys: string[];
 }
 
 export interface ParsedHeaderBlock {
@@ -251,21 +254,21 @@ function buildBodyAfterHeaderBlock(text: string): string {
  * 2. Parse the leading header block
  * 3. Serialize the extracted fields as YAML front matter (stable FIELD_MAP order)
  * 4. Build the new body (H1 title + everything below the header block)
- * 5. Return { changed: true, output: newText }
+ * 5. Return { changed: true, output: newText, unknownKeys }
  *
- * If no header fields are found, returns { changed: false, output: text }.
+ * If no header fields are found, returns { changed: false, output: text, unknownKeys: [] }.
  */
 export function migrateFileContent(text: string): MigrateResult {
   // Idempotency check: already has front matter
   if (text.startsWith("---")) {
-    return { changed: false, output: text };
+    return { changed: false, output: text, unknownKeys: [] };
   }
 
   const { fm, headerLines, unknownKeys } = parseHeaderBlock(text);
 
   // If nothing was extracted, nothing to do
   if (Object.keys(fm).length === 0 && headerLines.length === 0) {
-    return { changed: false, output: text };
+    return { changed: false, output: text, unknownKeys: [] };
   }
 
   // Build the YAML front-matter block
@@ -280,37 +283,53 @@ export function migrateFileContent(text: string): MigrateResult {
   // Normalize trailing newline
   const normalizedOutput = output.endsWith("\n") ? output : output + "\n";
 
-  return {
-    changed: true,
-    output: normalizedOutput,
-    // Expose unknownKeys for callers that want to warn
-    ...({ unknownKeys } as { unknownKeys: string[] }),
-  };
-}
-
-// Re-export unknownKeys from migrateFileContent result
-export interface MigrateResultWithMeta extends MigrateResult {
-  unknownKeys?: string[];
-}
-
-/** Version of migrateFileContent that returns unknown keys too. */
-export function migrateFileContentWithMeta(text: string): MigrateResultWithMeta {
-  if (text.startsWith("---")) {
-    return { changed: false, output: text, unknownKeys: [] };
-  }
-
-  const { fm, headerLines, unknownKeys } = parseHeaderBlock(text);
-
-  if (Object.keys(fm).length === 0 && headerLines.length === 0) {
-    return { changed: false, output: text, unknownKeys: [] };
-  }
-
-  const fmBlock = serializeFrontMatter(fm);
-  const body = buildBodyAfterHeaderBlock(text);
-  const output = fmBlock + "\n" + body;
-  const normalizedOutput = output.endsWith("\n") ? output : output + "\n";
-
   return { changed: true, output: normalizedOutput, unknownKeys };
+}
+
+/**
+ * Re-serialize an already-migrated file through the current serializeFrontMatter.
+ *
+ * Used by --reserialize to correct YAML-invalid front matter emitted by an earlier
+ * run of the migration (e.g. unquoted `: ` in values, quoted pure integers).
+ *
+ * 1. Parse the existing front-matter block with extractFrontMatter + parseFrontMatter
+ * 2. Re-serialize with the fixed serializeFrontMatter (which calls needsQuoting)
+ * 3. If the serialized block changed, return { changed: true, output: newText, unknownKeys: [] }
+ *    Otherwise return { changed: false, output: text, unknownKeys: [] }
+ */
+export function reserializeFileContent(text: string): MigrateResult {
+  if (!text.startsWith("---")) {
+    // Not a front-matter file — caller should use migrateFileContent instead
+    return { changed: false, output: text, unknownKeys: [] };
+  }
+
+  const extracted = extractFrontMatter(text);
+  if (!extracted.found) {
+    return { changed: false, output: text, unknownKeys: [] };
+  }
+
+  const newFmBlock = serializeFrontMatter(extracted.fm);
+  // Reconstruct: new FM block + body.
+  // newFmBlock ends with "\n" (serializeFrontMatter emits "---\n{fields}\n---\n").
+  // extractFrontMatter strips exactly one leading "\n" from bodyAfterFm (the newline
+  // that follows the closing ---), so body starts with whatever came after that first
+  // newline — typically "\n# TASK" (the blank line + H1). Concatenating directly
+  // (no extra "\n" separator) restores the original "---\n\n# TASK" spacing.
+  const newOutput = newFmBlock + extracted.bodyAfterFm;
+  const normalizedOutput = newOutput.endsWith("\n") ? newOutput : newOutput + "\n";
+
+  // Only report changed if the output actually differs
+  if (normalizedOutput === text) {
+    return { changed: false, output: text, unknownKeys: [] };
+  }
+  return { changed: true, output: normalizedOutput, unknownKeys: [] };
+}
+
+// Re-export alias for backward compatibility with tests that import migrateFileContentWithMeta.
+// The two functions were identical; MigrateResult now includes unknownKeys directly.
+/** @deprecated Use migrateFileContent — it now returns unknownKeys directly. */
+export function migrateFileContentWithMeta(text: string): MigrateResult {
+  return migrateFileContent(text);
 }
 
 // ─── File walker ───────────────────────────────────────────────────────────────
@@ -376,9 +395,14 @@ function isAllowedPath(filePath: string, repoRoot: string): boolean {
 // ─── Atomic write ─────────────────────────────────────────────────────────────
 
 function atomicWrite(filePath: string, content: string): void {
-  const tmpPath = filePath + ".tmp";
+  // Use a randomized suffix in the same directory to avoid predictable temp names
+  // (a predictable name like file.tmp is a TOCTOU target in multi-process scenarios).
+  const suffix = Math.random().toString(36).slice(2, 10);
+  const tmpPath = `${filePath}.${suffix}.tmp`;
   try {
-    fs.writeFileSync(tmpPath, content, "utf8");
+    // {flag:"wx"} fails if the file already exists — guards against a race where
+    // an attacker pre-creates the temp name before we write to it.
+    fs.writeFileSync(tmpPath, content, { encoding: "utf8", flag: "wx" });
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
     // Clean up tmp file on error
@@ -397,6 +421,13 @@ export async function runMigration(opts: {
   repoRoot?: string;
   dryRun?: boolean;
   verbose?: boolean;
+  /**
+   * When true, re-serialize already-migrated files (those that already start with ---).
+   * Use this to correct YAML-invalid front matter emitted by a prior migration run.
+   * The migration is still safe to re-run: files that already have correct front matter
+   * are detected as unchanged and skipped.
+   */
+  reserialize?: boolean;
 }): Promise<{ changed: number; skipped: number; warnings: string[] }> {
   const repoRoot =
     opts.repoRoot ??
@@ -422,9 +453,16 @@ export async function runMigration(opts: {
     }
 
     const text = fs.readFileSync(filePath, "utf8");
-    const result = migrateFileContentWithMeta(text);
 
-    if (result.unknownKeys && result.unknownKeys.length > 0) {
+    // Choose the processing function:
+    //   - --reserialize: re-parse + re-serialize already-migrated files through the
+    //     fixed serializer; also migrate any remaining bold-format files.
+    //   - normal: idempotent migration; skip already-migrated files.
+    const result = opts.reserialize && text.startsWith("---")
+      ? reserializeFileContent(text)
+      : migrateFileContent(text);
+
+    if (result.unknownKeys.length > 0) {
       for (const k of result.unknownKeys) {
         warnings.push(`UNKNOWN KEY "${k}" in ${path.relative(repoRoot, filePath)}`);
       }
@@ -433,7 +471,7 @@ export async function runMigration(opts: {
     if (!result.changed) {
       skipped++;
       if (opts.verbose) {
-        console.log(`  ~ ${path.relative(repoRoot, filePath)} (skipped — already migrated or no header)`);
+        console.log(`  ~ ${path.relative(repoRoot, filePath)} (skipped — already correct)`);
       }
       continue;
     }
@@ -452,11 +490,13 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const verbose = args.includes("--verbose") || args.includes("-v");
+  const reserialize = args.includes("--reserialize");
 
   console.log("=== task front-matter migration ===");
   if (dryRun) console.log("Mode: DRY RUN (no files written)");
+  if (reserialize) console.log("Mode: --reserialize (re-parse + re-emit already-migrated files)");
 
-  const { changed, skipped, warnings } = await runMigration({ dryRun, verbose });
+  const { changed, skipped, warnings } = await runMigration({ dryRun, verbose, reserialize });
 
   if (warnings.length > 0) {
     console.log("\n[WARNINGS]");

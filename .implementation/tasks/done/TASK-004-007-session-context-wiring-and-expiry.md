@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: 004 (✓ done), 002 (✓ done) — the `packages/auth` port (`getIdentity`/`checkSession`/`sessionTimeoutMs`) + mock binding deliver the verified-identity seam this task consumes; `packages/db` `withRequestContext`/`$extends` wrapper already exist.
 impl: webapp-developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-15T22:20:14Z
 completed_at: 2026-06-15T23:30:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
-introduces_gate: no
-acceptance_criteria: [AC-AUTH-001-03 (role determinable server-side — SESSION_CONTEXT-authoritative half: the verified role is propagated to the DB session, server-side, on the authenticated path), AC-AUTH-009-01 (session expires on the default timeout and re-auth is required).]
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "no"
+acceptance_criteria: ["AC-AUTH-001-03 (role determinable server-side — SESSION_CONTEXT-authoritative half: the verified role is propagated to the DB session", server-side, on the authenticated path), AC-AUTH-009-01 (session expires on the default timeout and re-auth is required).]
 upstream_refs: ADR-003 (SESSION_CONTEXT identity propagation via AsyncLocalStorage + the `$extends` request-pool wrapper), ADR-005 (role is the server-evaluated trust boundary), ADR-001 (role shape `ACCOUNTANT|CLIENT`).
 ---
+
+
+
+
 
 # TASK-004-007: `packages/db` SESSION_CONTEXT wiring on the authenticated accountant path + `$extends` regression test + session-expiry-on-default-timeout
 

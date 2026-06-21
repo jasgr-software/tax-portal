@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer (2026-06-16T12:45:00Z)
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-16T07:01:42Z
 completed_at: 2026-06-16T07:51:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
+complexity_estimate: 3
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: yes
+brief_deploys: "no"
+introduces_gate: "yes"
 acceptance_criteria: AC-DOOR-002-05 (the defining invariant — only the accountant may change the catalog; CLIENT + anonymous are rejected at the trust boundary)
 upstream_refs: ADR-005 (security policies are the write boundary), ADR-003 (SESSION_CONTEXT identity), ADR-012 (testing pyramid — tier-3 obligation)
 ---
+
+
+
+
 
 # TASK-002-001: Close the Service write-boundary gap — accountant-only write security policy + tier-3 RLS test
 

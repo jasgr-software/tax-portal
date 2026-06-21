@@ -11,6 +11,10 @@ category:
 severity:
 ---
 
+
+
+
+
 # BUG-NNN: Short description of the issue
 
 ---

@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-002-002
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-16T00:00:00Z
 completed_at: 2026-06-16T08:35:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
+complexity_estimate: 3
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
+brief_deploys: "no"
+introduces_gate: "no"
 acceptance_criteria: [AC-DASH-010-01, AC-DASH-010-02, AC-DASH-010-03 (add / edit / deactivate from the admin UI). Renders the surface that the AC-DOOR-002-01/-02/-03 journeys exercise.]
 upstream_refs: ADR-006 (catalog management lives in apps/admin, not apps/portal), ADR-010 (apps/admin has no public routes — the route sits behind the existing accountant role gate), ADR-005 (UI is not the security boundary — the policy is)
 ---
+
+
+
+
 
 # TASK-002-003: Admin services-catalog management UI (list / add / edit / deactivate) behind the accountant role gate
 

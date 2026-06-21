@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-19T11:47:03Z
 completed_at: 2026-06-19T07:05:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
+complexity_estimate: 3
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
+brief_deploys: "no"
+introduces_gate: "no"
 acceptance_criteria: [AC-FILE-003-01 (partial — the adapter contract that delivers encryption-at-rest; the tier-3 proof lands in TASK-007-004). The port itself underpins AC-FILE-001-02, AC-FILE-003-02/-03/-04, AC-NFR-009-01 delivered downstream.]
 upstream_refs: ADR-008 (FileStorage port + adapters + fail-closed boot + TTL policy + config contract), ADR-020 (encryption-at-rest is the adapter contract, NOT app code; no cloud KMS/secrets SDK in app code — ADR-013/020), ADR-009 (storage-key pattern is opaque to the adapter; TTL caps), ADR-006 (`packages/storage` location).
 ---
+
+
+
+
 
 # TASK-007-001: `FileStorage` port + Azurite/Memory adapters + fail-closed select + compose/env wiring
 

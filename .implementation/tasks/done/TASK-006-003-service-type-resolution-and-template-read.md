@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: TASK-006-001
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T20:10:28Z
 completed_at: 2026-06-18T20:23:09Z
-complexity_estimate: "3"
-complexity_actual: "3"
+complexity_estimate: 3
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
+brief_deploys: "no"
+introduces_gate: "no"
 acceptance_criteria: AC-ONBD-003-01 (service-type match resolved server-side)
 upstream_refs: ADR-003, ADR-005, ADR-012, REQ-ONBD-003
 ---
+
+
+
+
 
 # TASK-006-003: Engagement → service-type resolution + correct-questionnaire-for-service-type read (tier-3)
 

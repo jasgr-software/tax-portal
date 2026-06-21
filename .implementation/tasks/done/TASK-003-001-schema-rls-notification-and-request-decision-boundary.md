@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-17T10:45:39Z
 completed_at: 2026-06-17T06:15:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
+complexity_estimate: 4
+complexity_actual: 4
 introduces_gate: yes (new `sec.pol_Notification` accountant-only-read security policy + its tier-3 integration test — § Gate Authoring Rules three-item evidence required)
-acceptance_criteria: [AC-DOOR-005-03 (notification delivered to the accountant only), AC-DOOR-006-04 (DB-level: only ACCOUNTANT/admin can mutate a request — the decide write boundary), AC-DOOR-008-04 (the `declineReason` column that retains the reason on the request)]
+acceptance_criteria: [AC-DOOR-005-03 (notification delivered to the accountant only), "AC-DOOR-006-04 (DB-level: only ACCOUNTANT/admin can mutate a request — the decide write boundary)", AC-DOOR-008-04 (the `declineReason` column that retains the reason on the request)]
 upstream_refs: ADR-005 (RLS via security policies), ADR-002 (SQL Server / sqlserver provider), ADR-004 (Prisma single-track), ADR-003 (SESSION_CONTEXT), ADR-012 (testing pyramid — tier-3), REQ-DOOR-005, REQ-DOOR-008
 ---
+
+
+
+
 
 # TASK-003-001: Schema + RLS — Notification entity, EngagementRequest decision fields, accountant-only notification read policy
 

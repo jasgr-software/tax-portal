@@ -14,8 +14,12 @@
  * zero-dep ethos of db-migrate.ts and db-seed.ts.
  *
  * Independently importable (no CLI side-effects) — consumed by:
- *   - scripts/migrate-task-frontmatter.ts  (Phase 0 one-shot migration)
- *   - scripts/validate-gates.sh delegate   (Phase 0b — TASK-LOE-010-002)
+ *   - scripts/migrate-task-frontmatter.ts        (Phase 0 one-shot migration + reserialize)
+ *   - scripts/migrate-task-frontmatter.test.ts   (unit + YAML-validity regression tests)
+ *
+ * The `--verify <dir>` CLI is exercised by tests and reserved for Phase 1 tooling.
+ * validate-gates.sh (Check 1) reads the same 4 lifecycle fields it always has, via
+ * targeted bash grep — it does not invoke this library at runtime.
  *
  * CLI usage (when executed directly):
  *   tsx scripts/task-frontmatter.ts --verify <dir>
@@ -202,10 +206,12 @@ export const FIELD_MAP: FieldDef[] = [
       "critical",
       "major",
       "minor",
-      // Legacy severity values found in corpus
+      // Corpus-attested severity values (short forms; values often carry extra annotation text)
       "high",
       "blocking",
       "blocker",
+      "medium",
+      "non-blocking",
     ],
   },
   // ── Legacy fields (pre-Brief era) ───────────────────────────────────────────
@@ -351,11 +357,13 @@ export function lookupByFmKey(fmKey: string): FieldDef | undefined {
 
 function unquote(s: string): string {
   const t = s.trim();
-  if (
-    (t.startsWith('"') && t.endsWith('"')) ||
-    (t.startsWith("'") && t.endsWith("'"))
-  ) {
-    return t.slice(1, -1);
+  if (t.startsWith('"') && t.endsWith('"') && t.length >= 2) {
+    // YAML double-quoted string: unescape \" → " and \\ → \
+    return t.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  }
+  if (t.startsWith("'") && t.endsWith("'") && t.length >= 2) {
+    // YAML single-quoted string: unescape '' → '
+    return t.slice(1, -1).replace(/''/g, "'");
   }
   return t;
 }
@@ -461,9 +469,16 @@ export function extractFrontMatter(fileText: string): {
 // ─── Hand-rolled YAML front-matter serializer ─────────────────────────────────
 //
 // Emits keys in the stable FIELD_MAP order, then any extra keys in insertion order.
-// Scalar values: key: value  (no quotes unless value contains `:` or `#` or leading space)
-// List values: key: [a, b, c]  (inline)
-// Empty values: key: (empty string)
+// Scalar values: key: value     (unquoted when safe)
+//                key: "value"   (double-quoted when needsQuoting() returns true)
+// Pure integers: key: 3         (always unquoted — round-trips cleanly)
+// List values:   key: [a, b, c] (inline)
+// Empty values:  key:           (empty string)
+//
+// needsQuoting() covers the full set of YAML-significant leading characters and
+// sequences (`: `, `* `, `&`, `!`, `` ` ``, `[`, `{`, `|`, `>`, `@`, `%`, `?`,
+// `:`, `- ` (block seq entry), and YAML bool/null keywords) so every emitted
+// scalar is a valid YAML 1.1 plain or double-quoted scalar.
 //
 // DECISION: inline-comment hints (<!-- ... -->) attached to template fields are dropped
 // during migration — they document the field for human authors; front-matter is the
@@ -471,18 +486,48 @@ export function extractFrontMatter(fileText: string): {
 
 function needsQuoting(value: string): boolean {
   if (!value) return false;
-  // Quote if: starts/ends with whitespace, contains inline comment marker, is a YAML reserved word.
-  // DECISION: pure integers (e.g. "3" for complexity) are emitted unquoted — they round-trip
-  // cleanly and the parseFrontMatter() unquote() call handles either form.
-  return (
-    value.startsWith(" ") ||
-    value.endsWith(" ") ||
-    value.includes(" #") ||
-    value.startsWith("#") ||
-    value === "true" ||
-    value === "false" ||
-    value === "null"
-  );
+  // Quote if any character or sequence is YAML-significant:
+  //   - leading/trailing whitespace
+  //   - contains `: ` (mapping indicator — causes "mapping values not allowed here")
+  //   - starts with a YAML special character: * (alias), & (anchor), ! (tag),
+  //     ` (not standard YAML but rejected by parsers), [ (flow sequence start),
+  //     { (flow mapping start), | (literal block), > (folded block),
+  //     @ (reserved), ` (reserved), # (comment), % (directive), - (block seq marker)
+  //   - is a YAML boolean / null keyword
+  //
+  // DECISION: pure integers (e.g. 3 for complexity) are emitted UNQUOTED — they
+  // round-trip cleanly and parseFrontMatter()'s unquote() handles either form.
+  // A pure-integer value passes all the checks below (no YAML-significant chars).
+  if (value.startsWith(" ") || value.endsWith(" ")) return true;
+  if (value.includes(": ")) return true;       // mapping indicator in value
+  if (value.includes(" #")) return true;       // inline comment marker
+  // YAML indicator characters that must not lead a plain scalar
+  const firstChar = value[0];
+  if (
+    firstChar === "#" ||  // comment
+    firstChar === "*" ||  // alias
+    firstChar === "&" ||  // anchor
+    firstChar === "!" ||  // tag
+    firstChar === "`" ||  // reserved (many parsers reject)
+    firstChar === "[" ||  // flow sequence
+    firstChar === "{" ||  // flow mapping
+    firstChar === "|" ||  // literal block scalar
+    firstChar === ">" ||  // folded block scalar
+    firstChar === "@" ||  // reserved
+    firstChar === "%" ||  // directive
+    firstChar === "?" ||  // explicit key
+    firstChar === ":"     // mapping value
+  ) return true;
+  // Leading `-` followed by a space (block sequence entry) must be quoted;
+  // bare `-` or `—` (em-dash) are safe.
+  if (value.startsWith("- ")) return true;
+  // YAML boolean / null keywords (case-insensitive per YAML 1.1 which most parsers use)
+  const lower = value.toLowerCase();
+  if (
+    lower === "true" || lower === "false" || lower === "null" ||
+    lower === "yes"  || lower === "no"   || lower === "on" || lower === "off"
+  ) return true;
+  return false;
 }
 
 /**
@@ -514,13 +559,21 @@ export function serializeFrontMatter(fm: FrontMatter): string {
   return lines.join("\n") + "\n";
 }
 
+/**
+ * Escape a string for use inside a YAML double-quoted scalar.
+ * Per YAML 1.1 double-quoted style: backslash must be escaped as \\, double-quote as \".
+ */
+function yamlDoubleQuoteEscape(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 function serializeField(key: string, value: string | string[]): string {
   if (Array.isArray(value)) {
     if (value.length === 0) return `${key}: []`;
     const items = value.map((v) => {
-      // Quote items containing commas or brackets
-      if (v.includes(",") || v.includes("[") || v.includes("]") || v.includes('"')) {
-        return `"${v.replace(/"/g, '\\"')}"`;
+      // Quote items that needsQuoting OR contain commas, brackets, or quotes
+      if (needsQuoting(v) || v.includes(",") || v.includes("[") || v.includes("]") || v.includes('"')) {
+        return `"${yamlDoubleQuoteEscape(v)}"`;
       }
       return v;
     });
@@ -528,9 +581,8 @@ function serializeField(key: string, value: string | string[]): string {
   }
   // Scalar
   if (value === "") return `${key}:`;
-  // Pure dashes (sentinel values like —) are safe unquoted
   if (needsQuoting(value)) {
-    return `${key}: "${value.replace(/"/g, '\\"')}"`;
+    return `${key}: "${yamlDoubleQuoteEscape(value)}"`;
   }
   return `${key}: ${value}`;
 }
@@ -566,8 +618,9 @@ const STATUS_ENUM = new Set([
   "review",
   "done",
   "needs-user-direction",
-  "closed",  // legacy bug status
-  "open",    // legacy bug status
+  "closed",    // legacy bug status
+  "open",      // legacy bug status
+  "resolved",  // legacy bug status found in corpus
 ]);
 
 const INTRODUCES_GATE_ENUM = new Set(["yes", "no", "advisory"]);

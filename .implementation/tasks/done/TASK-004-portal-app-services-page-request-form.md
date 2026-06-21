@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-001, TASK-002, TASK-003
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-15T00:00:00Z
 completed_at: 2026-06-15T00:00:00Z
-complexity_estimate: "4"
-complexity_actual: "1"
+complexity_estimate: 4
+complexity_actual: 1
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: [AC-DOOR-001-01 (services page reachable anonymously), AC-DOOR-001-02 (active services displayed), AC-DOOR-001-03 (viewing creates no account / asks nothing personal), AC-DOOR-002-04 (deactivated service not selectable — UI side), AC-DOOR-003-01 (form presents active services as a checklist), "AC-DOOR-003-02 (no freeform \"describe your need\" field)", AC-DOOR-003-03 (no service-specific sub-questions), AC-DOOR-003-04 (deactivated services not checklist options — UI side), AC-DOOR-004-01 (select one or more services), AC-DOOR-004-02 (provide basic contact info), AC-DOOR-004-05 (cannot submit with zero services — client-side guard). Component/unit-tier (tier 2/5) coverage for AC-DOOR-004-05, AC-DOOR-003-02, AC-DOOR-003-03; the full e2e binding is TASK-005.]
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: [AC-DOOR-001-01 (services page reachable anonymously), AC-DOOR-001-02 (active services displayed), AC-DOOR-001-03 (viewing creates no account / asks nothing personal), AC-DOOR-002-04 (deactivated service not selectable — UI side), AC-DOOR-003-01 (form presents active services as a checklist), AC-DOOR-003-02 (no freeform \describe your need\ field), AC-DOOR-003-03 (no service-specific sub-questions), AC-DOOR-003-04 (deactivated services not checklist options — UI side), AC-DOOR-004-01 (select one or more services), AC-DOOR-004-02 (provide basic contact info), AC-DOOR-004-05 (cannot submit with zero services — client-side guard). Component/unit-tier (tier 2/5) coverage for AC-DOOR-004-05, AC-DOOR-003-02, AC-DOOR-003-03; the full e2e binding is TASK-005.]
 upstream_refs: ADR-006 (the public door lives in `apps/portal`, the Client Portal — **not** `apps/admin`; Server Actions for mutations; `packages/ui` shadcn primitives), ADR-014 (Next.js 14 App Router + TypeScript), ADR-003 (the public services page + request submission are **anonymous paths** — must use the admin pool via the TASK-003 data layer, never the request pool; no "create an account to continue" gate), REQ-DOOR-004 (self-serve front door — the defining invariant), ADR-020 (prospect PII handled per the at-rest posture; no exposure of existing requests to the submitter)
 ---
+
+
+
+
 
 # TASK-004: apps/portal scaffold + public services page + request form + anonymous submit
 

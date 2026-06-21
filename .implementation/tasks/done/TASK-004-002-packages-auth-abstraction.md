@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: IO (2026-06-15T22:30:00Z — IO-as-reviewer close after BUG-004-001 fix)
 depends_on: TASK-004-001 (done)
 impl: webapp-developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-15T20:08:21Z
 completed_at: 2026-06-15T21:23:00Z
-complexity_estimate: "4"
-complexity_actual: "5"
-introduces_gate: no
-acceptance_criteria: [AC-AUTH-001-03 (an authenticated account's role is determinable server-side at every access decision — this task establishes the *server-side role read* foundation: `getSessionRole()`/`getIdentity()` read the role from the session, never from a client assertion); redirect-matrix **foundation** for AC-AUTH-010-01/-02/-03 (the per-app middleware + ADR-010 redirect helper that the exhaustive cross-app suite in TASK-004-008 exercises). The full AC-AUTH-010-* e2e proof and the role-model invariants (AC-AUTH-001-01/-02) are owned by TASK-004-008 and TASK-004-004 respectively — do not duplicate their tagged tests here.]
-upstream_refs: ADR-001 (Clerk is the production auth target — `publicMetadata.role: 'ACCOUNTANT' | 'CLIENT'`, read server-side; one Clerk application, two sign-in surfaces; the abstraction must keep this shape so the real binding is a drop-in), ADR-010 (cross-app navigation & the redirect matrix — per-app middleware redirects a mismatched role to its own home **before any wrong-app content renders**; redirect not 403; `apps/admin` has no public routes; `apps/portal` public allow-list `/`, `/services`, `/request`, `/sign-in`, `/sign-up`; redirect destinations use `PORTAL_APP_URL`/`ADMIN_APP_URL`; global sign-out across both apps), ADR-005 (role is the trust boundary — server-evaluated, never client-asserted, including under the mocked provider where the role claim is set by the test session).
+complexity_estimate: 4
+complexity_actual: 5
+introduces_gate: "no"
+acceptance_criteria: ["AC-AUTH-001-03 (an authenticated accounts role is determinable server-side at every access decision — this task establishes the *server-side role read* foundation: `getSessionRole()`/`getIdentity()` read the role from the session, never from a client assertion); redirect-matrix **foundation** for AC-AUTH-010-01/-02/-03 (the per-app middleware + ADR-010 redirect helper that the exhaustive cross-app suite in TASK-004-008 exercises). The full AC-AUTH-010-* e2e proof and the role-model invariants (AC-AUTH-001-01/-02) are owned by TASK-004-008 and TASK-004-004 respectively — do not duplicate their tagged tests here."]
+upstream_refs: "ADR-001 (Clerk is the production auth target — `publicMetadata.role: 'ACCOUNTANT' | 'CLIENT'`, read server-side; one Clerk application, two sign-in surfaces; the abstraction must keep this shape so the real binding is a drop-in), ADR-010 (cross-app navigation & the redirect matrix — per-app middleware redirects a mismatched role to its own home **before any wrong-app content renders**; redirect not 403; `apps/admin` has no public routes; `apps/portal` public allow-list `/`, `/services`, `/request`, `/sign-in`, `/sign-up`; redirect destinations use `PORTAL_APP_URL`/`ADMIN_APP_URL`; global sign-out across both apps), ADR-005 (role is the trust boundary — server-evaluated, never client-asserted, including under the mocked provider where the role claim is set by the test session)."
 ---
+
+
+
+
 
 # TASK-004-002: `packages/auth` abstraction — provider port (Clerk + mock bindings) + ADR-010 redirect helper + per-app middleware
 

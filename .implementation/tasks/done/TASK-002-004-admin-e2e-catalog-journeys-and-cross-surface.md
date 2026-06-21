@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: TASK-002-003
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-16T13:40:18Z
 completed_at: 2026-06-16T16:42:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
+complexity_estimate: 4
+complexity_actual: 4
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: [AC-DOOR-002-01, AC-DOOR-002-02, AC-DOOR-002-03, AC-DASH-010-01, AC-DASH-010-02, AC-DASH-010-03 (e2e tier-6 journeys; each covering test tagged with BOTH the DOOR and DASH id where one journey evidences both), and the UI-level surface of AC-DOOR-002-05 (the catalog write path exists only on the authenticated admin surface). Plus the cross-surface loop for AC-DOOR-002-03 (paired with EPIC-001's AC-DOOR-002-04 — NOT claimed as a row here).]
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: [AC-DOOR-002-01, AC-DOOR-002-02, AC-DOOR-002-03, AC-DASH-010-01, AC-DASH-010-02, AC-DASH-010-03 (e2e tier-6 journeys; each covering test tagged with BOTH the DOOR and DASH id where one journey evidences both), and the UI-level surface of AC-DOOR-002-05 (the catalog write path exists only on the authenticated admin surface). Plus the cross-surface loop for AC-DOOR-002-03 (paired with EPIC-001s AC-DOOR-002-04 — NOT claimed as a row here).]
 upstream_refs: ADR-006 (apps/admin e2e scope), ADR-010 (admin-only), ADR-012 (tier-6 e2e), planning EPIC-002 (the 7 gherkin scenarios verbatim)
 ---
+
+
+
+
 
 # TASK-002-004: Admin e2e catalog journeys (7 gherkin scenarios) + .feature mirror + cross-surface deactivate→public-door loop check
 

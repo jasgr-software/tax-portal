@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: TASK-004-002 (done — `packages/auth` port + mock binding deliver the server-side role read)
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-15T00:00:00Z
 completed_at: 2026-06-15T08:00:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
-introduces_gate: no
+complexity_estimate: 2
+complexity_actual: 2
+introduces_gate: "no"
 acceptance_criteria: [AC-AUTH-001-01, AC-AUTH-001-02, AC-AUTH-001-03]
 upstream_refs: ADR-001 (role lives in `publicMetadata.role`; one Clerk app / two surfaces), ADR-005 (role is the trust boundary — server-evaluated, never client-asserted)
 ---
+
+
+
+
 
 # TASK-004-004: Role-model invariants + server-side role read
 

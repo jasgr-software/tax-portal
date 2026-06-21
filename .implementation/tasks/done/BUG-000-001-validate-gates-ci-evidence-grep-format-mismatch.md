@@ -2,11 +2,15 @@
 epic: cross-cutting (BUG-000-NNN)
 status: closed
 assigned_to: devops
-severity: high — the gate that checks Gate Authoring Rules evidence for `Introduces-gate: yes` tasks silently passes with zero tasks inspected on the real repo
+severity: "high — the gate that checks Gate Authoring Rules evidence for `Introduces-gate: yes` tasks silently passes with zero tasks inspected on the real repo"
 found_by: sdet
 found_during: TASK-LOE-003 review (2026-04-27)
 blocks: TASK-LOE-003 cannot move to done until this is fixed and re-reviewed
 ---
+
+
+
+
 
 # BUG-000-001: validate-gates.sh check_ci_evidence grep pattern does not match Introduces-gate field format
 

@@ -5,18 +5,22 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-003, TASK-004, TASK-005 (all `done` — this is a Smoke-gate fix-forward, not a revert)
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-15T00:00:00Z
 completed_at: 2026-06-15T09:26:00Z
-complexity_estimate: "2"
-complexity_actual: "3"
+complexity_estimate: 2
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: [AC-DOOR-001-01, AC-DOOR-001-02, AC-DOOR-001-03 (services page reachable anonymously & lists active services — must now render HTTP 200, not 500, on a clean compose bring-up), AC-DOOR-003-01, AC-DOOR-004-01, AC-DOOR-004-02, AC-DOOR-004-03 (`@smoke` happy-path submit must pass against the containers), "AC-DOOR-004-05. These ACs were \"passing\" only under hand-configured env overrides; this task makes them pass on a clean compose-declared bring-up. No new behavioral AC — this restores the slice's existing AC under the real container env contract."]
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: [AC-DOOR-001-01, AC-DOOR-001-02, AC-DOOR-001-03 (services page reachable anonymously & lists active services — must now render HTTP 200, not 500, on a clean compose bring-up), AC-DOOR-003-01, AC-DOOR-004-01, AC-DOOR-004-02, AC-DOOR-004-03 (`@smoke` happy-path submit must pass against the containers), AC-DOOR-004-05. These ACs were \passing\ only under hand-configured env overrides; this task makes them pass on a clean compose-declared bring-up. No new behavioral AC — this restores the slices existing AC under the real container env contract.]
 upstream_refs: ADR-003 §1/§6 (anonymous paths use the admin pool, never the request pool — must remain true; the request pool stays wired-but-unused this slice), ADR-004 (Prisma as sole ORM; lazy construction must not introduce a second client), ADR-005 (RLS policy on `engagement_request` and `Service` must NOT be relaxed; the accountant-only-read invariant holds), ADR-006/007 (compose at repo root; SQL auth via env secret), REQ-DOOR-004 (anonymous-no-auth invariant must hold — no auth gate added)
 fixes: BUG-001-003
 ---
+
+
+
+
 
 # TASK-006: Lazy Prisma client init + complete DATABASE_URL contract (Smoke-gate fix-forward)
 

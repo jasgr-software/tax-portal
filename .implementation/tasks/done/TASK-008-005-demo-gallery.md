@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-008-004
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-20T01:01:37Z
 completed_at: 2026-06-20T02:30:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
-introduces_gate: no
-acceptance_criteria: none (justification: non-gating UI demo walkthrough per DEMO-POLICY; the acceptance behavior is gated by TASK-008-001..004)
+complexity_estimate: 2
+complexity_actual: 2
+introduces_gate: "no"
+acceptance_criteria: "none (justification: non-gating UI demo walkthrough per DEMO-POLICY; the acceptance behavior is gated by TASK-008-001..004)"
 upstream_refs: ADR-006
 ---
+
+
+
+
 
 # TASK-008-005: @demo gallery — onboarding-completion walkthrough (docs/demos/EPIC-008/)
 

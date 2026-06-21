@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-002-004
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-16T16:37:57Z
 completed_at: 2026-06-16T17:30:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: none (justification: non-gating demo artifact — captures AC-tagged screenshots of the AC-DOOR-002-01/-02/-03 + AC-DASH-010-01/-02/-03 happy path already validated by TASK-002-004; the e2e gate is the gate, per the brief and .orchestration/DEMO-POLICY.md)
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none (justification: non-gating demo artifact — captures AC-tagged screenshots of the AC-DOOR-002-01/-02/-03 + AC-DASH-010-01/-02/-03 happy path already validated by TASK-002-004; the e2e gate is the gate, per the brief and .orchestration/DEMO-POLICY.md)"
 upstream_refs: planning EPIC-002 (demo applicable, persona jane-accountant, flow flow-engagement-request), ADR-006 (apps/admin)
 ---
+
+
+
+
 
 # TASK-002-005: @demo walkthrough spec — jane-accountant catalog-management happy path (screenshot gallery → docs/demos/EPIC-002/)
 

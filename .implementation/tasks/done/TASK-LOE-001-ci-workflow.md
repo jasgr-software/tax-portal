@@ -4,16 +4,20 @@ status: done
 assigned_to: devops
 updated_by: sdet
 depends_on: none
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-04-26T00:00:00Z
 completed_at: 2026-04-27T00:54:02Z
-complexity_estimate: "2"
-complexity_actual: "3"
-introduces_gate: yes
-affected_flows: none (justification: chore touches CI infrastructure, not user-facing behavior)
-affected_requirements: none (justification: chore touches CI infrastructure, not SRS requirements)
+complexity_estimate: 2
+complexity_actual: 3
+introduces_gate: "yes"
+affected_flows: "none (justification: chore touches CI infrastructure, not user-facing behavior)"
+affected_requirements: "none (justification: chore touches CI infrastructure, not SRS requirements)"
 relevant_adrs: ADR-002 (SQL Server in Docker for CI), ADR-006 (two-app workspace structure)
 ---
+
+
+
+
 
 # TASK-LOE-001: GitHub Actions CI workflow with SQL Server service + auto-issue on failure
 

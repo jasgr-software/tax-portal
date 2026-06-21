@@ -6,15 +6,19 @@ updated_by: webapp-developer
 impl: developer
 started_at: 2026-06-16T20:00:00Z
 completed_at: 2026-06-16T23:45:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 brief_type: feature
-brief_deploys: no
+brief_deploys: "no"
 introduces_gate: no (adds a regression test that reproduces the pooled-reuse path — the test is its own evidence; it does not introduce a new *required* CI/DoD gate). The pooled-reuse regression test is, however, a HARD DoD item — the gap it closes is the reason the defect shipped.
-acceptance_criteria: AC-DOOR-002-01/-02/-03 — indirect: this bug blocks the in-container write journeys in TASK-002-004 (add/edit/deactivate). The write succeeds on connection A; the subsequent `revalidatePath('/services')` RSC re-render reuses pooled connection A and 500s on the 2nd SESSION_CONTEXT set → "Application error" → the 4 e2e fail. The bug's own correctness is verified by the pooled-reuse regression test (see § Regression test) + the 4 currently-failing e2e going green (17/17).
+acceptance_criteria: "AC-DOOR-002-01/-02/-03 — indirect: this bug blocks the in-container write journeys in TASK-002-004 (add/edit/deactivate). The write succeeds on connection A; the subsequent `revalidatePath('/services')` RSC re-render reuses pooled connection A and 500s on the 2nd SESSION_CONTEXT set → \\\"Application error\\\" → the 4 e2e fail. The bug's own correctness is verified by the pooled-reuse regression test (see § Regression test) + the 4 currently-failing e2e going green (17/17)."
 upstream_refs: ADR-003 §2 (set-on-acquire `$extends` middleware), **ADR-003 §3 (`@read_only = 1` — the clause this bug must change; explicit mandate → architecture consult required)**, ADR-003 §4 (reset-on-release; structurally depends on §3), ADR-003 §5 (fail-closed null-identity semantic), ADR-004 (Prisma sole ORM / connection pooling), ADR-005 (RLS reads SESSION_CONTEXT — the trust boundary identity reaches).
-severity: blocker (every reused pooled connection 500s on its 2nd SESSION_CONTEXT set; hard-blocks the 4 remaining TASK-002-004 write-journey e2e). **Security-sensitive: touches the identity trust boundary (ADR-003/ADR-005).**
+severity: "blocker (every reused pooled connection 500s on its 2nd SESSION_CONTEXT set; hard-blocks the 4 remaining TASK-002-004 write-journey e2e). **Security-sensitive: touches the identity trust boundary (ADR-003/ADR-005).**"
 ---
+
+
+
+
 
 # BUG-002-003 — `sp_set_session_context @read_only = 1` is architecturally incompatible with Prisma connection pooling (reused pooled connection 500s on the 2nd request, error 15664)
 

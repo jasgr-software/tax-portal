@@ -5,18 +5,22 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: TASK-009-001
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-21T14:32:58Z
 completed_at: 2026-06-21T09:48:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 brief_type: feature
-brief_deploys: no
-introduces_gate: yes
-acceptance_criteria: [AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03 (consolidated from EPIC-004 — keep tagged + green through the lane's sign-in path, do not rebuild the middleware) + the inert-under-`clerk` guard dev-acceptance (security-relevant, NOT advisory) + the server-set-role assertion (ADR-005)]
+brief_deploys: "no"
+introduces_gate: "yes"
+acceptance_criteria: [AC-AUTH-010-01, AC-AUTH-010-02, "AC-AUTH-010-03 (consolidated from EPIC-004 — keep tagged + green through the lanes sign-in path, do not rebuild the middleware) + the inert-under-`clerk` guard dev-acceptance (security-relevant, NOT advisory) + the server-set-role assertion (ADR-005)"]
 upstream_refs: REQ-AUTH-010, ADR-001, ADR-012, ADR-005, ADR-010
 code_standards: CS-TS-001 (required — any request-scoped DB read through the `packages/db` wrapper), CS-GEN-001 (recommended — no secret/PII in logs), CS-GEN-003 (recommended — cite the governing key)
 ---
+
+
+
+
 
 # TASK-009-003: Inert-under-`clerk` guard (HARD security gate) + server-set-role assertion + AC-AUTH-010 non-regression tagging
 

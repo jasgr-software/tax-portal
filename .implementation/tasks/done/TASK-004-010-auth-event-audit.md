@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: 002 (✓ done) — consumes the `packages/auth` sign-in / invitation seams + mock binding; 005 (✓ done) — the client-account-creation-from-invitation path the audit seam attaches to; 007 (✓ done) — the `packages/db` `$extends`/`withRequestContext` request-scoped path the in-transaction write rides on. (Was 003; -003 deferred.)
 impl: webapp-developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-15T23:31:26Z
 completed_at: 2026-06-15T23:58:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
-introduces_gate: no
-acceptance_criteria: none (security gate; justification: ADR-019 audit-trail extra-gate carried by the brief as a Constraint — no user-facing AC maps to it. The brief frames it: "Security-significant auth events — **accountant sign-in** and **client account creation from invitation** — are recorded in the audit trail, with an integration test proving the write." Trace tag is the **ADR id** `[ADR-019]`, not an AC id.)
+complexity_estimate: 4
+complexity_actual: 4
+introduces_gate: "no"
+acceptance_criteria: "none (security gate; justification: ADR-019 audit-trail extra-gate carried by the brief as a Constraint — no user-facing AC maps to it. The brief frames it: \\\"Security-significant auth events — **accountant sign-in** and **client account creation from invitation** — are recorded in the audit trail, with an integration test proving the write.\\\" Trace tag is the **ADR id** `[ADR-019]`, not an AC id.)"
 upstream_refs: ADR-019 (audit trail — SQL Server 2022 **append-only ledger** table for tamper-evidence; audit write **in the same DB transaction as the mutation**, fail-closed; **RLS** read restricted to accountant/admin only, **CLIENT denied entirely**; raw-SQL track for the ledger DDL since it is not Prisma-expressible), ADR-003 (the request context that supplies the **actor** identity — `clerkUserId` + `role` from SESSION_CONTEXT, the "who"), ADR-005 (the RLS trust boundary the audit-read predicate plugs into — `SESSION_CONTEXT(N'role')`, admin principal exempt, fail-closed when null), ADR-002 (`DATETIMEOFFSET` storage; raw-SQL migration track).
 ---
+
+
+
+
 
 # TASK-004-010: Auth-event audit (ADR-019) — append-only ledger table + accountant/admin-only RLS predicate (denies CLIENT) + audit-write seam for the two auth events + integration test proving the write
 

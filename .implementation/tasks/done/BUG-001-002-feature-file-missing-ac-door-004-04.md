@@ -7,6 +7,10 @@ raised_by: sdet
 raised_at: 2026-06-15
 ---
 
+
+
+
+
 # BUG-001-002: Feature file missing AC-DOOR-004-04 scenario (12 of 13 scenarios mirrored)
 
 ---

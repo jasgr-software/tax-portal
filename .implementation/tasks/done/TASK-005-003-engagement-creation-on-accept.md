@@ -5,16 +5,20 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-005-001 (Engagement schema + repo)
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T13:30:53Z
 completed_at: 2026-06-18T08:52:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
-brief_deploys: no
-introduces_gate: no
+complexity_estimate: 3
+complexity_actual: 3
+brief_deploys: "no"
+introduces_gate: "no"
 acceptance_criteria: AC-ONBD-001-01 (substrate — the engagement the three-step sequence attaches to comes into being on accept). The visible three-step sequence is rendered in TASK-005-006; this task creates the row it hangs from.
 upstream_refs: ADR-003 (SESSION_CONTEXT), ADR-005 (client-owned row created via admin pool inside the audit transaction), ADR-019 (the accept is already audited — extend additively, do not duplicate the audit row), ADR-024 §6 (template boundary — no e-sign concern here).
 ---
+
+
+
+
 
 # TASK-005-003: Create the minimal Engagement on request acceptance + resolve client link
 

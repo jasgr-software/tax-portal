@@ -5,17 +5,21 @@ assigned_to: devops
 updated_by: devops
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-15T10:48:38Z
 completed_at: 2026-06-15T16:00:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: none (justification: build-pipeline/scaffold-only task — establishes the pnpm workspace, shared TS/ESLint/Prettier config, and `.env.example` that later tasks build on. No user-facing behavior; AC coverage lands in TASK-003/004/005.)
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none (justification: build-pipeline/scaffold-only task — establishes the pnpm workspace, shared TS/ESLint/Prettier config, and `.env.example` that later tasks build on. No user-facing behavior; AC coverage lands in TASK-003/004/005.)"
 upstream_refs: ADR-006 (monorepo layout — pnpm workspaces, `packages/tsconfig`, `packages/eslint-config`, Node 20 LTS, pnpm ≥9), ADR-002 (`.env.example` carries the two-pool `DATABASE_URL_APP` / `DATABASE_URL_ADMIN` per ADR-003), ADR-003 (two DB principals → two connection URLs in env)
 ---
+
+
+
+
 
 # TASK-001: Monorepo + tooling scaffold (pnpm workspaces, shared config, env)
 

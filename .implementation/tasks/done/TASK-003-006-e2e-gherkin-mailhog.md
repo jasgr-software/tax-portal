@@ -5,15 +5,19 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: TASK-003-003, TASK-003-004, TASK-003-005
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-17T12:10:56Z
 completed_at: 2026-06-17T14:05:00Z
-complexity_estimate: "4"
-complexity_actual: "5"
+complexity_estimate: 4
+complexity_actual: 5
 introduces_gate: advisory (the e2e Mailhog email-delivery assertion is the slice's email gate — § Gate Authoring Rules three-item evidence in the Work Log)
 acceptance_criteria: [AC-DOOR-005-02 (notification leads to the request), AC-DOOR-006-01 (view details), AC-DOOR-006-02 (accept), AC-DOOR-006-03 (decline), AC-DOOR-007-01 (invitation email arrives), AC-DOOR-008-01 (reason capture), AC-DOOR-008-02 (reason email arrives), AC-DOOR-008-04 (reason retained/shown), AC-DASH-011-01 (view all), AC-DASH-011-02 (states), AC-DASH-011-03 (pending identifiable)]
 upstream_refs: ADR-012 (testing pyramid — tier-6 e2e), ADR-006 (admin surface), REQ-NFR-008 (email delivery proven against Mailhog)
 ---
+
+
+
+
 
 # TASK-003-006: E2e suite (admin) — accept→invite & decline→email happy paths, inbox states, Mailhog assertions, gherkin binding
 

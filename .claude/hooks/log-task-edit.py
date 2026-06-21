@@ -96,8 +96,18 @@ def main() -> None:
     if not os.path.exists(file_path):
         return
 
+    # Confine the resolved path to the repo's task tree before opening.
+    # Path(file_path) could be absolute or relative; resolve() canonicalises it.
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        resolved = Path(file_path).resolve()
+        allowed_root = (REPO_ROOT / ".implementation" / "tasks").resolve()
+        if not (resolved == allowed_root or str(resolved).startswith(str(allowed_root) + os.sep)):
+            return
+    except OSError:
+        return
+
+    try:
+        with open(resolved, "r", encoding="utf-8") as f:
             text = f.read(4096)
     except OSError:
         return

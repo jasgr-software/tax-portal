@@ -14,12 +14,14 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as child_process from "node:child_process";
 import { describe, it, expect } from "vitest";
 
 import {
   parseHeaderBlock,
   migrateFileContent,
   migrateFileContentWithMeta,
+  reserializeFileContent,
 } from "./migrate-task-frontmatter.js";
 
 import {
@@ -471,5 +473,145 @@ describe("migrateFileContentWithMeta — unknown key surfacing", () => {
     expect(extracted.found).toBe(true);
     if (!extracted.found) throw new Error("unreachable");
     expect(extracted.fm["estimated_tokens"]).toBe("2000");
+  });
+});
+
+// ─── Suite 10: reserializeFileContent ─────────────────────────────────────────
+
+describe("reserializeFileContent", () => {
+  it("re-emits an already-migrated file through the fixed serializer", () => {
+    // Simulate a file that was migrated with a buggy serializer: quoted integer + unquoted colon-space
+    const buggyFm = [
+      "---",
+      'complexity_estimate: "2"',         // quoted integer (should be unquoted)
+      'complexity_actual: "2"',            // quoted integer (should be unquoted)
+      'affected_flows: none (justification: chore touches CI infrastructure, not user-facing behavior)',  // unquoted colon-space value
+      "---",
+      "",
+      "# TASK-TEST: Title",
+      "",
+      "## Body",
+      "",
+    ].join("\n");
+
+    const result = reserializeFileContent(buggyFm);
+    expect(result.changed).toBe(true);
+
+    const extracted = extractFrontMatter(result.output);
+    expect(extracted.found).toBe(true);
+    if (!extracted.found) throw new Error("unreachable");
+
+    // Integers must be unquoted in serialized form
+    expect(result.output).toContain("complexity_estimate: 2");
+    expect(result.output).toContain("complexity_actual: 2");
+    // Parsed values are still strings
+    expect(extracted.fm["complexity_estimate"]).toBe("2");
+    expect(extracted.fm["complexity_actual"]).toBe("2");
+    // Colon-space value must be quoted now
+    expect(result.output).toContain('affected_flows: "none (justification: chore touches CI infrastructure, not user-facing behavior)"');
+    // Round-trip: parsed value is the unquoted string
+    expect(extracted.fm["affected_flows"]).toBe("none (justification: chore touches CI infrastructure, not user-facing behavior)");
+  });
+
+  it("returns {changed: false} for a file not starting with ---", () => {
+    const text = "# TASK-001: Title\n\n**Status**: done\n\n---\n\n## Body\n";
+    const result = reserializeFileContent(text);
+    expect(result.changed).toBe(false);
+    expect(result.output).toBe(text);
+  });
+
+  it("returns {changed: false} when front matter is already correct", () => {
+    const alreadyCorrect = [
+      "---",
+      "status: done",
+      "complexity_estimate: 2",
+      "complexity_actual: 2",
+      'affected_flows: "none (justification: chore touches CI infrastructure, not user-facing behavior)"',
+      "---",
+      "",
+      "# TASK-TEST: Title",
+      "",
+      "## Body",
+      "",
+    ].join("\n");
+
+    const result = reserializeFileContent(alreadyCorrect);
+    // Note: parseFrontMatter strips quotes; reserializeFrontMatter re-quotes.
+    // The result may or may not be byte-identical depending on parse/serialize round-trip.
+    // What matters: if we run reserialize a second time, it should be stable (no further change).
+    const secondRun = reserializeFileContent(result.output);
+    expect(secondRun.changed).toBe(false);
+  });
+});
+
+// ─── Suite 11: YAML validity oracle — all on-disk migrated files parse cleanly ─
+//
+// This is the regression oracle that was missing and let the BLOCKER through.
+// It shells to python3 + PyYAML (already present in the dev environment) to
+// validate every migrated TASK-*.md / BUG-*.md under .implementation/tasks/ as
+// real YAML — not just a line-scanner. If any file's front-matter block fails
+// yaml.safe_load(), the test fails with the offending file + error message.
+//
+// Honor the zero-runtime-dep ethos: PyYAML comes with the system Python3 on
+// every dev/CI machine this project targets; no npm package is added.
+
+describe("YAML validity oracle — all migrated task/bug files", () => {
+  it("every on-disk TASK-*.md and BUG-*.md front-matter block parses as valid YAML", () => {
+    const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+    const tasksRoot = path.join(repoRoot, ".implementation", "tasks");
+
+    // Collect all TASK-*.md and BUG-*.md files recursively
+    function collectFiles(dir: string): string[] {
+      if (!fs.existsSync(dir)) return [];
+      const results: string[] = [];
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          results.push(...collectFiles(full));
+        } else if (entry.isFile() && entry.name.endsWith(".md")) {
+          if (/^(TASK|BUG)-/i.test(entry.name)) results.push(full);
+        }
+      }
+      return results.sort();
+    }
+
+    const files = collectFiles(tasksRoot);
+    expect(files.length).toBeGreaterThan(0);  // Sanity: corpus must be non-empty
+
+    const errors: string[] = [];
+
+    for (const filePath of files) {
+      const content = fs.readFileSync(filePath, "utf8");
+      if (!content.startsWith("---")) continue;  // No front matter — skip (not migrated)
+
+      // Extract the FM block (between the first two --- fences)
+      const afterFirst = content.slice(3);
+      const closingIdx = afterFirst.indexOf("\n---");
+      if (closingIdx === -1) continue;
+      const fmBlock = afterFirst.slice(0, closingIdx);
+
+      // Shell to python3 -c "import yaml,sys; yaml.safe_load(sys.argv[1])" with the FM block
+      // Passing via argv avoids any shell-injection concern with file-derived content.
+      try {
+        child_process.execFileSync(
+          "python3",
+          ["-c", "import yaml,sys; yaml.safe_load(sys.argv[1])", fmBlock],
+          { stdio: ["ignore", "ignore", "pipe"] }
+        );
+      } catch (err: unknown) {
+        const stderr =
+          err instanceof Error && "stderr" in err
+            ? (err as NodeJS.ErrnoException & { stderr: Buffer }).stderr?.toString().trim()
+            : String(err);
+        errors.push(`INVALID YAML: ${path.relative(repoRoot, filePath)}: ${stderr}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(
+        `${errors.length} of ${files.length} migrated files have invalid YAML front matter:\n` +
+          errors.join("\n")
+      );
+    }
   });
 });

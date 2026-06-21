@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-006-006
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-18T22:39:45Z
 completed_at: 2026-06-19T02:15:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: none (non-gating demo artifact; the e2e gate in TASK-006-006 is the gate. Justification: a screenshot gallery has no user-facing acceptance behavior of its own — it captures already-validated behavior.)
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none (non-gating demo artifact; the e2e gate in TASK-006-006 is the gate. Justification: a screenshot gallery has no user-facing acceptance behavior of its own — it captures already-validated behavior.)"
 upstream_refs: ADR-006
 ---
+
+
+
+
 
 # TASK-006-007: @demo gallery (admin template authoring + portal questionnaire completion)
 

@@ -5,8 +5,12 @@ impl: io (self-implemented — e2e-spec-only selector fix, no production code ch
 severity: blocking (AC-FILE-007-01 admin-surface e2e gate is broken)
 found_by: SDET (Container Smoke gate — 2026-06-19)
 fixed_by: IO self-implementation 2026-06-19
-files_changed: `apps/admin/e2e/specs/document-requests.spec.ts` (1 file)
+files_changed: "`apps/admin/e2e/specs/document-requests.spec.ts` (1 file)"
 ---
+
+
+
+
 
 # BUG-007-001 — Admin e2e `document-requests.spec.ts` uses stale data-testid selectors
 

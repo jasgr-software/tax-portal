@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-002-001
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-16T12:57:28Z
 completed_at: 2026-06-16T13:15:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
+complexity_estimate: 3
+complexity_actual: 3
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: [AC-DOOR-002-01, AC-DOOR-002-02, AC-DOOR-002-03 (capability: add / edit / deactivate persist), and the server-side enforcement half of AC-DOOR-002-05 (writes run under the authenticated accountant identity)]
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: [AC-DOOR-002-01, AC-DOOR-002-02, "AC-DOOR-002-03 (capability: add / edit / deactivate persist)", and the server-side enforcement half of AC-DOOR-002-05 (writes run under the authenticated accountant identity)]
 upstream_refs: ADR-003 (SESSION_CONTEXT via the packages/db request wrapper), ADR-002/ADR-004 (Prisma single-track entity persistence on real SQL Server), ADR-005 (write boundary), REQ-DOOR-002 (reversible deactivation)
 ---
+
+
+
+
 
 # TASK-002-002: Service write repository + admin server actions (create / update / deactivate) through the request-scoped wrapper + persistence tier-3 test
 

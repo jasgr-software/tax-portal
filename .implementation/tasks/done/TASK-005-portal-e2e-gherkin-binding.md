@@ -5,17 +5,21 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-001, TASK-002, TASK-003, TASK-004
 impl: developer
-e2e_required: yes
+e2e_required: "yes"
 started_at: 2026-06-15T00:00:00Z
 completed_at: 2026-06-15T00:00:00Z
-complexity_estimate: "4"
-complexity_actual: "1"
+complexity_estimate: 4
+complexity_actual: 1
 brief_type: feature
-brief_deploys: no
-introduces_gate: yes
-acceptance_criteria: [AC-DOOR-001-01 (anonymous reachability), AC-DOOR-001-03 (no account/PII to view), AC-DOOR-003-01 / -02 / -03 / -04 (the checklist form behavior), AC-DOOR-004-01 (select one or more), AC-DOOR-004-02 (contact info captured), AC-DOOR-004-05 (zero-services blocked), **plus the happy-path submit** (AC-DOOR-004-03 end-to-end through the UI). These are the **tier-6 e2e** obligations. (AC-DOOR-004-03/-04 also hold tier-3 coverage in TASK-003; here they are exercised end-to-end through the delivered UI.)]
+brief_deploys: "no"
+introduces_gate: "yes"
+acceptance_criteria: [AC-DOOR-001-01 (anonymous reachability), AC-DOOR-001-03 (no account/PII to view), AC-DOOR-003-01 / -02 / -03 / -04 (the checklist form behavior), AC-DOOR-004-01 (select one or more), AC-DOOR-004-02 (contact info captured), AC-DOOR-004-05 (zero-services blocked), "**plus the happy-path submit** (AC-DOOR-004-03 end-to-end through the UI). These are the **tier-6 e2e** obligations. (AC-DOOR-004-03/-04 also hold tier-3 coverage in TASK-003; here they are exercised end-to-end through the delivered UI.)"]
 upstream_refs: ADR-006 (per-app Playwright config; `apps/portal/e2e/`; shared docker-compose stack as the SUT; cross-app specs land in the terminating app — N/A here, single-app), ADR-012 / TESTING.md (tier 6 e2e — full docker-compose stack, Chromium; `@smoke` subset becomes the required-on-PR e2e subset once the first flow lands), methodology.acceptance_format gherkin (bind the 13 Given/When/Then scenarios; mirror as `.feature`)
 ---
+
+
+
+
 
 # TASK-005: Playwright e2e infrastructure + gherkin binding for the public front door
 

@@ -5,18 +5,22 @@ assigned_to: webapp-developer
 updated_by: sdet
 depends_on: TASK-009-004
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-21T16:21:45Z
 completed_at: 2026-06-21T20:15:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
+complexity_estimate: 2
+complexity_actual: 2
 brief_type: feature
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: none (demo artifact; justification: non-gating UI walkthrough — the e2e gate (TASK-009-004) is the gate; the demo gallery captures an AC-tagged screenshot story per DEMO-POLICY, no COVERAGE rows)
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: "none (demo artifact; justification: non-gating UI walkthrough — the e2e gate (TASK-009-004) is the gate; the demo gallery captures an AC-tagged screenshot story per DEMO-POLICY, no COVERAGE rows)"
 upstream_refs: REQ-AUTH-013, ADR-006
 code_standards: CS-GEN-002 (recommended — additive, scope screenshot output to `docs/demos/EPIC-009/` only; do not rewrite prior-epic PNGs), CS-GEN-003 (recommended — cite the AC id in the @demo annotations)
 ---
+
+
+
+
 
 # TASK-009-005: @demo gallery — `docs/demos/EPIC-009/` sign-in lane walkthrough (non-gating)
 

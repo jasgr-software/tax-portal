@@ -4,16 +4,20 @@ status: done
 assigned_to: devops
 updated_by: devops
 depends_on: none (independent of TASK-LOE-001 — the script is the backstop, not a CI consumer)
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-04-26T12:00:00Z
 completed_at: 2026-04-27T09:15:00Z
-complexity_estimate: "3"
-complexity_actual: "3"
-introduces_gate: yes
-affected_flows: none (justification: chore touches CI/git infrastructure, not user-facing behavior)
-affected_requirements: none (justification: chore touches workflow infrastructure, not SRS requirements)
+complexity_estimate: 3
+complexity_actual: 3
+introduces_gate: "yes"
+affected_flows: "none (justification: chore touches CI/git infrastructure, not user-facing behavior)"
+affected_requirements: "none (justification: chore touches workflow infrastructure, not SRS requirements)"
 relevant_adrs: none
 ---
+
+
+
+
 
 # TASK-LOE-003: scripts/validate-gates.sh + pre-push hook
 

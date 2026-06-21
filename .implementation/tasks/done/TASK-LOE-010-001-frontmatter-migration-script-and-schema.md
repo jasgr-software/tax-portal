@@ -6,16 +6,20 @@ assigned_to: devops
 updated_by: sdet
 depends_on: none
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-21T18:01:16Z
 completed_at: 2026-06-21T19:30:00Z
 complexity_estimate: 4
 complexity_actual: 4
 introduces_gate: advisory
 acceptance_criteria: [AC-LOE-010-01, AC-LOE-010-02, AC-LOE-010-03]
-upstream_refs: none (design source: `PROPOSAL-scripted-bookkeeping.md` §5 Phase 0, §9.1, §10 Q1/Q2 — proposals are main-session design docs, not an upstream `.requirements`/`.architecture`/`.planning` layer)
-code_standards: none (brief `code_standards: []`)
+upstream_refs: "none (design source: `PROPOSAL-scripted-bookkeeping.md` §5 Phase 0, §9.1, §10 Q1/Q2 — proposals are main-session design docs, not an upstream `.requirements`/`.architecture`/`.planning` layer)"
+code_standards: "none (brief `code_standards: []`)"
 ---
+
+
+
+
 
 # TASK-LOE-010-001: Front-matter migration script + schema/verify module
 

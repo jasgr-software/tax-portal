@@ -7,6 +7,10 @@ raised_by: sdet (container-smoke gate) → IO (root-cause confirmed, fix scoped)
 raised_at: 2026-06-15
 ---
 
+
+
+
+
 # BUG-001-003: Eager Prisma client construction + incomplete DB URLs break clean-slate container smoke
 
 ---

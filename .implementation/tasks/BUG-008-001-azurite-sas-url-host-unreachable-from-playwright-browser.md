@@ -8,6 +8,10 @@ origin: EPIC-007 (ADR-009 two-phase upload pipeline) — **pre-existing infra de
 disposition: tracked follow-up — carried to retro / Validate-disposition; AC-ONBD-005-01 carried for slice
 ---
 
+
+
+
+
 # BUG-008-001 — Azurite SAS-URL PUT host-unreachable from the Playwright browser process (upload-delivery e2e tier)
 
 ---

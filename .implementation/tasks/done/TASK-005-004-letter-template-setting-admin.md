@@ -5,16 +5,20 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-005-001 (LetterTemplate schema + repo)
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T14:00:00Z
 completed_at: 2026-06-18T09:16:00Z
-complexity_estimate: "2"
-complexity_actual: "2"
-brief_deploys: no
-introduces_gate: no
+complexity_estimate: 2
+complexity_actual: 2
+brief_deploys: "no"
+introduces_gate: "no"
 acceptance_criteria: [AC-IDNT-007-01 (system default present out-of-box), AC-IDNT-007-02 (accountant edits content, persists). AC-IDNT-007-03 (edited template shown to the client at the letter step) is delivered in TASK-005-005/-006/-007 (the client surface) — this task owns the admin write side + the default.]
 upstream_refs: ADR-003 (template-edit write under the **accountant** principal via `withRequestContext`), ADR-006 (template editing is an `apps/admin` setting — must NOT be reachable from `apps/portal`), ADR-024 §6 (authoring is the app's concern, not the provider's).
 ---
+
+
+
+
 
 # TASK-005-004: Engagement-letter template setting (admin) — default present + accountant edit persists
 

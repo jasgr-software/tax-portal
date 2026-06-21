@@ -5,16 +5,20 @@ assigned_to: webapp-developer
 updated_by: webapp-developer
 depends_on: TASK-005-001 (Engagement/onboarding-state schema + isolation policy + repo), TASK-005-002 (`ESignatureProvider` seam), TASK-005-003 (engagement exists + client link), TASK-005-004 (template content to present)
 impl: developer
-e2e_required: no
+e2e_required: "no"
 started_at: 2026-06-18T14:23:28Z
 completed_at: 2026-06-18T15:12:00Z
-complexity_estimate: "4"
-complexity_actual: "4"
-brief_deploys: no
-introduces_gate: no
-acceptance_criteria: [AC-ONBD-001-01, AC-ONBD-001-02, AC-ONBD-001-03 (read model + ordered steps + position — server side), AC-ONBD-002-01, AC-ONBD-002-02 (questionnaire + upload **server-side-locked** until signed), AC-ONBD-002-03 (sign → unlock), AC-ONBD-002-04 (signature evidence recorded against the engagement + audited), AC-IDNT-007-03 (the letter presented is the accountant's edited template).]
+complexity_estimate: 4
+complexity_actual: 4
+brief_deploys: "no"
+introduces_gate: "no"
+acceptance_criteria: [AC-ONBD-001-01, AC-ONBD-001-02, AC-ONBD-001-03 (read model + ordered steps + position — server side), AC-ONBD-002-01, AC-ONBD-002-02 (questionnaire + upload **server-side-locked** until signed), AC-ONBD-002-03 (sign → unlock), AC-ONBD-002-04 (signature evidence recorded against the engagement + audited), AC-IDNT-007-03 (the letter presented is the accountants edited template).]
 upstream_refs: ADR-001/ADR-005 (onboarding reachable only by the authenticated CLIENT who owns the engagement; role server-set), ADR-003 (client-principal reads + the signature write via `withRequestContext`), ADR-019 (signature is a security-significant audited event — fail-closed write, reuse `recordAuthEvent`/`withAuditTransaction`), ADR-023/024 (sign through the `ESignatureProvider` port — mock binding; never Docuseal directly).
 ---
+
+
+
+
 
 # TASK-005-005: Onboarding read model + server-side step-accessibility gate + letter-sign action (portal)
 
