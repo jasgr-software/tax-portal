@@ -74,9 +74,21 @@ does not reach in. Approach mirrors the Increment-3 Phase-2 derivers (`orchestra
 `id-alloc.sh`): derive from primary sources, one scripted command per mechanical step, under the
 #5/#6 promotion discipline (script the exercised mechanical paths; leave judgment and unexercised
 branches to agents). **Status: proposal ratified 2026-06-21; Phase 0 (YAML front-matter migration)
-in build via `TASK-LOE-010` on the reviewed engine lane (deliverables in `scripts/` + `package.json`
-are application-scope, so it runs through the implementation engine, not the main session). Phases
-1–2 pending, ratified separately after Phase 0 lands.**
+DELIVERED 2026-06-21 — merged `2b8944a` (PR #74) on the reviewed engine lane (`TASK-LOE-010-001..004`).
+The on-disk task/bug format is now YAML front matter; `validate-gates.sh` + the metrics hook read it.
+Phases 1–2 (`task.ts` CLI; `state.json`/`events.jsonl`) pending separate ratification before briefing.**
+
+> **Phase-0 delivery learning (load-bearing — folds into conclusion #3).** The reviewed-lane
+> `/pr-review` panel caught a **blocker that all four prior gates missed** — 39 of 90 migrated files
+> were not valid YAML (`needsQuoting` omitted YAML-significant cases) — because every prior gate
+> (developer submission gate, SDET review ×2, IO design-scan/Smoke, CI) validated the front matter
+> with the **same quote-tolerant line scanner the consumers use**, never a real YAML parser. The
+> durable rule: *a format migration whose target is a real parser's input must be validated with that
+> real parser — the oracle must be independent of the code under test.* Now closed as a standing
+> regression test (a PyYAML oracle over every migrated file). This is conclusion #3 ("re-derive from
+> primary sources, never from ledger verdicts") generalized to validation oracles: a lenient
+> re-implementation of the check is itself a "ledger verdict" — the gate must read the source the way
+> the eventual consumer (a real parser) will.
 
 ## Per-phase evaluation
 

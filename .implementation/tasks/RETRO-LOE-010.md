@@ -110,3 +110,59 @@ No new rule-sunset recommendation from this slice. The cross-surface-parity suns
 (engine-tooling slice, no `apps/portal`/`apps/admin` surface in scope). Carried project-wide observations
 (clock-source inversion `ungated-fix`, etc.) are untouched by this chore and remain in PROGRESS.md § Open
 retro action items.
+
+## Post-Merge Addendum (Close-finalize, 2026-06-21)
+
+**Merged:** PR **#74** → `main` via squash + delete-branch (reviewed lane; no `--admin`, no protection toggle).
+Squash commit **`2b8944a`** (`chore(engine): BRIEF-LOE-010 — migrate task/bug lifecycle fields to YAML front
+matter (Phase 0) (#74)`). `Brief-deploys: no`.
+
+**Reviewed-lane outcome.** Standards-review audit **PASS** (0 violations; 2 new experimental INFRA standards
+drafted, pending human ratification — not carried on this PR). `/pr-review` panel verdict: request-changes
+(advisory) — 1 blocker + 2 major + 4 minor + 1 nit. `/pr-fix` addressed all 9 findings (hardened `needsQuoting`
++ escaping; added a `--reserialize` path; re-serialized the corpus; added the YAML-validity oracle test; fixed
+the quoted-`complexity_actual` metrics regression). 10 review threads resolved; fix commits squashed into
+`2b8944a`.
+
+**Gate 8 — post-merge CI — GREEN.** Main CI run `27916242291` `success` (lint-and-typecheck, security-scan,
+test-portal, test-admin); CodeQL on main green; `bash scripts/validate-gates.sh` on merged main → exit 0, ALL
+CHECKS PASSED. Independently re-verified: **89/89 migrated files parse as valid YAML, 0 invalid; complexity
+fields are bare integers**. **Gate 9 — N/A** (`Brief-deploys: no`). **Zero post-merge bugs** (no
+`BUG-LOE-010-POST-*`).
+
+## The headline retro learning — the YAML-validity oracle gap (a gate-design finding)
+
+**What happened.** The `/pr-review` panel caught a **blocker** that *all four prior gates missed*: **39 of 90
+migrated files (43%) were not valid YAML.** The migration's `needsQuoting` heuristic omitted YAML-significant
+cases (values needing quoting/escaping that it left bare), so those front-matter blocks were syntactically
+invalid to a real parser — yet every preceding gate passed them green:
+
+- the **developer submission gate** (`validate-gates.sh`),
+- **SDET per-task review** (×2, -002/-003 and -004),
+- the **IO design-scan + Smoke backstop** (which *did* catch two other real defects — Defects A/B above — but
+  not this one),
+- and **CI** (`lint-and-typecheck` + `security-scan`).
+
+**Root cause — the oracle was not independent of the code under test.** Every one of those gates validated the
+front matter with a **quote-tolerant line scanner** (`awk`/`grep` key-extraction, the same forgiving parsing the
+runtime consumers use). None of them ran the corpus through a **real YAML parser**. The migration's output and
+all its validators shared the same lenient parsing assumptions, so a whole class of invalidity was structurally
+invisible: the test oracle and the code under test had a common blind spot. The `/pr-review` lens, reasoning from
+first principles ("the target format is a real parser's input — is it actually valid to that parser?"), was the
+first checker not sharing that blind spot.
+
+**Durable, generalizable lesson.** **A format migration whose target is a real parser's input must be validated
+with that real parser — not with the same lenient scanner the consumers use.** The validation oracle must be
+**independent of the code under test**; when the producer and all its checkers share a parsing shortcut, they
+share its blind spots, and "all gates green" certifies only internal self-consistency, not external correctness.
+The fix the panel forced is exactly the right shape: an **oracle test that shells to python3 + PyYAML over every
+file** — a genuinely independent parser. **The gap is now closed as a standing regression test** (the YAML oracle
+ships in `2b8944a`), so this can never silently recur on the corpus.
+
+**Classification (Overwatch buckets): `process-gap`** — specifically a *validation-oracle gap*: the gate set
+lacked an independent-parser check for a parser-targeted migration. **Not `flaky-gate`** (the invalidity was
+deterministic and reproducible). **Not `missed-requirement`** (the AC were correctly decomposed; AC-02 even says
+"well-formed FM" — the defect was that "well-formed" was checked by a scanner that couldn't actually tell). The
+remediation rode the PR via `/pr-fix` and is now permanent. **No new engine rule mandated**, but recorded as a
+reusable gate-design heuristic: *for any migration/serialization whose output feeds a real parser, the
+acceptance oracle must use that real parser, independent of the serializer's own assumptions.*
