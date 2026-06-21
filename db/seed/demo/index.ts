@@ -20,7 +20,7 @@
  */
 
 import { seedServices } from "../services.js";
-import { seedClients } from "./clients.js";
+import { seedClients, seedAccountant } from "./clients.js";
 import { seedEngagements } from "./engagements.js";
 import {
   seedQuestionnaireTemplates,
@@ -39,6 +39,10 @@ export async function seedDemo(): Promise<void> {
 
   // Step 1: Services (base data — must exist before request join rows)
   await seedServices();
+
+  // Step 2a: Accountant — ACCOUNTANT User row (must exist before admin pages do User lookups)
+  // TASK-009-004: accountant-seed precondition; see DECISION in clients.ts seedAccountant().
+  await seedAccountant();
 
   // Step 2: Clients — User rows + EngagementRequests + service join rows
   const clientMap = await seedClients();

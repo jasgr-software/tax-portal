@@ -4,6 +4,13 @@
  * TASK-004-008: The EXHAUSTIVE ADR-010 §1 cross-app redirect matrix for the admin surface.
  * Complements apps/portal/e2e/specs/cross-app-redirect.spec.ts (portal surface).
  *
+ * TASK-009-003 (AC-AUTH-010 non-regression): This file is tagged as TASK-009-003 ownership
+ * for the AC-AUTH-010 acceptance criteria. The redirect-matrix MECHANISM was delivered and
+ * verified by EPIC-004 — it is NOT rebuilt here. TASK-009-003 owns the tagging + the
+ * tier-2/3 unit-level proofs (server-set-role.test.ts); the e2e validation of AC-AUTH-010
+ * through the dev sign-in lane's full flow is consolidated into TASK-009-004.
+ * Middleware was NOT re-implemented — this is consolidation = ownership + tagging, not a rewrite.
+ *
  * This spec covers:
  *   AC-AUTH-010-01: signed-in CLIENT → admin root AND a deep admin path
  *                   ⇒ redirect (307/308) to PORTAL_APP_URL; no admin UI flash; redirect not 403.

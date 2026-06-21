@@ -31,7 +31,7 @@ export {
 export type { ServeDecision, RedirectDecision, MiddlewareDecision } from "./redirect.js";
 
 // ─── Binding Selector ─────────────────────────────────────────────────────────
-export { getAuthProvider } from "./select.js";
+export { getAuthProvider, isMockAuthSanctioned } from "./select.js";
 // Test-only: createAuthProvider and resetAuthProviderForTesting are intentionally
 // NOT re-exported here. Import directly from "./select.js" in tests only.
 // (OE5 — review finding: test resets must not be in the public barrel.)

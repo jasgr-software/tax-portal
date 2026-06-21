@@ -4,6 +4,11 @@
  * TASK-004-002: Proves the admin middleware seam fires BEFORE any page content renders,
  * using the mock auth binding (AUTH_PROVIDER=mock, default in the docker-compose stack).
  *
+ * TASK-009-003 (AC-AUTH-010 non-regression): This file is tagged as part of TASK-009-003
+ * AC-AUTH-010 non-regression ownership. The redirect-matrix MECHANISM was delivered by
+ * EPIC-004 — it is NOT rebuilt. The tier-2/3 unit-level AC-AUTH-010 proofs live in
+ * apps/portal/src/app/(dev)/dev-sign-in/server-set-role.test.ts.
+ *
  * AC-AUTH-010-02 (seam proof): A CLIENT request to an admin route → redirects to portal
  * BEFORE any admin content renders. This is "redirect, not 403" (ADR-010 §1).
  *

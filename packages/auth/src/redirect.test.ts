@@ -63,6 +63,17 @@ describe("isPortalPublicPath", () => {
   it("strips query string before matching", () => {
     expect(isPortalPublicPath("/services?foo=bar")).toBe(true);
   });
+
+  // TASK-009-001: dev sign-in lane is public (reachable unauthenticated)
+  // ADR-001: the route page itself returns 404 under AUTH_PROVIDER=clerk (TASK-009-003).
+  it("matches /dev-sign-in (TASK-009-001 — dev lane public path)", () => {
+    // CS-TS-003: unauthenticated testers must be able to reach the lane
+    expect(isPortalPublicPath("/dev-sign-in")).toBe(true);
+  });
+
+  it("matches /dev-sign-in sub-paths", () => {
+    expect(isPortalPublicPath("/dev-sign-in/some-sub")).toBe(true);
+  });
 });
 
 // ─── Infra path matcher ───────────────────────────────────────────────────────
@@ -160,6 +171,29 @@ describe("portalRedirectDecision — AC-AUTH-010-* foundation", () => {
 
   it("[AC-AUTH-010-03] serves /sign-in for signed-in ACCOUNTANT", () => {
     const result = portalRedirectDecision("/sign-in", { role: "ACCOUNTANT" }, "http://localhost:3000/sign-in");
+    expect(result.action).toBe("serve");
+  });
+
+  // ─ Dev sign-in lane is a public route (TASK-009-001) ──────────────────────────
+
+  it("[TASK-009-001] serves /dev-sign-in for unauthenticated — lane is public", () => {
+    // The lane page itself 404s under AUTH_PROVIDER=clerk (TASK-009-003 gate);
+    // the middleware allows through because /dev-sign-in is on the public allow-list.
+    const result = portalRedirectDecision(
+      "/dev-sign-in",
+      null,
+      "http://localhost:3000/dev-sign-in",
+    );
+    expect(result.action).toBe("serve");
+  });
+
+  it("[TASK-009-001] serves /dev-sign-in for signed-in ACCOUNTANT — no redirect (ACCOUNTANT can re-pick)", () => {
+    // An already-signed-in accountant visiting the lane to switch accounts is allowed
+    const result = portalRedirectDecision(
+      "/dev-sign-in",
+      { role: "ACCOUNTANT" },
+      "http://localhost:3000/dev-sign-in",
+    );
     expect(result.action).toBe("serve");
   });
 
