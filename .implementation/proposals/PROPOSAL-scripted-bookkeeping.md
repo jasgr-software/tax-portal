@@ -93,6 +93,7 @@ breadcrumb format `validate-gates.sh` already greps for.
 | `task merge-checkpoint --pr <N> [--sha <sha>]` | IO Close-finalize: record PR URL + squash SHA + the awaiting-merge entry | Reads `gh pr view` / `git log` for URL+SHA so the agent doesn't transcribe them; writes the structured awaiting-merge record in `state.json`. Gate scorecard verdicts stay agent-supplied (they're judgments). |
 | `task trace --brief NNN` | SDET/IO AC↔test ledger | Greps test files for `@AC-*` tags, tallies tiers into a structured map. Agent still writes the adequacy verdict. |
 | `task report [--md]` | the human-readable PROGRESS.md view | Renders `state.json` + `events.jsonl` (+ task front matter) into a narrative on demand. Generated, never committed, never a source of truth (see §9). |
+| `task post-merge --pr <N> [--bug <desc>]` | IO Close-finalize triage | On post-merge gate result: pass → clear the awaiting-merge record from `state.json`; fail → create `BUG-BBB-POST-NNN` (front matter scaffolded) and keep the record. The pass/fail verdict is agent-supplied; the file/record mechanics are the CLI's. |
 
 ### 3.3 Example: before / after
 
@@ -115,9 +116,34 @@ pnpm task start TASK-009-002 --complexity-estimate 3 \
   --note "onboarding read model + server-side gate (portal)"
 ```
 
-The CLI flips status, stamps the real UTC clock, sets `Updated-by` from `--role`/env,
-appends the canonically-formatted breadcrumb, and refuses if `TASK-009-002` isn't currently
-`backlog`/`in-progress` (catches double-starts).
+The CLI flips status, stamps the real UTC clock, sets `updated_by` from the required `--role`
+(§10 Q3), appends the canonically-formatted breadcrumb, and refuses if `TASK-009-002` isn't
+currently `backlog`/`in-progress` (catches double-starts).
+
+### 3.4 Coverage of the originally-identified bookkeeping
+
+This proposal began from an audit of 11 bookkeeping activities agents perform by hand. The map
+below confirms each is either scripted here or deliberately left to agent judgment — nothing was
+dropped on the way to the data-model changes:
+
+| # | Bookkeeping activity | Home in this proposal | Scripted? |
+| --- | --- | --- | --- |
+| 1 | Task status + metadata field writes | `task start` / `review` / `done` | ✅ |
+| 2 | Work Log breadcrumbs | `task log` | ✅ |
+| 3 | Phase-transition / ledger sweep | `task phase-transition` + structured state (§9) | ✅ replaced |
+| 4 | Task archival `tasks/ → tasks/done/` | `task archive` | ✅ |
+| 5 | Completion/handoff report | `task report` renders state; **narrative prose stays agent** (§6) | ◑ partial by design |
+| 6 | RETRO finding classification | **agent judgment** (§6) | — correctly not |
+| 7 | PR/merge checkpoint recording | `task merge-checkpoint` | ✅ |
+| 8 | Task metadata validation | `task verify` + front-matter schema | ✅ strengthened |
+| 9 | AC ↔ test traceability ledger | `task trace` | ✅ |
+| 10 | Post-merge bug triage | `task post-merge` | ✅ |
+| 11 | Metrics aggregation | already scripted (`metrics-report.py`) | ✅ pre-existing |
+
+**Reading of the map:** 8 of 11 fully scripted, 1 pre-existing, 1 partial-by-design (handoff
+*narrative* is judgment; its structured inputs are rendered), 1 correctly left to agents (RETRO
+classification). The front-matter + structured-state changes (Phase 0, §9) are not a detour from
+scriptability — they are what makes items 1–4, 7–10 robustly scriptable instead of regex-scraped.
 
 ---
 
