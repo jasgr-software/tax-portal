@@ -1,12 +1,14 @@
-# BUG-007-001 — Admin e2e `document-requests.spec.ts` uses stale data-testid selectors
+---
+brief: BRIEF-007 / EPIC-007
+status: closed — SDET-approved 2026-06-19T00:00:00Z
+impl: io (self-implemented — e2e-spec-only selector fix, no production code change)
+severity: blocking (AC-FILE-007-01 admin-surface e2e gate is broken)
+found_by: SDET (Container Smoke gate — 2026-06-19)
+fixed_by: IO self-implementation 2026-06-19
+files_changed: `apps/admin/e2e/specs/document-requests.spec.ts` (1 file)
+---
 
-**Status:** closed — SDET-approved 2026-06-19T00:00:00Z  
-**Brief:** BRIEF-007 / EPIC-007  
-**Filed by:** SDET (Container Smoke gate — 2026-06-19)  
-**Severity:** blocking (AC-FILE-007-01 admin-surface e2e gate is broken)  
-**Impl:** io (self-implemented — e2e-spec-only selector fix, no production code change)  
-**Fixed-by:** IO self-implementation 2026-06-19  
-**Files changed:** `apps/admin/e2e/specs/document-requests.spec.ts` (1 file)
+# BUG-007-001 — Admin e2e `document-requests.spec.ts` uses stale data-testid selectors
 
 ---
 

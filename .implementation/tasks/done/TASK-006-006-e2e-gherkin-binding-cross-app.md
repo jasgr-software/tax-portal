@@ -1,23 +1,23 @@
+---
+brief: BRIEF-006
+status: done
+assigned_to: webapp-developer
+updated_by: sdet (2026-06-19)
+depends_on: TASK-006-002, TASK-006-004, TASK-006-005
+impl: developer
+e2e_required: yes
+started_at: 2026-06-18T21:06:28Z
+completed_at: 2026-06-19T00:42:00Z
+complexity_estimate: "4"
+complexity_actual: "5"
+brief_type: feature
+brief_deploys: no
+introduces_gate: advisory
+acceptance_criteria: [AC-DASH-012-01, AC-DASH-012-03 (admin authoring/editing e2e), AC-ONBD-003-01 (correct questionnaire shown e2e), AC-ONBD-003-03 (submit satisfies the step e2e); cross-app author→complete]
+upstream_refs: ADR-006, ADR-012
+---
+
 # TASK-006-006: E2e + gherkin binding + cross-app (admin authoring → portal completion, both surfaces)
-
-**Brief**: BRIEF-006
-**Status**: done
-**Assigned to**: webapp-developer
-**Depends on**: TASK-006-002, TASK-006-004, TASK-006-005
-**Impl**: developer
-**E2e-required**: yes
-**Updated-by**: sdet (2026-06-19)
-**Started-at**: 2026-06-18T21:06:28Z
-**Completed-at**: 2026-06-19T00:42:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 5
-
-**Acceptance criteria:** AC-DASH-012-01, AC-DASH-012-03 (admin authoring/editing e2e), AC-ONBD-003-01 (correct questionnaire shown e2e), AC-ONBD-003-03 (submit satisfies the step e2e); cross-app author→complete
-**Upstream refs:** ADR-006, ADR-012
-**Introduces-gate:** advisory <!-- new questionnaire e2e suite; not a required CI check (e2e is a pre-deploy gate, not per-PR) -->
-
-**Brief-type:** feature
-**Brief-deploys:** no
 
 ---
 

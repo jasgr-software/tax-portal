@@ -44,7 +44,7 @@ not, you validate against the acceptance criteria directly.
 3. Read `.implementation/tasks/PROGRESS.md` for current slice state
 4. Read the **build brief** — its `acceptance_criteria`, `methodology` block (TDD? acceptance format? e2e?
    coverage?), and any `acceptance_scenarios`. These define what "validated" means for this slice.
-5. Read any **`**Upstream refs:**`** the task/brief cites (e.g. `.architecture/decisions/ADR-*.md`) — binding
+5. Read any ids listed under the task's `upstream_refs` front-matter key (e.g. `.architecture/decisions/ADR-*.md`) — binding
    constraints, read only when present.
 
 ## Core Responsibilities
@@ -52,7 +52,7 @@ not, you validate against the acceptance criteria directly.
 - **Review developer work** — inspect code for security flaws, edge cases, convention compliance, and
   documentation gaps.
 - **Validate against the acceptance contract** — verify the delivered behavior satisfies the task's
-  `**Acceptance criteria:**` under the brief's mandated test gates. Drift from a mandated acceptance scenario,
+  `acceptance_criteria` front-matter field, under the brief's mandated test gates. Drift from a mandated acceptance scenario,
   or a task that fails its acceptance criteria, is a rejection (see § Review Process).
 - **Own acceptance scenarios when the brief mandates them** — when `methodology.acceptance_format: gherkin`
   (or similar), author and maintain the executable scenarios and bind them to the test framework (see
@@ -83,24 +83,24 @@ For each task with status `review`:
    - Work Log empty, missing, or lacking breadcrumbs (what was done, what's next, blockers).
    - The brief mandates e2e but the Work Log has no actual test execution output (pass/fail counts, test
      names) — "Docker unavailable" or "written but not run" is a mandatory rejection.
-   - **`Complexity-actual` empty or not an integer in `1`–`5`** (also reject if `Started-at` or
-     `Complexity-estimate` is empty — the developer skipped the contract at pickup). Do not silently fill these
+   - **`complexity_actual` empty or not an integer in `1`–`5`** (also reject if `started_at` or
+     `complexity_estimate` is empty — the developer skipped the contract at pickup). Do not silently fill these
      in.
    - **Tool-hygiene violations in the Work Log** (`$()` in gate commands, `cd &&` chaining, `sudo`,
      heredoc-over-Write for repo files, `| tail` on long-running commands, shell-out to `claude -p`). Cite
      `ENGINE.md` § Tool Hygiene.
    - **Pre-implementation Work Log entry missing** per `ENGINE.md` § Dispatch Checkpoint — the atomic
-     Starting-implementation entry + status flip + `Started-at`/`Complexity-estimate` must precede any other
+     Starting-implementation entry + status flip + `started_at`/`complexity_estimate` must precede any other
      file edit. Detectable via git-log timestamps or the absent "Starting implementation" entry. Missing =
      reject.
-   - **Required task-spec fields missing** — `**Acceptance criteria:**`, `**Upstream refs:**`, or
-     `**Introduces-gate:**` absent from the header. The IO should have set these during Plan; missing = reject
+   - **Required task-spec fields missing** — `acceptance_criteria`, `upstream_refs`, or
+     `introduces_gate` absent from the front matter. The IO should have set these during Plan; missing = reject
      and escalate to the IO. Field semantics in `ENGINE.md` § Task spec required fields.
 3. Review the code changes for:
-   - **Acceptance coverage (mandatory)** — for every criterion in the task's `**Acceptance criteria:**` field,
-     verify the delivered tests exercise the behavior the criterion describes. A task whose tests do not cover
-     its acceptance criteria is a rejection. If the field is absent, that is itself a rejection (escalate to
-     the IO).
+   - **Acceptance coverage (mandatory)** — for every criterion in the task's `acceptance_criteria` front-matter
+     field, verify the delivered tests exercise the behavior the criterion describes. A task whose tests do not
+     cover its acceptance criteria is a rejection. If the field is absent, that is itself a rejection (escalate
+     to the IO).
    - **Acceptance-scenario alignment (mandatory only when the brief mandates a scenario format)** — when the
      brief provides `acceptance_scenarios` (e.g. gherkin), verify the implementation behavior matches each
      in-scope scenario and the e2e tests bind/implement them. Behavior drift from a mandated scenario is a
@@ -109,7 +109,7 @@ For each task with status `review`:
    - **Brief-mandated test gates** — verify the build satisfies whatever the brief's `methodology` block
      requires (TDD evidence when `tdd: required`; e2e when `e2e: required`; coverage when a target is set; any
      `extra_gates`). The engine does not impose TDD/gherkin/coverage on its own — the brief does.
-   - **Gate Authoring Rules evidence (mandatory when `Introduces-gate: yes`)** — verify the Work Log contains
+   - **Gate Authoring Rules evidence (mandatory when `introduces_gate: yes`)** — verify the Work Log contains
      all three items per `ENGINE.md` § Gate Authoring Rules: (a) run URL + specific job/step name, (b) named
      code path, (c) counterfactual. For the local-CI case, `Read` the cited log line and confirm it names the
      step. If the value is `advisory`, items are recommended; if `no`, skip.
@@ -119,10 +119,10 @@ For each task with status `review`:
      auth flows, or data access; HTTP security headers where middleware changes; dependency CVE scanning for
      changed/added dependencies.
    - **Edge cases and error handling.**
-   - **Constraint & upstream-ref compliance** — if the task lists `**Upstream refs:**` (e.g. cited ADRs),
+   - **Constraint & upstream-ref compliance** — if the task's `upstream_refs` front-matter key lists ids (e.g. cited ADRs),
      read each and verify the implementation follows the documented constraint. Reject with the specific ref if
      violated.
-   - **Code-standards compliance** — for each id under the task's `**Code standards:**`, confirm the standard's
+   - **Code-standards compliance** — for each id under the task's `code_standards` front-matter key, confirm the standard's
      `verification` hook (in `.code-standards/standards/**/CS-<LANG>-NNN-*.md`) is met **and** the
      `// CS-<LANG>-NNN` tag is present on the honoring code/test. A `required` standard that fails its check or is
      missing its tag is a **rejection** (cite the key); `recommended`/`experimental` are advisory notes. This is a
@@ -142,7 +142,7 @@ For each task with status `review`:
    consistent — reject if stale.
 6. If everything passes → **in a single atomic edit**: (a) tick the **SDET Review** box, (b) fill the
    `## SDET Review` prose section (`**Decision**: approved` + Notes), (c) append the approval breadcrumb to the
-   Work Log, (d) set `Status: done`, (e) set `Completed-at` to current UTC ISO 8601. All five in one Edit.
+   Work Log, (d) set `status: done` in the front matter, (e) set `completed_at` to current UTC ISO 8601. All five in one Edit.
 7. If anything fails → reject and create a BUG file: what failed and why, steps to reproduce, expected vs
    actual, specific fix guidance.
 

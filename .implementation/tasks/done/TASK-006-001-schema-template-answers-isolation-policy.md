@@ -1,23 +1,23 @@
+---
+brief: BRIEF-006
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: none
+impl: developer
+e2e_required: no
+started_at: 2026-06-18T19:22:11Z
+completed_at: 2026-06-18T20:00:00Z
+complexity_estimate: "4"
+complexity_actual: "4"
+brief_type: feature
+brief_deploys: no
+introduces_gate: yes
+acceptance_criteria: [AC-ONBD-003-04 (DB substrate — answers recorded against the engagement), AC-DASH-012-02 (DB substrate — template↔service-type binding), AC-ONBD-003-02 (DB substrate — distinct template per service type)]
+upstream_refs: ADR-002, ADR-004, ADR-005, ADR-003 (Amendment 1)
+---
+
 # TASK-006-001: Questionnaire schema (template + answers + engagement column) + second client-isolation policy + tier-3 isolation tests
-
-**Brief**: BRIEF-006
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: none
-**Impl**: developer
-**E2e-required**: no
-**Started-at**: 2026-06-18T19:22:11Z
-**Completed-at**: 2026-06-18T20:00:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 4
-
-**Acceptance criteria:** AC-ONBD-003-04 (DB substrate — answers recorded against the engagement), AC-DASH-012-02 (DB substrate — template↔service-type binding), AC-ONBD-003-02 (DB substrate — distinct template per service type)
-**Upstream refs:** ADR-002, ADR-004, ADR-005, ADR-003 (Amendment 1)
-**Introduces-gate:** yes <!-- SECOND client-owned-rows policy sec.pol_QuestionnaireAnswer — three-item evidence + HARD tier-3 isolation test required -->
-
-**Brief-type:** feature
-**Brief-deploys:** no
 
 ---
 

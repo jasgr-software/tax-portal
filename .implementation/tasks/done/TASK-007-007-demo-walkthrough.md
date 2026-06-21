@@ -1,22 +1,23 @@
+---
+brief: BRIEF-007
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-007-005, TASK-007-006
+impl: developer
+e2e_required: yes
+started_at: 2026-06-19T17:26:04Z
+completed_at: 2026-06-19T17:42:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: none (justification: non-gating demo artifact per `demo.applicable: yes`; the e2e gate is the gate. It exercises AC-FILE-007-01, AC-ONBD-004-01/-02/-03, AC-NFR-009-02 visually but adds no new acceptance behavior).
+upstream_refs: ADR-006 (both surfaces), ADR-012 (demo is non-gating).
+---
+
 # TASK-007-007: `@demo` Playwright walkthrough — document-request authoring + client upload + rejection gallery
-
-**Brief**: BRIEF-007
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-007-005, TASK-007-006
-**Impl**: developer
-**E2e-required**: yes <!-- the demo is a Playwright walkthrough run against the stack -->
-**Started-at**: 2026-06-19T17:26:04Z
-**Completed-at**: 2026-06-19T17:42:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** none (justification: non-gating demo artifact per `demo.applicable: yes`; the e2e gate is the gate. It exercises AC-FILE-007-01, AC-ONBD-004-01/-02/-03, AC-NFR-009-02 visually but adds no new acceptance behavior).
-**Upstream refs:** ADR-006 (both surfaces), ADR-012 (demo is non-gating).
-**Introduces-gate:** no
 
 ---
 

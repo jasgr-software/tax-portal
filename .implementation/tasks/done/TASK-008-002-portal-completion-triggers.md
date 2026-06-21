@@ -1,22 +1,21 @@
+---
+brief: BRIEF-008
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer (2026-06-19)
+depends_on: TASK-008-001 (done — `bac39eb`)
+impl: developer
+e2e_required: no
+started_at: 2026-06-19T22:09:59Z
+completed_at: 2026-06-19T17:17:00Z
+complexity_estimate: "2"
+complexity_actual: "1"
+introduces_gate: no
+acceptance_criteria: [AC-ONBD-006-01, AC-ONBD-006-02, AC-ONBD-007-01]
+upstream_refs: REQ-ONBD-006, REQ-ONBD-007; ADR-003, ADR-006
+---
+
 # TASK-008-002: Portal completion triggers — invoke the completion seam from the two completing onboarding actions
-
-**Brief**: BRIEF-008
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer (2026-06-19)
-**Depends on**: TASK-008-001 (done — `bac39eb`)
-**Impl**: developer
-**E2e-required**: no
-**Started-at**: 2026-06-19T22:09:59Z
-**Completed-at**: 2026-06-19T17:17:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 1
-
-**Acceptance criteria:** AC-ONBD-006-01, AC-ONBD-006-02, AC-ONBD-007-01
-**Upstream refs:** REQ-ONBD-006, REQ-ONBD-007; ADR-003, ADR-006
-**Introduces-gate:** no
-
-<!-- Brief-type: feature · Brief-deploys: no -->
 
 ---
 

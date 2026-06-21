@@ -1,21 +1,22 @@
+---
+brief: BRIEF-002 (rides BRIEF-002's PR) — **defect is latent from EPIC-001** (first Prisma-backed container page is BRIEF-002's `/services`); fixing it is required to deliver BRIEF-002's e2e gate (TASK-002-004).
+status: done
+assigned_to: webapp-developer (schema + Dockerfiles — `prisma/` + `Dockerfile*` are in webapp-developer/devops scope)
+updated_by: webapp-developer
+impl: developer
+started_at: 2026-06-16T14:56:02Z
+completed_at: 2026-06-16T15:55:00Z
+complexity_estimate: "3"
+complexity_actual: "4"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no (corrects the build so an existing capability — the request-scoped Prisma path — works in-container; the in-container render proof is its own evidence, not a new required gate).
+acceptance_criteria: [AC-DOOR-002-01/-02/-03, AC-DASH-010-01/-02/-03 — indirect: this bug blocks the in-container journey ACs in TASK-002-004 (the add/edit/deactivate journeys 500 on the RSC re-render). Unblocking it is the gate to validate them. The bug's own correctness is verified by the in-container 200-render proof + the 4 currently-failing e2e going green (see Regression test below).]
+upstream_refs: ADR-002 (SQL Server / sqlserver provider / Prisma version lock 5.22.x), ADR-003 (request-scoped `db` wrapper sets SESSION_CONTEXT via `$executeRawUnsafe`), ADR-004 (Prisma sole ORM), ADR-006 (two frontends — both Alpine runners), ADR-007 (per-app long-lived Node container image).
+severity: blocker (hard-blocks the TASK-002-004 e2e execution gate; every request-scoped Prisma page 500s in the prod-built container)
+---
+
 # BUG-002-002 — Prisma query-engine binary target missing for the Alpine/OpenSSL-3 container runner (request-scoped Prisma pages 500 in-container)
-
-**Status:** done
-**Assigned to:** webapp-developer (schema + Dockerfiles — `prisma/` + `Dockerfile*` are in webapp-developer/devops scope)
-**Impl:** developer
-**Brief:** BRIEF-002 (rides BRIEF-002's PR) — **defect is latent from EPIC-001** (first Prisma-backed container page is BRIEF-002's `/services`); fixing it is required to deliver BRIEF-002's e2e gate (TASK-002-004).
-**Brief-type:** feature · **Brief-deploys:** no
-**Severity:** blocker (hard-blocks the TASK-002-004 e2e execution gate; every request-scoped Prisma page 500s in the prod-built container)
-**Updated-by:** webapp-developer
-
-**Started-at:** 2026-06-16T14:56:02Z
-**Complexity-estimate:** 3
-**Complexity-actual:** 4
-**Completed-at:** 2026-06-16T15:55:00Z
-
-**Acceptance criteria:** AC-DOOR-002-01/-02/-03, AC-DASH-010-01/-02/-03 — indirect: this bug blocks the in-container journey ACs in TASK-002-004 (the add/edit/deactivate journeys 500 on the RSC re-render). Unblocking it is the gate to validate them. The bug's own correctness is verified by the in-container 200-render proof + the 4 currently-failing e2e going green (see Regression test below).
-**Upstream refs:** ADR-002 (SQL Server / sqlserver provider / Prisma version lock 5.22.x), ADR-003 (request-scoped `db` wrapper sets SESSION_CONTEXT via `$executeRawUnsafe`), ADR-004 (Prisma sole ORM), ADR-006 (two frontends — both Alpine runners), ADR-007 (per-app long-lived Node container image).
-**Introduces-gate:** no (corrects the build so an existing capability — the request-scoped Prisma path — works in-container; the in-container render proof is its own evidence, not a new required gate).
 
 ---
 

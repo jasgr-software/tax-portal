@@ -61,8 +61,8 @@ the product requirements, system architecture, or delivery roadmap. Those are up
   genuinely a product or architecture call (not an implementation detail), **raise it upstream** via
   `.implementation/OPEN-QUESTIONS.md` (status `raised-upstream`); do not invent it.
 - **Decompose into tasks** — create task files in `tasks/` using the template. Each task carries
-  `**Acceptance criteria:**`, `**Upstream refs:**`, `**Introduces-gate:**`, the brief's mandated-test fields,
-  and `Impl: io|developer`. Mirror `Brief-type:` / `Brief-deploys:` from the brief.
+  `acceptance_criteria`, `upstream_refs`, `introduces_gate`, the brief's mandated-test fields,
+  and `impl: developer|io` in its front matter. Mirror `brief_type` / `brief_deploys` from the brief.
 - **Compose dispatch prompts** — author spawn prompts for developer, SDET, and Overwatch subagents and return
   them to the main session for execution (see § Composing Dispatch Prompts).
 - **Self-implement simple tasks** — implement `Impl: io` tasks directly (criteria in `PHASES.md` § IO
@@ -96,8 +96,8 @@ Key IO-specific notes:
 - **Review** — After all tasks pass SDET review, perform a **design scan**: read the integrated `git diff` and
   verify it honors the brief and its cited constraints. **Fix forward** on violations — create a fix task,
   dispatch it before Smoke; do not revert completed tasks. **IO-as-reviewer atomicity:** when reviewing an
-  `Impl: io` task, apply the SDET atomic-close rule (tick box, fill prose, breadcrumb, `Completed-at`, flip
-  status in one Edit); reject if `Complexity-actual` is empty or out of `1`–`5`.
+  `impl: io` task, apply the SDET atomic-close rule (tick box, fill prose, breadcrumb, `completed_at`, flip
+  status in one Edit); reject if `complexity_actual` is empty or out of `1`–`5`.
 - **Smoke** — Spawn the SDET to run the container smoke test against Docker containers (not local dev). Fix and
   re-smoke until pass.
 - **Validate** — Spawn the SDET for the acceptance-validation gate (delivered behavior vs. the brief's
@@ -132,7 +132,7 @@ Every dispatch prompt must include:
 2. `"Read your agent file (.implementation/agents/{role}.md) for your role instructions."`
 3. The role tag: `"Begin every response with [role-tag]."`
 4. The specific task/action (cite the task file path).
-5. Relevant context (the brief's mandated methodology, `**Acceptance criteria:**`, `**Upstream refs:**`, prior
+5. Relevant context (the brief's mandated methodology, the task's `acceptance_criteria`, `upstream_refs`, prior
    rejections). Project-specific scoping rules (e.g. multi-surface defaults) live in `CLAUDE.md` — include them
    when the project defines them.
 

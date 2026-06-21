@@ -1,24 +1,24 @@
+---
+brief: BRIEF-009
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: TASK-009-001
+impl: developer
+e2e_required: no
+started_at: 2026-06-21T14:54:36Z
+completed_at: 2026-06-21T17:45:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: [AC-AUTH-013-02 (sign out → ends the session → unauthenticated → protected route requires re-auth, global across both apps) + the role/user switcher dev-acceptance (re-lands on the correct app for the newly chosen role)]
+upstream_refs: REQ-AUTH-013, ADR-010, ADR-006, ADR-005
+code_standards: CS-TS-003 (recommended — cross-surface parity portal+admin), CS-GEN-001 (recommended — no secret/PII in logs), CS-GEN-002 (recommended — additive edits to keyed artifacts), CS-GEN-003 (recommended — cite the governing key)
+---
+
 # TASK-009-002: Role/user switcher + sign-out (both surfaces) — global sign-out leaves an unauthenticated state
-
-**Brief**: BRIEF-009
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: TASK-009-001
-**Impl**: developer
-**E2e-required**: no <!-- e2e consolidated into TASK-009-004; this task ships unit/component + integration proof of the switcher + sign-out behavior -->
-**Started-at**: 2026-06-21T14:54:36Z
-**Completed-at**: 2026-06-21T17:45:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Brief-type:** feature
-**Brief-deploys:** no
-
-**Acceptance criteria:** AC-AUTH-013-02 (sign out → ends the session → unauthenticated → protected route requires re-auth, global across both apps) + the role/user switcher dev-acceptance (re-lands on the correct app for the newly chosen role)
-**Upstream refs:** REQ-AUTH-013, ADR-010, ADR-006, ADR-005
-**Code standards:** CS-TS-003 (recommended — cross-surface parity portal+admin), CS-GEN-001 (recommended — no secret/PII in logs), CS-GEN-002 (recommended — additive edits to keyed artifacts), CS-GEN-003 (recommended — cite the governing key)
-**Introduces-gate:** no
 
 ---
 

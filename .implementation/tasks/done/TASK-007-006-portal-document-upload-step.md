@@ -1,22 +1,23 @@
+---
+brief: BRIEF-007
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-007-004, TASK-007-005
+impl: developer
+e2e_required: yes
+started_at: 2026-06-19T14:16:46Z
+completed_at: 2026-06-19T18:42:00Z
+complexity_estimate: "5"
+complexity_actual: "5"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: [AC-ONBD-004-01 (client shown the checklist), AC-ONBD-004-02 (outstanding vs provided), AC-ONBD-004-03 (upload to fulfill), AC-FILE-007-02 (client sees requests + labels), AC-FILE-007-03 (fulfill a request by uploading), AC-FILE-008-02 (distinguish outstanding from fulfilled), AC-FILE-008-03 (fulfilled item no longer outstanding), AC-FILE-001-02 (client upload to the engagement — e2e surface), AC-FILE-002-01 (any file type accepted), AC-NFR-009-02 (malicious file withheld + uploader informed of rejection).]
+upstream_refs: ADR-006 (client upload lives in `apps/portal`, not reachable from `apps/admin`), ADR-009 (client uses signed upload URL; PUTs directly to storage; never holds adapter creds; complete handler), ADR-021 (rejection surfaced to uploader), ADR-003 (client principal; owner-resolved server-side), ADR-005 (the EPIC-005 letter hard gate stays intact — upload step refused until letter signed; server-authoritative).
+---
+
 # TASK-007-006: Client document-upload onboarding step — checklist + upload + rejection surface (`apps/portal`) + cross-app e2e
-
-**Brief**: BRIEF-007
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-007-004, TASK-007-005
-**Impl**: developer
-**E2e-required**: yes <!-- the client checklist→upload→fulfill→step-satisfied + malicious-rejection paths; cross-app author→fulfill -->
-**Started-at**: 2026-06-19T14:16:46Z
-**Completed-at**: 2026-06-19T18:42:00Z
-**Complexity-estimate**: 5
-**Complexity-actual**: 5
-
-**Acceptance criteria:** AC-ONBD-004-01 (client shown the checklist), AC-ONBD-004-02 (outstanding vs provided), AC-ONBD-004-03 (upload to fulfill), AC-FILE-007-02 (client sees requests + labels), AC-FILE-007-03 (fulfill a request by uploading), AC-FILE-008-02 (distinguish outstanding from fulfilled), AC-FILE-008-03 (fulfilled item no longer outstanding), AC-FILE-001-02 (client upload to the engagement — e2e surface), AC-FILE-002-01 (any file type accepted), AC-NFR-009-02 (malicious file withheld + uploader informed of rejection).
-**Upstream refs:** ADR-006 (client upload lives in `apps/portal`, not reachable from `apps/admin`), ADR-009 (client uses signed upload URL; PUTs directly to storage; never holds adapter creds; complete handler), ADR-021 (rejection surfaced to uploader), ADR-003 (client principal; owner-resolved server-side), ADR-005 (the EPIC-005 letter hard gate stays intact — upload step refused until letter signed; server-authoritative).
-**Introduces-gate:** no <!-- the e2e suite for this surface; the scan/promotion gate is owned by TASK-007-004 -->
 
 ---
 

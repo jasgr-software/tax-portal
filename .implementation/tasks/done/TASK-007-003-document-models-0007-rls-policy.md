@@ -1,22 +1,23 @@
+---
+brief: BRIEF-007
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: none
+impl: developer
+e2e_required: no
+started_at: 2026-06-19T12:27:38Z
+completed_at: 2026-06-19T08:10:00Z
+complexity_estimate: "4"
+complexity_actual: "4"
+brief_type: feature
+brief_deploys: no
+introduces_gate: yes
+acceptance_criteria: [AC-FILE-008-01 (each engagement has a checklist reflecting its document requests — the schema relationship), AC-FILE-001-05 (a file in engagement A is not exposed to other engagements — proven by the `0007` FILTER predicate), AC-FILE-003-02 (retrieval requires an authorization check — the FILTER predicate is that gate at the data layer).]
+upstream_refs: ADR-005 (RLS via security policies; THIRD client-isolation policy after `0005`/`0006`; HARD §6 per-policy integration test; ITVF+SCHEMABINDING; shallow predicate), ADR-002 (UNIQUEIDENTIFIER PK NEWSEQUENTIALID(), DATETIMEOFFSET, two-track migrations), ADR-009 (storage-key columns + `pending｜active｜infected` state column), ADR-003 (null SESSION_CONTEXT → ZERO; Amendment 1 — no `@read_only`).
+---
+
 # TASK-007-003: DocumentRequest + Document Prisma models + `0007` RLS policy (third client-isolation policy) + cross-engagement isolation test
-
-**Brief**: BRIEF-007
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: none <!-- schema + policy are independent of the ports; TASK-007-004 depends on THIS -->
-**Impl**: developer
-**E2e-required**: no <!-- the policy is proven at tier-3 (the mandatory per-policy isolation test), not e2e -->
-**Started-at**: 2026-06-19T12:27:38Z
-**Completed-at**: 2026-06-19T08:10:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 4
-
-**Acceptance criteria:** AC-FILE-008-01 (each engagement has a checklist reflecting its document requests — the schema relationship), AC-FILE-001-05 (a file in engagement A is not exposed to other engagements — proven by the `0007` FILTER predicate), AC-FILE-003-02 (retrieval requires an authorization check — the FILTER predicate is that gate at the data layer).
-**Upstream refs:** ADR-005 (RLS via security policies; THIRD client-isolation policy after `0005`/`0006`; HARD §6 per-policy integration test; ITVF+SCHEMABINDING; shallow predicate), ADR-002 (UNIQUEIDENTIFIER PK NEWSEQUENTIALID(), DATETIMEOFFSET, two-track migrations), ADR-009 (storage-key columns + `pending｜active｜infected` state column), ADR-003 (null SESSION_CONTEXT → ZERO; Amendment 1 — no `@read_only`).
-**Introduces-gate:** yes <!-- new REQUIRED security gate: the `0007` security policy + its per-policy cross-engagement isolation tier-3 integration test (ADR-005 §6 HARD). Three-item Gate Authoring evidence MANDATORY in the Work Log. -->
 
 ---
 

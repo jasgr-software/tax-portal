@@ -1,23 +1,23 @@
+---
+brief: BRIEF-006
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: TASK-006-001
+impl: developer
+e2e_required: no
+started_at: 2026-06-18T20:10:28Z
+completed_at: 2026-06-18T20:23:09Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: AC-ONBD-003-01 (service-type match resolved server-side)
+upstream_refs: ADR-003, ADR-005, ADR-012, REQ-ONBD-003
+---
+
 # TASK-006-003: Engagement → service-type resolution + correct-questionnaire-for-service-type read (tier-3)
-
-**Brief**: BRIEF-006
-**Status**: done
-**Assigned to**: webapp-developer
-**Depends on**: TASK-006-001
-**Impl**: developer
-**E2e-required**: no <!-- correctness proven at tier-3; e2e in TASK-006-006 -->
-**Updated-by**: sdet
-**Started-at**: 2026-06-18T20:10:28Z
-**Completed-at**: 2026-06-18T20:23:09Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** AC-ONBD-003-01 (service-type match resolved server-side)
-**Upstream refs:** ADR-003, ADR-005, ADR-012, REQ-ONBD-003
-**Introduces-gate:** no
-
-**Brief-type:** feature
-**Brief-deploys:** no
 
 ---
 

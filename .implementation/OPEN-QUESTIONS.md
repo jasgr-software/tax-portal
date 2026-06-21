@@ -98,3 +98,60 @@ provider is deferred like the real-Clerk provisioning. **Architecture's call:** 
 `ADR-email-transport` (or amend an existing ADR), or propose an alternative; confirm the provider selection +
 templating approach for production. Until then the slice ships the seam validated against Mailhog (CI + dev
 container runs as the gate — same user-accepted basis as EPIC-004).
+
+---
+
+## OQ-003 — Slice-start gate: may BRIEF-LOE-010 (engine-tooling chore) Plan while BRIEF-009 sits in `## Awaiting PR merge`?
+
+**Status:** `resolved` (process question — owner: user / main session; resolved 2026-06-21).
+**Raised by:** IO, during BRIEF-LOE-010 Plan-start (2026-06-21).
+**Blocks:** nothing — the IO proceeded with Plan on the default; resolved at BRIEF-LOE-010 Dispatch.
+
+**Resolution (2026-06-21):** Moot — **BRIEF-009/EPIC-009 (PR #71) MERGED 2026-06-21T17:24Z (`169b09e`) + validated
+(#73, `b7e0544`)**, so the limbo slice that created the slice-start-gate tension no longer exists. The
+`## Awaiting PR merge` entry for BRIEF-009 lingered as a **stale ledger entry** (Close-finalize never swept it),
+not an in-flight slice — cleared at BRIEF-LOE-010 Dispatch. The concurrent-Plan default was vindicated: lane
+isolation held (BRIEF-LOE-010 touched zero BRIEF-009 feature-lane files) and the value-preserving / identical-
+verdict ACs kept BRIEF-009's gates green against the migrated tree regardless of merge order. BRIEF-LOE-010 now
+proceeds as the **sole active initiative** with no serialization constraint.
+
+**The question:** `PHASES.md` § Slice-start gate and `ENGINE.md` § Autonomy Ceiling item 5 say: if any slice
+appears in `## Awaiting PR merge`, the IO **stops and reports** — no new Plan while an old slice is unresolved
+(the only carve-out named is a *hotfix mini-slice targeting the limbo slice*). BRIEF-009 (PoC dev sign-in lane)
+is in PR limbo awaiting the Conductor's push + reviewed-lane gates + merge. BRIEF-LOE-010 is **not** a hotfix
+for BRIEF-009 — it is a fresh **engine-tooling chore** (epic `chore/lights-out-enablement`, the LOE series,
+direct successor to TASK-LOE-003). The dispatch instruction explicitly directs the IO to drive BRIEF-LOE-010
+now. Strict reading of the gate ⇒ stop; the explicit directive ⇒ proceed. Genuine tension.
+
+**Why not simply stopped:** (1) The user gave an **explicit, direct directive** to drive this specific brief
+(`ENGINE.md` § Autonomy Ceiling item 5's "Resume: user merges the limbo PR **or authorizes a hotfix carve-out**"
+— the directive is a user authorization to proceed on a parallel track). (2) The LOE engine-tooling series has
+historically run on a **separate main-session-driven track** independent of the feature-slice roadmap the
+Conductor drives (TASK-LOE-001/002/003 landed this way). (3) **Lane isolation:** BRIEF-LOE-010's deliverables
+(`scripts/migrate-task-frontmatter.ts`, `validate-gates.sh`, `package.json`, `.claude/hooks/log-task-edit.py`,
+`.implementation/**` docs + the `tasks/**` on-disk format) touch **zero** BRIEF-009 feature-lane files
+(`apps/**`, `packages/**`, the auth lane) — the two PRs cannot collide on content. (4) The single-active-initiative
+rule (`ENGINE.md` § Gated Paths) is about one *initiative* in `## Current initiative`; BRIEF-009 has vacated
+`## Current initiative` (it is collapsed to a pointer and lives in `## Awaiting PR merge`), so this Plan does not
+double-occupy that slot.
+
+**One genuine interaction (flagged, mitigated):** BRIEF-LOE-010 **rewrites the on-disk format** of every file
+under `tasks/**` *including* `tasks/done/` AND `PROGRESS.md`'s consumers (`validate-gates.sh`,
+`log-task-edit.py`). BRIEF-009's archived task files in `tasks/done/` and its `## Awaiting PR merge` entry are in
+scope of the migration. **Mitigation:** the migration is value-preserving and idempotent by AC-LOE-010-01/-02
+(body prose byte-preserved; only the relocated fields move), and `validate-gates.sh` must give **identical
+verdicts** on already-valid files post-migration (AC-LOE-010-04) — so BRIEF-009's Close-finalize gate
+(`validate-gates.sh` over the awaiting-merge entry, the gate-8 backstop) continues to pass against the migrated
+tree. The IO must **sequence** the two: if BRIEF-LOE-010 merges first, BRIEF-009's Close-finalize runs against
+the migrated format and its gate verdicts must be unchanged (the AC guarantees this); if BRIEF-009 merges first,
+BRIEF-LOE-010 picks up its already-archived `done/` files in the migration sweep. Either order is safe under the
+ACs. **Risk to watch:** `check_pr_awaiting_merge_gate_verdicts` (validate-gates.sh check 9) parses **PROGRESS.md**
+prose, not task front matter — the migration must **not** touch PROGRESS.md's `## Awaiting PR merge` parsing
+contract (the brief scopes the format change to `tasks/**` + `_templates/`, NOT PROGRESS.md; see Out-of-scope).
+This is bound into TASK-LOE-010-002's SDET focus areas.
+
+**IO proposed default (proceeding now):** Plan BRIEF-LOE-010 on the parallel engine-tooling track. Keep
+BRIEF-009 untouched in `## Awaiting PR merge`. Record both slices' coexistence explicitly in PROGRESS.md so the
+slice-start-gate state is auditable. If the user prefers strict serialization (merge BRIEF-009 first, then Plan
+LOE-010), they halt here and the IO yields. **Recommendation:** proceed — lane isolation + the value-preserving/
+identical-verdict ACs make concurrent limbo safe, and the directive authorizes it.

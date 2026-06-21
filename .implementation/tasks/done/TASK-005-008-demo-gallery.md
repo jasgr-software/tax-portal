@@ -1,21 +1,22 @@
+---
+brief: BRIEF-005
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-005-007 (e2e infra + the full flow working)
+impl: developer
+e2e_required: no (the `@demo` spec is excluded from `e2e:run`; non-gating per DEMO-POLICY)
+started_at: 2026-06-18T17:16:50Z
+completed_at: 2026-06-18T18:45:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: none (non-gating demo artifact — justification: produces the AC-tagged screenshot gallery for the upstream demo/coverage absorb; the e2e gate, not this, gates delivery — brief § UI demo).
+upstream_refs: ADR-006 (both surfaces); personas `tom-prospective-client` (post-signup client onboarding) + `jane-accountant` (template editing); flows `flow-onboarding` + `flow-first-sign-in`.
+---
+
 # TASK-005-008: @demo gallery — admin template edit + portal sign→unlock walkthrough
-
-**Brief**: BRIEF-005
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-005-007 (e2e infra + the full flow working)
-**Impl**: developer
-**E2e-required**: no (the `@demo` spec is excluded from `e2e:run`; non-gating per DEMO-POLICY)
-**Brief-deploys**: no
-**Started-at**: 2026-06-18T17:16:50Z
-**Completed-at**: 2026-06-18T18:45:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** none (non-gating demo artifact — justification: produces the AC-tagged screenshot gallery for the upstream demo/coverage absorb; the e2e gate, not this, gates delivery — brief § UI demo).
-**Upstream refs:** ADR-006 (both surfaces); personas `tom-prospective-client` (post-signup client onboarding) + `jane-accountant` (template editing); flows `flow-onboarding` + `flow-first-sign-in`.
-**Introduces-gate:** no
 
 ---
 

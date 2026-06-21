@@ -20,6 +20,7 @@
 
 | Slice | Delivered | PR → sha | Durable record |
 | --- | --- | --- | --- |
+| **BRIEF-LOE-010 / Phase 0** | ⏳ Close-prep → `## Awaiting PR merge` (2026-06-21) | PR pending, branch `brief-loe-010-task-frontmatter-migration` | `RETRO-LOE-010` · `HANDOFF-LOE-010` · `done/TASK-LOE-010-*` (task/bug lifecycle → YAML front matter; 6/6 AC; -004 fix-forward restoring AC-04/05; design-scan/Smoke backstop caught 2 defects per-task review missed; stale-ledger-drift thesis exemplar recorded) |
 | **BRIEF-009 / EPIC-009** | ⏳ Close-prep → `## Awaiting PR merge` (2026-06-21) | PR pending, branch `brief-009-sign-in-lane` | `RETRO-009` · `HANDOFF-009` · `done/TASK-009-*` (PoC dev sign-in lane; 5/5 AC; HARD inert-under-`clerk` gate; 3-of-3 cross-surface-parity sunset trip) |
 | **BRIEF-008 / EPIC-008** | 2026-06-20 | #55 → `7fe2872` | `RETRO-008` · `HANDOFF-008` · `done/TASK-008-*`; BUG-008-001 (open, tracked) |
 | **BRIEF-007 / EPIC-007** | 2026-06-19 | #52 → `eaa5875` | `RETRO-007` · `HANDOFF-007` · `done/TASK-007-*` |
@@ -35,6 +36,18 @@
 
 ## Sweep pointers (one line per swept phase-block)
 
+- **BRIEF-LOE-010 Review/Smoke→Close-prep session entries** (SDET Review TASK-LOE-010-002+003; IO Review batched;
+  IO Review/Smoke design-scan→2-defects→fix-forward; SDET Review TASK-LOE-010-004) swept at the BRIEF-LOE-010
+  Review→Close-prep transition (2026-06-21). Durable in `done/TASK-LOE-010-*` (Work Logs + SDET Review sections),
+  `RETRO-LOE-010.md`, `HANDOFF-LOE-010.md`, and `git log -p PROGRESS.md`. Close-prep verdicts (design scan CLEAN;
+  Smoke backstop exit 0; Validate 6/6 AC + 2 extra gates; consistency green) recorded in RETRO/HANDOFF + the
+  `## Awaiting PR merge` gate scorecard.
+- **BRIEF-LOE-010 Dispatch session entries** (SDET Review TASK-LOE-010-001; IO Dispatch ×2 — review-001-first
+  routing + dispatch-003) swept at the BRIEF-LOE-010 Dispatch→Review transition (2026-06-21). Durable in
+  `done/TASK-LOE-010-*` (after close), the task files' Work Logs/SDET Review sections, and `git log -p PROGRESS.md`.
+- **BRIEF-LOE-010 Close-prep(BRIEF-009)+Plan session entries** (IO Close-prep BRIEF-009; IO Plan BRIEF-LOE-010)
+  swept at the BRIEF-LOE-010 Plan→Dispatch transition (2026-06-21). Durable in `RETRO-009.md`/`HANDOFF-009.md`
+  (BRIEF-009), the BRIEF-LOE-010 brief + `done/TASK-LOE-010-*` (after close), and `git log -p PROGRESS.md`.
 - **BRIEF-009 Plan→Dispatch session entries** (IO Plan→Dispatch; 5× SDET Review TASK-009-001..005; IO
   Audit/Dispatch checkpoints across the 001→{003,002}→004→005 chain) swept at the Dispatch→Close-prep transition
   (2026-06-21). Durable in `done/TASK-009-*.md`, `HANDOFF-009.md`, `RETRO-009.md`, and `git log -p PROGRESS.md`.

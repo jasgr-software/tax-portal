@@ -1,21 +1,22 @@
+---
+brief: BRIEF-004
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: 002 (✓ done — `packages/auth` provider port + mock binding + per-app `middleware.ts` + the ADR-010 redirect helper/allow-list; the seam-proof `auth-redirect.spec.ts` in both apps), 005 (✓ done — `apps/portal` client sign-up/sign-in + the portal auth e2e fixtures)
+impl: webapp-developer
+e2e_required: yes
+started_at: 2026-06-15T00:00:00Z
+completed_at: 2026-06-15T12:00:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+introduces_gate: yes
+acceptance_criteria: [AC-AUTH-010-01 (signed-in CLIENT → any `apps/admin` route ⇒ redirect to portal home), AC-AUTH-010-02 (signed-in ACCOUNTANT → a portal CLIENT-only route ⇒ redirect to admin home), AC-AUTH-010-03 (signed-in ACCOUNTANT → a portal public route ⇒ served, no redirect). Plus the ADR-010 §8 mandatory cross-app behaviors: session continuity (one session covers both apps) and global sign-out (sign out of one ⇒ the other redirects to its sign-in).]
+upstream_refs: ADR-010 (§1 redirect matrix, §3 session sharing / global sign-out, §8 mandatory cross-app e2e), ADR-005 (role is the server-evaluated trust boundary — never client-asserted), ADR-001 (one Clerk app / two surfaces — modeled by the mock binding's shared signed-cookie session).
+reviewer: sdet
+---
+
 # TASK-004-008: Cross-app redirect matrix `pnpm e2e:cross-app` suite (ADR-010 §8 hard gate) — exhaustive AC-AUTH-010-01/-02/-03 + session continuity + global sign-out
-
-**Brief**: BRIEF-004
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: 002 (✓ done — `packages/auth` provider port + mock binding + per-app `middleware.ts` + the ADR-010 redirect helper/allow-list; the seam-proof `auth-redirect.spec.ts` in both apps), 005 (✓ done — `apps/portal` client sign-up/sign-in + the portal auth e2e fixtures)
-**Impl**: webapp-developer
-**Reviewer**: sdet
-**E2e-required**: yes <!-- tier-6 cross-app e2e against the docker-compose stack (mock provider) -->
-**Started-at**: 2026-06-15T00:00:00Z
-**Completed-at**: 2026-06-15T12:00:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** AC-AUTH-010-01 (signed-in CLIENT → any `apps/admin` route ⇒ redirect to portal home), AC-AUTH-010-02 (signed-in ACCOUNTANT → a portal CLIENT-only route ⇒ redirect to admin home), AC-AUTH-010-03 (signed-in ACCOUNTANT → a portal public route ⇒ served, no redirect). Plus the ADR-010 §8 mandatory cross-app behaviors: session continuity (one session covers both apps) and global sign-out (sign out of one ⇒ the other redirects to its sign-in).
-**Upstream refs:** ADR-010 (§1 redirect matrix, §3 session sharing / global sign-out, §8 mandatory cross-app e2e), ADR-005 (role is the server-evaluated trust boundary — never client-asserted), ADR-001 (one Clerk app / two surfaces — modeled by the mock binding's shared signed-cookie session).
-**Introduces-gate:** yes <!-- This task authors the REAL `pnpm e2e:cross-app` script (presently a placeholder echo) and it becomes a REQUIRED gate (ADR-010 §8 hard gate; CLAUDE.md per-PR e2e enforcement for cross-app). ENGINE.md § Gate Authoring Rules applies — the Work Log MUST contain the three evidence items (run URL+step / named code path / counterfactual). -->
 
 ---
 

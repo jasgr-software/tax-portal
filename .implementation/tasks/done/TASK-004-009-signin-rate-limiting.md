@@ -1,20 +1,21 @@
+---
+brief: BRIEF-004
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer (review)
+depends_on: 002 (✓ done) — consumes the `packages/auth` sign-in surface seam + mock binding. (Was 003; -003 deferred — the mock binding's sign-in path is what is throttled.)
+impl: webapp-developer
+e2e_required: no
+started_at: 2026-06-15T00:00:00Z
+completed_at: 2026-06-15T18:00:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+introduces_gate: no
+acceptance_criteria: none (security gate; justification: ADR-022 anti-abuse extra-gate carried by the brief as a Constraint — no user-facing AC maps to it. The brief frames it as "the sign-in surface must be rate-limited against credential stuffing / brute force, with an integration test proving the throttle").
+upstream_refs: ADR-022 (anti-abuse rate limiting — `RateLimiter` port, in-memory v1 impl, per-IP/per-endpoint, `429` + retry hint, configurable conservative defaults, single-process-in-v1 with a documented >1-replica shared-store migration trigger), ADR-007 (in-memory counters are single-process-only — the scaling trigger this honors), ADR-005 (security trust boundary — the throttle key must not be spoofable by client-asserted identity; key on source IP, not a header the caller controls), ADR-001 (the sign-in surface being protected).
+---
+
 # TASK-004-009: Sign-in rate-limiting (ADR-022) — `RateLimiter` port + throttle on the auth surface + integration test proving the throttle
-
-**Brief**: BRIEF-004
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer (review)
-**Depends on**: 002 (✓ done) — consumes the `packages/auth` sign-in surface seam + mock binding. (Was 003; -003 deferred — the mock binding's sign-in path is what is throttled.)
-**Impl**: webapp-developer
-**E2e-required**: no <!-- ADR-022 mandates an *integration* test proving the throttle; the brief lists this as an integration obligation, not an e2e one. Do NOT run/ tick e2e for this task. -->
-**Started-at**: 2026-06-15T00:00:00Z
-**Completed-at**: 2026-06-15T18:00:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** none (security gate; justification: ADR-022 anti-abuse extra-gate carried by the brief as a Constraint — no user-facing AC maps to it. The brief frames it as "the sign-in surface must be rate-limited against credential stuffing / brute force, with an integration test proving the throttle").
-**Upstream refs:** ADR-022 (anti-abuse rate limiting — `RateLimiter` port, in-memory v1 impl, per-IP/per-endpoint, `429` + retry hint, configurable conservative defaults, single-process-in-v1 with a documented >1-replica shared-store migration trigger), ADR-007 (in-memory counters are single-process-only — the scaling trigger this honors), ADR-005 (security trust boundary — the throttle key must not be spoofable by client-asserted identity; key on source IP, not a header the caller controls), ADR-001 (the sign-in surface being protected).
-**Introduces-gate:** no <!-- Adds an ADR-022 anti-abuse mechanism PROVEN BY ITS OWN INTEGRATION TEST (the test is its own evidence per ENGINE.md § Gate Authoring Rules "Does not apply to: unit tests"). It introduces NO new *required CI status check*, NO blocking DoD checkbox beyond this task's own, NO pre-push hook, and NO new always-on SDET reject-on-fail criterion for other slices. If the dev instead wires this as a new *required CI gate* (it should not), the three Gate-Authoring evidence items become mandatory — but the intended shape is a self-evidencing integration test, so `no`. -->
 
 ---
 

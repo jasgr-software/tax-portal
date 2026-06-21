@@ -1,24 +1,24 @@
+---
+brief: BRIEF-009
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: none
+impl: developer
+e2e_required: no
+started_at: 2026-06-21T14:09:23Z
+completed_at: 2026-06-21T16:42:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: AC-AUTH-013-01 (sign-in → role-appropriate landing; the lane core that establishes the session)
+upstream_refs: REQ-AUTH-013, REQ-AUTH-001, ADR-001, ADR-005, ADR-006, ADR-010
+code_standards: CS-TS-001 (required — any request-scoped DB read for seeded accounts/role resolution goes through the `packages/db` wrapper), CS-TS-003 (recommended — cross-surface parity portal+admin), CS-GEN-001 (recommended — no secret/PII in logs), CS-GEN-002 (recommended — additive edits to keyed artifacts), CS-GEN-003 (recommended — cite `// ADR-NNN` / `// CS-<LANG>-NNN`)
+---
+
 # TASK-009-001: Dev sign-in lane core — seeded-account picker → server-set-role sign-in → role-appropriate landing
-
-**Brief**: BRIEF-009
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: none
-**Impl**: developer
-**E2e-required**: no <!-- e2e is consolidated into TASK-009-004; this task ships unit/component + integration proof of the lane core -->
-**Started-at**: 2026-06-21T14:09:23Z
-**Completed-at**: 2026-06-21T16:42:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Brief-type:** feature
-**Brief-deploys:** no
-
-**Acceptance criteria:** AC-AUTH-013-01 (sign-in → role-appropriate landing; the lane core that establishes the session)
-**Upstream refs:** REQ-AUTH-013, REQ-AUTH-001, ADR-001, ADR-005, ADR-006, ADR-010
-**Code standards:** CS-TS-001 (required — any request-scoped DB read for seeded accounts/role resolution goes through the `packages/db` wrapper), CS-TS-003 (recommended — cross-surface parity portal+admin), CS-GEN-001 (recommended — no secret/PII in logs), CS-GEN-002 (recommended — additive edits to keyed artifacts), CS-GEN-003 (recommended — cite `// ADR-NNN` / `// CS-<LANG>-NNN`)
-**Introduces-gate:** no
 
 ---
 

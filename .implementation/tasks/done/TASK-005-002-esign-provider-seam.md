@@ -1,21 +1,22 @@
+---
+brief: BRIEF-005
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: none (parallel-safe with TASK-005-001; sequenced after for dispatch ordering)
+impl: developer
+e2e_required: no
+started_at: 2026-06-18T13:14:52Z
+completed_at: 2026-06-18T08:35:00Z
+complexity_estimate: "2"
+complexity_actual: "2"
+brief_deploys: no
+introduces_gate: **advisory** — the fail-closed selector is a security-relevant boundary; provide gate-authoring-style evidence in the Work Log (the selector's green test + the named fail-closed code path + a counterfactual) but it lands advisory, not a required CI check.
+acceptance_criteria: none (infra seam — justification: this task ships the `ESignatureProvider` port + mock binding + selector that TASK-005-005 consumes to satisfy AC-ONBD-002-*; it has no user-facing behavior of its own. The ONBD-002 AC are verified against the mock in -005/-007).
+upstream_refs: ADR-023 (provider-seam & mock-first integration — the governing pattern), ADR-024 (e-signature via Docuseal behind the seam — §1 the seam, §5 mock-first sequencing, §6 template boundary). Both **Accepted** — no consult needed.
+---
+
 # TASK-005-002: `packages/esign` provider seam — port + mock binding + fail-closed selector
-
-**Brief**: BRIEF-005
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: none (parallel-safe with TASK-005-001; sequenced after for dispatch ordering)
-**Impl**: developer
-**E2e-required**: no
-**Brief-deploys**: no
-**Started-at**: 2026-06-18T13:14:52Z
-**Completed-at**: 2026-06-18T08:35:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-
-**Acceptance criteria:** none (infra seam — justification: this task ships the `ESignatureProvider` port + mock binding + selector that TASK-005-005 consumes to satisfy AC-ONBD-002-*; it has no user-facing behavior of its own. The ONBD-002 AC are verified against the mock in -005/-007).
-**Upstream refs:** ADR-023 (provider-seam & mock-first integration — the governing pattern), ADR-024 (e-signature via Docuseal behind the seam — §1 the seam, §5 mock-first sequencing, §6 template boundary). Both **Accepted** — no consult needed.
-**Introduces-gate:** **advisory** — the fail-closed selector is a security-relevant boundary; provide gate-authoring-style evidence in the Work Log (the selector's green test + the named fail-closed code path + a counterfactual) but it lands advisory, not a required CI check.
 
 ---
 

@@ -1,24 +1,24 @@
+---
+brief: BRIEF-009
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: TASK-009-002, TASK-009-003
+impl: developer
+e2e_required: yes
+started_at: 2026-06-21T15:25:13Z
+completed_at: 2026-06-21T19:20:00Z
+complexity_estimate: "3"
+complexity_actual: "4"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: [AC-AUTH-013-01, AC-AUTH-013-02, AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03 (all 5 in-scope AC — tier-6 e2e coverage, both apps + cross-app) + the switcher dev-acceptance]
+upstream_refs: REQ-AUTH-013, REQ-AUTH-010, ADR-010, ADR-006, ADR-012
+code_standards: CS-TS-003 (recommended — cross-surface parity; e2e on portal + admin + cross-app), CS-GEN-003 (recommended — cite the governing key / AC id in test annotations)
+---
+
 # TASK-009-004: E2e — bind the epic's gherkin scenarios (sign-in-as-each-role + landing, switcher, sign-out, inert guard, redirect matrix) across both apps + cross-app
-
-**Brief**: BRIEF-009
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: TASK-009-002, TASK-009-003
-**Impl**: developer
-**E2e-required**: yes <!-- brief methodology.e2e: required; auth/sign-in flow — CLAUDE.md IO e2e default -->
-**Started-at**: 2026-06-21T15:25:13Z
-**Completed-at**: 2026-06-21T19:20:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 4
-
-**Brief-type:** feature
-**Brief-deploys:** no
-
-**Acceptance criteria:** AC-AUTH-013-01, AC-AUTH-013-02, AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03 (all 5 in-scope AC — tier-6 e2e coverage, both apps + cross-app) + the switcher dev-acceptance
-**Upstream refs:** REQ-AUTH-013, REQ-AUTH-010, ADR-010, ADR-006, ADR-012
-**Code standards:** CS-TS-003 (recommended — cross-surface parity; e2e on portal + admin + cross-app), CS-GEN-003 (recommended — cite the governing key / AC id in test annotations)
-**Introduces-gate:** no
 
 ---
 

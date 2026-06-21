@@ -1,22 +1,23 @@
+---
+brief: BRIEF-007
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: none
+impl: developer
+e2e_required: no
+started_at: 2026-06-19T11:47:03Z
+completed_at: 2026-06-19T07:05:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: [AC-FILE-003-01 (partial — the adapter contract that delivers encryption-at-rest; the tier-3 proof lands in TASK-007-004). The port itself underpins AC-FILE-001-02, AC-FILE-003-02/-03/-04, AC-NFR-009-01 delivered downstream.]
+upstream_refs: ADR-008 (FileStorage port + adapters + fail-closed boot + TTL policy + config contract), ADR-020 (encryption-at-rest is the adapter contract, NOT app code; no cloud KMS/secrets SDK in app code — ADR-013/020), ADR-009 (storage-key pattern is opaque to the adapter; TTL caps), ADR-006 (`packages/storage` location).
+---
+
 # TASK-007-001: `FileStorage` port + Azurite/Memory adapters + fail-closed select + compose/env wiring
-
-**Brief**: BRIEF-007
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer <!-- then devops for the compose/inventory portion — see Implementation Notes -->
-**Updated-by**: webapp-developer
-**Depends on**: none
-**Impl**: developer
-**E2e-required**: no <!-- this task is the port + adapters; encryption-at-rest is proven at tier-3 in TASK-007-003/004; no UI here -->
-**Started-at**: 2026-06-19T11:47:03Z
-**Completed-at**: 2026-06-19T07:05:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** AC-FILE-003-01 (partial — the adapter contract that delivers encryption-at-rest; the tier-3 proof lands in TASK-007-004). The port itself underpins AC-FILE-001-02, AC-FILE-003-02/-03/-04, AC-NFR-009-01 delivered downstream.
-**Upstream refs:** ADR-008 (FileStorage port + adapters + fail-closed boot + TTL policy + config contract), ADR-020 (encryption-at-rest is the adapter contract, NOT app code; no cloud KMS/secrets SDK in app code — ADR-013/020), ADR-009 (storage-key pattern is opaque to the adapter; TTL caps), ADR-006 (`packages/storage` location).
-**Introduces-gate:** no <!-- new package + adapters; covered by its own unit/integration tests (test-is-its-own-evidence). The encryption-at-rest assertion graduates to a tier-3 *required* check inside TASK-007-004's pipeline, not here. -->
 
 ---
 

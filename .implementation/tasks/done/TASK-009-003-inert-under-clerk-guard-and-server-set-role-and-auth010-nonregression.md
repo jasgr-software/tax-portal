@@ -1,24 +1,24 @@
+---
+brief: BRIEF-009
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: TASK-009-001
+impl: developer
+e2e_required: no
+started_at: 2026-06-21T14:32:58Z
+completed_at: 2026-06-21T09:48:00Z
+complexity_estimate: "2"
+complexity_actual: "2"
+brief_type: feature
+brief_deploys: no
+introduces_gate: yes
+acceptance_criteria: [AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03 (consolidated from EPIC-004 — keep tagged + green through the lane's sign-in path, do not rebuild the middleware) + the inert-under-`clerk` guard dev-acceptance (security-relevant, NOT advisory) + the server-set-role assertion (ADR-005)]
+upstream_refs: REQ-AUTH-010, ADR-001, ADR-012, ADR-005, ADR-010
+code_standards: CS-TS-001 (required — any request-scoped DB read through the `packages/db` wrapper), CS-GEN-001 (recommended — no secret/PII in logs), CS-GEN-003 (recommended — cite the governing key)
+---
+
 # TASK-009-003: Inert-under-`clerk` guard (HARD security gate) + server-set-role assertion + AC-AUTH-010 non-regression tagging
-
-**Brief**: BRIEF-009
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: TASK-009-001
-**Impl**: developer
-**E2e-required**: no <!-- the inert-guard + server-set-role proofs are tier-2/3 (integration/unit); the AC-AUTH-010 redirect-matrix e2e is consolidated/exercised through the lane in TASK-009-004 -->
-**Started-at**: 2026-06-21T14:32:58Z
-**Completed-at**: 2026-06-21T09:48:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-
-**Brief-type:** feature
-**Brief-deploys:** no
-
-**Acceptance criteria:** AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03 (consolidated from EPIC-004 — keep tagged + green through the lane's sign-in path, do not rebuild the middleware) + the inert-under-`clerk` guard dev-acceptance (security-relevant, NOT advisory) + the server-set-role assertion (ADR-005)
-**Upstream refs:** REQ-AUTH-010, ADR-001, ADR-012, ADR-005, ADR-010
-**Code standards:** CS-TS-001 (required — any request-scoped DB read through the `packages/db` wrapper), CS-GEN-001 (recommended — no secret/PII in logs), CS-GEN-003 (recommended — cite the governing key)
-**Introduces-gate:** yes <!-- the inert-under-AUTH_PROVIDER=clerk guard is a new HARD security-relevant gate — § Gate Authoring Rules: three-item evidence required in the Work Log -->
 
 ---
 

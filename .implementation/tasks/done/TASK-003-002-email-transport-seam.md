@@ -1,20 +1,21 @@
+---
+brief: BRIEF-003
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: none
+impl: developer
+e2e_required: no
+started_at: 2026-06-17T00:00:00Z
+completed_at: 2026-06-17T06:55:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+introduces_gate: advisory (a new sending capability; the required email gate is the e2e Mailhog assertion in TASK-003-006, not this task)
+acceptance_criteria: none (justification: infrastructure seam — the email-send AC AC-DOOR-007-01 / AC-DOOR-008-02 / AC-DOOR-008-03 are satisfied by TASK-003-005, which consumes this seam, and verified end-to-end against Mailhog in TASK-003-006. This task's unit/integration tests prove the seam in isolation.)
+upstream_refs: REQ-NFR-008 (reliable transactional email), ADR-001 (provider-seam precedent), ADR-008 (storage provider-seam precedent), OQ-002 (email-transport ADR raised-upstream — proceed on the proposed default)
+---
+
 # TASK-003-002: Outbound transactional-email seam (`packages/email`) — port + SMTP/Mailhog binding + selector
-
-**Brief**: BRIEF-003
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: none
-**Impl**: developer
-**E2e-required**: no
-**Started-at**: 2026-06-17T00:00:00Z
-**Completed-at**: 2026-06-17T06:55:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** none (justification: infrastructure seam — the email-send AC AC-DOOR-007-01 / AC-DOOR-008-02 / AC-DOOR-008-03 are satisfied by TASK-003-005, which consumes this seam, and verified end-to-end against Mailhog in TASK-003-006. This task's unit/integration tests prove the seam in isolation.)
-**Upstream refs:** REQ-NFR-008 (reliable transactional email), ADR-001 (provider-seam precedent), ADR-008 (storage provider-seam precedent), OQ-002 (email-transport ADR raised-upstream — proceed on the proposed default)
-**Introduces-gate:** advisory (a new sending capability; the required email gate is the e2e Mailhog assertion in TASK-003-006, not this task)
 
 ---
 

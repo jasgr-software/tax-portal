@@ -1,20 +1,17 @@
+---
+status: backlog
+assigned_to: —
+updated_by: —
+started_at: —
+completed_at: —
+complexity_estimate: —
+complexity_actual: —
+found_in: TASK-NNN
+category:
+severity:
+---
+
 # BUG-NNN: Short description of the issue
-
-**Status**: backlog
-**Found in**: TASK-NNN <!-- the task being reviewed when the bug was discovered -->
-**Category**: <!-- security | edge-case | architecture-violation | test-coverage | code-quality | accessibility | i18n -->
-**Severity**: <!-- critical | major | minor -->
-**Assigned to**: — <!-- webapp-developer | devops -->
-**Updated-by**: —
-**Started-at**: — <!-- ISO 8601 UTC, set when status first leaves backlog -->
-**Completed-at**: — <!-- ISO 8601 UTC, set in the atomic close edit when status → done -->
-**Complexity-estimate**: — <!-- 1-5 (1=very easy, 5=very hard), set when picking up the bug -->
-**Complexity-actual**: — <!-- 1-5, set when marking review -->
-
-<!--
-The four fields above are the Task Metadata Contract — see .implementation/ENGINE.md
-§ Task Metadata Contract. Same enforcement as tasks.
--->
 
 ---
 

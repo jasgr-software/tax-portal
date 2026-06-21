@@ -1,21 +1,22 @@
+---
+brief: BRIEF-005
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-005-005 (onboarding read model + sign action)
+impl: developer
+e2e_required: no
+started_at: 2026-06-18T14:56:09Z
+completed_at: 2026-06-18T17:45:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: [AC-ONBD-001-01 (three ordered steps rendered), AC-ONBD-001-03 (current position + which steps remain visible). The signing UX surfaces here too (the button that calls TASK-005-005's `signEngagementLetterAction`) and presents the edited template (AC-IDNT-007-03 UI surface). Steps 2/3 render as **visibly locked** affordances backed by the server-side gate.]
+upstream_refs: ADR-006 (client onboarding lives in `apps/portal`, not reachable from `apps/admin`), ADR-001/ADR-005 (CLIENT-only, owns the engagement — middleware + the -005 server guard), ADR-024 §6 (renders the supplied template content).
+---
+
 # TASK-005-006: Onboarding sequence UI (portal) — three steps, locked affordances, position + remaining
-
-**Brief**: BRIEF-005
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-005-005 (onboarding read model + sign action)
-**Impl**: developer
-**E2e-required**: no
-**Brief-deploys**: no
-**Started-at**: 2026-06-18T14:56:09Z
-**Completed-at**: 2026-06-18T17:45:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** AC-ONBD-001-01 (three ordered steps rendered), AC-ONBD-001-03 (current position + which steps remain visible). The signing UX surfaces here too (the button that calls TASK-005-005's `signEngagementLetterAction`) and presents the edited template (AC-IDNT-007-03 UI surface). Steps 2/3 render as **visibly locked** affordances backed by the server-side gate.
-**Upstream refs:** ADR-006 (client onboarding lives in `apps/portal`, not reachable from `apps/admin`), ADR-001/ADR-005 (CLIENT-only, owns the engagement — middleware + the -005 server guard), ADR-024 §6 (renders the supplied template content).
-**Introduces-gate:** no
 
 ---
 

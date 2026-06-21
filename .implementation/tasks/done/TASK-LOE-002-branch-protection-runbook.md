@@ -1,19 +1,21 @@
-# TASK-LOE-002: Branch protection runbook
+---
+epic: chore/lights-out-enablement
+status: done
+assigned_to: devops
+updated_by: devops
+depends_on: TASK-LOE-001 (the runbook lists job names that must exist in `ci.yml` first)
+e2e_required: no
+started_at: 2026-04-27T10:18:23Z
+completed_at: 2026-04-27T12:00:00Z
+complexity_estimate: "2"
+complexity_actual: "2"
+introduces_gate: no
+affected_flows: none (justification: chore touches operations docs, not user-facing behavior)
+affected_requirements: none (justification: chore touches operations docs, not SRS requirements)
+relevant_adrs: none
+---
 
-**Epic**: chore/lights-out-enablement
-**Status**: done
-**Assigned to**: devops
-**Updated-by**: devops
-**Depends on**: TASK-LOE-001 (the runbook lists job names that must exist in `ci.yml` first)
-**E2e-required**: no
-**Started-at**: 2026-04-27T10:18:23Z
-**Completed-at**: 2026-04-27T12:00:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-**Affected flows:** none (justification: chore touches operations docs, not user-facing behavior)
-**Affected requirements:** none (justification: chore touches operations docs, not SRS requirements)
-**Introduces-gate:** no
-**Relevant ADRs:** none
+# TASK-LOE-002: Branch protection runbook
 
 ---
 

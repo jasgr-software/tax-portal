@@ -1,22 +1,23 @@
+---
+brief: BRIEF-007
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-007-004
+impl: developer
+e2e_required: yes
+started_at: 2026-06-19T13:36:00Z
+completed_at: 2026-06-19T14:22:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: AC-FILE-007-01 (accountant creates a labeled document request within an engagement).
+upstream_refs: ADR-006 (authoring lives in `apps/admin`, must NOT be reachable from `apps/portal`), ADR-003 (accountant principal via the request-scoped wrapper), ADR-005 (accountant-only write boundary — the `0007` DocumentRequest BLOCK), ADR-019 (authoring may be audited per the existing seam).
+---
+
 # TASK-007-005: Accountant document-request authoring UI (`apps/admin`)
-
-**Brief**: BRIEF-007
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-007-004
-**Impl**: developer
-**E2e-required**: yes <!-- accountant authoring runs against the full docker-compose stack in apps/admin; cross-module onboarding/file boundary -->
-**Started-at**: 2026-06-19T13:36:00Z
-**Completed-at**: 2026-06-19T14:22:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** AC-FILE-007-01 (accountant creates a labeled document request within an engagement).
-**Upstream refs:** ADR-006 (authoring lives in `apps/admin`, must NOT be reachable from `apps/portal`), ADR-003 (accountant principal via the request-scoped wrapper), ADR-005 (accountant-only write boundary — the `0007` DocumentRequest BLOCK), ADR-019 (authoring may be audited per the existing seam).
-**Introduces-gate:** no
 
 ---
 

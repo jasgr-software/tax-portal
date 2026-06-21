@@ -1,20 +1,21 @@
+---
+brief: BRIEF-003
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer
+depends_on: TASK-003-001, TASK-003-002, TASK-003-004
+impl: developer
+e2e_required: no
+started_at: 2026-06-17T11:50:05Z
+completed_at: 2026-06-17T11:09:00Z
+complexity_estimate: "4"
+complexity_actual: "4"
+introduces_gate: no (reuses the EPIC-004 audit + rate-limit gates; the email-send required gate is the e2e Mailhog assertion in TASK-003-006)
+acceptance_criteria: [AC-DOOR-006-02 (accept → accepted), AC-DOOR-006-03 (decline → declined), AC-DOOR-006-04 (only the accountant decides), AC-DOOR-006-05 (decided ≠ pending; no second decision), AC-DOOR-007-01 (accept sends invitation to contact email), AC-DOOR-007-02 (invitation directs to client-surface account creation), AC-DOOR-007-03 (no account before sign-up), AC-DOOR-007-04 (invitation tied to the accepted request), AC-DOOR-008-01 (decline captures free-text reason), AC-DOOR-008-02 (reason emailed to contact email), AC-DOOR-008-03 (prospect needs no account to receive it), AC-DOOR-008-04 (reason retained on the declined request)]
+upstream_refs: REQ-DOOR-006, REQ-DOOR-007, REQ-DOOR-008, ADR-001 (`createInvitation` seam — CLIENT role server-set), ADR-003 (SESSION_CONTEXT), ADR-005 (write boundary), ADR-019 (audit accept/decline), ADR-022 (rate-limit outbound email), ADR-010 (invitation links to the client surface)
+---
+
 # TASK-003-005: Decision actions (admin) — accept→invite+email, decline→reason+email; decide-once, audit, rate-limit
-
-**Brief**: BRIEF-003
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer
-**Depends on**: TASK-003-001, TASK-003-002, TASK-003-004
-**Impl**: developer
-**E2e-required**: no
-**Started-at**: 2026-06-17T11:50:05Z
-**Completed-at**: 2026-06-17T11:09:00Z
-**Complexity-estimate**: 4
-**Complexity-actual**: 4
-
-**Acceptance criteria:** AC-DOOR-006-02 (accept → accepted), AC-DOOR-006-03 (decline → declined), AC-DOOR-006-04 (only the accountant decides), AC-DOOR-006-05 (decided ≠ pending; no second decision), AC-DOOR-007-01 (accept sends invitation to contact email), AC-DOOR-007-02 (invitation directs to client-surface account creation), AC-DOOR-007-03 (no account before sign-up), AC-DOOR-007-04 (invitation tied to the accepted request), AC-DOOR-008-01 (decline captures free-text reason), AC-DOOR-008-02 (reason emailed to contact email), AC-DOOR-008-03 (prospect needs no account to receive it), AC-DOOR-008-04 (reason retained on the declined request)
-**Upstream refs:** REQ-DOOR-006, REQ-DOOR-007, REQ-DOOR-008, ADR-001 (`createInvitation` seam — CLIENT role server-set), ADR-003 (SESSION_CONTEXT), ADR-005 (write boundary), ADR-019 (audit accept/decline), ADR-022 (rate-limit outbound email), ADR-010 (invitation links to the client surface)
-**Introduces-gate:** no (reuses the EPIC-004 audit + rate-limit gates; the email-send required gate is the e2e Mailhog assertion in TASK-003-006)
 
 ---
 

@@ -1,13 +1,14 @@
-# BUG-008-001 — Azurite SAS-URL PUT host-unreachable from the Playwright browser process (upload-delivery e2e tier)
+---
+brief: BRIEF-008 / EPIC-008 (surfaced at the TASK-008-004 e2e gate)
+status: open — tracked follow-up (does NOT block BRIEF-008 merge)
+impl: unassigned — **do NOT fix in BRIEF-008** (out of slice scope; its own follow-up)
+severity: non-blocking (env-only; the affected ACs are proven at tier-3 integration; e2e is not a per-PR required CI check)
+found_by: IO (per the SDET TASK-008-004 verification + review disposition, 2026-06-20T01:15:00Z)
+origin: EPIC-007 (ADR-009 two-phase upload pipeline) — **pre-existing infra defect, NOT a BRIEF-008 regression**
+disposition: tracked follow-up — carried to retro / Validate-disposition; AC-ONBD-005-01 carried for slice
+---
 
-**Status:** open — tracked follow-up (does NOT block BRIEF-008 merge)
-**Brief:** BRIEF-008 / EPIC-008 (surfaced at the TASK-008-004 e2e gate)
-**Origin:** EPIC-007 (ADR-009 two-phase upload pipeline) — **pre-existing infra defect, NOT a BRIEF-008 regression**
-**Filed by:** IO (per the SDET TASK-008-004 verification + review disposition, 2026-06-20T01:15:00Z)
-**Severity:** non-blocking (env-only; the affected ACs are proven at tier-3 integration; e2e is not a per-PR required CI check)
-**Impl:** unassigned — **do NOT fix in BRIEF-008** (out of slice scope; its own follow-up)
-**Disposition:** tracked follow-up — carried to retro / Validate-disposition; AC-ONBD-005-01 carried for slice
-Validate by its tier-3 integration proof. Fix is its own future infra slice (own its own brief/task).
+# BUG-008-001 — Azurite SAS-URL PUT host-unreachable from the Playwright browser process (upload-delivery e2e tier)
 
 ---
 

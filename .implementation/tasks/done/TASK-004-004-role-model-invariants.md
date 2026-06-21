@@ -1,20 +1,21 @@
+---
+brief: BRIEF-004
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: TASK-004-002 (done — `packages/auth` port + mock binding deliver the server-side role read)
+impl: developer
+e2e_required: no
+started_at: 2026-06-15T00:00:00Z
+completed_at: 2026-06-15T08:00:00Z
+complexity_estimate: "2"
+complexity_actual: "2"
+introduces_gate: no
+acceptance_criteria: [AC-AUTH-001-01, AC-AUTH-001-02, AC-AUTH-001-03]
+upstream_refs: ADR-001 (role lives in `publicMetadata.role`; one Clerk app / two surfaces), ADR-005 (role is the trust boundary — server-evaluated, never client-asserted)
+---
+
 # TASK-004-004: Role-model invariants + server-side role read
-
-**Brief**: BRIEF-004
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: TASK-004-002 (done — `packages/auth` port + mock binding deliver the server-side role read)
-**Impl**: developer
-**E2e-required**: no <!-- tier 2/3 only — unit + integration; no browser e2e for this task -->
-**Started-at**: 2026-06-15T00:00:00Z
-**Completed-at**: 2026-06-15T08:00:00Z
-**Complexity-estimate**: 2
-**Complexity-actual**: 2
-
-**Acceptance criteria:** AC-AUTH-001-01, AC-AUTH-001-02, AC-AUTH-001-03
-**Upstream refs:** ADR-001 (role lives in `publicMetadata.role`; one Clerk app / two surfaces), ADR-005 (role is the trust boundary — server-evaluated, never client-asserted)
-**Introduces-gate:** no <!-- adds unit + integration tests; the test is its own evidence. The `pnpm e2e:cross-app` hard gate is introduced by TASK-004-008, not here. -->
 
 ---
 

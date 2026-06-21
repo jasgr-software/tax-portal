@@ -1,20 +1,21 @@
+---
+brief: BRIEF-004
+status: done
+assigned_to: webapp-developer
+updated_by: sdet
+depends_on: TASK-004-004 (done) — `packages/auth` role model + mock binding + invitation seam
+impl: developer
+e2e_required: yes
+started_at: 2026-06-15T14:00:00Z
+completed_at: 2026-06-15T16:00:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+introduces_gate: no
+acceptance_criteria: [AC-AUTH-005-02 (client completes sign-up + sign-in without a second factor), AC-AUTH-006-01 (CLIENT account only via accountant-issued invitation), AC-AUTH-006-02 (no public/self-service registration path), AC-AUTH-006-03 (the enabling invitation originates from the accountant)]
+upstream_refs: ADR-001 (Clerk production target / invitation-only / role server-side — honored via the mock binding seam), ADR-005 (role server-evaluated, never client-asserted), ADR-010 (`/sign-in` + `/sign-up` are portal public allow-list routes — do not break the allow-list)
+---
+
 # TASK-004-005: apps/portal client auth — invitation-landing sign-up + sign-in (no 2FA) + invitation-only / no-self-registration
-
-**Brief**: BRIEF-004
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: sdet
-**Depends on**: TASK-004-004 (done) — `packages/auth` role model + mock binding + invitation seam
-**Impl**: developer
-**E2e-required**: yes
-**Started-at**: 2026-06-15T14:00:00Z
-**Completed-at**: 2026-06-15T16:00:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** AC-AUTH-005-02 (client completes sign-up + sign-in without a second factor), AC-AUTH-006-01 (CLIENT account only via accountant-issued invitation), AC-AUTH-006-02 (no public/self-service registration path), AC-AUTH-006-03 (the enabling invitation originates from the accountant)
-**Upstream refs:** ADR-001 (Clerk production target / invitation-only / role server-side — honored via the mock binding seam), ADR-005 (role server-evaluated, never client-asserted), ADR-010 (`/sign-in` + `/sign-up` are portal public allow-list routes — do not break the allow-list)
-**Introduces-gate:** no <!-- this task's e2e specs run inside the existing portal `e2e:run` gate; the hard `pnpm e2e:cross-app` gate is introduced by TASK-004-008, not here -->
 
 ---
 

@@ -1,34 +1,22 @@
+---
+brief: BRIEF-XXX
+status: backlog
+assigned_to: —
+updated_by: —
+depends_on: none
+impl: developer
+e2e_required: no
+started_at: —
+completed_at: —
+complexity_estimate: —
+complexity_actual: —
+introduces_gate:
+acceptance_criteria: [<!-- the brief AC ids this task satisfies (e.g. AC-007-01, AC-007-03), "or \"none — <justification>\" -->"]
+upstream_refs:
+code_standards: <!-- the brief's code_standards: ids this task must honor + tag via `// CS-<LANG>-NNN` (CS-GEN-003), or "none". SDET checks each cited standard's verification hook; a failing `required` standard is a rejection. -->
+---
+
 # TASK-NNN: Title
-
-**Brief**: BRIEF-XXX
-**Status**: backlog <!-- backlog | in-progress | review | done | needs-user-direction (set by stuck-loop killswitch — see .implementation/ENGINE.md § Stuck-Loop Killswitch and § Task Status Lifecycle) -->
-**Assigned to**: — <!-- developer role per CLAUDE.md (e.g. webapp-developer | devops) -->
-**Updated-by**: —
-**Depends on**: none
-**Impl**: developer <!-- developer | io -->
-**E2e-required**: no <!-- set from the brief's methodology.e2e — no unless the brief mandates e2e -->
-**Started-at**: — <!-- ISO 8601 UTC, set when status first leaves backlog -->
-**Completed-at**: — <!-- ISO 8601 UTC, set in the atomic close edit when status → done -->
-**Complexity-estimate**: — <!-- 1-5 (1=very easy, 5=very hard), set when picking up the task, before reading implementation notes -->
-**Complexity-actual**: — <!-- 1-5, set when marking review based on actual effort -->
-
-<!--
-The four metadata fields above are the Task Metadata Contract — see .implementation/ENGINE.md
-§ Task Metadata Contract. SDET rejects review → done if Complexity-actual is missing or out of
-range. The IO rejects slice close if any done task is missing any of the four.
--->
-
-**Acceptance criteria:** <!-- the brief AC ids this task satisfies (e.g. AC-007-01, AC-007-03), or "none — <justification>" -->
-**Upstream refs:** <!-- REQ-/ADR-/EPIC- ids the brief cites that this task must honor, or "none". Read only when the cited layer is present. -->
-**Code standards:** <!-- the brief's code_standards: ids this task must honor + tag via `// CS-<LANG>-NNN` (CS-GEN-003), or "none". SDET checks each cited standard's verification hook; a failing `required` standard is a rejection. -->
-**Introduces-gate:** <!-- yes | no | advisory. yes → three-item evidence in Work Log per ENGINE.md § Gate Authoring Rules -->
-
-<!--
-Tests are scoped against the task's acceptance criteria under the methodology the brief mandates
-(TDD when methodology.tdd: required; bind acceptance_scenarios when methodology.acceptance_format
-calls for them; otherwise derive tests from the criteria). The engine mandates no specific
-methodology — the brief does. Project-specific test-tier requirements, if any, live in CLAUDE.md.
--->
 
 ---
 

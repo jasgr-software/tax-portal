@@ -1,22 +1,23 @@
+---
+brief: BRIEF-001
+status: done
+assigned_to: devops
+updated_by: devops
+depends_on: TASK-001
+impl: developer
+e2e_required: no
+started_at: 2026-06-15T10:56:45Z
+completed_at: 2026-06-15T16:00:00Z
+complexity_estimate: "3"
+complexity_actual: "4"
+brief_type: feature
+brief_deploys: no
+introduces_gate: no
+acceptance_criteria: none (justification: infrastructure-only task — stands up the local docker-compose stack and the raw-SQL migration runner that TASK-003's RLS policy and tier-3 integration test, and the container smoke gate, all run against. No user-facing behavior of its own; the AC it enables are covered by TASK-003/004/005.)
+upstream_refs: ADR-002 (SQL Server 2022 Developer in Docker; two migration tracks; `scripts/db-migrate.ts` runner; `__db_migrations` bookkeeping table), ADR-006 (docker-compose at repo root brings up the stack; `scripts/db-migrate.ts`, `scripts/smoke-test.sh`), ADR-007 (deploy-agnostic — no Azure-only assumptions), ADR-008 (Azurite blob emulator in the stack — reserved; storage adapter is a later epic but the emulator belongs in the stack)
+---
+
 # TASK-002: Local dev stack (docker-compose) + operations docs + raw-SQL migration runner
-
-**Brief**: BRIEF-001
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: devops
-**Updated-by**: devops
-**Depends on**: TASK-001
-**Impl**: developer
-**E2e-required**: no
-**Started-at**: 2026-06-15T10:56:45Z
-**Completed-at**: 2026-06-15T16:00:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 4
-
-**Acceptance criteria:** none (justification: infrastructure-only task — stands up the local docker-compose stack and the raw-SQL migration runner that TASK-003's RLS policy and tier-3 integration test, and the container smoke gate, all run against. No user-facing behavior of its own; the AC it enables are covered by TASK-003/004/005.)
-**Upstream refs:** ADR-002 (SQL Server 2022 Developer in Docker; two migration tracks; `scripts/db-migrate.ts` runner; `__db_migrations` bookkeeping table), ADR-006 (docker-compose at repo root brings up the stack; `scripts/db-migrate.ts`, `scripts/smoke-test.sh`), ADR-007 (deploy-agnostic — no Azure-only assumptions), ADR-008 (Azurite blob emulator in the stack — reserved; storage adapter is a later epic but the emulator belongs in the stack)
-**Introduces-gate:** no
 
 ---
 

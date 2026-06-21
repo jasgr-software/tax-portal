@@ -1,22 +1,23 @@
+---
+brief: BRIEF-002
+status: done
+assigned_to: webapp-developer
+updated_by: webapp-developer (2026-06-16T12:45:00Z)
+depends_on: none
+impl: developer
+e2e_required: no
+started_at: 2026-06-16T07:01:42Z
+completed_at: 2026-06-16T07:51:00Z
+complexity_estimate: "3"
+complexity_actual: "3"
+brief_type: feature
+brief_deploys: no
+introduces_gate: yes
+acceptance_criteria: AC-DOOR-002-05 (the defining invariant — only the accountant may change the catalog; CLIENT + anonymous are rejected at the trust boundary)
+upstream_refs: ADR-005 (security policies are the write boundary), ADR-003 (SESSION_CONTEXT identity), ADR-012 (testing pyramid — tier-3 obligation)
+---
+
 # TASK-002-001: Close the Service write-boundary gap — accountant-only write security policy + tier-3 RLS test
-
-**Brief**: BRIEF-002
-**Brief-type**: feature
-**Brief-deploys**: no
-**Status**: done
-**Assigned to**: webapp-developer
-**Updated-by**: webapp-developer (2026-06-16T12:45:00Z)
-**Depends on**: none
-**Impl**: developer
-**E2e-required**: no <!-- tier-3 integration test, not e2e; this task is the security-policy boundary -->
-**Started-at**: 2026-06-16T07:01:42Z <!-- IO Audit-disposition (BRIEF-002, Advisory 1): original write was 12:01:42Z, a wrong-timezone error — chronologically AFTER the in-log test run (07:39:10) + SDET review (07:51:00Z), yielding negative duration. Corrected to the same-hour-window value (UTC offset back 5h) consistent with all logged work; duration now non-negative (~50min: 07:01:42 → 07:51:00). -->
-**Completed-at**: 2026-06-16T07:51:00Z
-**Complexity-estimate**: 3
-**Complexity-actual**: 3
-
-**Acceptance criteria:** AC-DOOR-002-05 (the defining invariant — only the accountant may change the catalog; CLIENT + anonymous are rejected at the trust boundary)
-**Upstream refs:** ADR-005 (security policies are the write boundary), ADR-003 (SESSION_CONTEXT identity), ADR-012 (testing pyramid — tier-3 obligation)
-**Introduces-gate:** yes <!-- new tier-3 SDET reject-on-fail criterion: a non-accountant write must be rejected by the Service policy. Three-item evidence required in Work Log per ENGINE.md § Gate Authoring Rules. -->
 
 ---
 

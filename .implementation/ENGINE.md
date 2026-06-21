@@ -213,11 +213,11 @@ tasks/ (active) → tasks/done/ (completed)
 
 Task files are named `TASK-BBB-NNN-short-description.md` where `BBB` is the brief number and `NNN` is the task
 sequence. Bug reports use `BUG-BBB-NNN-short-description.md`. Bugs not tied to a single brief use
-`BUG-000-NNN-description.md`. The **Status** field tracks the five states in § Task Status Lifecycle. The
-**Assigned to** field specifies the developer role.
+`BUG-000-NNN-description.md`. The `status` front-matter key tracks the five states in § Task Status Lifecycle.
+The `assigned_to` front-matter key specifies the developer role.
 
-Active tasks/bugs live in `tasks/`; completed ones move to `tasks/done/`. Every agent updates the **Status**,
-**Updated-by**, and **Work Log** on every status change or meaningful work action.
+Active tasks/bugs live in `tasks/`; completed ones move to `tasks/done/`. Every agent updates the `status`,
+`updated_by`, and **Work Log** on every status change or meaningful work action.
 
 ## Task Metadata Contract
 
@@ -225,18 +225,18 @@ Every task/bug file carries four lifecycle/effort fields that power the `.claude
 read by `log-task-edit.py` and surfaced in `scripts/metrics-report.py`. This section is **authoritative for
 field semantics**; § Dispatch Checkpoint is authoritative for the atomic-edit ordering rule.
 
-| Field                 | Format       | Written by                           | When                                                           |
-| --------------------- | ------------ | ------------------------------------ | -------------------------------------------------------------- |
-| `Started-at`          | ISO 8601 UTC | Developer (or IO if `Impl: io`)      | Same Edit that flips status out of `backlog` for the first time |
-| `Complexity-estimate` | integer 1–5  | Developer (or IO if `Impl: io`)      | Same Edit as `Started-at` — honest estimate before reading impl notes |
-| `Complexity-actual`   | integer 1–5  | Developer (or IO if `Impl: io`)      | Same Edit that flips status to `review`                        |
-| `Completed-at`        | ISO 8601 UTC | SDET (or IO if reviewing `Impl: io`) | Inside the atomic close edit when flipping status to `done`    |
+| Field                  | Format       | Written by                           | When                                                                         |
+| ---------------------- | ------------ | ------------------------------------ | ---------------------------------------------------------------------------- |
+| `started_at`           | ISO 8601 UTC | Developer (or IO if `Impl: io`)      | Same Edit that flips status out of `backlog` for the first time              |
+| `complexity_estimate`  | integer 1–5  | Developer (or IO if `Impl: io`)      | Same Edit as `started_at` — honest estimate before reading impl notes        |
+| `complexity_actual`    | integer 1–5  | Developer (or IO if `Impl: io`)      | Same Edit that flips status to `review`                                      |
+| `completed_at`         | ISO 8601 UTC | SDET (or IO if reviewing `Impl: io`) | Inside the atomic close edit when flipping status to `done`                  |
 
-**Hard verification gates:** SDET rejects any `review → done` transition if `Complexity-actual` is empty or not
+**Hard verification gates:** SDET rejects any `review → done` transition if `complexity_actual` is empty or not
 in `1`–`5`. The IO rejects slice-close if any task in `tasks/done/` matching the current brief has an empty
-`Started-at`, `Completed-at`, `Complexity-estimate`, or `Complexity-actual`.
+`started_at`, `completed_at`, `complexity_estimate`, or `complexity_actual`.
 
-**Honest estimation:** inflating `Complexity-estimate` to match `Complexity-actual` defeats the metric. Wrong
+**Honest estimation:** inflating `complexity_estimate` to match `complexity_actual` defeats the metric. Wrong
 estimates are useful data.
 
 ### Task spec required fields
@@ -244,24 +244,24 @@ estimates are useful data.
 Every task spec the IO creates during Plan must include (in addition to Definition of Done, Files to Create or
 Modify, Quality Gates, and Work Log):
 
-- **`**Acceptance criteria:**`** — the brief AC ids this task satisfies (e.g. `AC-007-01`, `AC-007-03`). Used
+- **`acceptance_criteria`** — the brief AC ids this task satisfies (e.g. `AC-007-01`, `AC-007-03`). Used
   by the developer to scope tests and by the SDET to verify the slice meets the brief. Empty is acceptable only
-  for a task with no user-facing behavior (e.g. a build-pipeline-only change): write
-  `**Acceptance criteria:** none (justification: …)`.
-- **`**Upstream refs:**`** — optional REQ-/ADR-/EPIC- ids the brief cites that this task must honor, or `none`.
+  for a task with no user-facing behavior (e.g. a build-pipeline-only change): set
+  `acceptance_criteria: none (justification: …)`.
+- **`upstream_refs`** — optional REQ-/ADR-/EPIC- ids the brief cites that this task must honor, or `none`.
   Read if the cited layer is present; degrade gracefully if absent.
-- **`**Code standards:**`** — the brief's `code_standards:` ids this task must honor, or `none`. The developer
+- **`code_standards`** — the brief's `code_standards:` ids this task must honor, or `none`. The developer
   tags the honoring code/test with `// CS-<LANG>-NNN` (CS-GEN-003); the SDET verifies each cited standard's
   `verification` hook. A `required` standard left un-honored (failing check or missing tag) is an SDET rejection;
   `recommended`/`experimental` are advisory. Threaded from the brief by the IO at Design onto only the tasks that
   touch that key's bucket.
-- **`**Introduces-gate:**`** — `yes`, `no`, or `advisory`. Declares whether the task introduces a new quality
+- **`introduces_gate`** — `yes`, `no`, or `advisory`. Declares whether the task introduces a new quality
   gate. `yes` → § Gate Authoring Rules applies (Work Log must contain the three evidence items). A missing
   field is treated as an SDET rejection.
 
-A task spec missing any required field is a mandatory SDET rejection. **Hotfix exception:** for
-`Brief-type: hotfix`, acceptance-test authoring may defer to a follow-up the IO creates during Plan (noted in
-PROGRESS.md), with `(pending backfill: TASK-XXX)` annotations. `**Introduces-gate:**` is never deferrable.
+A task spec missing any required front-matter field is a mandatory SDET rejection. **Hotfix exception:** for
+`brief_type: hotfix`, acceptance-test authoring may defer to a follow-up the IO creates during Plan (noted in
+PROGRESS.md), with `(pending backfill: TASK-XXX)` annotations. `introduces_gate` is never deferrable.
 
 ## Acceptance & Methodology (the validation contract)
 
@@ -290,8 +290,8 @@ The brief's **acceptance criteria** are the team's source of truth for "is the s
 If a brief change touches acceptance criteria referenced by a task in `in-progress` or `review`, the IO
 **pauses and re-clarifies** the affected tasks: re-derive the slice's executable tests against the updated
 criteria, re-read the task may need respec. If the change only affects `backlog` tasks, the IO refreshes their
-`**Acceptance criteria:**` fields before dispatch. Do not let implementation drift from the acceptance contract
-silently.
+`acceptance_criteria` front-matter fields before dispatch. Do not let implementation drift from the acceptance
+contract silently.
 
 ### Slice validation gate
 
@@ -341,9 +341,9 @@ mid-execution recovery deterministic.
 
 Before editing any file outside the task file itself, every dispatched agent must perform a **single atomic
 Edit** to the task file containing: (1) a **Work Log entry** `YYYY-MM-DD [role] Starting implementation —
-<scope> | What's next: <first action> | Blockers: none`; (2) a **Status flip** `backlog` → `in-progress`; (3)
-the `Started-at` and `Complexity-estimate` fields per § Task Metadata Contract. All three in one Edit. Only
-after it succeeds may the agent edit any other file.
+<scope> | What's next: <first action> | Blockers: none`; (2) a **status flip** `backlog` → `in-progress` in
+the front matter; (3) the `started_at` and `complexity_estimate` fields per § Task Metadata Contract. All three
+in one Edit. Only after it succeeds may the agent edit any other file.
 
 **Why a rule, not a convention:** if a dispatched agent errors mid-execution, the task file is the only
 persistent record that survives into the main session's context. The pre-implementation entry makes recovery
