@@ -2,14 +2,15 @@
 id: EPIC-004
 title: Authentication & the two-role model
 phase: 1
-status: delivered   # 2026-06-16 — 11/11 in-scope AC verified (PR #38, squash merge 0444551); 4 2FA AC remain deferred
+status: delivered   # 2026-06-16 — 8/8 in-scope AC verified (PR #38, squash merge 0444551); 4 2FA AC deferred; REQ-AUTH-010 (3 AC) consolidated into EPIC-009 on 2026-06-21 (the redirect mechanism was built here; the AC now live with the sign-in epic)
 slice: The accountant signs in and an invited prospect creates a client account; each lands on the correct app for their role and is kept out of the other.
 requirements:
   - REQ-AUTH-001: [AC-AUTH-001-01, AC-AUTH-001-02, AC-AUTH-001-03]
   - REQ-AUTH-005: [AC-AUTH-005-02]
   - REQ-AUTH-006: [AC-AUTH-006-01, AC-AUTH-006-02, AC-AUTH-006-03]
   - REQ-AUTH-009: [AC-AUTH-009-01]
-  - REQ-AUTH-010: [AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03]
+  # REQ-AUTH-010 (role-based redirect) consolidated into EPIC-009 on 2026-06-21 — the redirect mechanism
+  # was delivered here (PR#38, verified) but the AC now live with the sign-in epic. See COVERAGE note.
 architecture:
   - ADR-001   # authentication via Clerk (roles, 2FA, invitations, sessions)
   - ADR-006   # monorepo — two apps (apps/portal client, apps/admin accountant)
@@ -63,10 +64,11 @@ EPIC-002 (admin catalog) and EPIC-003 (request inbox) depend on.
   - **AC-AUTH-006-03** — the invitation that enables client account creation originates from the accountant.
 - **REQ-AUTH-009 — Default session duration (v1)**
   - **AC-AUTH-009-01** — authenticated sessions expire per the standard default session timeout.
-- **REQ-AUTH-010 — Role-based redirect between surfaces**
-  - **AC-AUTH-010-01** — a signed-in CLIENT navigating to the admin surface is redirected to the client surface.
-  - **AC-AUTH-010-02** — a signed-in ACCOUNTANT navigating to a CLIENT-only route is redirected to the admin surface.
-  - **AC-AUTH-010-03** — public (non-client-only) routes on the client surface remain reachable regardless of role.
+
+> **REQ-AUTH-010 — Role-based redirect between surfaces** was originally delivered by this slice (the
+> cross-app redirect *mechanism*; verified PR#38 `0444551`) but its AC (AC-AUTH-010-01/-02/-03) were
+> **consolidated into EPIC-009** on 2026-06-21 so the whole sign-in story (sign-in/sign-out + role-based
+> landing) lives in one epic. The mechanism remains here; ownership of the AC moved. See `COVERAGE.md`.
 
 ## Architecture adherence
 
@@ -77,9 +79,11 @@ EPIC-002 (admin catalog) and EPIC-003 (request inbox) depend on.
   future Phase-1 "2FA enablement" slice (the auth spine ships without it; e2e mocks the auth provider here).
 - **ADR-006 — Monorepo, two apps.** Accountant auth surfaces live in `apps/admin`; client sign-up/sign-in
   in `apps/portal`. The two apps share one auth application and one user identity space.
-- **ADR-010 — Cross-app navigation & session boundaries.** The redirect matrix is the contract for
-  AC-AUTH-010-*: a mismatched role is redirected by middleware **before** any wrong-app content renders;
-  public client routes are exempt. Sign-out is global across both apps.
+- **ADR-010 — Cross-app navigation & session boundaries.** This slice builds the redirect-matrix
+  *mechanism*: a mismatched role is redirected by middleware **before** any wrong-app content renders;
+  public client routes are exempt; sign-out is global across both apps. *(The AC-AUTH-010-* acceptance
+  criteria this mechanism satisfies are owned by **EPIC-009** as of 2026-06-21 — the sign-in epic — though
+  the mechanism lives here.)*
 - **ADR-003 — Identity propagation via SESSION_CONTEXT.** On the authenticated accountant path, the
   request context (identity + role) must be established so later data access runs under the right principal.
 - **ADR-005 — Security policies.** This slice establishes the *role* that every later row-level rule keys
@@ -150,26 +154,8 @@ When the standard default session timeout elapses without renewal
 Then the session is no longer valid and re-authentication is required
 ```
 
-### AC-AUTH-010-01 — Client is redirected away from the admin surface
-```gherkin
-Given a signed-in CLIENT
-When they navigate to a route on the accountant (admin) surface
-Then they are redirected to the client surface and no admin content is rendered
-```
-
-### AC-AUTH-010-02 — Accountant is redirected away from client-only routes
-```gherkin
-Given a signed-in ACCOUNTANT
-When they navigate to a CLIENT-only route on the client surface
-Then they are redirected to the admin surface and no client-only content is rendered
-```
-
-### AC-AUTH-010-03 — Public client routes stay reachable for any role
-```gherkin
-Given a signed-in user of either role (or an anonymous visitor)
-When they navigate to a public, non-client-only route on the client surface
-Then the route is served without a role-based redirect
-```
+> The **AC-AUTH-010** redirect-matrix scenarios moved with their AC to **EPIC-009** (sign-in epic) on
+> 2026-06-21. The redirect mechanism this slice built satisfies them; the scenarios now live in EPIC-009.
 
 ## Traceability & sign-off contract
 - Each in-scope AC must be covered by **automated test(s) tagged with its AC id** (the test
@@ -179,7 +165,7 @@ Then the route is served without a role-based redirect
 - This epic is **delivered** only when **all** its in-scope AC are `verified` in `COVERAGE.md`.
 - Suggested tier mapping (per `.architecture/strategy/TESTING.md`):
   - **e2e (tier 6, both apps)** — AC-AUTH-005-02 (client without 2FA), AC-AUTH-006-01/-02 (no
-    self-registration), AC-AUTH-010-01/-02/-03 (the redirect matrix).
+    self-registration). *(The redirect matrix AC-AUTH-010-* moved to EPIC-009; its e2e tests remain.)*
   - **service integration (tier 3)** — AC-AUTH-001-02/-03 (one-role invariant; role readable server-side),
     AC-AUTH-006-03 (invitation provenance), AC-AUTH-009-01 (session expiry).
   - **unit/component (tier 2/5)** — AC-AUTH-001-01 (role enumeration).
@@ -196,6 +182,12 @@ Then the route is served without a role-based redirect
   completion) → **deferred** to the engagement-lifecycle phase (no engagements/completion in the MVP).
 - Issuing the invitation itself (accept → invite) is **EPIC-003**; this epic owns the account-creation
   *outcome* of that invitation (AUTH-006), not the accept action.
+- **REQ-AUTH-010** (role-based redirect, AC-AUTH-010-01/-02/-03) — **consolidated into EPIC-009** on
+  2026-06-21. The redirect *mechanism* was delivered by this slice (verified PR#38); the AC now live with
+  the sign-in epic so the sign-in/sign-out + landing story is in one place. Not a regression — the tests
+  still pass; only ownership moved (see `COVERAGE.md`).
+- **The act of signing in / signing out** (REQ-AUTH-013) — owned by **EPIC-009**. This slice stood up the
+  identity model and the mocked auth seam; the user-facing sign-in/sign-out capability is realized there.
 
 ## Links
 - Requirements: REQ-AUTH-001, REQ-AUTH-004, REQ-AUTH-005, REQ-AUTH-006, REQ-AUTH-009, REQ-AUTH-010

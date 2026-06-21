@@ -7,6 +7,22 @@
 
 ## Status / amendment history
 
+- **2026-06-21 (EPIC-009 re-decomposed — the sign-in lane now carries acceptance criteria; REQ-AUTH-010 consolidated)** —
+  Per user direction, **EPIC-009 is no longer an "owns-no-product-AC" enabler** — it is the **dev-capacity
+  realization of the login requirement**, and login must carry acceptance criteria (the **2FA slice stays the
+  deferred half**, Phase 5). Two changes: (1) a **new requirement REQ-AUTH-013 "User sign-in and sign-out"**
+  was authored in `.requirements/` (provider-agnostic: AC-AUTH-013-01 = post-sign-in landing on the
+  role-appropriate surface; AC-AUTH-013-02 = sign-out → unauthenticated state) and **EPIC-009 owns its 2 AC**,
+  realized against the **mock** provider (real Clerk re-validation → Phase 5). (2) **REQ-AUTH-010** (role-based
+  redirect, AC-AUTH-010-01/-02/-03) was **consolidated from EPIC-004 into EPIC-009** so the whole sign-in story
+  (sign-in/sign-out + role-based landing) lives in one epic — the redirect *mechanism* was delivered by EPIC-004
+  (PR#38, still `verified`), only AC **ownership** moved (not a regression). The dev-lane affordances (sign-in
+  page listing seeded accounts, role/user switcher, the inert-under-`AUTH_PROVIDER=clerk` guard) stay as
+  EPIC-009 **dev-acceptance** scenarios — not product AC. **Net coverage:** +2 AC placed (AUTH-013-01/-02,
+  `planned`); EPIC-009 = 5 AC (3 already `verified` + 2 `planned`); EPIC-004 → 8 in-scope verified AC (still
+  `delivered`); totals 190 placed / 95 verified / 95 planned. EPIC-009 is now a normal AC-bearing epic that
+  passes the orchestration readiness gate. **Next:** `/orchestrate EPIC-009` (re-gates clean).
+
 - **2026-06-21 (Phase 3 FILE remainder decomposed — the follow-up pass; Phase 3 now fully sliced)** —
   Authored the deferred **FILE-exchange + retention/legal-governance** epics, completing the Phase-3
   decomposition. Three epics, all `planned`: **EPIC-013** (secure file exchange — accountant upload,
@@ -213,7 +229,8 @@
 
 - **2026-06-16 (EPIC-004 delivered)** — Phase 1's auth & two-role-model identity spine shipped (PR #38, squash
   merge `0444551`). **11/15 in-scope AC** signed off `verified` in `COVERAGE.md` (REQ-AUTH-001/-005-02/-006/
-  -009/-010); the **4 2FA AC** (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) remain `deferred` to a future
+  -009/-010) *(superseded 2026-06-21: REQ-AUTH-010's 3 redirect AC were consolidated into EPIC-009 — EPIC-004
+  now owns 8 verified in-scope AC; see the top amendment entry)*; the **4 2FA AC** (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) remain `deferred` to a future
   Phase-1 "2FA enablement" slice (2FA not ready to deploy; the slice shipped with the auth provider mocked, a
   user-approved brief deviation). EPIC-004 → `delivered`. Sign-off evidence basis: green required CI
   (`lint-and-typecheck` + `security-scan`) plus `test-admin` + `test-portal` on the PR head and the post-merge
@@ -268,7 +285,7 @@ authenticated surface and the two-role model (AUTH), and the in-portal notificat
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
 | **EPIC-001** | Public front door — browse active services & submit an engagement request (anonymous, no account) | `delivered` (PR #35, `f7f6c9d`, 2026-06-15) | — |
-| **EPIC-004** | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts; role-based cross-app redirect (11 in-scope AC). 2FA deferred to a future Phase-1 "2FA enablement" slice (not ready to deploy) | `delivered` (PR #38, `0444551`, 2026-06-16) — 11/15 in-scope AC; 4 2FA AC deferred | — |
+| **EPIC-004** | Authentication & the two-role model — accountant signs in; ACCOUNTANT/CLIENT roles; invitation-only client accounts; built the role-based cross-app redirect *mechanism*. 2FA deferred to Phase 5; **REQ-AUTH-010 (3 redirect AC) consolidated into EPIC-009 on 2026-06-21** (mechanism stays here, AC ownership moved). | `delivered` (PR #38, `0444551`, 2026-06-16) — **8** in-scope AC verified; 4 2FA AC deferred; 3 redirect AC → EPIC-009 | — |
 | **EPIC-002** | Accountant manages the services catalog (admin surface CRUD: add/edit/deactivate) | `delivered` (PR #40, `70ea10e`, 2026-06-16) — 7/7 in-scope AC | EPIC-004 ✅ |
 | **EPIC-003** | Accountant request inbox — notification, review, accept/decline, acceptance-invite, decline-reason email | `delivered` (PR #42, `ec151cb`, 2026-06-17) — 20/20 in-scope AC | EPIC-001 ✅, EPIC-004 ✅ |
 
@@ -347,7 +364,7 @@ the FILE domain remain for the follow-up pass.
 
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
-| **EPIC-009** | PoC two-role sign-in lane (dev mock auth) — a usable in-browser sign-in page + role/user switcher over the existing mock-session seam (`AUTH_PROVIDER=mock`), wired to the demo seed accounts, **inert under the real provider**. Lets a tester drive/demo the PoC as the Accountant or any seeded Client without the devtools hack. **Owns no product AC** (dev-capacity enabler). | `planned` | EPIC-004 ✅ |
+| **EPIC-009** | Sign-in lane — realizes the **sign-in/sign-out capability** (REQ-AUTH-013) and the consolidated **role-based landing** (REQ-AUTH-010) — **5 AC** (2 new sign-in/sign-out, realized vs the mock provider; 3 redirect already verified). In the PoC it ships as a usable in-browser sign-in page + role/user switcher over the mock-session seam (`AUTH_PROVIDER=mock`), wired to the demo seed accounts, **inert under the real provider**, so a tester can drive/demo as the Accountant or any seeded Client without the devtools hack. Real Clerk + 2FA → Phase 5. | `planned` | EPIC-004 ✅ |
 | **EPIC-010** | Engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete pipeline, manual transitions, simplified client-facing labels (Review hidden), two-confirmation completion gate, accountant-only reopen, accountant full visibility + client own-data isolation + indefinite post-completion access (25 AC: LIFE-001/002/003/004/005/006, AUTH-002/003/008) | `planned` | EPIC-005 ✅, EPIC-008 ✅ |
 | **EPIC-011** | Engagement attributes — accountant-set due date, accountant-only internal notes, priority/flag marker (9 AC: LIFE-007/008/009) | `planned` | EPIC-010 |
 | **EPIC-012** | Engagement creation paths & multi-participant — returning-client request (DOOR-009), accountant-initiated engagement (DOOR-010), duplicate guard per (client, service, tax year) with warn+override (LIFE-011), multiple concurrent engagements (LIFE-010), multi-participant engagements / separate accounts (LIFE-012, AUTH-007); introduces the engagement **tax-year** attribute (20 AC) | `planned` | EPIC-010, EPIC-002 ✅, EPIC-003 ✅ |
@@ -355,10 +372,13 @@ the FILE domain remain for the follow-up pass.
 | **EPIC-014** | File deletion, soft-delete & 7-year retention — accountant-only delete, soft-delete, the in-window retention floor (10 AC: FILE-004/006/005, NFR-006) | `planned` | EPIC-013, EPIC-010 |
 | **EPIC-015** | Post-retention purge & legal hold — accountant-confirmed/never-automatic purge, legal hold, retention-vs-erasure precedence, audit-survives-purge (16 AC: FILE-013/014/015, NFR-010-07) | `planned` | EPIC-014, EPIC-010 |
 
-> **EPIC-009 is a cross-cutting PoC enabler**, placed in Phase 3 per user direction (2026-06-20) but with **no
-> dependency on the LIFE/FILE work** — it can (and should) be built first so every later PoC slice is
-> human-demoable as both roles. It uses only the mock seam; **all real-provider / production auth work** (real
-> Clerk login, 2FA, real invitations) lives in **Phase 5 — Production Readiness** (placeholder).
+> **EPIC-009 realizes the sign-in/sign-out capability** (REQ-AUTH-013) + the consolidated role-based landing
+> (REQ-AUTH-010), placed in Phase 3 per user direction but with **no dependency on the LIFE/FILE work** — it
+> can (and should) be built first so every later PoC slice is human-demoable as both roles. It realizes the
+> capability against the **mock seam** (a usable dev sign-in lane); **all real-provider / production auth work**
+> (real Clerk login re-validating REQ-AUTH-013, 2FA, real invitations) lives in **Phase 5 — Production
+> Readiness** (placeholder). The dev-lane affordances (switcher, inert-under-`clerk` guard) are EPIC-009
+> dev-acceptance, not product AC.
 >
 > **Build order:** **EPIC-010** first (no un-delivered Phase-3 predecessor — its `depends_on` EPIC-005 ✅ +
 > EPIC-008 ✅ are satisfied). **EPIC-011** and **EPIC-012** both build on EPIC-010 and are independent of each
