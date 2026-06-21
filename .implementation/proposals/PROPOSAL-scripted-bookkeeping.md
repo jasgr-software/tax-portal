@@ -122,10 +122,13 @@ appends the canonically-formatted breadcrumb, and refuses if `TASK-009-002` isn'
 
 ## 4. Why this is safe with the existing architecture
 
-- **The metrics hook keeps working unchanged.** `.claude/hooks/log-task-edit.py` fires on
-  `Edit`/`Write` to task files. The CLI performs its writes with the same fs operations, so
-  edits are still observed. (If the CLI writes via a path the hook doesn't watch, we add the
-  CLI to the hook's matcher — a one-line change.)
+- **Observability is preserved — and gains free provenance.** `.claude/hooks/log-task-edit.py`
+  fires on Claude's `Edit`/`Write` *tools*, so a raw hand-edit is still captured. A CLI write is
+  an `fs.writeFile` from a `tsx` subprocess and does **not** trigger that hook, so the CLI
+  **self-reports** its write to `.claude/metrics/` in the same record shape. The upshot
+  (see §9 Q2): the two write paths are distinguishable in the metrics stream *by construction* —
+  raw via the hook, CLI via self-report — giving a CLI-vs-raw adoption ratio without any
+  in-file provenance mark.
 - **`validate-gates.sh` becomes a backstop, not the primary guarantee.** Today it's the only
   thing standing between a typo and a bad merge. After this, the CLI prevents the typo and the
   validator catches the (now rare) hand-edit that bypassed the CLI. Belt and suspenders.
@@ -306,9 +309,16 @@ read-only and low-risk), and `ledger-check` / `phase-transition` in **Phase 2**.
    rests on vitest-testability and `--json` for the read commands (§8.2) — both favor TS. TS also
    matches `db-migrate`/`db-seed`/`demo-stage` mutation tooling. (`validate-gates.sh` stays bash
    but gains a `yq`/CLI-delegated field check.)
-2. **Should `done`/`review` *enforce* CLI use** (i.e., should `validate-gates.sh` start
-   rejecting transitions that lack a CLI-signature breadcrumb), or stay opt-in? Recommendation:
-   opt-in through phase 1; revisit enforcement after a slice of real-world use.
+2. **Enforce CLI use / add a provenance signature? — RESOLVED: enforce *format* only; no
+   in-file provenance.** `validate-gates.sh` (post-Phase-0, a schema check) validates that the
+   front-matter block is well-formed — legal status enum, `complexity_actual ∈ 1..5`,
+   `completed_at >= started_at` — and a well-formed hand-edit passes. The CLI wins by being
+   easier than getting the schema right by hand, not by mandate; requiring a CLI signature in the
+   file would recreate the brittle string-coupling behind the `BUG-000-001/002/003` class.
+   **Adoption is still measurable for free** (§4): raw edits are captured by the Edit/Write hook,
+   CLI writes self-report to `.claude/metrics/`, so the CLI-vs-raw ratio is observable without
+   polluting the file. Revisit a hard CLI-mandate only if that ratio stays high after a slice or
+   two — "format-only" is the default philosophy, not a temporary stance.
 3. **`--role` source:** explicit flag, or inferred from an env var the dispatch prompt sets?
    Recommendation: flag required, env fallback.
 4. **Phase-2 scope confirmation:** is automating the PROGRESS.md sweep desirable, or is that
