@@ -70,15 +70,20 @@ expect_rc 10 "compose artifact auto-validated → implement yield"
 expect_out "[YIELD] implement" "yields at implement"
 phase_is implement
 
-seq_run --set pr=123                       # PR recorded → yield review
-expect_rc 10 "implement → review yield"
+seq_run --set pr=123                       # PR recorded → yield standards-review
+expect_rc 10 "implement → standards-review yield"
+expect_out "[YIELD] standards-review" "yields at standards-review (audit before the panel)"
+phase_is standards-review
+
+seq_run --set "std_verdict_file=${FIX}/verdict-standards-approve.json"   # audit verdict present → yield review
+expect_rc 10 "standards-review → review yield"
 expect_out "[YIELD] review" "yields at review"
 phase_is review
 
-seq_run --set "verdict_file=${APPROVE}"    # verdict present → review→fix-route(code)→merge yield
+seq_run --set "verdict_file=${APPROVE}"    # both verdicts present → review→fix-route(code)→merge yield
 expect_rc 10 "review → fix-route(code) → merge yield"
 expect_out "fix-route" "fix-route ran as code"
-expect_out "skip-fix" "approve verdict routed skip-fix"
+expect_out "skip-fix" "clean panel + clean audit routed skip-fix"
 expect_out "[YIELD] merge" "skipped fix-exec, yields at merge"
 phase_is merge
 
@@ -93,16 +98,39 @@ expect_out "verdict log snapshotted" "report snapshotted the verdict log"
 expect_out "run complete" "run reaches done"
 phase_is done
 
-echo "[run-fix routing]"
+echo "[run-fix routing — panel arm of the OR]"
 S2="${TMP}/state2.md"; RC2="${FIX}/verdict-request-changes.json"
-# Jump straight to fix-route (phase is a settable state key) with a
-# request-changes verdict → must route to run-fix and yield at fix-exec.
+# Jump straight to fix-route with a request-changes PANEL verdict + a clean audit
+# verdict → the panel arm of the OR must route run-fix and yield at fix-exec.
 OUT="$(bash "$SEQ" --state "$S2" --roadmap "$RM" --planning-dir "$PLN" --progress-md "$PROG" \
       --briefs-dir "$BR" --gate-log "$LOG" --gate-history "$HIST" --no-git \
-      --set phase=fix-route --set pr=55 --set "verdict_file=${RC2}" 2>&1)"; RC=$?
-expect_rc 10 "request-changes routes to fix-exec"
+      --set phase=fix-route --set pr=55 --set "verdict_file=${RC2}" \
+      --set "std_verdict_file=${FIX}/verdict-standards-approve.json" 2>&1)"; RC=$?
+expect_rc 10 "request-changes (panel) routes to fix-exec"
 expect_out "→ run-fix" "fix-route → run-fix"
 expect_out "[YIELD] fix-exec" "yields at fix-exec"
+
+echo "[run-fix routing — standards arm of the OR]"
+S3="${TMP}/state3.md"
+# Clean PANEL verdict but a required CS violation in the AUDIT verdict → the
+# standards arm of the OR must still route run-fix (one /pr-fix consumes both).
+OUT="$(bash "$SEQ" --state "$S3" --roadmap "$RM" --planning-dir "$PLN" --progress-md "$PROG" \
+      --briefs-dir "$BR" --gate-log "$LOG" --gate-history "$HIST" --no-git \
+      --set phase=fix-route --set pr=56 --set "verdict_file=${APPROVE}" \
+      --set "std_verdict_file=${FIX}/verdict-standards-request-changes.json" 2>&1)"; RC=$?
+expect_rc 10 "required CS violation routes to fix-exec on a clean panel"
+expect_out "standards=1" "fix-route attributes the run to the standards audit"
+expect_out "[YIELD] fix-exec" "yields at fix-exec"
+
+echo "[standards verdict fail-loud]"
+S4="${TMP}/state4.md"
+# fix-route with the panel verdict present but the standards verdict MISSING must
+# halt (a missing audit verdict is a gap, never a clean pass).
+OUT="$(bash "$SEQ" --state "$S4" --roadmap "$RM" --planning-dir "$PLN" --progress-md "$PROG" \
+      --briefs-dir "$BR" --gate-log "$LOG" --gate-history "$HIST" --no-git \
+      --set phase=fix-route --set pr=57 --set "verdict_file=${APPROVE}" 2>&1)"; RC=$?
+expect_rc 2 "fix-route halts when the standards verdict is missing"
+expect_out "standards-review verdict missing" "fail-loud, not a clean pass"
 
 echo "[halts]"
 # gate failure: pin a not-ready epic → readiness halts
