@@ -136,6 +136,54 @@ appends the canonically-formatted breadcrumb, and refuses if `TASK-009-002` isn'
 
 ## 5. Rollout (incremental, low-risk)
 
+**Phase 0 — migrate task/bug metadata to YAML front matter (prerequisite, scripted):**
+
+Today the lifecycle fields are **inline markdown bold** (`**Status**: done`, `**Started-at**:
+…`), which forces every consumer into fragile string-matching — `validate-gates.sh` runs 9
+bespoke grep regexes, `.claude/hooks/log-task-edit.py` greps, and a CLI would have to do regex
+surgery to rewrite them. This is also where hand-typing fails silently: e.g.
+`TASK-006-002` ships with `Completed-at` (20:06:28Z) *before* `Started-at` (20:15:00Z) — a clock
+inversion sitting in a `done` file right now.
+
+Move the machine-managed scalar/list fields into real YAML front matter; keep all human prose
+(Work Log, SDET review, Quality Gates, focus areas) in the markdown body:
+
+```yaml
+---
+brief: BRIEF-006
+status: done
+started_at: 2026-06-18T20:15:00Z
+completed_at: 2026-06-18T20:16:28Z
+complexity_estimate: 3
+complexity_actual: 3
+acceptance_criteria: [AC-DASH-012-01, AC-DASH-012-02]
+introduces_gate: no
+e2e_required: no
+---
+
+# TASK-006-002: …
+## Quality Gates …
+## Work Log …
+```
+
+This structurally encodes the §6 judgment line (front matter = CLI-managed; body = agent
+prose), turns read/write into `parse → mutate → serialize` in any language (no regex surgery),
+and collapses validation from 9 grep checks to "parse block → validate against schema" — a
+schema that can enforce `completed_at >= started_at` and catch the inversion above.
+
+Steps:
+0a. Write a one-shot migration (`scripts/migrate-task-frontmatter.ts`) that parses the existing
+    bold-field blocks and emits front matter; run it over `tasks/` + `tasks/done/` + `_templates/`.
+0b. Update `validate-gates.sh` field checks (1, 5–7) to parse front matter (via `yq` or by
+    delegating those checks to the TS CLI's `verify`), and `log-task-edit.py` to read it.
+0c. Update ENGINE.md § Task Metadata Contract, PHASES.md, and agent-doc prose to reference the
+    front-matter keys instead of the `**Field**:` shape.
+
+**Cost & caveat:** one-time breaking change to the on-disk format across dozens of files; done
+as a scripted, reversible migration. GitHub renders bare front matter in a normal repo `.md` as
+a horizontal rule + `key: value` text (not hidden — only Jekyll/wiki contexts prettify it), so
+the top of each file is slightly less pretty in the GitHub UI; the human-read body is unaffected.
+
 **Phase 1 — simple field/file mutations (the 80%):**
 1. Add `scripts/task.ts` with `start`, `review`, `done`, `reject`, `log`, `archive`, `verify`.
 2. Add `"task": "tsx scripts/task.ts"` to `package.json` scripts.
@@ -252,8 +300,12 @@ read-only and low-risk), and `ledger-check` / `phase-transition` in **Phase 2**.
 
 ## 9. Open questions for the reviewer
 
-1. **`task.ts` vs `task.sh`?** TS matches `db-migrate`/`db-seed`/`metrics-report` tooling and
-   gives real arg-parsing + testability; bash matches `validate-gates.sh`. Recommendation: TS.
+1. **`task.ts` vs `task.sh`? — RESOLVED: TypeScript, on YAML front matter (see Phase 0).**
+   The deciding factor moved from language to *format*: migrating lifecycle fields to YAML front
+   matter (Phase 0) makes read/write a structured parse/serialize in any language, so the choice
+   rests on vitest-testability and `--json` for the read commands (§8.2) — both favor TS. TS also
+   matches `db-migrate`/`db-seed`/`demo-stage` mutation tooling. (`validate-gates.sh` stays bash
+   but gains a `yq`/CLI-delegated field check.)
 2. **Should `done`/`review` *enforce* CLI use** (i.e., should `validate-gates.sh` start
    rejecting transitions that lack a CLI-signature breadcrumb), or stay opt-in? Recommendation:
    opt-in through phase 1; revisit enforcement after a slice of real-world use.
