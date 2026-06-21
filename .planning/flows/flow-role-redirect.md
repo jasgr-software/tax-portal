@@ -3,15 +3,18 @@
 **Flow ID:** `flow-role-redirect`  
 **One-line summary:** A signed-in user navigates to the wrong app for their role — middleware detects the mismatch and redirects them to their correct surface without showing any content from the wrong app.
 
-**Status:** Phase 1 (MVP) — realized by **EPIC-004** (middleware role gates, cross-app redirect matrix from
-ADR-010; AC-AUTH-010-01/-02/-03). Reconciled 2026-06-14 (the old "Epic 001 scope" label predated the
-current numbering — auth and the redirect matrix are EPIC-004, not EPIC-001).
+**Status:** Phase 1 mechanism + Phase 3 ownership — the cross-app redirect **mechanism** (middleware role
+gates, redirect matrix from ADR-010) was delivered by **EPIC-004** and remains `verified`; its **AC
+(AC-AUTH-010-01/-02/-03) were consolidated into EPIC-009** on 2026-06-21 so the whole sign-in story lives in
+one epic. Reconciled 2026-06-14 (the old "Epic 001 scope" label predated the current numbering — auth and the
+redirect matrix are EPIC-004, not EPIC-001).
 
-**Provider note (2026-06-20):** EPIC-004 delivered this redirect matrix against the **mocked** auth seam.
-The Phase-3 **EPIC-009 "PoC two-role sign-in lane"** lets a tester sign in as either role (over the mock
-seam) and thus exercise this matrix by hand in the PoC. **Real-Clerk re-validation** of AC-AUTH-010-01/-02/-03
-against the live provider moves to the end-of-cycle **Phase 5 — Production Readiness** placeholder. The
-journey is unchanged; only the provider behind the session changes.
+**Provider note (updated 2026-06-21):** EPIC-004 delivered this redirect matrix against the **mocked** auth
+seam. The Phase-3 **EPIC-009 sign-in lane** now **owns AC-AUTH-010-01/-02/-03** (alongside the new
+sign-in/sign-out capability, REQ-AUTH-013) and lets a tester sign in as either role (over the mock seam) to
+exercise this matrix by hand in the PoC. **Real-Clerk re-validation** of AC-AUTH-010-01/-02/-03 against the
+live provider moves to the end-of-cycle **Phase 5 — Production Readiness** placeholder. The journey is
+unchanged; only the provider behind the session changes.
 
 ---
 

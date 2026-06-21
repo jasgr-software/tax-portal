@@ -1,104 +1,152 @@
 ---
 id: EPIC-009
-title: PoC two-role sign-in lane (dev mock auth)
+title: Sign-in lane (sign-in/sign-out capability, PoC mock realization)
 phase: 3
-status: planned   # 2026-06-20 — scope resolved interactively; no blocking open question
-slice: In a PoC/dev build, a tester opens a sign-in lane in the browser, picks a role (Accountant or Client) and a seeded person, and lands authenticated in the right app — with an in-app way to switch role/user or sign out. No real auth provider.
-requirements: []  # OWNS NO PRODUCT AC. This is a PoC/dev-capacity testing affordance that makes the existing
-                  # mock-auth seam (AUTH_PROVIDER=mock, /api/mock-session) human-usable. It does not change the
-                  # product's auth model or sign-in requirements — those stay EPIC-004 (verified-against-mock)
-                  # and the end-of-cycle Production Readiness placeholder (real provider). See run notes.
+status: planned   # 2026-06-21 — re-decomposed: owns the sign-in/sign-out capability AC (REQ-AUTH-013) + the consolidated landing AC (REQ-AUTH-010); 2FA + real provider stay deferred (Phase 5)
+slice: A user opens the sign-in surface, authenticates as their role, and lands on the surface for that role; a signed-in user can sign out back to an unauthenticated state. Realized against the mock auth provider in the PoC (a dev sign-in lane with a role/user switcher); the real provider is Phase 5.
+requirements:
+  - REQ-AUTH-013: [AC-AUTH-013-01, AC-AUTH-013-02]   # the sign-in/sign-out capability — the new product AC this slice realizes (against the mock)
+  - REQ-AUTH-010: [AC-AUTH-010-01, AC-AUTH-010-02, AC-AUTH-010-03]   # role-based redirect — CONSOLIDATED here from EPIC-004 (the sign-in story lives in one epic); already verified via EPIC-004 PR#38, see COVERAGE
 architecture:
-  - ADR-001   # auth via Clerk — the dev lane is a MOCK-seam affordance and MUST be inert under the real binding (disabled when AUTH_PROVIDER=clerk), exactly as /api/mock-session 404s
+  - ADR-001   # auth via Clerk — the PoC lane is a MOCK-seam realization and MUST be inert under the real binding (disabled when AUTH_PROVIDER=clerk), exactly as /api/mock-session 404s
   - ADR-005   # role is server-established via the signed mock-session cookie; the lane only triggers it — the browser still cannot forge a role
-  - ADR-010   # after sign-in via the lane, the cross-app redirect matrix still governs where each role lands
-  - ADR-006   # monorepo, two apps — the lane lets a tester enter either app (apps/portal client, apps/admin accountant) as the right role
-  - ADR-012   # testing pyramid — the lane's behavior AND its inert-under-real-binding guard are automated obligations
+  - ADR-010   # after sign-in, the cross-app redirect matrix governs where each role lands; sign-out is global
+  - ADR-006   # monorepo, two apps — a tester enters either app (apps/portal client, apps/admin accountant) as the right role
+  - ADR-012   # testing pyramid — the sign-in/sign-out + landing behavior AND the inert-under-real-binding guard are automated obligations
 depends_on: [EPIC-004]
 source:
-  - .requirements/REQ-AUTH-001.md
+  - .requirements/REQ-AUTH-013.md
   - .requirements/REQ-AUTH-010.md
+  - .requirements/REQ-AUTH-001.md
   - .architecture/decisions/ADR-001-authentication-clerk.md
   - .architecture/decisions/ADR-005-security-policies.md
+  - .architecture/decisions/ADR-010-cross-app-navigation-session-boundaries.md
 open_questions: []
 ---
 
-# EPIC-009 — PoC two-role sign-in lane (dev mock auth)
+# EPIC-009 — Sign-in lane (sign-in/sign-out capability, PoC mock realization)
 
-> A **preparation document**, not build instructions. This is a **PoC/dev-capacity enabler**: it makes the
-> existing mock-auth seam usable from the browser so the proof-of-concept can be driven and demoed as either
-> role. It owns **no product acceptance criteria** and introduces no real authentication provider. It does
-> not say how to build it.
+> A **preparation document**, not build instructions. This slice realizes the **sign-in/sign-out
+> capability** (REQ-AUTH-013) and consolidates the **role-based landing** (REQ-AUTH-010) into the one epic
+> that owns the sign-in story. In the PoC it is realized against the **mock auth provider** as a usable
+> in-browser **dev sign-in lane** (with a role/user switcher), so the proof-of-concept can be driven and
+> demoed as either role. The **real auth provider** (Clerk) and **2FA** are deferred to the end-of-cycle
+> Production Readiness phase. It does not say *how* to build the lane.
 
 ## Vertical slice
+A user reaches the sign-in surface, authenticates as their role, and lands on the surface meant for that
+role — the accountant on the Tax Portal (`apps/admin`), a client on the Client Portal (`apps/portal`) —
+and a signed-in user can **sign out** back to an unauthenticated state. That is the product capability
+(REQ-AUTH-013), complemented by the role-based redirect that keeps each role on its own surface
+(REQ-AUTH-010, consolidated here).
+
+In the **PoC build** this capability is realized against the **mock auth provider** (`AUTH_PROVIDER=mock`).
 Today the only way to sign in to a dev build is to POST to `/api/mock-session` by hand (the real `/sign-in`
-route is a deliberate 404 under `AUTH_PROVIDER=mock`). For a proof-of-concept that needs to be exercised and
-demoed as **both** product roles, that is too clumsy. This slice delivers a **dev sign-in lane**: a usable
-in-browser page that lets a tester choose a **role — Accountant or Client — and a specific seeded person**,
-establishes the signed mock session via the existing `/api/mock-session` seam, and lands them authenticated
-in the correct app. It also exposes an **in-app role/user switcher and sign-out**, so a single tester can hop
-between "the accountant's view" and "a client's view" without devtools. The lane is **active only under
+route is a deliberate 404 under the mock binding) — too clumsy to exercise and demo as both roles. So the
+slice delivers a **dev sign-in lane**: a usable in-browser page that lets a tester choose a **role —
+Accountant or Client — and a specific seeded person**, establishes the signed mock session via the
+existing `/api/mock-session` seam, and lands them on the correct app; plus an **in-app role/user switcher
+and sign-out** so a single tester can hop between roles without devtools. The lane is **active only under
 `AUTH_PROVIDER=mock`** and is **inert (absent/404) under the real provider** — it never becomes a sign-in
 path in a real or production build. This is the foundation that makes every other PoC slice demoable by a
 human.
 
-## What this enables (PoC scope — owns no product AC)
-This epic does **not** deliver or re-validate any product `AC-*`. It is dev tooling that lets a human
-**manually exercise** the already-delivered auth model (the two roles and the cross-app redirect matrix from
-EPIC-004) without the mock-session console hack. Concretely it provides:
+## Requirements delivered
 
-- A **dev sign-in page** (replacing the 404 `/sign-in`) listing the seeded accountant and the seeded clients,
-  with one click to sign in as that account (role set server-side via the mock-session cookie).
-- A **role/user switcher + sign-out** affordance visible while signed in, so a tester can move between roles.
-- A **hard guard**: under `AUTH_PROVIDER=clerk` the lane is gone (404/absent), like `/api/mock-session`.
-
-The real product sign-in (real Clerk) is **out of scope** and lives in the end-of-cycle **Production
-Readiness** placeholder (see `ROADMAP.md`).
+- **REQ-AUTH-013 — User sign-in and sign-out** (the new product capability this slice realizes against the mock)
+  - **AC-AUTH-013-01** — after a user successfully signs in, they reach the surface appropriate to their
+    role (the accountant on the admin surface, a client on the client surface) without further manual
+    navigation.
+  - **AC-AUTH-013-02** — a signed-in user can sign out; signing out ends their authenticated session,
+    leaving them unauthenticated such that any subsequent access to a protected surface requires signing
+    in again.
+- **REQ-AUTH-010 — Role-based redirect between surfaces** (consolidated into the sign-in epic; **already
+  verified** via EPIC-004 PR#38 — the redirect *mechanism* was built there; ownership of these AC moves
+  here so the sign-in capability lives in one epic — see COVERAGE note)
+  - **AC-AUTH-010-01** — a signed-in CLIENT navigating to the admin surface is redirected to the client surface.
+  - **AC-AUTH-010-02** — a signed-in ACCOUNTANT navigating to a CLIENT-only route is redirected to the admin surface.
+  - **AC-AUTH-010-03** — public (non-client-only) routes on the client surface remain reachable regardless of role.
 
 ## Architecture adherence
 
-- **ADR-001 — Authentication via Clerk.** The lane is a **mock-seam affordance only**. It MUST be inert under
-  the real binding: when `AUTH_PROVIDER=clerk` the lane route is absent/404 (same contract as
-  `/api/mock-session`). It does not replace, pre-empt, or stand in for the real Clerk sign-in.
-- **ADR-005 — Security policies / server-set role.** The role is still **established server-side** by the
-  signed (HMAC) mock-session cookie the existing endpoint issues; the lane merely triggers that endpoint for
-  the chosen account. The browser cannot assert a role that bypasses the server-set cookie — the lane must
-  not introduce a client-trusted role path.
-- **ADR-010 — Cross-app navigation & session boundaries.** After signing in through the lane, the redirect
-  matrix still governs landing: a Client session lands on `apps/portal`, an Accountant session on
-  `apps/admin`; switching role re-lands accordingly; sign-out is global.
+- **ADR-001 — Authentication via Clerk.** The sign-in/sign-out capability is provider-agnostic; this slice
+  realizes it against the **mock** provider. The dev sign-in lane is a **mock-seam affordance only** and
+  MUST be inert under the real binding: when `AUTH_PROVIDER=clerk` the lane route is absent/404 (same
+  contract as `/api/mock-session`). It does not replace, pre-empt, or stand in for the real Clerk sign-in
+  (which lands, with 2FA + real invitations, in Production Readiness).
+- **ADR-005 — Security policies / server-set role.** The role is **established server-side** by the signed
+  (HMAC) mock-session cookie the existing endpoint issues; the lane merely triggers that endpoint for the
+  chosen account. The browser cannot assert a role that bypasses the server-set cookie — the lane must not
+  introduce a client-trusted role path.
+- **ADR-010 — Cross-app navigation & session boundaries.** After sign-in the redirect matrix governs
+  landing (AC-AUTH-010-*): a CLIENT session lands on `apps/portal`, an ACCOUNTANT session on `apps/admin`;
+  switching role re-lands accordingly; **sign-out is global** across both apps (AC-AUTH-013-02).
 - **ADR-006 — Monorepo, two apps.** The lane must let a tester enter **either** surface as the correct role
   (the accountant into `apps/admin`, a client into `apps/portal`).
-- **ADR-012 — Testing pyramid.** Two automated obligations: (1) the lane signs a tester in as each role and
-  lands them on the correct app; (2) the **inert-under-`AUTH_PROVIDER=clerk` guard** holds (the lane is not
-  reachable in a real binding). The guard is a security-relevant test, not advisory.
+- **ADR-012 — Testing pyramid.** Automated obligations: (1) sign-in lands each role on the correct app
+  (AC-AUTH-013-01); (2) sign-out returns to an unauthenticated state (AC-AUTH-013-02); (3) the redirect
+  matrix holds (AC-AUTH-010-*); (4) the **inert-under-`AUTH_PROVIDER=clerk` guard** holds (a
+  security-relevant test, not advisory — it keeps a dev login lane out of any real binding).
 
-## PoC acceptance scenarios
-> Behavior contract for the **lane itself** (PoC/dev acceptance). These are **not tagged with product AC**,
-> because this epic owns none — they are the dev-acceptance the builder must satisfy.
+## Acceptance scenarios
+> Product behavior, tagged with the AC each scenario covers. In the PoC these run against the mock provider
+> via the dev sign-in lane.
 
-### Sign in as the accountant
+### AC-AUTH-013-01 — Sign in as the accountant and land on the admin surface
 ```gherkin
-Given a PoC build running under AUTH_PROVIDER=mock with the demo accounts seeded
-When the tester opens the sign-in lane and chooses the Accountant
-Then a mock session for the ACCOUNTANT is established and the tester lands authenticated on the Tax Portal (admin) dashboard
+Given a PoC build under AUTH_PROVIDER=mock with the demo accounts seeded
+When the tester opens the sign-in lane and signs in as the Accountant
+Then a session for the ACCOUNTANT is established and they land authenticated on the Tax Portal (admin) dashboard without further navigation
 ```
 
-### Sign in as a specific seeded client
+### AC-AUTH-013-01 — Sign in as a seeded client and land on the client surface
 ```gherkin
 Given a PoC build under AUTH_PROVIDER=mock with seeded clients
-When the tester opens the sign-in lane and chooses a named client (e.g. an in-progress engagement)
-Then a mock session for that CLIENT is established and the tester lands authenticated on that client's Client Portal home
+When the tester opens the sign-in lane and signs in as a named client
+Then a session for that CLIENT is established and they land authenticated on that client's Client Portal home without further navigation
 ```
 
-### Switch role / user without devtools
+### AC-AUTH-013-02 — Sign out returns to an unauthenticated state
+```gherkin
+Given a tester signed in through the lane as either role
+When they sign out
+Then their session ends and any subsequent request to a protected surface requires signing in again
+```
+
+### AC-AUTH-010-01 — Client is redirected away from the admin surface
+```gherkin
+Given a signed-in CLIENT
+When they navigate to a route on the accountant (admin) surface
+Then they are redirected to the client surface and no admin content is rendered
+```
+
+### AC-AUTH-010-02 — Accountant is redirected away from client-only routes
+```gherkin
+Given a signed-in ACCOUNTANT
+When they navigate to a CLIENT-only route on the client surface
+Then they are redirected to the admin surface and no client-only content is rendered
+```
+
+### AC-AUTH-010-03 — Public client routes stay reachable for any role
+```gherkin
+Given a signed-in user of either role (or an anonymous visitor)
+When they navigate to a public, non-client-only route on the client surface
+Then the route is served without a role-based redirect
+```
+
+## Dev-acceptance scenarios (PoC tooling — NOT product AC)
+> The dev sign-in lane is PoC test/demo tooling. These behaviors are the lane's own acceptance — they are
+> **not** tagged with product AC (a real user is only ever one role, and the lane does not exist in a real
+> build). They are sign-off obligations for *this slice's tooling*, verified by automated tests.
+
+### Role/user switcher — move between roles without devtools
 ```gherkin
 Given the tester is signed in through the lane as one role
-When they use the in-app switcher to choose the other role (or sign out and pick another account)
+When they use the in-app switcher to choose the other role (or sign out and pick another seeded account)
 Then the prior session is replaced and they land on the correct app for the newly chosen role
 ```
 
-### The lane is inert under the real provider
+### The lane is inert under the real provider (safety property)
 ```gherkin
 Given a build configured with AUTH_PROVIDER=clerk
 When anyone requests the dev sign-in lane route
@@ -106,30 +154,42 @@ Then it is absent (404) and no mock session can be established through it
 ```
 
 ## Traceability & sign-off contract
-- This epic owns **no product `AC-*`**, so it adds **no rows to `COVERAGE.md`**. Its sign-off is the **PoC
-  acceptance scenarios above**, covered by automated test(s) and confirmed in CI.
-- The **inert-under-`AUTH_PROVIDER=clerk`** guard MUST have an automated test — it is the safety property that
-  keeps a dev login lane out of any real/production build.
-- Delivery is recorded by rolling this epic's front-matter `status` to `delivered` once the lane's tests
-  (both roles land correctly + the inert guard) pass in CI. No coverage roll-up applies (no AC owned).
+- **Product AC** — each in-scope AC (AC-AUTH-013-01/-02, AC-AUTH-010-01/-02/-03) is covered by automated
+  test(s) **tagged with its AC id** and signed off in `COVERAGE.md` when those tests pass in CI.
+  - **AC-AUTH-013-01/-02** are **new** this slice (realized against the mock) — `planned` until their
+    tagged tests pass in EPIC-009's CI.
+  - **AC-AUTH-010-01/-02/-03** are **already `verified`** (the redirect mechanism was delivered by EPIC-004,
+    PR#38 `0444551`); ownership is consolidated here. They stay `verified`; EPIC-009's CI re-exercises them.
+- **Dev-acceptance** — the **role/user switcher** and the **inert-under-`AUTH_PROVIDER=clerk` guard** MUST
+  each have an automated test. The inert guard is the **safety property** that keeps a dev login lane out of
+  any real/production build — it is required, not advisory. These are not COVERAGE rows (no product AC).
+- The epic rolls to `delivered` once all in-scope **product** AC are `verified` in `COVERAGE.md` (i.e. the
+  new AC-AUTH-013-* pass in CI; AC-AUTH-010-* are already verified) and the dev-acceptance tests pass.
 - Suggested tiers (per `.architecture/strategy/TESTING.md`): **e2e (tier 6, both apps)** for sign-in-as-each-
-  role + the switcher; **integration/unit (tier 2/3)** for the inert-under-real-binding guard.
+  role + landing (AC-AUTH-013-01) and the switcher; **integration/unit (tier 2/3)** for sign-out
+  (AC-AUTH-013-02) and the inert-under-real-binding guard; the redirect matrix (AC-AUTH-010-*) is covered by
+  the existing EPIC-004 e2e/integration tests.
 
 ## Out of scope
 - **Real authentication (real Clerk), real invitations, and 2FA** → the end-of-cycle **Production Readiness**
-  placeholder (`ROADMAP.md`). This lane neither wires nor anticipates the real provider; it only makes the
-  mock seam usable for the PoC.
-- **Any use in a real/production build** — the lane is hard-disabled under `AUTH_PROVIDER=clerk`. It is a
-  dev-capacity affordance by construction.
-- **New product auth behavior** — it does not alter the ownership or status of any `AUTH-*` AC (those remain
-  EPIC-004, verified-against-mock); it is a way to *exercise* them by hand, not a re-delivery.
+  placeholder (`ROADMAP.md`). This slice neither wires nor anticipates the real provider; it realizes the
+  sign-in/sign-out capability against the **mock** and makes that seam usable for the PoC. The real-provider
+  re-validation of REQ-AUTH-013 (and the 2FA deferral, AC-AUTH-004-*/AC-AUTH-005-01) lives there.
+- **Any use of the dev sign-in lane in a real/production build** — the lane is hard-disabled under
+  `AUTH_PROVIDER=clerk`. It is a dev-capacity affordance by construction.
+- **The role model, invitation-only client creation, and session duration** (REQ-AUTH-001/006/009) — those
+  remain **EPIC-004** (verified-against-mock); this epic owns the sign-in/sign-out *act* and the role-based
+  landing, not the identity model.
 - **Seeding the accounts** — the demo accounts the lane lists come from the existing demo seed
   (`pnpm demo:stage`); this slice consumes them, it does not own the seed.
 
 ## Links
-- Requirements: REQ-AUTH-001, REQ-AUTH-010 (exercised manually via the lane; owned by EPIC-004)
+- Requirements: REQ-AUTH-013 (sign-in/sign-out — owned here), REQ-AUTH-010 (role-based redirect —
+  consolidated here from EPIC-004), REQ-AUTH-001 (the two-role model — related, owned by EPIC-004)
 - Architecture: ADR-001, ADR-005, ADR-006, ADR-010, ADR-012
 - Personas: `personas/jane-accountant.md`, `personas/sarah-returning-client.md`
-- Flows: `flows/flow-first-sign-in.md`, `flows/flow-role-redirect.md` (the lane is the PoC mock entry point that realizes the sign-in step of each, under `AUTH_PROVIDER=mock`)
-- Epics: depends on **EPIC-004** (the mock auth seam this makes usable); the real sign-in it stands in for is the end-of-cycle Production Readiness placeholder
+- Flows: `flows/flow-first-sign-in.md`, `flows/flow-role-redirect.md` (this epic realizes the sign-in +
+  landing step of each; under `AUTH_PROVIDER=mock` via the dev lane in the PoC)
+- Epics: depends on **EPIC-004** (the role model + mock auth seam this builds on); REQ-AUTH-010 moves here
+  from EPIC-004; the real sign-in it stands in for is the end-of-cycle Production Readiness placeholder
 - Open questions: none

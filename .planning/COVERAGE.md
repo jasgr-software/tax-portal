@@ -15,10 +15,10 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 
 | Measure | Count |
 |---|---|
-| AC placed in an epic (Phase 1 + Phase 2 + Phase 3) | 188 |
-| — Phase 1 (EPIC-001/004/002/003) | 51 |
+| AC placed in an epic (Phase 1 + Phase 2 + Phase 3) | 190 |
+| — Phase 1 (EPIC-001/004/002/003) | 48 |
 | &nbsp;&nbsp;— EPIC-001 (public front door) | 13 |
-| &nbsp;&nbsp;— EPIC-004 (auth & two-role model) | 11 |
+| &nbsp;&nbsp;— EPIC-004 (auth & two-role model) | 8 |
 | &nbsp;&nbsp;— EPIC-002 (services-catalog management) | 7 |
 | &nbsp;&nbsp;— EPIC-003 (accountant request inbox) | 20 |
 | — Phase 2 (EPIC-005/006/007/008) | 44 |
@@ -26,22 +26,26 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-006 (intake questionnaire) | 7 |
 | &nbsp;&nbsp;— EPIC-007 (initial document upload) | 19 |
 | &nbsp;&nbsp;— EPIC-008 (onboarding completion → In Progress) | 8 |
-| — Phase 3 (EPIC-010..015) — *placed 2026-06-21, not yet verified* | 93 |
+| — Phase 3 (EPIC-009..015) — *EPIC-010..015 placed 2026-06-21; EPIC-009 re-decomposed 2026-06-21* | 98 |
+| &nbsp;&nbsp;— EPIC-009 (sign-in lane: sign-in/sign-out + consolidated redirect) | 5 |
 | &nbsp;&nbsp;— EPIC-010 (lifecycle pipeline & visibility) | 25 |
 | &nbsp;&nbsp;— EPIC-011 (engagement attributes) | 9 |
 | &nbsp;&nbsp;— EPIC-012 (creation paths & multi-participant) | 20 |
 | &nbsp;&nbsp;— EPIC-013 (secure file exchange) | 13 |
 | &nbsp;&nbsp;— EPIC-014 (file deletion, soft-delete & retention) | 10 |
 | &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 |
-| AC `verified` (signed off) | **95** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10, 2026-06-18 · EPIC-006 7, 2026-06-18 · EPIC-007 19, 2026-06-19 · **EPIC-008 8, 2026-06-20** — the capstone). **Phase 2 (the onboarding gate) complete.** |
-| AC still `planned` (placed, not yet verified) | **93** — all Phase-3 AC (EPIC-010 25, EPIC-011 9, EPIC-012 20, EPIC-013 13, EPIC-014 10, EPIC-015 16), placed 2026-06-21, awaiting build + CI sign-off. Every Phase-1 + Phase-2 AC is `verified`. |
+| AC `verified` (signed off) | **95** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ 3 Phase-3 AC consolidated into EPIC-009** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership moved to the sign-in epic 2026-06-21; tests still pass). **Phase 1 + Phase 2 complete.** |
+| AC still `planned` (placed, not yet verified) | **95** — all 93 Phase-3 lifecycle/FILE AC (EPIC-010 25, EPIC-011 9, EPIC-012 20, EPIC-013 13, EPIC-014 10, EPIC-015 16, placed 2026-06-21) **+ EPIC-009's 2 new sign-in AC** (AC-AUTH-013-01/-02, the sign-in/sign-out capability realized vs the mock), awaiting build + CI sign-off. |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
 > **EPIC-001 (13 AC) signed off 2026-06-15** — the public front-door slice shipped (PR #35, merge `f7f6c9d`).
-> **EPIC-004 (11 AC) signed off 2026-06-16** — the auth & two-role-model identity spine shipped (PR #38,
-> squash merge `0444551`); see basis note [A]. The 4 2FA AC (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) remain
-> `deferred` to the future Phase-1 "2FA enablement" slice — see Deferred.
+> **EPIC-004 (originally 11 AC) signed off 2026-06-16** — the auth & two-role-model identity spine shipped
+> (PR #38, squash merge `0444551`); see basis note [A]. The 4 2FA AC (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01)
+> remain `deferred` to Phase 5 — see Deferred. **On 2026-06-21, REQ-AUTH-010 (AC-AUTH-010-01/-02/-03) was
+> consolidated into EPIC-009** (the sign-in epic): the redirect *mechanism* was delivered here and the tests
+> still pass — only ownership of the 3 AC moved (still `verified`). EPIC-004 now owns **8** verified in-scope
+> AC; it remains `delivered`.
 > **EPIC-002 (7 AC) signed off 2026-06-16** — the accountant services-catalog management slice shipped (PR #40,
 > squash merge `70ea10e`); see basis note [A]. All 7 in-scope AC verified: AC-DOOR-002-01/-02/-03 (add/edit/
 > deactivate persist), AC-DOOR-002-05 (accountant-only write boundary — the new `sec.fn_service_write_access`
@@ -273,9 +277,11 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-AUTH-006 | AC-AUTH-006-02 | EPIC-004 | 1 | `AC-AUTH-006-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-006 | AC-AUTH-006-03 | EPIC-004 | 1 | `AC-AUTH-006-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
 | REQ-AUTH-009 | AC-AUTH-009-01 | EPIC-004 | 1 | `AC-AUTH-009-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
-| REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-004 | 1 | `AC-AUTH-010-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
-| REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-004 | 1 | `AC-AUTH-010-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
-| REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-004 | 1 | `AC-AUTH-010-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] |
+| REQ-AUTH-010 | AC-AUTH-010-01 | EPIC-009 | 3 | `AC-AUTH-010-01` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) |
+| REQ-AUTH-010 | AC-AUTH-010-02 | EPIC-009 | 3 | `AC-AUTH-010-02` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) |
+| REQ-AUTH-010 | AC-AUTH-010-03 | EPIC-009 | 3 | `AC-AUTH-010-03` | verified | PR#38 `0444551` (2026-06-16) · SDET+CI [A] · owner→EPIC-009 2026-06-21 (consolidated; redirect mechanism built EPIC-004) |
+| REQ-AUTH-013 | AC-AUTH-013-01 | EPIC-009 | 3 | `AC-AUTH-013-01` | planned | — (sign-in lands on role-appropriate surface; realized vs mock) |
+| REQ-AUTH-013 | AC-AUTH-013-02 | EPIC-009 | 3 | `AC-AUTH-013-02` | planned | — (sign-out → unauthenticated state) |
 | REQ-MSG-013 | AC-MSG-013-01 | EPIC-003 | 1 | `AC-MSG-013-01` | verified | PR#42 `ec151cb` (2026-06-17) · SDET+CI [A] |
 | REQ-ONBD-001 | AC-ONBD-001-01 | EPIC-005 | 2 | `AC-ONBD-001-01` | verified | PR#48 `f879da2` (2026-06-18) · SDET+CI [A] |
 | REQ-ONBD-001 | AC-ONBD-001-02 | EPIC-005 | 2 | `AC-ONBD-001-02` | verified | PR#48 `f879da2` (2026-06-18) · SDET+CI [A] |
@@ -455,12 +461,13 @@ enablement slice **owns no new coverage rows** — it re-runs the same AC-id-tag
 seam; the owning epic's rows stay `verified`, and the real-provider confirmation is recorded here.
 
 - **Real Clerk login + invitations + 2FA → Phase 5 (Production Readiness, placeholder).** Re-validates
-  **AC-AUTH-001-01/-02/-03, AC-AUTH-009-01, AC-AUTH-010-01/-02/-03** (owned by EPIC-004, verified-against-mock)
-  against **live Clerk** when the production-readiness phase is decomposed; plus the invitation AC
+  **AC-AUTH-001-01/-02/-03, AC-AUTH-009-01** (owned by EPIC-004) and **AC-AUTH-013-01/-02, AC-AUTH-010-01/-02/-03**
+  (owned by EPIC-009 — the sign-in/sign-out capability + role-based landing, verified-against-mock) against
+  **live Clerk** when the production-readiness phase is decomposed; plus the invitation AC
   (**AC-AUTH-006-01/-02/-03** + the sign-up half of **AC-AUTH-005-02**) and 2FA (see § Deferred). **Not
-  minted as an epic yet.** *(Note: the Phase-3 **EPIC-009 "PoC two-role sign-in lane" is NOT this** — it makes
-  the existing MOCK seam human-usable for the proof of concept, owns no AC, and neither wires nor re-validates
-  the real provider.)*
+  minted as an epic yet.** *(Note: the Phase-3 **EPIC-009 sign-in lane realizes REQ-AUTH-013 against the MOCK
+  provider** for the proof of concept — it is the mock realization that Phase 5 re-validates against real
+  Clerk, not the real-provider slice itself.)*
 - *(Same pattern, also Phase 5: real Docuseal e-sign re-validates EPIC-005's ONBD-002 / IDNT-007 e-sign AC;
   real malware scanner re-validates EPIC-007's NFR-009 AC; real email replaces Mailhog.)*
 
@@ -527,7 +534,7 @@ decision, not pending v1 work.
   ready to deploy; the auth spine (EPIC-004) ships without it. **Re-scoped 2026-06-20 (per user direction):**
   this item is **2FA-only** and now lives in the end-of-cycle **Phase 5 — Production Readiness** placeholder,
   alongside the real-Clerk login standup it depends on (real Clerk must exist before 2FA enforcement can be
-  validated). *(The Phase-3 **EPIC-009 "PoC sign-in lane"** is a mock-only dev affordance — unrelated to 2FA.)*
+  validated). *(The Phase-3 **EPIC-009 sign-in lane** realizes the sign-in/sign-out capability (REQ-AUTH-013) against the mock provider — unrelated to 2FA, which stays here in Phase 5.)*
   REQ-AUTH-004 (mandatory accountant 2FA) leaves EPIC-004 entirely; REQ-AUTH-005 keeps only its no-2FA path
   (AC-AUTH-005-02) in EPIC-004, with the enrollment path (AC-AUTH-005-01) deferred to Phase 5. The
   requirements (`.requirements/REQ-AUTH-004/005.md`) are unchanged — a planning-level deferral of the AC, not
