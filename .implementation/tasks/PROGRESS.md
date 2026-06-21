@@ -10,16 +10,44 @@
 
 ## Current initiative
 
-_None active._ **BRIEF-LOE-010 / Phase 0 (task/bug lifecycle → YAML front matter)** is **DELIVERED + Close-finalize
-COMPLETE 2026-06-21** — merged `2b8944a` (PR #74), gates 1–9 final (1–7 PASS, 8 GREEN, 9 N/A), zero post-merge
-bugs. Phase 0 of the ratified scripted-bookkeeping initiative is done; **Phases 1–2 (task.ts CLI; state.json +
-events.jsonl) remain pending separate ratification** and are not yet briefed. No slice is in flight; `##
-Awaiting PR merge` is empty. Next implementation work opens only when a new build brief arrives. Detail lives in
-`RETRO-LOE-010.md` + `HANDOFF-LOE-010.md` + git (`2b8944a`).
+_None active._ **BRIEF-LOE-011 / Phase 1** completed Close-prep and moved to `## Awaiting PR merge` (PR limbo) —
+2026-06-21. No new slice may Plan while it is unresolved (slice-start gate). The IO is eligible to Plan the next
+slice only after BRIEF-LOE-011 Close-finalize clears.
 
 ## Awaiting PR merge
 
-_Empty._ No slice is in limbo awaiting merge.
+**BRIEF-LOE-011 / Phase 1 — `task.ts` CLI (write mutations + bounded read projections) over YAML front matter.**
+Engine-tooling chore, epic `chore/lights-out-enablement`. Branch **`brief-loe-011-task-cli`**.
+`brief_type: document/chore`, `brief_deploys: no` (gate 9 N/A). **Reviewed merge lane.** Close-prep COMPLETE
+2026-06-21; awaiting PR raise + merge.
+
+**⚠️ WORKFLOW-FILE USER-LGTM GATE — must NOT auto-merge.** This PR touches **5 quad-review-governed workflow
+files** (`.implementation/agents/developer.md`, `.implementation/agents/sdet.md` [edited twice — the -003 doc
+rewrite + the Close-prep cmdDone-scope fix], `.implementation/ENGINE.md`, `.implementation/PHASES.md`). Per
+ENGINE § Autonomy Ceiling 3(c) the merge requires an explicit user `LGTM` / `/approve` comment on the PR.
+Reviewed lane: Standards audit → `/pr-review` panel → fix → resolve threads → **user LGTM** → merge on green
+required CI (`lint-and-typecheck` + `security-scan`). No `--admin`, no branch-protection toggle.
+
+**Gate scorecard (pre-merge):**
+1. Per-task submission gates — **3/3 PASS** (+ BUG-LOE-011-001 fix gate)
+2. SDET Review — **3/3 approved** (BUG-LOE-011-001 closed `done`)
+3. Overwatch Audit — N/A folded (engine-tooling; IO design scan covers integration; no mid-dispatch risk signal)
+4. IO Design scan — **PASS** (paved-road convenience; no new required gate; judgment line held; Phase-2 fenced; no product-code creep)
+5. Container Smoke — **PASS** (engine-tooling shape: `validate-gates.sh` ALL CHECKS PASSED over the real tree AND green over the AC-09 mutated fixture tree, corrupted-fixture counterfactual reds it)
+6. SDET Acceptance-validation — **PASS** (AC-LOE-011-01..09 all traced to passing tests/evidence)
+7. SDET CI gate — **PASS** (lint + type-check clean; 172/172 scripts vitest)
+8. Post-merge CI — **PENDING** (Close-finalize, after merge)
+9. Post-merge staging smoke — **N/A** (`brief_deploys: no`)
+
+> **Delivered (bounded-ledger one-line pointer):** **BRIEF-LOE-011 / Phase 1 — `task.ts` CLI over YAML front
+> matter** (engine-tooling chore, `chore/lights-out-enablement`) — branch `brief-loe-011-task-cli`; 3 tasks +
+> BUG-LOE-011-001 all `done`/archived to `tasks/done/`; all 9 AC satisfied + exercised through the CLI; gates
+> 1–7 PASS, gate 8 pending post-merge CI, gate 9 N/A. Durable detail: `RETRO-LOE-011.md` + `HANDOFF-LOE-011.md`
+> + `done/TASK-LOE-011-00{1,2,3}` + `done/BUG-LOE-011-001` + git. **Headline lesson:** the independent-oracle
+> trap appeared THREE times this slice (metrics parity, read-only projection, AC-09 e2e) and was caught each
+> time because the brief baked RETRO-LOE-010's rule in.
+
+_Prior limbo cleared:_
 
 > **Delivered (bounded-ledger one-line pointer):** **BRIEF-LOE-010 / Phase 0 — task/bug lifecycle fields → YAML
 > front matter** (engine-tooling chore, `chore/lights-out-enablement`) — merged **`2b8944a` (PR #74)**, reviewed
@@ -202,142 +230,47 @@ Carried to RETRO-008 + Validate-disposition.
 
 ---
 
-### SDET Review — TASK-LOE-010-002 + -003 — 2026-06-21
+> **Swept (bounded-ledger pointer):** BRIEF-LOE-011 / Phase 1 session entries (IO Plan; IO Dispatch ×6 — review-001-first
+> routing, BUG-001 fix routing, -001 re-review, -002 dispatch + review, -003 dispatch + review; SDET Reviews of
+> -001/-001-re-review/-002/-003) rolled to `PROGRESS-ARCHIVE.md` (index row added) at this Close-prep transition.
+> Detail durable in `done/TASK-LOE-011-00{1,2,3}` + `done/BUG-LOE-011-001` (Work Logs + SDET Review sections) +
+> `RETRO-LOE-011.md` + `HANDOFF-LOE-011.md` + `git log -p PROGRESS.md`.
 
-**Start:** Batched SDET review of TASK-LOE-010-002 (introduces_gate: yes; AC-LOE-010-04 + -05) and TASK-LOE-010-003 (introduces_gate: no; AC-LOE-010-06). Read brief, ENGINE.md, agent file, both task files, -001 reference task (done/), task-frontmatter.ts (FIELD_MAP, verifyFrontMatter, CLI), validate-gates.sh (all 9 checks), log-task-edit.py, metrics-report.py, all fixture files, templates, and the full doc diffs.
+### IO Close-prep — BRIEF-LOE-011 / Phase 1 — 2026-06-21
 
-**Actions:**
-- **validate-gates.sh independent re-run (Item 1 proof):** `bash scripts/validate-gates.sh > /tmp/validate-gates-loe010-sdet.log 2>&1` — exit 0; `check_task_file_completion PASS`; `ALL CHECKS PASSED (0 failures)`; mode: real repo.
-- **Fixture-suite re-run:** `npx vitest run scripts/validate-gates.test.ts` — **27/27 tests pass**. Covers: clean fixture all-pass; done-missing-complexity fails; done-no-worklog fails; ci-evidence-prose-pass passes; ci-evidence-prose-fail fails; progress-missing-section fails; gated-no-task fails; pr-body-non-workflow-ok passes; pr-body-workflow-missing-verdict fails; 3 awaiting-merge variants correct. All 5 migrated fixtures carry YAML front matter.
-- **Malformed fixture `--verify` counterfactual:** `npx vitest run scripts/validate-gates.test.ts` confirms the malformed-frontmatter fixture (`status: wip`, `complexity_estimate: 7`, clock inversion) is rejected by `verifyFrontMatter()` with `status.enum`, `complexity_estimate.range`, and `clock.inversion` violations — exit 1 from the `--verify` CLI as tested in Suite 2.
-- **Named code path confirmed:** `_check_done_metadata_fm()` `grep -qE "^started_at: [0-9]{4}-..."` and `grep -qE '^complexity_actual: "?[1-5]"?$'`; checks 5/6/7 front-matter key patterns; `verifyFrontMatter()` rules — all present in source and exercised by the test suite.
-- **Metrics hook parity (AC-LOE-010-05):** `log-task-edit.py` `parse_field()` rewritten to read YAML front-matter block, keyed on snake_case keys (`status`, `assigned_to`, `complexity_estimate`, `complexity_actual`, `started_at`, `completed_at`). Record shape unchanged. `metrics-report.py` already uses matching snake_case field names — no consumer change required.
-- **PROGRESS.md format untouched:** Checks 3/9 parse PROGRESS.md prose; checks 5/6/7 grep body (preserved byte-for-byte by migration). No change to PROGRESS.md structure. Confirmed correct.
-- **-003 grep-clean reproduction:** Zero live bold-field instruction hits across ENGINE.md, PHASES.md, AGENT.md, developer.md, sdet.md, overwatch.md for all relocated field patterns. `git diff HEAD` confirms format-only changes; all contract semantics (SDET rejection rules, Dispatch-Checkpoint ordering, who-writes-when) preserved verbatim.
-- **Templates coherent:** `_templates/task.md` and `_templates/bug.md` have YAML front matter on top; body sections unchanged; field guidance preserved as YAML comments/prose.
-- **Mailhog failure disposition:** `pnpm -r test` — 1 failure (`SmtpEmailProvider → Mailhog integration`, `Unexpected socket close`). Mailhog not running in environment. BRIEF-LOE-010 touches no email code path — confirmed pre-existing non-slice-introduced. Not a rejection.
-- **Metadata hard-gates:** -002 `complexity_actual: 4` valid; `started_at: 2026-06-21T18:29:10Z` present; `completed_at` written `2026-06-21T21:15:00Z` (>= started_at). -003 `complexity_actual: "2"` valid; `started_at: "2026-06-21T18:52:52Z"` present; `completed_at` written `2026-06-21T21:15:00Z` (>= started_at). Both have pre-implementation "Starting implementation" Work Log entries.
-- **Atomic closes applied:** both tasks flipped to `status: done`, `updated_by: sdet`, `completed_at` written, SDET Review box ticked, Notes filled, Work Log breadcrumb appended — each in one Edit per task.
-
-**End:** Both tasks **APPROVED and closed to `done`**. PROGRESS.md task list updated. All six AC-LOE-010 acceptance criteria are now verified across -001 (done), -002 (done), and -003 (done): AC-01/-02/-03 at -001 (SDET-approved 2026-06-21T19:30:00Z); AC-04/-05 at -002; AC-06 at -003. Ready for IO design scan → Smoke → Validate → Close-prep.
-
-### IO Review — BRIEF-LOE-010 / Phase 0 — batched SDET review of -002 + -003 — 2026-06-21
-
-**Start:** Dispatch exit met — all three build tasks built (-001 `done`; -002 + -003 `review`). Resumed from
-primary sources (brief + all 3 task files + PROGRESS). Phase-transition reflex applied: swept the Dispatch
-session entries to `PROGRESS-ARCHIVE.md` (one-line pointer), updated `## Current initiative` to Review with -002
-+ -003 at `review`. Entered **Review**.
+**Start:** Resumed mid-slice with all 3 build tasks + BUG-LOE-011-001 `done` (SDET-approved). Ran the remaining IO
+phases: Design scan → Smoke → Validate → Close-prep. Reconstructed state from primary sources (brief + 3 task
+files + BUG file + PROGRESS.md). Branch carries ZERO commits — all slice work is uncommitted in the working tree
+(agents write code; the main session owns git).
 
 **Actions:**
-- **Routing decision:** batch the SDET review of both `review` tasks in one dispatch (sequential within the one
-  agent; per-task atomic close applied independently). -002 = the `introduces_gate: yes` gate-change task
-  (validate-gates.sh + log-task-edit.py read front matter, identical verdicts, malformed rejection, three-item
-  Gate-Authoring evidence on the real migrated tree); -003 = the format-only docs/templates task (grep-clean,
-  semantics intact, templates coherent). One rejection keeps that task `review` and does not block the other's
-  approval.
-- **Composed the batched SDET review dispatch** (see `## Next Dispatch`). -002 focus: real three-item evidence on
-  the real migrated tree (purpose + `validate-gates.sh` exit-0 ALL CHECKS PASSED; named path
-  `_check_done_metadata_fm()` / `verifyFrontMatter`; malformed-frontmatter fixture rejects via `--verify` exit 1);
-  independent re-run identical-verdict guarantee; empty-field contract preserved; metrics-hook re-key keeps
-  record shape (AC-LOE-010-05); PROGRESS.md format untouched (checks 3/9 parse prose); metadata hard-gates +
-  atomic close. -003 focus: format-only (no contract semantics changed); independent grep-clean reproduction;
-  worked examples mirror real emitted front-matter shape; templates schema-valid; the pre-existing Mailhog test
-  failure confirmed not-introduced (note, don't reject); metadata hard-gates + atomic close.
+- **Design scan (gate 4) PASS.** Read the integrated working-tree diff (modified workflow docs + `package.json`;
+  untracked `scripts/task.ts`/`task.test.ts`/fixtures). Confirmed: `pnpm task` is a paved-road convenience over
+  `task-frontmatter.ts` (no NEW required gate; `validate-gates.sh` unchanged backstop; every workflow doc keeps
+  the "hand-edit still passes" escape); the judgment line held (CLI records, never decides); Phase-2
+  (`state.json`/`events.jsonl`) stayed fenced (`progress` is a read projection, not a new store); no product-code
+  creep (zero changes under `apps/**`/`packages/**`/`prisma/**`/`db/**`; `package.json` adds only the `task` script).
+- **Smoke (gate 5) PASS.** `validate-gates.sh` ALL CHECKS PASSED over the real tree; green over the AC-09 mutated
+  fixture tree (`--fixture-dir`), with the SDET-reproduced corrupted-fixture counterfactual reding it (exit 1).
+  The independent gate over real + mutated state is this engine-tooling slice's deploy-layer proof.
+- **Validate (gates 6+7) PASS.** AC-LOE-011-01..09 each traced to a passing test/evidence (write subcommands,
+  metrics-parity-vs-real-hook, read projections + read-only invariants, judgment line, docs-choreography diff,
+  AC-09 e2e). CI gate: `pnpm lint` PASS, `pnpm type-check` PASS, `pnpm test` 172/172 PASS.
+- **Close-prep.** Resolved carry-forward #1 — amended `sdet.md` step 6 to split the mechanical `cmdDone` close
+  from the SDET-authored judgment (tick box + `**Decision**:`), WITHOUT extending `cmdDone` (a 5th
+  quad-review-workflow-file edit; joins the user-LGTM set). `validate-gates.sh` re-confirmed green after the edit.
+  Consistency gate PASS (all 4 done files have complete metadata; `complexity_actual ∈ 1..5`;
+  `completed_at >= started_at`). Archived the 3 task files + BUG to `tasks/done/` via `pnpm task archive --brief
+  LOE-011` (dogfooding the paved road). Wrote `RETRO-LOE-011.md` (what shipped; 9-AC↔task↔evidence map; the
+  three-times-caught independent-oracle headline lesson; advisory dispositions — -002 `cmdBriefContext` resolved
+  in -003, sdet.md cmdDone-scope resolved at Close-prep; gate scorecard + design-scan verdict) + `HANDOFF-LOE-011.md`
+  (AC↔evidence table + merge gate). Collapsed `## Current initiative` to the bounded-ledger pointer; moved the
+  slice to `## Awaiting PR merge` with the 1–7 PASS / 8 pending / 9 N/A scorecard and the prominent
+  workflow-file user-LGTM gate.
 
-**End:** **In Review.** Awaiting the batched SDET verdict. On both `done` → IO design scan over the integrated
-`git diff` (format-only / one-fact-one-home honored), then Smoke (validate-gates.sh green over the real tree is
-the backstop), Validate (AC-LOE-010-01..06 + CI gate), Close-prep (consistency gate, archive, RETRO + HANDOFF,
-move to `## Awaiting PR merge`, request the reviewed-lane PR), end. On any rejection → same-branch fix dispatch
-for that task; the other can still pass.
-
-### IO Review/Smoke — BRIEF-LOE-010 / Phase 0 — design scan + backstop re-run → 2 defects → fix-forward — 2026-06-21
-
-**Start:** Resumed at Review (all 3 build tasks `done` + SDET-approved per primary sources). Phase-transition
-reflex applied (swept Review prose to `PROGRESS-ARCHIVE.md` one-line pointer; updated `## Current initiative`).
-Ran the IO design scan over the integrated `git diff HEAD` against the brief's format-only + one-fact-one-home
-(§9.1) + no-PROGRESS-format-change + no-product-creep constraints, then re-ran the two backstop gates
-(`validate-gates.sh` + the `scripts/` vitest suite) as the IO-independent Smoke verification.
-
-**Actions:**
-- **Design-scan structural verdict: CLEAN.** `git diff --stat HEAD` — zero changes under `apps/**`/`packages/**`/
-  `prisma/**`/`db/**` (no product-code creep); the 88-file migrated tree is all `.implementation/tasks/**` +
-  `_templates/` + fixtures. PROGRESS.md has **no** front matter (out-of-scope format preserved; its diff is
-  ledger updates only). One-fact-one-home confirmed on representative migrated files: every TASK/BUG opens with
-  `---` front matter; zero relocated header-bold fields duplicated into the body; body-prose bold
-  (`**Decision**:`/`**Notes**:`/`**Attempt count**:`) preserved verbatim. -003 docs grep-clean reproduced (zero
-  live relocated-bold-field instructions across the six engine/agent docs); ENGINE.md Task Metadata Contract
-  table now keyed on `started_at`/`completed_at`/`complexity_estimate`/`complexity_actual` with semantics intact.
-- **Backstop re-run FOUND 2 DEFECTS (per-task SDET review missed both):**
-  - **Defect A — `validate-gates.sh` exit 1.** `_check_done_metadata_fm()`'s `started_at`/`completed_at` grep
-    (`^started_at: [0-9]{4}-...`) does not tolerate the **quoted** scalar form the migration legitimately emits;
-    TASK-LOE-010-003 carries `started_at: "2026-06-21T18:52:52Z"` and is false-rejected (`started_at missing or
-    not ISO 8601`). The bash check already tolerates quoted `complexity_*` (`"?[1-5]"?`) and the TS
-    `verifyFrontMatter()` accepts quoted timestamps — so this is an **AC-LOE-010-04 identical-verdict
-    violation** (a well-formed file false-rejected by the backstop).
-  - **Defect B — `scripts/vitest` 1 failed.** The metrics-parity describe block pins to **TASK-LOE-010-002
-    itself** as a live fixture ("in-progress at test time"); the SDET's correct atomic close wrote
-    `completed_at: 2026-06-21T21:15:00Z` and flipped it to `done`, so `extracts completed_at as dash sentinel`
-    now reds (`expected false to be true`). Self-referential test brittle against the very close the slice
-    requires — an **AC-LOE-010-05** test-stability defect.
-  - *Why the SDET missed them:* the SDET ran the suite mid-review (before its own close edit populated -002's
-    `completed_at`), and the quoted-timestamp form exists only on -003 (reviewed in the same batch; the SDET's
-    independent run pre-dated -003's own close-edit shape settling). Both are genuine; neither changes contract
-    semantics.
-- **Fix-forward (PHASES.md Review):** created **TASK-LOE-010-004** (`status: backlog`, gated `scripts/`, deps -002,
-  `Introduces-gate: no`) batching both defects: broaden the bash ISO-8601 grep to tolerate an optional
-  surrounding quote (mirror the existing `complexity_*` tolerance; do not relax the ISO shape), and replace the
-  self-referential parity fixture with a stable dedicated in-tree fixture. Did **not** revert -001/-002/-003.
-  Dispatched to a developer (gated path → developer + SDET re-review, not IO self-implement).
-
-**End:** **Review held — slice does not advance to Smoke/Validate/Close-prep until TASK-LOE-010-004 is `done`
-and both backstops are green.** Next: developer implements -004 → SDET reviews → IO re-runs the design-scan
-backstops → if green, Smoke (the green `validate-gates.sh` over the real tree IS the backstop verdict) →
-Validate (AC-LOE-010-01..06) → Close-prep → `## Awaiting PR merge` + reviewed-lane PR package → end.
-
-### SDET Review — TASK-LOE-010-004 — 2026-06-21
-
-**Start:** Fix-forward review of TASK-LOE-010-004 (Defect A: quoted-timestamp false-reject in validate-gates.sh; Defect B: self-referential parity fixture). Read task file, brief (AC-LOE-010-04/-05), changed validate-gates.sh, validate-gates.test.ts, new fixtures (done-quoted-timestamps, done-bad-timestamp, TASK-TEST-INPROGRESS-001-parity-fixture.md).
-
-**Actions:**
-- **Defect A regex verification:** `_check_done_metadata_fm()` now uses `^started_at: "?[0-9]{4}-[0-9]{2}-[0-9]{2}T` and `^completed_at: "?[0-9]{4}-[0-9]{2}-[0-9]{2}T`. The `"?` optional-quote broadening exactly mirrors the existing `complexity_*` pattern (`"?[1-5]"?`). ISO-8601 prefix anchor (`[0-9]{4}-[0-9]{2}-[0-9]{2}T`) preserved. `set -euo pipefail` intact. No new shell-out.
-- **Independent validate-gates.sh run:** `bash scripts/validate-gates.sh > /tmp/validate-gates-loe010-004-sdet.log 2>&1` — **exit 0; ALL CHECKS PASSED; check_task_file_completion PASS** (real repo, mode confirmed in output).
-- **Defect A counterfactual (done-quoted-timestamps fixture):** Suite 1 test "done-quoted-timestamps → check_task_file_completion PASSES (Defect A counterfactual)" — **PASS** (exit 0, ALL CHECKS PASSED). Fixture at `scripts/__test_fixtures__/validate-gates/done-quoted-timestamps/.implementation/tasks/done/TASK-TEST-QUOTEDTS-001-fixture.md` carries `started_at: "2026-06-21T10:00:00Z"` + `completed_at: "2026-06-21T11:00:00Z"`.
-- **No-over-broadening proof (done-bad-timestamp fixture):** Suite 1 test "done-bad-timestamp → check_task_file_completion FAILS (no-over-broadening)" — **FAIL** as required (exit 1, check_task_file_completion FAIL). Fixture carries `started_at: "not-a-date"` and `completed_at: "also-not-a-date"` — confirms ISO-8601 shape still enforced.
-- **Suite 4 decoupling (Defect B):** Suite 4 reads `scripts/__test_fixtures__/frontmatter/TASK-TEST-INPROGRESS-001-parity-fixture.md` exclusively. Grepped test file for live task pins — only 3 prose references to `TASK-LOE-010-002`, all in comments (file header, DECISION breadcrumb, simulation label). No `readFileSync` or `spawnSync` call targets any `tasks/` path. Fixture is `status: in-progress`, `completed_at:` (empty), `complexity_estimate: "3"`, `started_at: "2026-06-21T18:52:52Z"` (quoted ISO), `assigned_to: devops`. AC-LOE-010-05 coverage intent intact: all 6 assertions present (status, assigned_to, complexity_estimate, started_at ISO shape, completed_at empty-sentinel, record-shape field-name alignment).
-- **Full scripts/ vitest suite:** `pnpm test` — **75/75 tests passed, 0 failed (3 files)**. All Suite 1 new counterfactual tests pass; all Suite 4 parity tests pass.
-- **Metadata hard-gates:** `started_at: 2026-06-21T19:17:47Z` — real clock value (not midnight sentinel). `complexity_estimate: 2`, `complexity_actual: 2` — both in 1-5. `introduces_gate: no` — three-item Gate Authoring evidence not required. Pre-implementation Work Log entry "Starting implementation" present before the close entry.
-- **Advisory note (non-rejecting):** The Gate Authoring comment block at `scripts/validate-gates.sh` line 111 still describes the old unquoted pattern (`^started_at: [0-9]{4}-[0-9]{2}-[0-9]{2}T` without `"?`). `introduces_gate: no`, so this is not a rejection criterion. Flagged for IO as a minor follow-up comment-only update.
-
-**End:** TASK-LOE-010-004 **APPROVED and closed to `done`** (2026-06-21T21:45:00Z). Both backstops green: validate-gates.sh exits 0 / ALL CHECKS PASSED; 75/75 scripts/ vitest tests pass. PROGRESS.md task list updated — all four LOE-010 tasks are now `done`. Slice is unblocked for IO design-scan backstop re-verification → Smoke → Validate → Close-prep.
-
-### IO Close-finalize — BRIEF-LOE-010 / Phase 0 — post-merge — 2026-06-21
-
-**Start:** Resumed at Close-finalize from primary sources (`## Awaiting PR merge` entry, the four `done/TASK-LOE-010-*`
-files, RETRO-LOE-010, HANDOFF-LOE-010). PR #74 has merged. Phase-transition reflex applied.
-
-**Merge facts:** PR **#74** merged to `main` via squash + delete-branch (reviewed lane, no `--admin`, no protection
-toggle); squash commit **`2b8944a`**. Reviewed-lane outcome: Standards-review audit PASS (0 violations; 2 new
-experimental INFRA standards drafted, pending human ratification — not on this PR). `/pr-review` panel verdict
-request-changes (advisory) — 1 blocker + 2 major + 4 minor + 1 nit; **the blocker was real and high-value**: 39 of
-90 migrated files (43%) were not valid YAML (`needsQuoting` omitted YAML-significant cases), invisible to every
-prior gate because all use quote-tolerant line scanners, never a real YAML parser. `/pr-fix` addressed all 9
-findings: hardened `needsQuoting` + escaping, added a `--reserialize` path, re-serialized the corpus, added a
-**YAML-validity oracle test** (shells to python3+PyYAML over every file — the missing oracle), and fixed the major
-metrics regression (quoted `complexity_actual: "3"` → bare int, restoring `metrics-report.py` rollup). 10 review
-threads resolved; fix commits squashed into `2b8944a`.
-
-**Gate 8 — post-merge CI — GREEN:** main CI run `27916242291` `success` (lint-and-typecheck, security-scan,
-test-portal, test-admin); CodeQL on main green; `bash scripts/validate-gates.sh` on merged main → exit 0, ALL
-CHECKS PASSED. Independently re-verified: **89/89 migrated files parse as valid YAML, 0 invalid; complexity fields
-now bare integers.** **Gate 9 — N/A** (`brief_deploys: no`).
-
-**Post-merge triage:** CI green, no smoke failures → **no `BUG-LOE-010-POST-*` filed**. Clean post-merge result.
-
-**Actions:**
-- Moved BRIEF-LOE-010 **out of `## Awaiting PR merge`** (now empty); recorded delivery as the bounded-ledger
-  one-line pointer (merged `2b8944a` / #74; gates 1–7 PASS, 8 GREEN, 9 N/A).
-- Updated `## Current initiative` — no active slice; Phase 0 delivered, Phases 1–2 pending separate ratification.
-- Appended the Post-Merge Addendum + the YAML-oracle gate-design retro learning to `RETRO-LOE-010.md`.
-
-**End:** **Close-finalize COMPLETE. Slice fully closed.** BRIEF-LOE-010 / Phase 0 delivered + merged `2b8944a`
-(#74); gates 1–9 final disposition recorded; zero post-merge bugs; no slice in flight. Invocation ends.
+**End:** **Close-prep COMPLETE → PR limbo.** Slice in `## Awaiting PR merge`. Gates 1–7 PASS; gate 8 pending
+post-merge CI; gate 9 N/A (`brief_deploys: no`). PR package returned to the main session. **The main session
+owns: stage the named files → commit → push → raise PR → reviewed lane (Standards audit → `/pr-review` → fix →
+resolve threads) → user LGTM → merge on green required CI.** This PR MUST NOT auto-merge — it touches 5
+quad-review workflow files (ENGINE § Autonomy Ceiling 3(c)). On merge: re-invoke the IO for Close-finalize
+(verify gate 8). IO ends.

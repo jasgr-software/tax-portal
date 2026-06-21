@@ -140,11 +140,8 @@ For each task with status `review`:
    repeat-run evidence (e.g. 3× with zero flakes for e2e-heavy commits) is present.
 5. If the task changes infrastructure code, **verify operational documentation** (inventory, runbooks) is
    consistent — reject if stale.
-6. If everything passes → **in a single atomic edit**: (a) tick the **SDET Review** box, (b) fill the
-   `## SDET Review` prose section (`**Decision**: approved` + Notes), (c) append the approval breadcrumb to the
-   Work Log, (d) set `status: done` in the front matter, (e) set `completed_at` to current UTC ISO 8601. All five in one Edit.
-7. If anything fails → reject and create a BUG file: what failed and why, steps to reproduce, expected vs
-   actual, specific fix guidance.
+6. If everything passes → close the task in two parts. First the **mechanical close**: run `pnpm task done <ID> --role sdet [--note "…"]`. This single command flips `status: done`, stamps `completed_at` with the real UTC clock, sets `updated_by`, and appends the approval breadcrumb to the Work Log — the format/timestamp/ordering bookkeeping the CLI owns. `completed_at` is **SDET-authored** — the developer must not pre-fill it. Then record your **judgment** (the CLI never decides it for you): tick the **SDET Review** box and write the `**Decision**: approved` line plus Notes in the `## SDET Review` section. A correct hand-edit that performs the mechanical close in one Edit still passes `scripts/validate-gates.sh`; the CLI is the paved road, not a mandate.
+7. If anything fails → use `pnpm task reject <ID> --role sdet --bug <BUG-ID> [--note "…"]` to back-transition `review → in-progress` with the BUG reference wired in, then create a BUG file: what failed and why, steps to reproduce, expected vs actual, specific fix guidance.
 
 ## Constraints
 

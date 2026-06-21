@@ -1,6 +1,6 @@
 # Proposal: Move mechanical bookkeeping from agents to a task-state CLI
 
-**Status:** Approved — **Phase 0 DELIVERED 2026-06-21** (merged `2b8944a` / PR #74 via `TASK-LOE-010-001..004` on the reviewed engine lane); Phases 1–2 pending separate ratification
+**Status:** Approved — **Phase 0 DELIVERED 2026-06-21** (merged `2b8944a` / PR #74 via `TASK-LOE-010-001..004`). **Phase 1 RATIFIED 2026-06-21** (user) — the `task.ts` write CLI + bounded read projections, briefed as `BRIEF-LOE-011` on the reviewed engine lane (build pending). Phase 2 (structured state store) pending separate ratification.
 **Scope:** `.implementation/**` (engine, phases, agent docs), `scripts/`, `package.json`
 **Author:** main session
 **Date:** 2026-06-21

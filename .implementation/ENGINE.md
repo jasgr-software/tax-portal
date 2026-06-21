@@ -339,11 +339,7 @@ archives are the target.* `PROGRESS-ARCHIVE.md` is a thin **index**, not a log.
 **Authoritative for the atomic-edit-before-any-other-file-change rule** — the ordering contract that makes
 mid-execution recovery deterministic.
 
-Before editing any file outside the task file itself, every dispatched agent must perform a **single atomic
-Edit** to the task file containing: (1) a **Work Log entry** `YYYY-MM-DD [role] Starting implementation —
-<scope> | What's next: <first action> | Blockers: none`; (2) a **status flip** `backlog` → `in-progress` in
-the front matter; (3) the `started_at` and `complexity_estimate` fields per § Task Metadata Contract. All three
-in one Edit. Only after it succeeds may the agent edit any other file.
+Before editing any file outside the task file itself, every dispatched agent must execute the pre-implementation atomic write: `pnpm task start <ID> --role <r> --complexity-estimate N [--note "…"]`. This single command atomically writes: (1) a **Work Log entry** with the canonically-formatted "Starting implementation" breadcrumb; (2) a **status flip** `backlog` → `in-progress` in the front matter; (3) the `started_at` (real UTC clock) and `complexity_estimate` fields per § Task Metadata Contract. Only after it succeeds may the agent edit any other file. A correct hand-edit that performs all three items in a single atomic Edit still passes `scripts/validate-gates.sh` — the CLI is the paved road, not a mandate.
 
 **Why a rule, not a convention:** if a dispatched agent errors mid-execution, the task file is the only
 persistent record that survives into the main session's context. The pre-implementation entry makes recovery

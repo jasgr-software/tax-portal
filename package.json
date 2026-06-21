@@ -26,6 +26,7 @@
     "db:policies:apply": "tsx scripts/db-migrate.ts --track-b-only",
     "db:seed": "tsx scripts/db-seed.ts",
     "db:seed:demo": "tsx scripts/db-seed.ts --demo",
+    "task": "tsx scripts/task.ts",
     "migrate:frontmatter": "tsx scripts/migrate-task-frontmatter.ts",
     "demo:stage": "tsx scripts/demo-stage.ts",
     "db:reset": "docker compose down -v && docker compose up -d && tsx scripts/db-migrate.ts"
