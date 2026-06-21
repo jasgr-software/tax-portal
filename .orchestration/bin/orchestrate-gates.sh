@@ -291,12 +291,17 @@ gate_readiness() {
 # carries no UN-dispositioned bug.
 #
 # Disposition is a semantic call the engine already records via a maintained
-# italic clear-marker (`_None active._` / `_Empty._` / `_None._`) leading each
-# section — historical/archived bullets stay listed for the record. This gate
-# keys on that marker (the same signal the Conductor reads), and does NOT
-# re-judge each archived bullet. The marker is treated as authoritative; if it
-# is ever wrong while live bullets remain, that is an erosion signal the verdict
-# log surfaces. A section with live bullets and NO clear-marker fails.
+# italic clear-marker leading each section — historical/archived bullets stay
+# listed for the record. Recognized marker forms (case-insensitive): `_None
+# active._` / `_None._` / `_Empty._` and the natural `_No ... active._` family
+# (e.g. `_No other bugs active._`) the engine ledger also uses — hardened
+# 2026-06-21 after the latter wording produced a benign recurrent false-fail
+# (NORTH-STAR § Why #4: a predictably-benign recurrent false-fail = a
+# mis-specified gate; fix the gate, don't work around it). This gate keys on
+# that marker (the same signal the Conductor reads), and does NOT re-judge each
+# archived bullet. The marker is treated as authoritative; if it is ever wrong
+# while live bullets remain, that is an erosion signal the verdict log surfaces.
+# A section with live bullets and NO clear-marker fails.
 # ---------------------------------------------------------------------------
 section_body() {
   # Print lines of $PROGRESS_MD strictly between header "## $1" and the next "## ".
@@ -312,7 +317,8 @@ section_body() {
 section_clear() {
   # $1 section-body  $2 bullet-regex  -> echoes "clear" or "<n> bullets"
   local body="$1" bullet_re="$2" marker bullets
-  marker="$(printf '%s\n' "$body" | grep -ciE '_(none|empty)' || true)"
+  # Recognized clear-markers: _None_ / _Empty_ / the _No ... active_ family.
+  marker="$(printf '%s\n' "$body" | grep -ciE '_(none|empty|no[a-z0-9 ,.'"'"'-]*active)' || true)"
   bullets="$(printf '%s\n' "$body" | grep -cE "$bullet_re" || true)"
   if [[ "${marker:-0}" -gt 0 || "${bullets:-0}" -eq 0 ]]; then
     echo "clear"
