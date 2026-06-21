@@ -89,9 +89,10 @@ breadcrumb format `validate-gates.sh` already greps for.
 
 | Command | Replaces | Notes |
 | --- | --- | --- |
-| `task phase-transition --to <phase>` | PHASES.md § Phase-transition reflex: sweep session entries to `PROGRESS-ARCHIVE.md`, generate one-line pointer, update `## Current initiative`, prepend phase-start entry | Pure text surgery on PROGRESS.md. Highest-value, but touches the most-load-bearing file — land after the simple commands prove out. |
-| `task merge-checkpoint <ID> --pr <N> --sha <sha>` | IO Close-finalize: record PR URL + squash SHA + move slice to `## Awaiting PR merge` | Reads `gh pr view` / `git log` for URL+SHA so the agent doesn't transcribe them. Gate scorecard verdicts stay agent-supplied (they're judgments). |
-| `task trace --brief NNN` | SDET/IO AC↔test ledger | Greps test files for `@AC-*` tags, tallies tiers into a table skeleton. Agent still writes the adequacy verdict. |
+| `task phase-transition --to <phase> [--note ...]` | PHASES.md § Phase-transition reflex | **Replaced, not ported** (see §9): updates `phase` in `.implementation/state.json` and appends a structured event to `events.jsonl`. No prose sweep — there is no prose blob to move. |
+| `task merge-checkpoint --pr <N> [--sha <sha>]` | IO Close-finalize: record PR URL + squash SHA + the awaiting-merge entry | Reads `gh pr view` / `git log` for URL+SHA so the agent doesn't transcribe them; writes the structured awaiting-merge record in `state.json`. Gate scorecard verdicts stay agent-supplied (they're judgments). |
+| `task trace --brief NNN` | SDET/IO AC↔test ledger | Greps test files for `@AC-*` tags, tallies tiers into a structured map. Agent still writes the adequacy verdict. |
+| `task report [--md]` | the human-readable PROGRESS.md view | Renders `state.json` + `events.jsonl` (+ task front matter) into a narrative on demand. Generated, never committed, never a source of truth (see §9). |
 
 ### 3.3 Example: before / after
 
@@ -126,7 +127,7 @@ appends the canonically-formatted breadcrumb, and refuses if `TASK-009-002` isn'
   fires on Claude's `Edit`/`Write` *tools*, so a raw hand-edit is still captured. A CLI write is
   an `fs.writeFile` from a `tsx` subprocess and does **not** trigger that hook, so the CLI
   **self-reports** its write to `.claude/metrics/` in the same record shape. The upshot
-  (see §9 Q2): the two write paths are distinguishable in the metrics stream *by construction* —
+  (see §10 Q2): the two write paths are distinguishable in the metrics stream *by construction* —
   raw via the hook, CLI via self-report — giving a CLI-vs-raw adoption ratio without any
   in-file provenance mark.
 - **`validate-gates.sh` becomes a backstop, not the primary guarantee.** Today it's the only
@@ -198,13 +199,19 @@ the top of each file is slightly less pretty in the GitHub UI; the human-read bo
 5. Run a full slice through the new path; confirm `validate-gates.sh` still passes and
    `.claude/metrics/` still populates.
 
-**Phase 2 — PROGRESS.md surgery + checkpoints (the load-bearing 20%):**
-6. Add `phase-transition`, `merge-checkpoint`, `trace` once phase 1 is proven on ≥1 real slice.
-7. These touch PROGRESS.md / cross-cut git+gh; gate them behind extra fixture coverage and a
-   `--dry-run` that prints the diff for agent/human confirmation before applying.
+**Phase 2 — replace the prose ledger with structured state (see §9):**
+6. Introduce `.implementation/state.json` (orchestration hot-state) + `.implementation/events.jsonl`
+   (append-only history); migrate the four `## ` PROGRESS.md sections into `state.json`.
+7. Add `phase-transition`, `merge-checkpoint`, `trace`, and `report`. Rewrite `validate-gates.sh`
+   checks 3/8/9 (PROGRESS structure, awaiting-merge gate verdicts) to validate `state.json`'s
+   schema instead of grepping markdown. Remove the PHASES.md phase-transition reflex and the
+   ENGINE.md bounded-ledger rule (both obsolete — nothing accumulates to bound).
+8. `state.json` writes go behind a `--dry-run` that prints the JSON diff for confirmation.
 
-**Reversibility:** each phase is independently revertable. If `task.ts` misbehaves, agents fall
-back to hand-edits and `validate-gates.sh` is unchanged — no regression in the safety net.
+**Reversibility:** each phase is independently revertable. Phase 0/1 leave the safety net intact;
+Phase 2 is the one breaking change to the orchestration-state shape and is gated behind its own
+fixture coverage. If `task.ts` misbehaves, agents fall back to hand-edits and the schema check
+still catches malformed state.
 
 ---
 
@@ -245,7 +252,7 @@ whole-file.
 | Existing mechanism | Where | Nature |
 | --- | --- | --- |
 | `/compact` request at Plan start | `ENGINE.md` § Phase 0 (lines 121–122) | **Reactive** — user-driven, fires after context is already heavy |
-| Bounded-ledger rule (NORTH-STAR #7) | `ENGINE.md` (lines 328–335) | **Discipline** — relies on the IO to sweep prose to `PROGRESS-ARCHIVE.md` correctly each transition |
+| Bounded-ledger rule (NORTH-STAR #7) | `ENGINE.md` (lines 328–335) | **Discipline** — relies on the IO to sweep prose to `PROGRESS-ARCHIVE.md` each transition. **§9 removes the need entirely** (structured state can't accumulate prose). |
 | `Impl: io` to "preserve context" | `PHASES.md` (line 15) | **Heuristic** — IO absorbs small tasks rather than spawning |
 | Spawn-prompt context delivery | `PHASES.md` (line 4) | **Manual** — IO hand-packs each subagent's context from large source files |
 
@@ -270,18 +277,18 @@ Bounded **projections** so agents stop reading whole files:
 **deterministic projection** rather than a manual gather, which shrinks both the IO's working
 context *and* what each subagent receives — directly reinforcing `PHASES.md:4`.
 
-### 8.3 Make the bounded-ledger rule mechanical, not disciplinary
+### 8.3 The bounded-ledger rule is dissolved, not merely automated (see §9)
 
-- `task phase-transition` (already in §3.2) **is** the NORTH-STAR #7 sweep. Scripting it
-  converts the bounded-ledger rule from "IO remembers to sweep prose to a one-line pointer"
-  into a guaranteed operation — the single biggest source of PROGRESS.md context drift.
-- Add `task ledger-check`: fails (and can become a `validate-gates.sh` check) if PROGRESS.md
-  hot-state exceeds a line/token budget — turning "ledgers carry bounded hot-state only"
-  (`ENGINE.md:328`) from prose into a **verifiable gate**. This is proactive where `/compact`
-  is reactive: it flags bloat at the source instead of after the window fills.
-- `task history --slice <X>`: resolve an archive pointer to its durable artifacts
-  (PR/sha/`HANDOFF-NNN`) without the agent reading all of `PROGRESS-ARCHIVE.md` (which is, by
-  design, "a thin index" — `ENGINE.md:335`).
+The original draft proposed a `ledger-check` budget gate to police PROGRESS.md hot-state size.
+The §9 decision to make state **structured** removes the need:
+
+- A fixed-shape `state.json` object **cannot accumulate prose** — there is no growing blob to
+  bound, so NORTH-STAR #7's bounded-ledger rule and `ledger-check` both become unnecessary
+  (this is also what dissolves Q6).
+- History lives in append-only `events.jsonl` + git, queried by slice — never loaded whole — so
+  the `PROGRESS-ARCHIVE.md` "thin index" sweep disappears too.
+- `task history --slice <X>` resolves a slice to its durable artifacts (PR/sha/`HANDOFF-NNN`)
+  from `events.jsonl`, not by reading an archive.
 
 ### 8.4 Net effect on context
 
@@ -289,19 +296,69 @@ context *and* what each subagent receives — directly reinforcing `PHASES.md:4`
   full task file in the window.
 - **Spawn prompts get smaller and more uniform** (`task brief-context`), reducing context for
   both IO and every subagent it dispatches.
-- **Bounded-ledger discipline becomes enforced**, so PROGRESS.md stops being a slow context
-  leak between `/compact` calls.
+- **The prose ledger stops being a context leak — by removing it**, not by policing its size.
+  Structured state is read in bounded projections; the narrative is rendered on demand (`task
+  report`) only when a human asks.
 - **`/compact` stays as the backstop**, but should fire far less often because the steady-state
   read footprint is lower by construction.
 
-This dovetails with the write-side plan: the same `scripts/task.ts` owns both the canonical
-*write* format and the bounded *read* projections, so there's one source of truth for the task
-schema. Recommend adding the read commands in **Phase 1** alongside the writes (they're
-read-only and low-risk), and `ledger-check` / `phase-transition` in **Phase 2**.
+This dovetails with the write-side plan: the same `scripts/task.ts` owns the canonical *write*
+format, the bounded *read* projections, and the structured state store — one source of truth.
+Recommend adding the read commands in **Phase 1** alongside the writes (read-only, low-risk),
+and the state store + `phase-transition`/`report` in **Phase 2**.
 
 ---
 
-## 9. Open questions for the reviewer
+## 9. Agent-first state model (replaces the human-readable ledger)
+
+**Decision:** the source of truth for orchestration state is **structured data optimized for
+agents**, not a hand-curated human-readable narrative. A human view is *generated on demand* from
+that data; it is never the source of truth and is never hand-edited. This dissolves Q4 (there is
+no prose sweep to automate) and Q6 (a fixed-shape state object can't bloat, so there is no
+hot-state budget to police).
+
+### 9.1 One fact, one home
+
+The markdown ledger's failure mode was duplication that drifted. The model is strict about where
+each fact lives:
+
+| State | Lives in | Form |
+| --- | --- | --- |
+| Per-task lifecycle (status, timestamps, complexity, ACs) | task/bug **front matter** (Phase 0) | source of truth; not duplicated anywhere |
+| Active bugs | derived from **bug-file front matter** | a *query*, not a stored list |
+| Orchestration hot-state (current brief/phase/slice; awaiting-PR-merge records w/ PR·sha·gate verdicts; open retro action items) | `.implementation/state.json` | the only genuinely orchestration-level facts |
+| History (phase/slice/merge events) | append-only `.implementation/events.jsonl` | bounded-by-nature, queryable; **git log is the authoritative deep history** |
+| Human narrative view | generated via `pnpm task report [--md]` | ephemeral; never committed, never a source of truth |
+
+### 9.2 What this removes
+
+- **PROGRESS.md** as a curated narrative ledger → replaced by `state.json` + on-demand `report`.
+- **PROGRESS-ARCHIVE.md** + the phase-transition prose sweep → replaced by `events.jsonl`.
+- **NORTH-STAR #7 bounded-ledger rule** and any `ledger-check` budget → unnecessary (§8.3).
+- The IO's prose-curation beat → replaced by inspecting a **structured state diff** at each
+  transition (more reliable oversight than re-reading prose, not less).
+
+### 9.3 What this preserves
+
+- **Rationale capture.** Prose entries sometimes recorded *why* (e.g. "deferred X because Y").
+  That becomes a `note`/`rationale` **field** on the relevant structured record (a task deferral,
+  an awaiting-merge entry, a retro item) — facts *and* reasoning, both structured, neither as a
+  free-floating blob.
+- **Oversight.** The IO/user still reviews state at each transition — via `task summary` / the
+  `state.json` diff (and `task report` when a human wants the narrative).
+- **Cross-session resumability.** A resuming agent reads `state.json` (current) + recent
+  `events.jsonl` instead of parsing a prose tail.
+
+### 9.4 Cost
+
+Phase 2 is the one breaking change to the orchestration-state shape: it rewrites `validate-gates.sh`
+checks 3/8/9 to validate `state.json`'s schema and removes the ENGINE.md bounded-ledger rule and
+the PHASES.md phase-transition reflex. Scoped to `.implementation/**` + `scripts/` + the
+`.claude/` hook — all main-session-owned. Gated behind its own fixture coverage and `--dry-run`.
+
+---
+
+## 10. Open questions for the reviewer
 
 1. **`task.ts` vs `task.sh`? — RESOLVED: TypeScript, on YAML front matter (see Phase 0).**
    The deciding factor moved from language to *format*: migrating lifecycle fields to YAML front
@@ -328,12 +385,14 @@ read-only and low-risk), and `ledger-check` / `phase-transition` in **Phase 2**.
    defaults break on the "or IO" path. The CLI rejects any value outside the known set
    (`webapp-developer`, `devops`, `sdet`, `overwatch`, `io`) so a typo fails loudly instead of
    drifting the tag.
-4. **Phase-2 scope confirmation:** is automating the PROGRESS.md sweep desirable, or is that
-   file deliberately kept hand-curated for IO oversight? This is the one place automation
-   touches the human-readable narrative ledger.
+4. **PROGRESS.md sweep automation? — RESOLVED (dissolved): no human-readable ledger as source of
+   truth.** Per §9, orchestration state becomes structured (`state.json` + `events.jsonl`),
+   optimized for agents; the human narrative is generated on demand (`task report`). There is no
+   prose sweep to automate. Oversight moves to the structured state diff at each transition.
 5. **Output format for read commands (§8.2):** human-readable tables, `--json` for agent
    consumption, or both? Recommendation: default human-readable, `--json` flag for programmatic
-   use (e.g. the IO building a spawn prompt).
-6. **`ledger-check` budget (§8.3):** what's the hot-state line/token budget, and should
-   breaching it be a hard `validate-gates.sh` failure or an advisory warning? Recommendation:
-   advisory first, promote to hard gate once a real budget is calibrated from history.
+   use (e.g. the IO building a spawn prompt); `task brief-context` defaults to the paste-ready
+   bundle. *(Still open.)*
+6. **`ledger-check` budget? — RESOLVED (dissolved):** §9's structured state has fixed shape and
+   cannot accumulate prose, so there is no hot-state budget to police and no `ledger-check` gate.
+   `/compact` remains the backstop; steady-state read footprint is low by construction.
