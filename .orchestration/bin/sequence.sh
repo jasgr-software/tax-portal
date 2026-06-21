@@ -77,7 +77,7 @@ done
 # Loaded into the assoc array S; rewritten in full on every save (fixed key order).
 # ---------------------------------------------------------------------------
 declare -A S
-STATE_KEYS=(phase epic brief pr verdict_file lane fix_route merge_sha ac_ok fix_done validated halt_reason updated)
+STATE_KEYS=(phase epic brief pr std_verdict_file verdict_file lane fix_route merge_sha ac_ok fix_done validated halt_reason updated)
 BEGIN_MARK="<!-- conductor-state/v1"
 END_MARK="-->"
 
@@ -209,22 +209,39 @@ do_gate() {
 }
 
 # ---------------------------------------------------------------------------
-# Phase: fix-route (code) — derive run-fix / skip-fix from the structured panel
-# verdict; route to fix-exec or merge. Inconsistent verdict halts (erosion).
+# Phase: fix-route (code) — derive run-fix / skip-fix as the OR of the panel
+# verdict (fix-decision) and the code-standards audit verdict (standards-decision).
+# Route to fix-exec or merge. An inconsistent verdict — or a missing standards
+# verdict — halts (erosion / fail-loud). One /pr-fix pass consumes both.
 # ---------------------------------------------------------------------------
 do_fix_route() {
   local vf="${S[verdict_file]:-}"
   [[ -n "$vf" ]] || halt "fix-route reached with no verdict_file recorded (review node did not complete)"
   [[ -f "$vf" ]] || vf="${REPO_ROOT}/${vf}"
   [[ -f "$vf" ]] || halt "verdict file not found: ${S[verdict_file]}"
-  local out rc=0
+  local out rc=0 panel_run=0 std_run=0
+
+  # Panel decision (pr-review-verdict).
   out="$(run_gate --gate fix-decision --pr-verdict "$vf" --pr "${S[pr]:-}" 2>&1)" || rc=$?
   say "$out" | sed 's/^/    /'
   [[ "$rc" -eq 0 ]] || halt "fix-decision gate failed (verdict inconsistency — investigate the panel payload)"
-  if printf '%s' "$out" | grep -q 'RUN /pr-fix'; then
-    S[fix_route]="run-fix"; code fix-route "→ run-fix"; advance fix-exec
+  printf '%s' "$out" | grep -q 'RUN /pr-fix' && panel_run=1
+
+  # Standards-review audit decision (pr-standards-verdict). The standards-review
+  # node gates on its verdict file before reaching here, so a miss is fail-loud.
+  local svf="${S[std_verdict_file]:-}"
+  [[ -n "$svf" && ! -f "$svf" ]] && svf="${REPO_ROOT}/${svf}"
+  [[ -n "$svf" && -f "$svf" ]] || halt "standards-review verdict missing (expected runs/PR-${S[pr]:-N}-standards-verdict.json) — fail loudly, not a clean pass"
+  rc=0
+  out="$(run_gate --gate standards-decision --pr-standards-verdict "$svf" --pr "${S[pr]:-}" 2>&1)" || rc=$?
+  say "$out" | sed 's/^/    /'
+  [[ "$rc" -eq 0 ]] || halt "standards-decision gate failed (verdict inconsistency — investigate the audit payload)"
+  printf '%s' "$out" | grep -q 'RUN /pr-fix' && std_run=1
+
+  if [[ "$panel_run" -eq 1 || "$std_run" -eq 1 ]]; then
+    S[fix_route]="run-fix"; code fix-route "→ run-fix (panel=${panel_run} standards=${std_run})"; advance fix-exec
   else
-    S[fix_route]="skip-fix"; code fix-route "→ skip-fix (0 blocker/major)"; advance merge
+    S[fix_route]="skip-fix"; code fix-route "→ skip-fix (panel + audit both clean)"; advance merge
   fi
 }
 
@@ -267,6 +284,10 @@ v_brief()     {
   return 1
 }
 v_pr()        { [[ -n "${S[pr]:-}" ]]; }
+v_std_verdict() {
+  local vf="${S[std_verdict_file]:-}"; [[ -n "$vf" ]] || return 1
+  [[ -f "$vf" || -f "${REPO_ROOT}/${vf}" ]]
+}
 v_verdict()   {
   local vf="${S[verdict_file]:-}"; [[ -n "$vf" ]] || return 1
   [[ -f "$vf" || -f "${REPO_ROOT}/${vf}" ]]
@@ -289,9 +310,12 @@ step() {
     compose)    agent_node compose implement 'v_brief' \
                   "Compose the build brief for ${S[epic]} per AGENT.md § Compose → write BRIEF to ${BRIEFS_DIR}/." \
                   "sequence.sh --set brief=<path>" ;;
-    implement)  agent_node implement review 'v_pr' \
+    implement)  agent_node implement standards-review 'v_pr' \
                   "Invoke the engine: /io ${S[brief]:-<brief>} — drive to its limbo-ledger signal (PR URL in PROGRESS.md). Defer on any inner stop (--halt)." \
                   "bash .orchestration/bin/orchestrate-state.sh derive-pr --apply   # derives PR# from PROGRESS.md (or: sequence.sh --set pr=<N>)" ;;
+    standards-review) agent_node standards-review review 'v_std_verdict' \
+                  "Audit the PR against .code-standards/: invoke /code-standards-review ${S[pr]:-<N>}; save the pr-standards-verdict payload to runs/PR-${S[pr]:-N}-standards-verdict.json. (Sequencer drives slice PRs = application code, so the audit always runs; the docs-only skip is the Conductor's, not here.)" \
+                  "sequence.sh --set std_verdict_file=runs/PR-${S[pr]:-N}-standards-verdict.json" ;;
     review)     agent_node review fix-route 'v_verdict' \
                   "Invoke /pr-review ${S[pr]:-<N>}; save the pr-review-verdict payload to runs/PR-${S[pr]:-N}-verdict.json." \
                   "sequence.sh --set verdict_file=runs/PR-${S[pr]:-N}-verdict.json" ;;

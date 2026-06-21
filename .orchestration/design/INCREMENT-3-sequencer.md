@@ -81,13 +81,21 @@ cold-start is a state-ledger contract gap (§ conclusion #7), surfaced rather th
 | 3 | **ac-check** | agent | the one semantic gate — agent confirms each AC resolves to testable REQ text → `ac_ok=yes` | agent halts |
 | 4 | **compose** | agent | `BRIEF-<NNN>-*.md` exists in the briefs dir (auto-detected — the contract test) | yield until present |
 | 5 | **implement** | agent | `/io <brief>` drives to its limbo-ledger signal; PR recorded → `pr` | yield / defer-to-inner-stop |
-| 6 | **review** | agent | `/pr-review <pr>`; verdict payload saved + parses → `verdict_file` | yield until present |
-| 7 | **fix-route** | code | `orchestrate-gates.sh fix-decision` → `run-fix` (→ fix-exec) or `skip-fix` (→ merge) | halt: inconsistent verdict |
-| 8 | **fix-exec** | agent | only if `run-fix`: `/pr-fix <pr>` → CI green → `fix_done=yes` | yield / fixer-cap defer |
-| 9 | **merge** | agent | engine merge + finalize per `MERGE-POLICY.md`; merged SHA → `merge_sha` | yield / LGTM·governance halt |
-| 10 | **validate** | agent | `/planning validate <epic>` with CI evidence; rows flipped → `validated=yes` | yield / `incomplete` halt |
-| 11 | **report** | code | snapshot the verdict log (`--gate snapshot`) + scaffold the run report; set outcome | — |
+| 6 | **standards-review** | agent | `/code-standards-review <pr>`; pr-standards-verdict saved → `std_verdict_file` (always runs — the sequencer drives slice PRs = app code) | yield until present |
+| 7 | **review** | agent | `/pr-review <pr>`; verdict payload saved + parses → `verdict_file` | yield until present |
+| 8 | **fix-route** | code | **OR** of `fix-decision` (panel) + `standards-decision` (audit) → `run-fix` (→ fix-exec) or `skip-fix` (→ merge) | halt: inconsistent / missing-audit verdict |
+| 9 | **fix-exec** | agent | only if `run-fix`: `/pr-fix <pr>` → CI green → `fix_done=yes` | yield / fixer-cap defer |
+| 10 | **merge** | agent | engine merge + finalize per `MERGE-POLICY.md`; merged SHA → `merge_sha` | yield / LGTM·governance halt |
+| 11 | **validate** | agent | `/planning validate <epic>` with CI evidence; rows flipped → `validated=yes` | yield / `incomplete` halt |
+| 12 | **report** | code | snapshot the verdict log (`--gate snapshot`) + scaffold the run report; set outcome | — |
 | — | **done** | — | run complete (exit 0) | — |
+
+> **Node 6 (`standards-review`) added 2026-06-21** when the code-standards consumption landed (#64 wired the phase
+> into the LLM-conducted `AGENT.md`; this completes it in the sequencer). It's an agent node whose exit artifact is
+> the `pr-standards-verdict/v1` file; `fix-route` (node 8) then **ORs** the audit's `standards-decision` with the
+> panel's `fix-decision` — one `/pr-fix` pass consumes both — and **halts** if the audit verdict is missing
+> (fail-loud, never a clean pass). The sequencer always runs it: it drives slice PRs, which are application code;
+> the docs-only skip is the Conductor's lane decision, not the sequencer's.
 
 Consecutive **code** phases run in a single invocation; the sequencer only stops at an agent **yield** (exit 10),
 a **halt** (exit 2), or **done** (exit 0). The preview the user approved: one invocation runs Select + Gate, then
@@ -100,8 +108,8 @@ the rails), Fix-routing, Report-snapshot — plus the **state machine, cold-star
 for every agent node. The most-exercised part of the system (8 epics, identical path) goes first, per
 "advance on data."
 
-**Still the agent's, invoked via yields:** Compose, `/io`, `/pr-review`, `/pr-fix`, the engine merge/finalize,
-and `/planning validate`. These are the genuinely intelligent nodes — the sequencer **composes** them, it does
+**Still the agent's, invoked via yields:** Compose, `/io`, `/code-standards-review`, `/pr-review`, `/pr-fix`,
+the engine merge/finalize, and `/planning validate`. These are the genuinely intelligent nodes — the sequencer **composes** them, it does
 not absorb them. (Merge stays the engine's, never the Conductor's — `PHASES.md` § Notes.)
 
 **Halt-and-escalate, never scripted yet** (§ Why #6 — never script an unexercised branch):
