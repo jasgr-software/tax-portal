@@ -81,4 +81,5 @@ She is the only user who can see all client data, manage the services catalog, a
 - `flow-engagement-lifecycle` — advancing an engagement through the pipeline, the two-confirmation completion gate, reopen, and the attribute-management branch (EPIC-010/011)
 - `flow-onboarding` — monitoring client onboarding progress and receiving completion notification
 - `flow-message-exchange` — sending and receiving messages within engagements
-- `flow-file-exchange` — uploading and downloading documents
+- `flow-file-exchange` — uploading and downloading documents; accountant upload, both-party download, folders, tax-year org, versioning (EPIC-013)
+- `flow-document-lifecycle` — accountant-only delete/soft-delete, 7-year retention, post-retention purge, and legal hold (EPIC-014/015)

@@ -15,7 +15,7 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 
 | Measure | Count |
 |---|---|
-| AC placed in an epic (Phase 1 + Phase 2 + Phase 3 lifecycle core) | 149 |
+| AC placed in an epic (Phase 1 + Phase 2 + Phase 3) | 188 |
 | — Phase 1 (EPIC-001/004/002/003) | 51 |
 | &nbsp;&nbsp;— EPIC-001 (public front door) | 13 |
 | &nbsp;&nbsp;— EPIC-004 (auth & two-role model) | 11 |
@@ -26,12 +26,15 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-006 (intake questionnaire) | 7 |
 | &nbsp;&nbsp;— EPIC-007 (initial document upload) | 19 |
 | &nbsp;&nbsp;— EPIC-008 (onboarding completion → In Progress) | 8 |
-| — Phase 3 lifecycle core (EPIC-010/011/012) — *placed 2026-06-21, not yet verified* | 54 |
+| — Phase 3 (EPIC-010..015) — *placed 2026-06-21, not yet verified* | 93 |
 | &nbsp;&nbsp;— EPIC-010 (lifecycle pipeline & visibility) | 25 |
 | &nbsp;&nbsp;— EPIC-011 (engagement attributes) | 9 |
 | &nbsp;&nbsp;— EPIC-012 (creation paths & multi-participant) | 20 |
+| &nbsp;&nbsp;— EPIC-013 (secure file exchange) | 13 |
+| &nbsp;&nbsp;— EPIC-014 (file deletion, soft-delete & retention) | 10 |
+| &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 |
 | AC `verified` (signed off) | **95** — all 51 Phase-1 placed AC (EPIC-001 13, 2026-06-15 · EPIC-004 11, 2026-06-16 · EPIC-002 7, 2026-06-16 · EPIC-003 20, 2026-06-17; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10, 2026-06-18 · EPIC-006 7, 2026-06-18 · EPIC-007 19, 2026-06-19 · **EPIC-008 8, 2026-06-20** — the capstone). **Phase 2 (the onboarding gate) complete.** |
-| AC still `planned` (placed, not yet verified) | **54** — the Phase-3 lifecycle-core AC (EPIC-010 25, EPIC-011 9, EPIC-012 20), placed 2026-06-21, awaiting build + CI sign-off. Every Phase-1 + Phase-2 AC is `verified`. |
+| AC still `planned` (placed, not yet verified) | **93** — all Phase-3 AC (EPIC-010 25, EPIC-011 9, EPIC-012 20, EPIC-013 13, EPIC-014 10, EPIC-015 16), placed 2026-06-21, awaiting build + CI sign-off. Every Phase-1 + Phase-2 AC is `verified`. |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -372,6 +375,45 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-AUTH-007 | AC-AUTH-007-01 | EPIC-012 | 3 | `AC-AUTH-007-01` | planned | — (placed 2026-06-21) |
 | REQ-AUTH-007 | AC-AUTH-007-02 | EPIC-012 | 3 | `AC-AUTH-007-02` | planned | — (placed 2026-06-21) |
 | REQ-AUTH-007 | AC-AUTH-007-03 | EPIC-012 | 3 | `AC-AUTH-007-03` | planned | — (placed 2026-06-21); each participant sees the shared engagement, unrelated client ZERO |
+| REQ-FILE-001 | AC-FILE-001-01 | EPIC-013 | 3 | `AC-FILE-001-01` | planned | — (placed 2026-06-21); accountant upload (client-upload -02/-05 were EPIC-007) |
+| REQ-FILE-001 | AC-FILE-001-03 | EPIC-013 | 3 | `AC-FILE-001-03` | planned | — (placed 2026-06-21); accountant download |
+| REQ-FILE-001 | AC-FILE-001-04 | EPIC-013 | 3 | `AC-FILE-001-04` | planned | — (placed 2026-06-21); client download |
+| REQ-FILE-009 | AC-FILE-009-01 | EPIC-013 | 3 | `AC-FILE-009-01` | planned | — (placed 2026-06-21) |
+| REQ-FILE-009 | AC-FILE-009-02 | EPIC-013 | 3 | `AC-FILE-009-02` | planned | — (placed 2026-06-21) |
+| REQ-FILE-009 | AC-FILE-009-03 | EPIC-013 | 3 | `AC-FILE-009-03` | planned | — (placed 2026-06-21); prior versions retained |
+| REQ-FILE-010 | AC-FILE-010-01 | EPIC-013 | 3 | `AC-FILE-010-01` | planned | — (placed 2026-06-21) |
+| REQ-FILE-010 | AC-FILE-010-02 | EPIC-013 | 3 | `AC-FILE-010-02` | planned | — (placed 2026-06-21) |
+| REQ-FILE-010 | AC-FILE-010-03 | EPIC-013 | 3 | `AC-FILE-010-03` | planned | — (placed 2026-06-21) |
+| REQ-FILE-010 | AC-FILE-010-04 | EPIC-013 | 3 | `AC-FILE-010-04` | planned | — (placed 2026-06-21); folder mgmt accountant-only |
+| REQ-FILE-011 | AC-FILE-011-01 | EPIC-013 | 3 | `AC-FILE-011-01` | planned | — (placed 2026-06-21); top-level by engagement |
+| REQ-FILE-011 | AC-FILE-011-02 | EPIC-013 | 3 | `AC-FILE-011-02` | planned | — (placed 2026-06-21); top-level by tax year (EPIC-012 tax-year attr) |
+| REQ-FILE-011 | AC-FILE-011-03 | EPIC-013 | 3 | `AC-FILE-011-03` | planned | — (placed 2026-06-21) |
+| REQ-FILE-004 | AC-FILE-004-01 | EPIC-014 | 3 | `AC-FILE-004-01` | planned | — (placed 2026-06-21) |
+| REQ-FILE-004 | AC-FILE-004-02 | EPIC-014 | 3 | `AC-FILE-004-02` | planned | — (placed 2026-06-21); hard no-client-delete |
+| REQ-FILE-004 | AC-FILE-004-03 | EPIC-014 | 3 | `AC-FILE-004-03` | planned | — (placed 2026-06-21); no client-facing remove path |
+| REQ-FILE-006 | AC-FILE-006-01 | EPIC-014 | 3 | `AC-FILE-006-01` | planned | — (placed 2026-06-21) |
+| REQ-FILE-006 | AC-FILE-006-02 | EPIC-014 | 3 | `AC-FILE-006-02` | planned | — (placed 2026-06-21); retained, not destroyed in-window |
+| REQ-FILE-006 | AC-FILE-006-03 | EPIC-014 | 3 | `AC-FILE-006-03` | planned | — (placed 2026-06-21); recoverable until retention elapses |
+| REQ-FILE-005 | AC-FILE-005-01 | EPIC-014 | 3 | `AC-FILE-005-01` | planned | — (placed 2026-06-21); 7yr from completion |
+| REQ-FILE-005 | AC-FILE-005-02 | EPIC-014 | 3 | `AC-FILE-005-02` | planned | — (placed 2026-06-21); no removal in-window incl. accountant delete |
+| REQ-FILE-005 | AC-FILE-005-03 | EPIC-014 | 3 | `AC-FILE-005-03` | planned | — (placed 2026-06-21); retention governs in-window |
+| REQ-NFR-006 | AC-NFR-006-01 | EPIC-014 | 3 | `AC-NFR-006-01` | planned | — (placed 2026-06-21); system-enforced retention (NFR twin of FILE-005) |
+| REQ-FILE-013 | AC-FILE-013-01 | EPIC-015 | 3 | `AC-FILE-013-01` | planned | — (placed 2026-06-21); eligible only post-window |
+| REQ-FILE-013 | AC-FILE-013-02 | EPIC-015 | 3 | `AC-FILE-013-02` | planned | — (placed 2026-06-21); accountant/admin-only |
+| REQ-FILE-013 | AC-FILE-013-03 | EPIC-015 | 3 | `AC-FILE-013-03` | planned | — (placed 2026-06-21); explicit confirmation required |
+| REQ-FILE-013 | AC-FILE-013-04 | EPIC-015 | 3 | `AC-FILE-013-04` | planned | — (placed 2026-06-21); never automatic on expiry |
+| REQ-FILE-013 | AC-FILE-013-05 | EPIC-015 | 3 | `AC-FILE-013-05` | planned | — (placed 2026-06-21); eligible-but-unpurged stays retained |
+| REQ-FILE-013 | AC-FILE-013-06 | EPIC-015 | 3 | `AC-FILE-013-06` | planned | — (placed 2026-06-21); purge audited, record survives |
+| REQ-FILE-014 | AC-FILE-014-01 | EPIC-015 | 3 | `AC-FILE-014-01` | planned | — (placed 2026-06-21); hold on engagement |
+| REQ-FILE-014 | AC-FILE-014-02 | EPIC-015 | 3 | `AC-FILE-014-02` | planned | — (placed 2026-06-21); hold on client → all engagements |
+| REQ-FILE-014 | AC-FILE-014-03 | EPIC-015 | 3 | `AC-FILE-014-03` | planned | — (placed 2026-06-21); held = no purge even post-expiry |
+| REQ-FILE-014 | AC-FILE-014-04 | EPIC-015 | 3 | `AC-FILE-014-04` | planned | — (placed 2026-06-21); indefinite, no auto-expire |
+| REQ-FILE-014 | AC-FILE-014-05 | EPIC-015 | 3 | `AC-FILE-014-05` | planned | — (placed 2026-06-21); lift restores eligibility |
+| REQ-FILE-014 | AC-FILE-014-06 | EPIC-015 | 3 | `AC-FILE-014-06` | planned | — (placed 2026-06-21); placing audited |
+| REQ-FILE-014 | AC-FILE-014-07 | EPIC-015 | 3 | `AC-FILE-014-07` | planned | — (placed 2026-06-21); lifting audited |
+| REQ-FILE-015 | AC-FILE-015-01 | EPIC-015 | 3 | `AC-FILE-015-01` | planned | — (placed 2026-06-21); in-window erasure = access-revocation only |
+| REQ-FILE-015 | AC-FILE-015-02 | EPIC-015 | 3 | `AC-FILE-015-02` | planned | — (placed 2026-06-21); destruction only post-window + no hold + confirmed |
+| REQ-NFR-010 | AC-NFR-010-07 | EPIC-015 | 3 | `AC-NFR-010-07` | planned | — (placed 2026-06-21); audit survives purge (rest of NFR-010 → Phase-4 audit slice) |
 
 ## Split requirements
 
@@ -394,9 +436,16 @@ Requirements whose AC span more than one epic (or one epic + orphans/deferred) �
   Phase 3 (full exchange):
   - **EPIC-007** (Phase 2) owns **AC-FILE-001-02** (client uploads to their engagement) and
     **AC-FILE-001-05** (engagement isolation) — the client-upload path the onboarding document step needs.
-  - **AC-FILE-001-01** (accountant upload) and **AC-FILE-001-03/-04** (both-party download) → **Orphans**,
-    targeted at **Phase 3** (the file-exchange epic) — accountant upload and download are the broader
-    exchange surface, not onboarding's "client provides documents" step.
+  - **EPIC-013** (Phase 3) owns **AC-FILE-001-01** (accountant upload) and **AC-FILE-001-03/-04** (both-party
+    download) — the broader exchange surface (placed 2026-06-21). **REQ-FILE-001 is now fully placed.**
+- **REQ-NFR-010 (audit trail)** — split between Phase 3 and a Phase-4 audit-trail slice:
+  - **EPIC-015** (Phase 3) owns **AC-NFR-010-07** (the audit record survives a purge) — exclusively
+    demonstrable at the purge path (placed 2026-06-21).
+  - **AC-NFR-010-01/-02/-03/-04/-05/-06** (document-access logging, transition logging, admin-action logging,
+    auth-event logging, the **accountant-only audit read surface**, audit ≥7yr retention) → **Orphans**,
+    targeted at a **dedicated audit-trail slice (Phase 4)**. The audit *mechanism* (ADR-019) already exists
+    and every relevant slice (incl. EPIC-013/014/015) **emits** these events as an adherence obligation; the
+    *feature* AC — chiefly the accountant-only audit **read** surface (-05) — want their own slice.
 
 ## Provider re-validation (mock → real enablement slices)
 
@@ -447,24 +496,27 @@ see `ROADMAP.md` Phases 3–4):
   introduced in Phase 2 (no LIFE AC claimed there); the **full pipeline, attributes, creation paths, and
   multi-participant** AC land in EPIC-010 (001..006), EPIC-011 (007/008/009), EPIC-012 (010/011/012).
   *(REQ-LIFE-013/014 are v2 → Deferred.)*
-- **FILE** (Phase 3 — *follow-up `/planning` pass*) — REQ-FILE-004/005/006/009/010/011/013/014/015 (v1), plus
-  the **REQ-FILE-001 remainder** (AC-FILE-001-01/-03/-04 — see Split requirements). These are the
-  FILE-exchange + retention/legal-governance epics, **deliberately deferred from the 2026-06-21 lifecycle-core
-  pass** (user direction) to a follow-up Phase-3 decomposition. **Placed in Phase 2 (EPIC-007):** FILE-002,
-  FILE-003, FILE-007, FILE-008 in full, and the FILE-001 client-upload/isolation subset. **Re-routed to
-  Phase 4 (2026-06-21): REQ-FILE-012** (overdue document-request flagging + configurable reminder cadence,
-  AC-FILE-012-01..04) — it depends on the reminder/notification engine (REQ-MSG-018, REQ-DASH-008), so it is
-  decomposed with the Phase-4 notification feed, not the Phase-3 FILE epics. *(REQ-FILE-016 is v2 →
-  Deferred.)*
+- **FILE** (Phase 3) — ✅ **fully placed across Phase 2 + Phase 3** (2026-06-21), with one Phase-4 exception:
+  - **Phase 2 (EPIC-007):** FILE-002, FILE-003, FILE-007, FILE-008 in full + the FILE-001 client-upload/
+    isolation subset.
+  - **Phase 3 (EPIC-013/014/015):** FILE-001 remainder, FILE-009/010/011 (EPIC-013); FILE-004/006/005
+    (EPIC-014); FILE-013/014/015 (EPIC-015). **No FILE orphans remain** except —
+  - **REQ-FILE-012** (overdue document-request flagging + configurable reminder cadence, AC-FILE-012-01..04)
+    → **Phase 4** (needs the reminder/notification engine REQ-MSG-018 / REQ-DASH-008). *(REQ-FILE-016 is v2 →
+    Deferred.)*
 - **MSG** (Phase 4) — REQ-MSG-001..012, -015..018 (v1), plus the MSG-013 remainder (**-02/-03/-05/-06** —
   -01 in EPIC-003, **-04 in EPIC-008**) and the MSG-014 remainder above. *(REQ-MSG-019 is v2 → Deferred.)*
 - **DASH** (Phase 4) — REQ-DASH-001..009, -013 (DASH-010 in EPIC-002, DASH-011 in EPIC-003, **DASH-012 in
   EPIC-006**).
 - **IDNT** (Phase 4) — REQ-IDNT-001..004, -006 (**IDNT-007 in EPIC-005**; IDNT-005 → Deferred).
-- **NFR** (cross-cutting) — REQ-NFR-001..008, -010, -011 mapped onto the epic(s) whose slice must
+- **NFR** (cross-cutting) — REQ-NFR-001..005, -007, -008, -011 mapped onto the epic(s) whose slice must
   demonstrate each (e.g. RLS isolation on the first client-scoped read slice; malware scanning on the first
-  upload slice). **AC-NFR-009 (malware scan) placed in Phase 2 (EPIC-007)** — the first upload slice. The
-  rest are attached to epics as those slices are authored.
+  upload slice). **Placed so far:** AC-NFR-009 (malware scan) → Phase 2 (EPIC-007); **AC-NFR-006-01
+  (system-enforced 7-year retention) → Phase 3 (EPIC-014)**; **AC-NFR-010-07 (audit survives purge) →
+  Phase 3 (EPIC-015)**. **AC-NFR-010-01..06** (the audit-trail feature — incl. the accountant-only audit read
+  surface) → a **dedicated audit-trail slice in Phase 4** (see Split requirements); the audit *mechanism*
+  (ADR-019) is emitted by many slices already. The remaining NFR AC are attached to epics as those slices are
+  authored.
 
 ## Deferred
 
