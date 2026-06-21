@@ -61,6 +61,16 @@ log_has "request-changes routes to run-fix" '"gate":"fix-decision:route","verdic
 : > "$LOG"
 run 1 "inconsistent verdict fails consistency"  -- --gate fix-decision --pr-verdict "$FIX/verdict-inconsistent.json"
 
+echo "[standards-decision]"
+: > "$LOG"
+run 0 "approve standards verdict parses + routes"      -- --gate standards-decision --pr-standards-verdict "$FIX/verdict-standards-approve.json"
+log_has "approve routes to skip-fix" '"gate":"standards-decision:route","verdict":"skip-fix"'
+: > "$LOG"
+run 0 "required violation parses + routes"             -- --gate standards-decision --pr-standards-verdict "$FIX/verdict-standards-request-changes.json"
+log_has "required violation routes to run-fix" '"gate":"standards-decision:route","verdict":"run-fix"'
+: > "$LOG"
+run 1 "inconsistent standards verdict fails consistency" -- --gate standards-decision --pr-standards-verdict "$FIX/verdict-standards-inconsistent.json"
+
 echo "[verdict-log]"
 : > "$LOG"
 bash "$GATES" --gate readiness --fixture-dir "$FIX/ready" --epic EPIC-900 --log "$LOG" >/dev/null 2>&1

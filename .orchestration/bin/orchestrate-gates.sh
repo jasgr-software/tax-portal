@@ -17,6 +17,7 @@
 #   orchestrate-gates.sh --gate readiness    --epic EPIC-NNN [opts]
 #   orchestrate-gates.sh --gate engine-clear [opts]
 #   orchestrate-gates.sh --gate fix-decision --pr-verdict <file> [--pr N] [opts]
+#   orchestrate-gates.sh --gate standards-decision --pr-standards-verdict <file> [--pr N] [opts]
 #   orchestrate-gates.sh --gate all --epic EPIC-NNN --pr-verdict <file> [opts]
 #   orchestrate-gates.sh --gate snapshot     [--log <live>] [--history <file>]
 #   orchestrate-gates.sh --gate check-drift  [--history <file>]
@@ -33,6 +34,7 @@
 #   --planning-dir <dir>  Override the .planning dir (default: <repo>/.planning).
 #   --progress-md <file>  Override PROGRESS.md (default: <repo>/.implementation/tasks/PROGRESS.md).
 #   --pr-verdict <file>   File containing the pr-review-verdict/v1 JSON (raw or HTML-comment-wrapped).
+#   --pr-standards-verdict <file>  File with the pr-standards-verdict/v1 JSON (raw or HTML-comment-wrapped).
 #   --pr <N>              PR number, for the log record (else read from the verdict payload).
 #   --log <file>          Verdict-log JSONL path (default: <repo>/.orchestration/runs/gate-log.jsonl).
 #                         Use "-" or NONE to disable logging.
@@ -53,6 +55,7 @@ FIXTURE_DIR=""
 PLANNING_DIR=""
 PROGRESS_MD=""
 PR_VERDICT_FILE=""
+PR_STD_VERDICT_FILE=""
 PR_NUMBER=""
 LOG_FILE=""
 HISTORY_FILE=""
@@ -69,6 +72,7 @@ while [[ $# -gt 0 ]]; do
     --planning-dir) PLANNING_DIR="${2:-}"; shift 2 ;;
     --progress-md)  PROGRESS_MD="${2:-}"; shift 2 ;;
     --pr-verdict)   PR_VERDICT_FILE="${2:-}"; shift 2 ;;
+    --pr-standards-verdict) PR_STD_VERDICT_FILE="${2:-}"; shift 2 ;;
     --pr)           PR_NUMBER="${2:-}"; shift 2 ;;
     --log)          LOG_FILE="${2:-}"; shift 2 ;;
     --history)      HISTORY_FILE="${2:-}"; shift 2 ;;
@@ -79,7 +83,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$GATE" ]] || die "missing --gate (readiness|engine-clear|fix-decision|all)"
+[[ -n "$GATE" ]] || die "missing --gate (readiness|engine-clear|fix-decision|standards-decision|all)"
 
 # ---------------------------------------------------------------------------
 # Path + env resolution
@@ -399,6 +403,59 @@ gate_fix_decision() {
 }
 
 # ---------------------------------------------------------------------------
+# Gate: standards-decision  (code-standards audit verdict — mirrors fix-decision)
+# Reads the structured pr-standards-verdict/v1 payload and derives fix-or-skip:
+# RUN /pr-fix iff there is any `required` CS violation. `recommended`/`experimental`
+# are advisory (never force a fix). The Fix phase ORs this with fix-decision.
+# ---------------------------------------------------------------------------
+gate_standards_decision() {
+  [[ -n "$PR_STD_VERDICT_FILE" ]] || die "standards-decision gate needs --pr-standards-verdict <file>"
+  [[ -f "$PR_STD_VERDICT_FILE" ]] || { report_gate "standards-decision:verdict-present" fail "verdict file not found: $PR_STD_VERDICT_FILE" "{}"; return; }
+
+  # Accept raw JSON or the HTML-comment-wrapped block; collapse to one blob.
+  local raw; raw="$(tr -d '\n' < "$PR_STD_VERDICT_FILE")"
+  local required recommended experimental total verdict fix_req
+  required="$(printf '%s' "$raw" | json_num required)"
+  recommended="$(printf '%s' "$raw" | json_num recommended)"
+  experimental="$(printf '%s' "$raw" | json_num experimental)"
+  total="$(printf '%s' "$raw" | json_num total)"
+  verdict="$(printf '%s' "$raw" | json_str verdict)"
+  fix_req="$(printf '%s' "$raw" | json_bool fix_required)"
+  [[ -z "$PR_NUMBER" ]] && PR_NUMBER="$(printf '%s' "$raw" | json_num pr || true)"
+
+  if [[ -z "$required" || -z "$verdict" ]]; then
+    report_gate "standards-decision:verdict-parsed" fail "could not parse violations.required/verdict from payload" "{}" "$raw"
+    return
+  fi
+  report_gate "standards-decision:verdict-parsed" pass "" "{\"required\":${required},\"recommended\":${recommended:-0},\"experimental\":${experimental:-0},\"total\":${total:-0}}" "$raw"
+
+  # Derived decision — pure code. Only `required` forces a fix.
+  local derived="false"; [[ "$required" -gt 0 ]] && derived="true"
+
+  # Consistency: payload fix_required + prose verdict must agree with the derived value.
+  local consistent=1
+  if [[ -n "$fix_req" && "$fix_req" != "$derived" ]]; then consistent=0; fi
+  if [[ "$derived" == "true" && "$verdict" != "request-changes" ]]; then consistent=0; fi
+  if [[ "$derived" == "false" && "$verdict" != "approve" ]]; then consistent=0; fi
+
+  if [[ "$consistent" -eq 1 ]]; then
+    report_gate "standards-decision:verdict-consistent" pass "" "{\"fix_required\":${derived},\"verdict\":\"${verdict}\"}" "$raw"
+  else
+    report_gate "standards-decision:verdict-consistent" fail "payload fix_required='${fix_req:-?}'/verdict='${verdict}' disagree with derived '${derived}'" "{\"derived\":${derived},\"payload_fix_required\":\"${fix_req:-}\",\"verdict\":\"${verdict}\"}" "$raw"
+  fi
+
+  # The decision itself always reports (it routes, never "fails").
+  if [[ "$derived" == "true" ]]; then
+    printf "  %-44s %s\n" "standards-decision:route" "RUN /pr-fix (${required} required CS violation(s))"
+  else
+    printf "  %-44s %s\n" "standards-decision:route" "SKIP /pr-fix (0 required CS violations)"
+  fi
+  emit_log "standards-decision:route" "$([[ "$derived" == "true" ]] && echo run-fix || echo skip-fix)" "code" \
+    "{\"pr\":${PR_NUMBER:-null},\"required\":${required},\"recommended\":${recommended:-0},\"experimental\":${experimental:-0},\"verdict\":\"${verdict}\"}" \
+    "$raw"
+}
+
+# ---------------------------------------------------------------------------
 # Durability: snapshot the ephemeral live log into the committed history ledger.
 # Union, deduped by exact line — re-running is idempotent, and a forgotten prior
 # run is picked up the next time. The live log stays gitignored; the history is
@@ -500,10 +557,12 @@ case "$GATE" in
   readiness)     gate_readiness ;;
   engine-clear)  gate_engine_clear ;;
   fix-decision)  gate_fix_decision ;;
+  standards-decision) gate_standards_decision ;;
   all)
     gate_readiness
     gate_engine_clear
     [[ -n "$PR_VERDICT_FILE" ]] && gate_fix_decision
+    [[ -n "$PR_STD_VERDICT_FILE" ]] && gate_standards_decision
     ;;
   *) die "unknown gate: $GATE" ;;
 esac

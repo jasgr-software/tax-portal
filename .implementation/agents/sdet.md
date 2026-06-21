@@ -122,6 +122,11 @@ For each task with status `review`:
    - **Constraint & upstream-ref compliance** — if the task lists `**Upstream refs:**` (e.g. cited ADRs),
      read each and verify the implementation follows the documented constraint. Reject with the specific ref if
      violated.
+   - **Code-standards compliance** — for each id under the task's `**Code standards:**`, confirm the standard's
+     `verification` hook (in `.code-standards/standards/**/CS-<LANG>-NNN-*.md`) is met **and** the
+     `// CS-<LANG>-NNN` tag is present on the honoring code/test. A `required` standard that fails its check or is
+     missing its tag is a **rejection** (cite the key); `recommended`/`experimental` are advisory notes. This is a
+     review check, not a submission gate.
    - **Data & interface-contract compliance** — if the brief carried a `## Data & Interface Contract` (expanded
      into the task spec by the IO), verify the delivered schema/migrations and interfaces match its entities,
      status enums, **state transitions**, validation, and error semantics. Reject with the specific mismatch if

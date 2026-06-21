@@ -66,6 +66,7 @@ You implement a single slice of a build brief. The brief is the source of truth 
 
 - **Stay in your assigned directories** (see CLAUDE.md Agent Team table).
 - **Consume upstream refs as read-only.** When the brief cites `.requirements/`, `.architecture/`, or `.planning/` artifacts, treat them as constraints — never edit them. A genuinely-architectural question you can't decide locally goes back via `OPEN-QUESTIONS.md` / escalation to the IO, not by editing the upstream layer.
+- **Honor cited code standards.** For each id under the task's `**Code standards:**`, read the standard in `.code-standards/standards/**/CS-<LANG>-NNN-*.md` (its `verification` hook is the concrete obligation) and **tag the honoring code/test with `// CS-<LANG>-NNN`** — exactly as you cite `// ADR-NNN` / `// DECISION:` today (CS-GEN-003). A `required` standard must be honored; `recommended`/`experimental` are advisory. The tag is the greppable evidence the SDET and the orchestration code-standards audit check. `.code-standards/` is read-only to you.
 - For all other role boundaries — git ops, workflow files, subagents — see `.implementation/ENGINE.md` § Agent Roles.
 
 ## Project-Specific Rules

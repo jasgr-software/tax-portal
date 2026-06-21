@@ -37,8 +37,10 @@ agent/process-doc edits.
 
 1. **Branch + PR for history** — never commit docs straight to `main` (audit trail + the required checks still
    run). Branch name `chore/<slug>` or `docs/<slug>`.
-2. **Do NOT run the `/pr-review` panel.** The panel is for application code; running it on docs only creates
-   review threads that then block the conversation-resolution gate for no benefit.
+2. **Do NOT run the `/pr-review` panel** — nor the **code-standards Standards-review audit**. Both are for
+   application code (there is nothing to tag or violate in docs); running the panel on docs only creates review
+   threads that then block the conversation-resolution gate for no benefit. A docs-only PR records
+   `Standards-review: skipped (docs-only)` — a deliberate, policy-defined skip, not a coverage gap.
 3. **Merge on green required CI** with a plain squash — **no `--admin`, no `enforce_admins` toggle, no
    approval:**
    ```
@@ -54,7 +56,9 @@ agent/process-doc edits.
 
 For any PR touching application-code paths (a delivery slice, a CI/infra change, a dependency bump).
 
-1. **Run the `/pr-review` panel** (advisory, `event=COMMENT`) and **`/pr-fix`** for any actionable findings.
+1. **Run the code-standards Standards-review audit** (`/code-standards-review <N>`, before the panel) and the
+   **`/pr-review` panel** (advisory, `event=COMMENT`), then **`/pr-fix`** once for any actionable findings from
+   either — the panel's blocker/major **or** the audit's `required` violations (one fixer pass consumes both).
 2. **Resolve the conversation threads before merge** — this is what actually clears the merge gate (not a
    protection toggle):
    - `/pr-fix` resolves the threads it addresses (its default).
@@ -82,6 +86,7 @@ threads get resolved** — process, not protection.
 | | Docs-only (Lane A) | Application code (Lane B) |
 |---|---|---|
 | Panel (`/pr-review`)? | No | Yes (advisory) |
+| Code-standards audit (Standards-review)? | No (`skipped (docs-only)`) | Yes (before the panel) |
 | `/pr-fix`? | No | If actionable findings |
 | Thread resolution before merge | N/A (no threads) | Required (fix-or-disposition-with-rationale) |
 | Merge command | `gh pr merge <N> --squash --delete-branch` | same |

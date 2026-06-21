@@ -250,6 +250,11 @@ Modify, Quality Gates, and Work Log):
   `**Acceptance criteria:** none (justification: …)`.
 - **`**Upstream refs:**`** — optional REQ-/ADR-/EPIC- ids the brief cites that this task must honor, or `none`.
   Read if the cited layer is present; degrade gracefully if absent.
+- **`**Code standards:**`** — the brief's `code_standards:` ids this task must honor, or `none`. The developer
+  tags the honoring code/test with `// CS-<LANG>-NNN` (CS-GEN-003); the SDET verifies each cited standard's
+  `verification` hook. A `required` standard left un-honored (failing check or missing tag) is an SDET rejection;
+  `recommended`/`experimental` are advisory. Threaded from the brief by the IO at Design onto only the tasks that
+  touch that key's bucket.
 - **`**Introduces-gate:**`** — `yes`, `no`, or `advisory`. Declares whether the task introduces a new quality
   gate. `yes` → § Gate Authoring Rules applies (Work Log must contain the three evidence items). A missing
   field is treated as an SDET rejection.

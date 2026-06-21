@@ -26,7 +26,7 @@ detail + the Stop/defer matrix), and `seed/sources.md` (the project + engine bin
 ## The single-slice lifecycle
 
 ```
-Select → Gate → Compose → Implement → Review → Fix → Merge/Finalize → Validate → Report (STOP)
+Select → Gate → Compose → Implement → Standards-review → Review → Fix → Merge/Finalize → Validate → Report (STOP)
 ```
 
 Each phase has one observable exit condition (`PHASES.md`). Update `STATE.md` at every transition. **If any
@@ -125,6 +125,35 @@ signal** — the slice recorded in the engine's limbo ledger (`## Awaiting PR me
 PR number in `STATE.md`. You orchestrate the engine's turns; you never substitute your own task-planning or
 code edits for it. If the engine raises an inner stop, defer (record + report + STOP).
 
+### Standards-review (audit the opened PR against `.code-standards/` — application-code lane only)
+Run **before** Review. Invoke the code-standards audit per `seed/sources.md` (default `/code-standards-review
+<N>`, or the `code-standards-review` subagent in the orchestrated path). It posts a PR comment with its findings
+and emits a machine-readable verdict block (`pr-standards-verdict/v1`). Capture it to
+`runs/PR-<N>-standards-verdict.json` (extract the `<!-- pr-standards-verdict … -->` payload if you only have the
+posted comment), record the violation counts + drafted-candidate count in `STATE.md`, and derive the fix routing
+in pure code:
+
+```bash
+bash .orchestration/bin/orchestrate-gates.sh --gate standards-decision --pr-standards-verdict runs/PR-<N>-standards-verdict.json --pr <N>
+```
+
+It routes `RUN /pr-fix` when `violations.required > 0`, else `SKIP`, and **fails** if the payload's
+`fix_required`/`verdict` disagree with the derived value (an erosion signal — investigate before proceeding).
+Newly-discovered conventions the audit drafted as `experimental` standards (`by: agent`) ride the same docs-lane
+PR at close — additive, non-blocking, flagged for later human ratification.
+
+**Lane:** Standards-review runs **only on the application-code lane** (a slice PR). On the **docs-only lane**
+there is no application code to tag or violate — record `Standards-review: skipped (docs-only)` and proceed
+(`MERGE-POLICY.md`); this is a deliberate, policy-defined skip.
+
+> **Fail loudly, never silently skip** (parity with the phase-closeout `@video` guard — the EPIC-008
+> silent-miss failure mode). On an application-code / mixed PR, Standards-review MUST produce
+> `runs/PR-<N>-standards-verdict.json` before Review proceeds. If the verdict file is absent (the audit never
+> ran or errored), do **not** treat it as a clean pass: record an explicit **standards-review gap**
+> (`⚠ standards-review did not run — <cause>`) in `STATE.md` + the run report's Standards-review row and **STOP**
+> (Stop/defer matrix). A missing verdict is a gap, not an approval. (`skipped (docs-only)` is the distinct,
+> deliberate skip.)
+
 ### Review
 Invoke `/pr-review <N>` (the 3-lens advisory panel). The panel emits a **machine-readable verdict block**
 (`pr-review-verdict/v1`; `.pr-review/ENGINE.md` § Machine-readable verdict block) as the last lines of its
@@ -141,9 +170,14 @@ bash .orchestration/bin/orchestrate-gates.sh --gate fix-decision --pr-verdict ru
 
 It routes `RUN /pr-fix` when `(blocker + major) > 0`, else `SKIP`, and **fails** if the payload's
 `fix_required`/`verdict` disagree with the derived value (an erosion signal — investigate before proceeding).
-**Only if** it routes to run (any `blocker`/`major`; `minor` at your discretion), invoke `/pr-fix <N>` and let
-it run its bounded loop to green. If it routes to skip, **skip** Fix and note it. If the fixer hits its
-attempt cap without green, defer (record + report + STOP).
+
+The Fix decision is the **OR** of this panel `fix-decision` and the Standards-review `standards-decision`
+(`runs/PR-<N>-standards-verdict.json`): run `/pr-fix <N>` **once** if `(panel blocker+major > 0) OR (audit
+required > 0)`. A single fixer pass consumes **both** the panel threads and the audit's `required` findings —
+never a second loop. **Only if** the OR routes to run (any `blocker`/`major`, or any `required` standards
+violation; `minor` at your discretion), invoke `/pr-fix <N>` and let it run its bounded loop to green. If both
+route to skip, **skip** Fix and note it. If the fixer hits its attempt cap without green, defer (record +
+report + STOP).
 
 ### Merge / Finalize
 Merge + Close-finalize are the **engine's** autonomy, not yours. Let the engine's auto-merge fire under its
@@ -215,8 +249,10 @@ code authored on the phase-completing slice's PR; only the generated video + REA
 - **Defer to inner stops; never work around a guardrail.**
 - **Compose from real epic/source content only** — never invent AC, scenarios, constraints, or methodology.
 - **The engine is swappable** — depend only on the `seed/sources.md` interface, never on engine internals.
-- **Write only** the composed brief (engine's brief dir) and `STATE.md`. The roadmap is mutated only through
-  the validate capability; the repo is mutated only through the engine.
+- **Write only** the composed brief (engine's brief dir), `STATE.md`, and the run's `runs/` ledgers (the
+  PR-review + standards verdict files + the gate logs). The roadmap is mutated only through the validate
+  capability; application code is mutated only through the engine; `.code-standards/` drafts are written only by
+  the code-standards audit, never by the Conductor.
 
 ## Run summary
 
