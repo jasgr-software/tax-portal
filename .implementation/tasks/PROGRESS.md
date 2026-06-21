@@ -10,31 +10,23 @@
 
 ## Current initiative
 
-_None active._ **BRIEF-LOE-010 / Phase 0 (task/bug lifecycle → YAML front matter)** completed Close-prep
-2026-06-21 and is in `## Awaiting PR merge` below (gates 1–7 PASS; gate 8 post-merge CI pending; gate 9 N/A).
-Detail collapsed per the bounded-ledger rule — see `RETRO-LOE-010.md` + `HANDOFF-LOE-010.md` and the
-session-entry pointers in `PROGRESS-ARCHIVE.md`. No new slice opens until BRIEF-LOE-010 clears merge.
+_None active._ **BRIEF-LOE-010 / Phase 0 (task/bug lifecycle → YAML front matter)** is **DELIVERED + Close-finalize
+COMPLETE 2026-06-21** — merged `2b8944a` (PR #74), gates 1–9 final (1–7 PASS, 8 GREEN, 9 N/A), zero post-merge
+bugs. Phase 0 of the ratified scripted-bookkeeping initiative is done; **Phases 1–2 (task.ts CLI; state.json +
+events.jsonl) remain pending separate ratification** and are not yet briefed. No slice is in flight; `##
+Awaiting PR merge` is empty. Next implementation work opens only when a new build brief arrives. Detail lives in
+`RETRO-LOE-010.md` + `HANDOFF-LOE-010.md` + git (`2b8944a`).
 
 ## Awaiting PR merge
 
-**BRIEF-LOE-010 / Phase 0 — task/bug lifecycle fields → YAML front matter** (engine-tooling chore, epic
-`chore/lights-out-enablement`). **Branch:** `brief-loe-010-task-frontmatter-migration`. `Brief-type:`
-chore/tooling · `Brief-deploys:` **no** · reviewed/mixed-app-code merge lane. **All 6 AC satisfied** (AC-LOE-010-01..06)
-+ both extra gates (idempotent run-twice no-op; `validate-gates.sh` green over the migrated tree). 4 tasks
-`done` + SDET-approved, archived to `tasks/done/` (-004 = fix-forward restoring AC-04/05). Advisory resolved
-(stale Gate-Authoring comment fixed inline at Close-prep). Pre-existing Mailhog test failure confirmed
-not-introduced. RETRO `RETRO-LOE-010.md`; HANDOFF `HANDOFF-LOE-010.md`.
+_Empty._ No slice is in limbo awaiting merge.
 
-**Gate scorecard:**
-- **Gate 1 — Plan/clarify:** PASS (6 testable AC + prose methodology + extra gates confirmed; Docker pre-flight N/A).
-- **Gate 2 — Build/per-task SDET review:** PASS (-001/-002/-003/-004 all SDET-approved + atomic-closed).
-- **Gate 3 — Design scan:** PASS (CLEAN — zero `apps/**`/`packages/**`/`prisma/**`/`db/**` creep; one-fact-one-home §9.1 honored; PROGRESS.md format preserved; format-only docs).
-- **Gate 4 — Fix-forward:** PASS (TASK-LOE-010-004 batched both design-scan defects; SDET-verified; no revert of completed tasks).
-- **Gate 5 — Smoke (backstop):** PASS (`bash scripts/validate-gates.sh` → exit 0, ALL CHECKS PASSED over the real migrated tree; `/tmp/vg-loe010-final.log`).
-- **Gate 6 — Validate (acceptance):** PASS (all 6 AC exercised — see HANDOFF AC↔evidence table; 75/75 scripts vitest; idempotency 0-changed; TASK-006-002 inversion surfaced by `--verify`).
-- **Gate 7 — Close-prep consistency:** PASS (tasks archived; RETRO+HANDOFF written; PROGRESS collapsed; final validate-gates green).
-- **Gate 8 — Post-merge CI:** PENDING (`lint-and-typecheck` + `security-scan` on the opened PR — the slice's independent verification).
-- **Gate 9 — Staging smoke:** N/A (`Brief-deploys: no`).
+> **Delivered (bounded-ledger one-line pointer):** **BRIEF-LOE-010 / Phase 0 — task/bug lifecycle fields → YAML
+> front matter** (engine-tooling chore, `chore/lights-out-enablement`) — merged **`2b8944a` (PR #74)**, reviewed
+> lane (squash + delete-branch; no `--admin`, no protection toggle); all 6 AC + 2 extra gates satisfied; gates
+> 1–7 PASS, **gate 8 GREEN** (main CI `27916242291` success + CodeQL green + `validate-gates.sh` exit 0 on merged
+> main; 89/89 migrated files valid YAML, complexity fields bare ints), gate 9 N/A (`Brief-deploys: no`); zero
+> post-merge bugs. Durable detail: `RETRO-LOE-010.md` + `HANDOFF-LOE-010.md` + git.
 
 > **OQ-003 RESOLVED (2026-06-21).** BRIEF-009/EPIC-009 (PR #71) **MERGED 2026-06-21T17:24Z + validated (#73)**.
 > The former `## Awaiting PR merge` entry for BRIEF-009 was a **stale ledger entry** (Close-finalize never
@@ -317,3 +309,35 @@ Validate (AC-LOE-010-01..06) → Close-prep → `## Awaiting PR merge` + reviewe
 - **Advisory note (non-rejecting):** The Gate Authoring comment block at `scripts/validate-gates.sh` line 111 still describes the old unquoted pattern (`^started_at: [0-9]{4}-[0-9]{2}-[0-9]{2}T` without `"?`). `introduces_gate: no`, so this is not a rejection criterion. Flagged for IO as a minor follow-up comment-only update.
 
 **End:** TASK-LOE-010-004 **APPROVED and closed to `done`** (2026-06-21T21:45:00Z). Both backstops green: validate-gates.sh exits 0 / ALL CHECKS PASSED; 75/75 scripts/ vitest tests pass. PROGRESS.md task list updated — all four LOE-010 tasks are now `done`. Slice is unblocked for IO design-scan backstop re-verification → Smoke → Validate → Close-prep.
+
+### IO Close-finalize — BRIEF-LOE-010 / Phase 0 — post-merge — 2026-06-21
+
+**Start:** Resumed at Close-finalize from primary sources (`## Awaiting PR merge` entry, the four `done/TASK-LOE-010-*`
+files, RETRO-LOE-010, HANDOFF-LOE-010). PR #74 has merged. Phase-transition reflex applied.
+
+**Merge facts:** PR **#74** merged to `main` via squash + delete-branch (reviewed lane, no `--admin`, no protection
+toggle); squash commit **`2b8944a`**. Reviewed-lane outcome: Standards-review audit PASS (0 violations; 2 new
+experimental INFRA standards drafted, pending human ratification — not on this PR). `/pr-review` panel verdict
+request-changes (advisory) — 1 blocker + 2 major + 4 minor + 1 nit; **the blocker was real and high-value**: 39 of
+90 migrated files (43%) were not valid YAML (`needsQuoting` omitted YAML-significant cases), invisible to every
+prior gate because all use quote-tolerant line scanners, never a real YAML parser. `/pr-fix` addressed all 9
+findings: hardened `needsQuoting` + escaping, added a `--reserialize` path, re-serialized the corpus, added a
+**YAML-validity oracle test** (shells to python3+PyYAML over every file — the missing oracle), and fixed the major
+metrics regression (quoted `complexity_actual: "3"` → bare int, restoring `metrics-report.py` rollup). 10 review
+threads resolved; fix commits squashed into `2b8944a`.
+
+**Gate 8 — post-merge CI — GREEN:** main CI run `27916242291` `success` (lint-and-typecheck, security-scan,
+test-portal, test-admin); CodeQL on main green; `bash scripts/validate-gates.sh` on merged main → exit 0, ALL
+CHECKS PASSED. Independently re-verified: **89/89 migrated files parse as valid YAML, 0 invalid; complexity fields
+now bare integers.** **Gate 9 — N/A** (`brief_deploys: no`).
+
+**Post-merge triage:** CI green, no smoke failures → **no `BUG-LOE-010-POST-*` filed**. Clean post-merge result.
+
+**Actions:**
+- Moved BRIEF-LOE-010 **out of `## Awaiting PR merge`** (now empty); recorded delivery as the bounded-ledger
+  one-line pointer (merged `2b8944a` / #74; gates 1–7 PASS, 8 GREEN, 9 N/A).
+- Updated `## Current initiative` — no active slice; Phase 0 delivered, Phases 1–2 pending separate ratification.
+- Appended the Post-Merge Addendum + the YAML-oracle gate-design retro learning to `RETRO-LOE-010.md`.
+
+**End:** **Close-finalize COMPLETE. Slice fully closed.** BRIEF-LOE-010 / Phase 0 delivered + merged `2b8944a`
+(#74); gates 1–9 final disposition recorded; zero post-merge bugs; no slice in flight. Invocation ends.
