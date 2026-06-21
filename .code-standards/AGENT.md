@@ -72,8 +72,8 @@ Assign each standard a `rating` on the ladder and write its seed `rating_history
   policy). Most harvested standards are **born at their terminal rating** and never move.
 - The seed `rating_history` entry must record a **real rationale** (e.g. "born required — ADR-003
   enforced by ESLint + RLS tests in CI"), not a placeholder.
-- **The promote/demote process is `TBD (defined at consumption)`** — see Rating ladder. Until
-  consumers exist to generate signal, a rating is set once here and not moved on a schedule.
+- **Initial rating is set once here; moves follow § Promote/demote criteria** (machine proposes `by: agent`,
+  human ratifies `by: user`). Most harvested standards are born at their terminal rating and never move.
 
 ### 5. Self-review
 Re-read your output against this rubric and fix what fails:
@@ -86,6 +86,33 @@ Re-read your output against this rubric and fix what fails:
 
 Then write a short **run summary**: harvested sources read, standards added/changed/left-unchanged,
 ratings assigned (and why), open questions raised, and any out-of-scope needs noticed.
+
+### 6. Audit (review mode) — a separate entry path
+
+This is **not** one of the authoring phases above; it is a distinct entry point invoked to **review a
+supplied change** against the catalogue. It is read-mostly and **never writes application code, never fixes
+violations, and never reads any implementation or orchestration workflow** — it audits only the diff handed
+to it.
+
+**Inputs (supplied by the invoker):** the catalogue (`standards/**/CS-*.md`) plus a **PR diff** and its
+changed files. The audit does not fetch them itself or reach into other layers; it works on what it is given.
+
+**What it does:**
+1. For each `active` standard whose bucket the diff touches, check the diff against the standard's
+   `verification` hook and `// CS-<LANG>-NNN` tag presence. Record a **violation** with its weight
+   (`required` / `recommended` / `experimental`) and the violated key.
+2. **Discover new standards.** A real, repeated convention in the diff that the catalogue does not yet
+   capture may be **drafted as a new `experimental` standard** (full authoring per § 3–4), recorded
+   **`by: agent`** and flagged for later human ratification (§ Promote/demote criteria). Auto-assign the
+   **next free `NNN`** in the bucket. This is in-lane cataloguing — additive and non-blocking.
+3. **Emit a verdict.** Report the violation counts by weight, the violated keys, and the drafted
+   candidates, with a derived verdict: **request-changes** iff there is any `required` violation, else
+   **approve**. The audit reports and drafts; it **never** forces the fix — that routing belongs to the
+   invoker.
+
+**Lane safety.** The audit writes **only** under `.code-standards/` (the drafted standards) and returns its
+verdict; it touches no application code and never the reviewed branch. An invoker running this autonomously
+must enforce that boundary (see the adapter that drives this mode).
 
 ## Standard front matter (schema)
 
@@ -105,11 +132,13 @@ rating_history:                        # required — promote/demote audit trail
 open_questions: []                     # SQ-NNN ids blocking adoption (empty when unblocked)
 ```
 
-The current `rating` is the single source of truth for enforcement weight; `rating_history` is the
-audit trail. This layer tracks **standards + their enforcement weight only** — there is deliberately
-**no** per-standard consumption tracking, coverage status, or violation log here. Wiring standards to
-consumers (SDET / Overwatch / briefs / code comments) is a **separate, later pass** — do not add those
-fields.
+The current `rating` is the single source of truth for enforcement weight; `rating_history` is the audit
+trail, and its **`by:` field marks who moved the rating** — `agent` = machine-proposed (no enforcement
+effect until ratified), `user` = human-ratified (flips the live `rating`); see § Promote/demote criteria.
+This layer tracks **standards + their enforcement weight only** — there is deliberately **no** per-standard
+violation log, coverage status, or consumer-wiring field here. Consumers cite a key as evidence (briefs
+carry it, code tags it, the SDET and the review audit check it); that consumption signal lives in the
+consumer, not in the standard file.
 
 ## Rating ladder
 
@@ -127,15 +156,32 @@ Rate each standard at its **current enforcement reality, not aspirationally**. B
 never move — do not default everything to `experimental`. Only genuinely-new, unproven conventions start
 low.
 
-### Promote / demote process — `TBD (defined at consumption)`
-The rungs and their meanings are fixed now. The **criteria** for moving a standard between rungs, and the
-**governance** for who ratifies a move, are **deliberately deferred** until consumers exist to generate
-the signal that should drive promotion/demotion. This is an explicit, labelled gap — not an omission.
-Until then: a rating is set once during the **Rate** phase with its `rating_history` seed entry, and is
-only changed when its `source:` authority materially changes (e.g. an ADR is amended or superseded), in
-which case append a new `rating_history` entry citing the change. When consumption lands, this section is
-replaced with concrete promote/demote criteria and the `by: agent | user` field starts marking
-machine-proposed vs human-ratified moves.
+### Promote / demote criteria
+The rungs and their meanings are fixed; this is how a standard **moves** between them. The signal comes from
+consumption — a standard observed-and-honored, now mechanically enforced, or repeatedly overridden — and the
+catalogue records the move while the evidence lives in the consumer.
+
+**Governance — machine proposes, human ratifies.** An autonomous or batch run (including the Audit review
+mode) may only **PROPOSE** a move: append a `rating_history` entry with `by: agent` — the live `rating` does
+**not** change, and an unratified `agent` proposal carries no enforcement weight. A move is **ratified only
+by a human** via `/code-standards` (`by: user`), which flips the live `rating`.
+
+- **`experimental → recommended`** — propose when **either** the standard was observed-and-honored (zero
+  `required`/`recommended` violations of its key) across **≥3 distinct slices** touching its bucket, **or** a
+  non-CI convention check for it now exists (an SDET review check / a documented grep hook).
+- **`recommended → required`** — propose when the standard is **mechanically enforced** (a CI job, an ESLint
+  rule, a submission-gate test, or a review-audit grep hook that fails the build / forces a fix on violation),
+  **or** a direct user mandate. *Worked example: CS-GEN-003 — once a review audit greps for `// CS-*` tags and
+  forces a fix on a missing-tag `required` violation, the citation convention is mechanically enforced and
+  qualifies.*
+- **demote (`→ experimental` / `→ deprecated`)** — propose when **either** the standard was repeatedly
+  overridden-with-justification (≥2 slices resolved its violation as *dispositioned-as-intended* rather than
+  fixed), **or** its `source:` authority materially changed (an ADR amended/superseded → set
+  `status: superseded` or `rating: deprecated`; never delete the file or reuse the id).
+
+**Audit trail.** Every move appends `{rating, date, by, rationale}` where the rationale **cites checkable
+evidence** — a slice count + ledger ref, a CI job name, or an ADR id. A rationale without checkable evidence
+is rejected at Self-review.
 
 ## ID conventions
 

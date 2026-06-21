@@ -12,6 +12,7 @@ condition**; `STATE.md` is updated at every transition.
 | **Gate** | Apply the readiness predicate (`ENGINE.md` § Readiness gate). | Candidate is **GO** (all 7 criteria hold) — else blockers report (per candidate, *why*) + STOP. |
 | **Compose** | Map the GO epic → a build brief honoring the engine's contract; write it to the engine's brief dir. | `BRIEF-<NNN>-<slug>.md` exists with every required field populated from real epic/source content; AC-id test-tag contract carried. |
 | **Implement** | Invoke the engine (`/io <brief>`); drive it to its completion signal. Defer on any inner stop. | Slice recorded in the engine's limbo ledger with a PR URL; PR number in `STATE.md`. |
+| **Standards-review** | **(Application-code lane only.)** Invoke the code-standards audit (`/code-standards-review <N>`); capture `pr-standards-verdict/v1` → `runs/PR-<N>-standards-verdict.json`; derive fix routing (`--gate standards-decision`). Docs-only lane: record `skipped (docs-only)`. | Verdict captured (or `skipped (docs-only)`); counts + drafted-candidate count in `STATE.md` — or **standards-review gap → STOP** if an app-code PR produced no verdict. |
 | **Review** | Invoke `/pr-review <N>`. | One consolidated advisory review posted; verdict + counts in `STATE.md`. |
 | **Fix** | If the panel posted actionable findings, invoke `/pr-fix <N>`; else skip. Defer if the fixer caps out. | Panel findings addressed and CI green — or "skipped (clean)" recorded. |
 | **Merge/Finalize** | Merge per `MERGE-POLICY.md` (application-code lane: panel→fix→**resolve threads**→merge on green required CI; **no `--admin`/`enforce_admins` toggle**) + resume post-merge finalize. Surface (don't satisfy) a workflow-file LGTM hold or a genuine governance gate (e.g. an unsatisfiable required review). | PR merged + engine finalize complete; merge SHA in `STATE.md` — or STOP on an LGTM/governance gate. |
@@ -32,6 +33,8 @@ gate.
 | **`needs-user-direction` / escalation carve-out** | engine | Record the task + reason; STOP. Resume: user resolves, then re-`/orchestrate`. |
 | **Workflow-file LGTM hold** (PR touches engine/role files) | engine auto-merge condition | Surface the PR + the required `LGTM`/`/approve` comment; STOP. **Do not post the LGTM.** Resume after the user comments. |
 | **Fixer attempt cap without green** | `/pr-fix` | Record the last failing CI; STOP. Resume: user inspects, then re-`/orchestrate` (resumes at Fix). |
+| **Standards-review gap** (app-code PR produced no verdict) | Standards-review | Record `⚠ standards-review did not run — <cause>` in `STATE.md` + the run report; STOP. A missing verdict is a gap, **not** a clean pass. Resume: run `/code-standards-review <N>`, then re-`/orchestrate`. |
+| **Required standards violation unfixable** | `/pr-fix` (fix loop) | Mirrors the fixer-cap row: if `/pr-fix` cannot clear a `required` `CS-*` violation within its attempt cap, record the last state; STOP — do **not** merge with an unresolved `required` violation. Resume: user inspects, then re-`/orchestrate` (resumes at Fix). |
 | **Validate `incomplete`/`failing`** | `/planning validate` | Record which AC are `missing`/`failing`; STOP (epic not rolled to `delivered`). Resume: address the gap (likely a re-slice or a follow-up brief). |
 
 ## Notes

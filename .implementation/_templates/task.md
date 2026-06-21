@@ -20,6 +20,7 @@ range. The IO rejects slice close if any done task is missing any of the four.
 
 **Acceptance criteria:** <!-- the brief AC ids this task satisfies (e.g. AC-007-01, AC-007-03), or "none — <justification>" -->
 **Upstream refs:** <!-- REQ-/ADR-/EPIC- ids the brief cites that this task must honor, or "none". Read only when the cited layer is present. -->
+**Code standards:** <!-- the brief's code_standards: ids this task must honor + tag via `// CS-<LANG>-NNN` (CS-GEN-003), or "none". SDET checks each cited standard's verification hook; a failing `required` standard is a rejection. -->
 **Introduces-gate:** <!-- yes | no | advisory. yes → three-item evidence in Work Log per ENGINE.md § Gate Authoring Rules -->
 
 <!--

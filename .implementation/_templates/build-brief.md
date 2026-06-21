@@ -28,6 +28,10 @@ source: []                       # OPTIONAL soft refs; read if present, ignored 
                                  #   - planning:     .planning/EPIC-NNN-*.md
                                  #   - requirements: .requirements/REQ-<DOMAIN>-NNN.md
                                  #   - architecture: .architecture/decisions/ADR-NNN-*.md
+code_standards: []               # OPTIONAL — applicable .code-standards/ keys (CS-<LANG>-NNN) the slice must honor.
+                                 #   Selected by the buckets the slice actually touches (+ GEN); threaded into the
+                                 #   task specs at IO Design. Each is tagged in code/tests via `// CS-<LANG>-NNN`
+                                 #   (CS-GEN-003) and checked by the SDET against the standard's `verification` hook.
 ---
 
 # BRIEF-NNN — <title>
@@ -71,6 +75,18 @@ gherkin or TDD on its own.>
 <Non-negotiables the build must honor — performance budgets, security/compliance rules, interfaces it must
 not break, technology it must use or avoid. Cite upstream refs (`source:`) where a constraint originates
 from an ADR or requirement.>
+
+## Code standards
+
+<OPTIONAL — the applicable `.code-standards/` keys (`CS-<LANG>-NNN`) this slice must honor, mirroring the
+`code_standards:` front-matter. Selected by the buckets the slice actually touches (+ GEN); omit the section
+when none apply. Each key points at its owning authority (an ADR / `CLAUDE.md` section) and carries an
+enforcement `rating` — `required` (must), `recommended` (should), `experimental` (advisory). The IO threads
+each into the `**Code standards:**` field of the tasks that touch its bucket; the developer tags the honoring
+code/test `// CS-<LANG>-NNN` (CS-GEN-003); the SDET checks each key's `verification` hook. A `required` key
+whose check fails (or whose tag is missing) is an SDET rejection.>
+
+- **CS-<LANG>-NNN** (`<rating>`) — <one-line rule>
 
 ## Data & Interface Contract
 

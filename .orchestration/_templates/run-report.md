@@ -12,6 +12,7 @@
 | Gate | GO | STOPPED (<blockers>) |
 | Compose | <BRIEF-NNN written; AC: <n>; scenarios: gherkin/prose/none> |
 | Implement | <PR #N opened> | <inner stop> |
+| Standards-review | <approve / request-changes> · required <n> · recommended <n> · experimental <n> · drafted <n> | skipped (docs-only) | ⚠ gap (<cause>) |
 | Review | <approve / request-changes (advisory)> · blocker <n> · major <n> · minor <n> · nit <n> |
 | Fix | <findings addressed, CI green> | skipped (clean) | <capped, last failure> |
 | Merge/Finalize | <merged SHA + finalize done> | held (<LGTM / gate>) |

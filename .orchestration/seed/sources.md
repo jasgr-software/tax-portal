@@ -47,6 +47,26 @@
 - **retargeting:** point `invoke:` and `brief contract:` at another engine that consumes a brief and
   produces the same output contract; nothing outside this block changes.
 
+## Code-standards review (audit the opened PR — required)
+
+> A **project-aware** audit of the opened PR against `.code-standards/`, run **between Implement and Review**.
+> Distinct from the panel: the `.pr-review/` lenses are project-agnostic and never read the catalogue — this is
+> the separate, earlier path. **Skipped on the docs-only lane** (no application code to tag/violate — see
+> `MERGE-POLICY.md`); run on the application-code lane.
+
+- **invoke:** `/code-standards-review <N>` (interactive) — or the `.claude/agents/code-standards-review.md`
+  subagent (batch / orchestrated). It audits the PR diff; it never edits the PR branch and never fixes violations.
+- **verdict contract:** `pr-standards-verdict/v1` — HTML-comment-wrapped JSON the audit appends to its PR
+  comment and returns; the Conductor captures it to `runs/PR-<N>-standards-verdict.json`. Fields: `verdict`
+  (`approve`|`request-changes`), `fix_required` (= `violations.required > 0`), `violations` (`required`/
+  `recommended`/`experimental`/`total`), `violated_keys`, `new_candidates`, `drafted`.
+- **gate:** `bin/orchestrate-gates.sh --gate standards-decision --pr-standards-verdict <file>` derives
+  run-fix/skip-fix (run iff any `required` violation) and fails on an inconsistent payload (erosion alarm).
+- **fix routing:** the Fix phase runs `/pr-fix <N>` **once** if `(panel blocker+major > 0) OR (audit
+  required > 0)` — one fixer pass consumes both comment sets.
+- **new-standard drafts:** the audit may draft newly-discovered conventions as `experimental` standards
+  (`by: agent`); they ride the run's docs-lane PR at close (additive, non-blocking).
+
 ## Review + fix (harden the opened PR — required)
 
 - **review:** `/pr-review <N>` — the 3-lens advisory panel posts one consolidated `event=COMMENT` review

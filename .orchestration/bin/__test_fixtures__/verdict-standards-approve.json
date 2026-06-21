@@ -1,0 +1,3 @@
+<!-- pr-standards-verdict
+{"schema":"pr-standards-verdict/v1","pr":42,"verdict":"approve","fix_required":false,"violations":{"required":0,"recommended":2,"experimental":1,"total":3},"violated_keys":["CS-TS-007","CS-GEN-002"],"new_candidates":[{"slug":"prefer-zod-at-boundaries","proposed_rating":"experimental","bucket":"TS"}],"drafted":true}
+-->
