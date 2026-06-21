@@ -136,8 +136,14 @@ EPIC-008` write-back + Phase-2 walkthrough video.**
 
 ## Active bugs
 
+_None active._ No undispositioned, slice-blocking bug is open. One open INFRA follow-up (**BUG-008-001**) is
+dispositioned **non-blocking** (e2e is not a per-PR required check); every other bug is CLOSED and archived to
+`tasks/done/`. Archived items are kept below for the record (full root-cause in their `tasks/done/` file + the
+cited RETRO). *(Normalized 2026-06-21: leading clear-marker restored to the gate-recognized form; the verbose
+closed-bug detail collapsed to pointers — it survives in `tasks/done/` + the RETROs.)*
+
 **BUG-008-001 (BRIEF-008, surfaced at TASK-008-004 e2e gate) — Azurite SAS-URL PUT host-unreachable from the
-Playwright browser process — OPEN, tracked follow-up (does NOT block this slice's merge).** File:
+Playwright browser process — OPEN, tracked follow-up (does NOT block any slice's merge).** File:
 `.implementation/tasks/BUG-008-001-azurite-sas-url-host-unreachable-from-playwright-browser.md`.
 **Classification: pre-existing INFRA defect, EPIC-007-originated (ADR-009 two-phase upload pipeline), NOT a
 BRIEF-008 regression** — SDET-established three ways at the 004 gate (2026-06-20T01:15:00Z): (B) EPIC-007 upload
@@ -154,31 +160,16 @@ not a per-PR required CI check (CLAUDE.md; required = `lint-and-typecheck` + `se
 the upload pipeline in BRIEF-008** — out of slice scope; its own future infra slice (EPIC-007/ADR-009 concern).
 Carried to RETRO-008 + Validate-disposition.
 
-_BUG-007-001 (BRIEF-007) — admin e2e `document-requests.spec.ts` stale data-testid selectors —
-CLOSED** (SDET-approved 2026-06-19; fix committed `414890f`; re-smoke 3/3 green; no production code changed) and
-**archived to `tasks/done/` at Close-prep**; its fix rides the BRIEF-007 PR (classified `gated-path-fix` in
-RETRO-007 item 1). File: `tasks/done/BUG-007-001-admin-e2e-document-requests-stale-testids.md`. The SDET's
-midnight-sentinel close stamp is carried as part of the clock-domain `ungated-fix` family (RETRO-007 item 2).
-
-_No other bugs active._ All four BRIEF-002 bugs SDET-approved, `done`, and **archived to `tasks/done/` at Close-prep
-(2026-06-16)**; their fixes ride BRIEF-002's PR. Full root-cause chain is in `RETRO-002.md` (the headline:
-EPIC-002's first real-container e2e surfaced a 4-defect chain latent in EPIC-001/004, hidden by the previously
-env-blocked container smoke):
-- **BUG-002-001** — auth fail-closed guard blocked the mock provider in any prod-built container (SDET APPROVED
-  2026-06-16T09:45:00Z; `@tax-portal/auth` 124/124). File: `tasks/done/BUG-002-001-auth-guard-blocks-mock-in-prod-build.md`.
-- **BUG-002-002** — Prisma query-engine binary target missing for the Alpine/OpenSSL-3 runner; three-layer fix
-  (`binaryTargets` + `outputFileTracingIncludes` + `PRISMA_QUERY_ENGINE_LIBRARY` override) (SDET APPROVED
-  2026-06-16T15:55:00Z). File: `tasks/done/BUG-002-002-prisma-engine-binary-target-missing-alpine-openssl3.md`.
-- **BUG-002-003** — `sp_set_session_context @read_only=1` incompatible with Prisma pooling (error 15664 on
-  cross-request connection reuse) → **ADR-003 Amendment 1** (drop `@read_only`; reset-on-release retired as
-  undeliverable on Prisma 5.22's quaint pool); new tier-3 pooled-reuse regression test (SDET APPROVED
-  2026-06-16T23:45:00Z; `@tax-portal/db` 41/41). File: `tasks/done/BUG-002-003-session-context-readonly-incompatible-with-pooling.md`.
-- **BUG-002-004** — stale portal rate-limit test broke by BUG-002-001's guard change (blast-radius miss);
-  2-line test-lifecycle fix (SDET APPROVED 2026-06-16T12:50:00Z; `portal` 23/23, `pnpm -r test` 229/229).
-  Committed `b87cd95`. File: `tasks/done/BUG-002-004-portal-rate-limit-test-missing-allow-mock-auth.md`.
-
-Closed (prior slices): BUG-001-001/-002/-003 all `closed`; BUG-004-001 (orphan root `middleware.ts`) RESOLVED.
-No active `BUG-002-POST-*` / `BUG-004-POST-*`.
+**Closed / archived (for the record — detail in `tasks/done/` + the cited RETRO):**
+- BUG-007-001 (BRIEF-007) — admin e2e `document-requests.spec.ts` stale data-testid selectors — CLOSED
+  2026-06-19 (`414890f`; re-smoke 3/3 green; no production code changed); archived `tasks/done/`; fix rode the
+  BRIEF-007 PR (`gated-path-fix`, RETRO-007 item 1).
+- BUG-002-001/-002/-003/-004 (BRIEF-002) — the 4-defect chain EPIC-002's first real-container e2e surfaced
+  (latent in EPIC-001/004, hidden by the env-blocked container smoke) — all SDET-APPROVED, `done`, archived
+  `tasks/done/` (2026-06-16); fixes rode BRIEF-002's PR. Full chain in `RETRO-002.md` (headline: BUG-002-003 →
+  **ADR-003 Amendment 1**, drop `@read_only`).
+- BUG-001-001/-002/-003 — CLOSED. BUG-004-001 (orphan root `middleware.ts`) — RESOLVED. No active
+  `BUG-002-POST-*` / `BUG-004-POST-*`.
 
 ## Open retro action items
 

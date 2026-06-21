@@ -50,6 +50,11 @@ run 1 "missing epic fails readiness"       -- --gate readiness --fixture-dir "$F
 echo "[engine-clear]"
 run 0 "clean PROGRESS passes engine-clear"   -- --gate engine-clear --fixture-dir "$FIX/ready"
 run 1 "busy PROGRESS fails engine-clear"     -- --gate engine-clear --fixture-dir "$FIX/notready"
+# Hardened 2026-06-21: the `_No ... active._` marker family is recognized, so archived
+# `- **BUG-` bullets under it do NOT trip a false-fail (regression guard for the EPIC-009 run).
+: > "$LOG"
+run 0 "_No ... active._ marker recognized (archived bullets don't false-fail)" -- --gate engine-clear --fixture-dir "$FIX/markerwording"
+log_has "  ↳ no-active-bugs passes under _No ... active._" '"gate":"engine-clear:no-active-bugs","verdict":"pass"'
 
 echo "[fix-decision]"
 : > "$LOG"
