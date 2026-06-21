@@ -312,6 +312,47 @@ export async function seedClients(): Promise<
   return result;
 }
 
+// ─── Accountant seed ───────────────────────────────────────────────────────────
+
+/**
+ * Upserts the demo ACCOUNTANT User row.
+ *
+ * // DECISION (TASK-009-004): Path (a) chosen — add the ACCOUNTANT User row to the
+ * // demo seed pipeline so that the e2e accountant walkthrough has a real backing
+ * // identity. The lane manifest (demo-accounts.ts) already references clerkId
+ * // "demo_usr_jane_accountant"; this function seeds the corresponding User row.
+ * //
+ * // CS-GEN-002: additive only — MERGE on clerkId; never drops or truncates.
+ * // CS-TS-001: uses the admin pool (getAdminPool) — bypasses RLS for seed writes,
+ * //   consistent with all other seed operations in this pipeline.
+ * // ADR-005: the ACCOUNTANT role is set SERVER-SIDE from the manifest, never
+ * //   client-supplied; the seed row exists to satisfy User FK lookups in admin pages.
+ */
+export async function seedAccountant(): Promise<void> {
+  const pool = await getAdminPool();
+
+  // MERGE keyed on clerkId (stable demo_ prefix — will not collide with real Clerk ids)
+  // CS-GEN-002: additive only — UPDATE only non-identifying fields; never DELETE.
+  // CS-TS-001: admin pool — bypasses RLS for seed writes (consistent with seedClients).
+  const req = new MssqlRequest(pool);
+  req.input("clerkId", NVarChar(64), "demo_usr_jane_accountant");
+  req.input("email", NVarChar(254), "jane@example-accountant.com");
+  await req.query(`
+    MERGE [dbo].[User] AS target
+    USING (SELECT @clerkId AS [clerkId]) AS source
+      ON target.[clerkId] = source.[clerkId]
+    WHEN MATCHED THEN
+      UPDATE SET
+        [email]     = @email,
+        [updatedAt] = SYSDATETIMEOFFSET()
+    WHEN NOT MATCHED THEN
+      INSERT ([clerkId], [email], [role], [updatedAt])
+      VALUES (@clerkId, @email, N'ACCOUNTANT', SYSDATETIMEOFFSET());
+  `);
+
+  console.warn("[seed/demo/clients] ACCOUNTANT user (demo_usr_jane_accountant) upserted.");
+}
+
 // Re-export client metadata so engagements.ts can build a matching list
 export { CLIENTS };
 export type { ClientSeed };
