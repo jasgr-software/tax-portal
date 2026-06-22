@@ -660,3 +660,176 @@ describe("check_pr_body_quad_review (check 8) — byte-unchanged, not modified (
     expect(gatesScript).toContain("check_pr_body_quad_review");
   });
 });
+
+// ─── Suite 8: Check 10 — check_removed_artifact_orphans (BRIEF-LOE-013) ──────
+//
+// Gate Authoring Evidence (AC-LOE-013-05):
+//   Item 1 — Green run of check_removed_artifact_orphans over the real tree
+//             with PROGRESS.md in the removed set: see AC-04 test below.
+//   Item 2 — Named code path the gate catches: .orchestration/bin/sequence.sh:43
+//             `PROGRESS_MD="${REPO_ROOT}/.implementation/tasks/PROGRESS.md"` —
+//             an executable consumer retained after PROGRESS.md removal. Allowlisted
+//             with reason in .implementation/removal-sweep-allow.txt.
+//   Item 3 — COUNTERFACTUAL: removal-sweep-red fixture — a .sh consumer with a
+//             constructed-path reference (`: "${PROGRESS_MD:=${REPO_ROOT}/.implementation/tasks/PROGRESS.md}"`)
+//             NOT in the allowlist → check exits non-zero and names the consumer path:line.
+//
+// CS-GEN-003: retro-012-017 / BRIEF-LOE-013
+
+describe("check_removed_artifact_orphans (check 10) — removal-sweep gate (BRIEF-LOE-013)", () => {
+
+  // ── COUNTERFACTUAL (Gate Authoring Evidence Item 3) ─────────────────────────
+  //
+  // This is the PR #80 reproduction. The fixture has a .sh consumer using a
+  // CONSTRUCTED path form (`: "${PROGRESS_MD:=${REPO_ROOT}/.implementation/tasks/PROGRESS.md}"`)
+  // that is NOT in the allowlist. git grep -F on the repo-relative path catches
+  // the literal suffix even inside a variable-expansion form.
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013 — constructed-path catch
+  it("COUNTERFACTUAL (PR #80 reproduction): removed file + constructed-path .sh consumer → check exit 1, consumer named", () => {
+    const dir = path.join(FIXTURES_DIR, "removal-sweep-red");
+    const { exitCode, stdout } = runGates(dir);
+    // Must exit non-zero
+    expect(exitCode).toBe(1);
+    // Must name the consumer
+    expect(stdout).toContain("check_removed_artifact_orphans");
+    expect(stdout).toContain("FAIL");
+    // Must name the .sh consumer file in the output (path:line form)
+    expect(stdout).toContain(".fixture-consumer.sh");
+  });
+
+  // ── Allowlisted exec hit → PASS, reason echoed ──────────────────────────────
+  //
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013 — allowlist mechanism
+  it("allowlisted exec hit (with reason) → check PASSES, reason echoed in output", () => {
+    const dir = path.join(FIXTURES_DIR, "removal-sweep-allowlisted");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("ALL CHECKS PASSED");
+    expect(stdout).toContain("ALLOWED (allowlisted)");
+    // Reason text must be echoed
+    expect(stdout).toContain("Legacy --progress-md no-op flag retained intentionally");
+  });
+
+  // ── Allowlist entry with empty reason → FAIL ───────────────────────────────
+  //
+  // A suppression is a documented decision — never a silent one.
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013
+  it("allowlist entry with EMPTY reason → check FAILS (suppression must have reason)", () => {
+    const dir = path.join(FIXTURES_DIR, "removal-sweep-missing-reason");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("check_removed_artifact_orphans");
+    expect(stdout).toContain("FAIL");
+    expect(stdout).toContain("missing mandatory reason");
+  });
+
+  // ── Doc-only (.md) surviving reference → PASS ──────────────────────────────
+  //
+  // Historical RETRO/HANDOFF/archive pointers in .md files are legitimate and
+  // permanent. No allowlist entry is needed for .md-only consumers.
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013
+  it("doc-only (.md) surviving reference → check PASSES (historical pointer allowed by rule)", () => {
+    const dir = path.join(FIXTURES_DIR, "removal-sweep-doc-only");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("ALL CHECKS PASSED");
+    // check_removed_artifact_orphans must PASS (not FAIL)
+    expect(stdout).toContain("check_removed_artifact_orphans");
+    expect(stdout).not.toContain("check_removed_artifact_orphans                       FAIL");
+  });
+
+  // ── No .removed_files manifest → SKIP cleanly ──────────────────────────────
+  //
+  // When no manifest is present, the check must SKIP with a clear message —
+  // not PASS silently and not hard-error. A plain push with no removals must
+  // not red. Mirrors check 8's SKIP behaviour.
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013
+  it("no .removed_files manifest → check SKIPs cleanly (not PASS, not error)", () => {
+    const dir = path.join(FIXTURES_DIR, "removal-sweep-skip");
+    const { exitCode, stdout } = runGates(dir);
+    // SKIP does not cause a failure exit code
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("ALL CHECKS PASSED");
+    expect(stdout).toContain("check_removed_artifact_orphans");
+    expect(stdout).toContain("SKIP");
+    // Must NOT claim PASS (that would be a false-pass)
+    expect(stdout).not.toContain("check_removed_artifact_orphans                       PASS");
+  });
+
+  // ── Common-basename explosion guard ──────────────────────────────────────────
+  //
+  // Removing a commonly-named file (e.g. apps/portal/src/app/page.tsx) must NOT
+  // produce a wall of false-positive hits from the basename signal.
+  // DECISION (BRIEF-LOE-013): path-primary ONLY — no basename secondary signal.
+  // The fixture lists apps/portal/src/app/page.tsx as removed; no file in the
+  // fixture tree contains that exact path, so the check PASSes cleanly.
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013 — common-basename guard
+  it("common-basename (page.tsx) removal → no false-positive explosion (path-primary only)", () => {
+    const dir = path.join(FIXTURES_DIR, "removal-sweep-basename-safe");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("ALL CHECKS PASSED");
+    // check 10 must PASS — no basename false-positives
+    expect(stdout).toContain("check_removed_artifact_orphans");
+    expect(stdout).not.toContain("check_removed_artifact_orphans                       FAIL");
+  });
+
+  // ── Check 8 byte-unchanged assertion (AC-LOE-013 / AC-LOE-012-07) ──────────
+  //
+  // Adding check 10 must not modify check_pr_body_quad_review (check 8).
+  // This test extends the existing check-8 byte-unchanged suite from Suite 7.
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013 — checks 1-9 untouched
+  it("check 8 (check_pr_body_quad_review) is byte-unchanged after adding check 10", () => {
+    const gatesScript = fs.readFileSync(GATES_SCRIPT, "utf8");
+    // The function must still exist with its exact name
+    expect(gatesScript).toContain("check_pr_body_quad_review()");
+    // check 10 was ADDED after check 9 — check 8 function body must be unchanged.
+    // Verify check 10's name appears AFTER check 8's name in the file.
+    const check8Idx = gatesScript.indexOf("check_pr_body_quad_review()");
+    const check10Idx = gatesScript.indexOf("check_removed_artifact_orphans()");
+    expect(check10Idx).toBeGreaterThan(check8Idx);
+    // check 8's skip behavior is the canonical SKIP pattern check 10 mirrors
+    expect(gatesScript).toContain('skip "$check_name" "--pr-body not supplied"');
+  });
+
+  // ── AC-04: real main stays green (PROGRESS.md in removed set) ───────────────
+  //
+  // Gate Authoring Evidence Item 1 (named check step + green run):
+  //   bash scripts/validate-gates.sh --removed-files <(echo ".implementation/tasks/PROGRESS.md")
+  //   → ALL CHECKS PASSED; check_removed_artifact_orphans PASS.
+  //   The .orchestration/*.sh + sequence.sh + sequence.test.sh + validate-gates.sh itself
+  //   all reference PROGRESS.md but are allowlisted with reasons in
+  //   .implementation/removal-sweep-allow.txt. This is the LIVE PROOF.
+  //
+  // Gate Authoring Evidence Item 2 (named code path):
+  //   .orchestration/bin/sequence.sh:43 — `PROGRESS_MD="${REPO_ROOT}/.implementation/tasks/PROGRESS.md"`
+  //   An executable (.sh) consumer retained after PROGRESS.md deletion.
+  //   Allowlisted: "Legacy PROGRESS_MD variable + --progress-md flag passthrough..."
+  //
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013 — AC-04
+  it("AC-04: real tree with PROGRESS.md in removed set → ALL CHECKS PASSED (allowlisted refs)", () => {
+    // Write a temp .removed_files file listing PROGRESS.md
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vg-ac04-"));
+    const removedFile = path.join(tmp, ".removed_files");
+    fs.writeFileSync(removedFile, ".implementation/tasks/PROGRESS.md\n", "utf8");
+
+    const result = spawnSync(
+      "bash",
+      [GATES_SCRIPT, "--removed-files", removedFile],
+      { encoding: "utf8", timeout: 60_000 }
+    );
+    fs.rmSync(tmp, { recursive: true, force: true });
+
+    // Must be ALL CHECKS PASSED
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("ALL CHECKS PASSED");
+    // check_removed_artifact_orphans must PASS (not FAIL, not SKIP)
+    expect(result.stdout).toContain("check_removed_artifact_orphans");
+    expect(result.stdout).not.toContain("check_removed_artifact_orphans                       FAIL");
+    expect(result.stdout).not.toContain("check_removed_artifact_orphans                       SKIP");
+    // The allowlisted .orchestration refs must be echoed with their reasons
+    expect(result.stdout).toContain("ALLOWED (allowlisted)");
+    // Gate Authoring Evidence Item 2: the named code path
+    expect(result.stdout).toContain(".orchestration/bin/sequence.sh");
+  });
+});

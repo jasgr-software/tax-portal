@@ -1,0 +1,3 @@
+# removal-sweep-allow.txt — fixture with empty reason (should FAIL the gate)
+# CS-GEN-003: retro-012-017 / BRIEF-LOE-013
+.implementation/tasks/PROGRESS.md | .fixture-consumer.sh |

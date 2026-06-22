@@ -1,0 +1,3 @@
+# removal-sweep-allow.txt — fixture for removal-sweep allowlisted-pass test
+# CS-GEN-003: retro-012-017 / BRIEF-LOE-013
+.implementation/tasks/PROGRESS.md | .fixture-consumer.sh | Legacy --progress-md no-op flag retained intentionally for backward compat; script no longer reads PROGRESS.md

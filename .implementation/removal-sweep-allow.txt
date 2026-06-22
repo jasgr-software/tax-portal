@@ -1,0 +1,39 @@
+# removal-sweep-allow.txt — intentional retained executable references to removed artifacts
+#
+# Authority: retro-012-017 / BRIEF-LOE-013 (the cross-layer removal-sweep gate).
+# Consumed by: scripts/validate-gates.sh check 10 (check_removed_artifact_orphans).
+#
+# WHAT THIS FILE IS:
+#   The ONLY declared input to the removal-sweep gate. It does NOT gate which
+#   removals are checked (that is always the git diff — un-forgettable by design);
+#   it only ADDS suppressions for executable references a removal INTENTIONALLY
+#   retains. A doc-only (.md) reference is allowed by rule and never needs an entry
+#   here — entries are for EXECUTABLE consumers (.sh/.ts/.tsx/.js/.mjs/.cjs/.py/
+#   .yml/.yaml/package.json) that legitimately keep a reference to a removed file.
+#
+# FORMAT (one entry per line; '#' comments and blank lines ignored):
+#   <removed-artifact-path> | <consumer-path> | <mandatory reason>
+#
+#   - field 1: the removed file's repo-relative path (as it appeared before deletion)
+#   - field 2: the consumer file that retains an executable reference to it
+#   - field 3: a MANDATORY free-text reason. An entry whose reason field is EMPTY
+#     is itself a GATE FAILURE — a suppression is a documented decision, never a
+#     silent one (the judgment-line ethos: the suppression is an agent input,
+#     recorded with its rationale).
+#
+# An executable hit that matches an entry here is downgraded to PASS with its reason
+# echoed in the check output. A non-allowlisted executable hit FAILS the gate.
+
+# ── AC-LOE-013-04 reconciliation: the .orchestration/ legacy --progress-md no-op flag ──
+# PROGRESS.md was removed in BRIEF-LOE-012; /pr-fix babeaf0 re-pointed the live
+# Conductor consumers onto state.json awaitingMerge[] but intentionally RETAINED the
+# legacy --progress-md flag + PROGRESS_MD default-path variable as a backward-compatible
+# no-op (the scripts no longer READ the file — see the "no longer reads it" comments).
+# These are intentional, documented retentions; the gate must allow them so real main
+# stays green (AC-LOE-013-04).
+.implementation/tasks/PROGRESS.md | .orchestration/bin/orchestrate-state.sh | Legacy --progress-md no-op flag + PROGRESS_MD default-path var, intentionally retained by /pr-fix babeaf0 for backward compat; derive-pr now reads state.json awaitingMerge[] and no longer reads PROGRESS.md (see comments at L14-16, L112).
+.implementation/tasks/PROGRESS.md | .orchestration/bin/orchestrate-gates.sh | Legacy --progress-md no-op flag + PROGRESS_MD default-path var, intentionally retained by /pr-fix babeaf0 for backward compat; gate_engine_clear now reads state.json and no longer reads PROGRESS.md (see comment at L35, L295).
+.implementation/tasks/PROGRESS.md | .orchestration/bin/sequence.sh | Legacy PROGRESS_MD variable + --progress-md flag passthrough retained for backward compat with orchestrate-gates.sh; sequence.sh does not read PROGRESS.md directly, only passes the path as a flag argument to sub-commands that accept (and ignore) --progress-md as a no-op.
+.implementation/tasks/PROGRESS.md | .orchestration/bin/sequence.test.sh | Test fixture path reference retained for backward compat; sequence.test.sh passes --progress-md to the sequencer which accepts it as a no-op flag; the fixture file at that path is not read by gate logic (see sequence.sh L162 + orchestrate-gates.sh L35 comment).
+.implementation/tasks/PROGRESS.md | scripts/validate-gates.sh | Self-referential documentation comment in check_removed_artifact_orphans explaining the constructed-path detection strategy (the comment uses the canonical example path to illustrate git grep -F behaviour); the gate itself does not read PROGRESS.md.
+.implementation/tasks/PROGRESS.md | scripts/validate-gates.test.ts | Test suite for check_removed_artifact_orphans (check 10) uses PROGRESS.md as the canonical removed-artifact subject (it is the real-world example from retro-012-017); the test file does not consume or read the removed file — it references the path as a test input string only.
