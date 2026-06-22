@@ -792,6 +792,37 @@ describe("check_removed_artifact_orphans (check 10) — removal-sweep gate (BRIE
     expect(gatesScript).toContain('skip "$check_name" "--pr-body not supplied"');
   });
 
+  // ── REGRESSION: colon-in-path false-negative (minor review finding) ──────────
+  //
+  // Before the fix, ${hit%%:*} parsed the grep -rn hit line at the FIRST colon,
+  // which truncated any path containing a literal colon (e.g. "weird:name.sh" →
+  // "weird"). The truncated name has no recognized extension → falls through to
+  // case *) → silently skipped → gate reports PASS (false-negative: orphan is
+  // DROPPED without notice, defeating the gate's entire purpose).
+  //
+  // After the fix (sed-based parse-from-right on the ":digits:" separator), the
+  // full path "weird:name.sh" is extracted correctly, ".sh" is recognized as an
+  // executable extension, and the gate FAILs and names the consumer.
+  //
+  // The fixture: removal-sweep-colon-path/
+  //   .removed_files         → .implementation/tasks/PROGRESS.md
+  //   weird:name.sh          → contains the literal path (orphan consumer)
+  //   .implementation/state.json → minimal well-formed state so checks 1-9 pass
+  //
+  // CS-GEN-003: retro-012-017 / BRIEF-LOE-013 — colon-in-path regression
+  it("REGRESSION: colon-in-path consumer — check exits 1 and names 'weird:name.sh' (not silently dropped)", () => {
+    const dir = path.join(FIXTURES_DIR, "removal-sweep-colon-path");
+    const { exitCode, stdout } = runGates(dir);
+    // Must exit non-zero — the orphan must NOT be silently dropped
+    expect(exitCode).toBe(1);
+    // Must name check_removed_artifact_orphans as failing
+    expect(stdout).toContain("check_removed_artifact_orphans");
+    expect(stdout).toContain("FAIL");
+    // Must name the colon-containing consumer filename in the output
+    // (the full filename "weird:name.sh" must appear — not a truncated form)
+    expect(stdout).toContain("weird:name.sh");
+  });
+
   // ── AC-04: real main stays green (PROGRESS.md in removed set) ───────────────
   //
   // Gate Authoring Evidence Item 1 (named check step + green run):

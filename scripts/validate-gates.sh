@@ -871,11 +871,6 @@ check_removed_artifact_orphans() {
 
   # ── Step 3: Sweep each removed file ─────────────────────────────────────────
 
-  # Executable consumer extensions (LOCKED classification).
-  # Doc-only (.md) references are ALLOWED by rule — no allowlist entry needed.
-  # shellcheck disable=SC2034
-  local _exec_exts=".sh .ts .tsx .js .mjs .cjs .py .yml .yaml package.json"
-
   # Determine the scan root. In fixture mode we use the fixture dir.
   # In real-repo mode we use the repo root (git grep runs there).
   local scan_root
@@ -903,13 +898,13 @@ check_removed_artifact_orphans() {
         grep -rn --include="*" \
           --exclude-dir=".git" \
           --exclude-dir="node_modules" \
-          -F "$grep_token" \
-          "$scan_root" 2>/dev/null || true
+          -F -e "$grep_token" \
+          -- "$scan_root" 2>/dev/null || true
       )"
     else
       # Real-repo mode: git grep -F scans the working tree.
       grep_hits="$(
-        git -C "$REPO_ROOT" grep -Fn "$grep_token" -- \
+        git -C "$REPO_ROOT" grep -Fn -e "$grep_token" -- \
           ':!.git' ':!node_modules' 2>/dev/null || true
       )"
     fi
@@ -925,21 +920,18 @@ check_removed_artifact_orphans() {
       [[ -z "$hit" ]] && continue
 
       # Extract the path and line number from the hit.
-      # Fixture mode: grep -rn output format: "/full/path/to/file:linenum:content"
-      # Real-repo mode: git grep format: "path/to/file:linenum:content"
+      # Format (both modes): "path/to/file:linenum:content"
+      # The path is the only field that can contain colons, so parse from the RIGHT:
+      # the line number is the last purely-numeric field before the content column.
+      # Using sed: strip ":digits:content" suffix to get path; capture digits for line.
+      # This is colon-safe — a colon in the filename cannot be mistaken for the separator
+      # because we anchor on the ":NUM:" pattern (digits only) that must appear before content.
       local hit_path hit_line
+      hit_path="$(printf '%s\n' "$hit" | sed 's/:\([0-9][0-9]*\):.*$//')"
+      hit_line="$(printf '%s\n' "$hit" | sed 's/.*:\([0-9][0-9]*\):.*/\1/')"
       if [[ -n "$FIXTURE_DIR" ]]; then
-        # Strip the scan_root prefix to get the relative path
-        local full_path="${hit%%:*}"
-        # Remove trailing colon-linenum-content suffix
-        local rest_after_path="${hit#*:}"
-        hit_line="${rest_after_path%%:*}"
-        # Make path relative to fixture dir
-        hit_path="${full_path#"${scan_root}/"}"
-      else
-        hit_path="${hit%%:*}"
-        local rest_after_path="${hit#*:}"
-        hit_line="${rest_after_path%%:*}"
+        # Make path relative to fixture dir (strip leading scan_root prefix)
+        hit_path="${hit_path#"${scan_root}/"}"
       fi
 
       # Skip the removed file itself (it may contain its own path in a comment/doc)
