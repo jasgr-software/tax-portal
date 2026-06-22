@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-22T17:35:51.151Z",
+  "lastUpdated": "2026-06-22T18:41:15.730Z",
   "currentBrief": "BRIEF-LOE-013",
-  "currentPhase": "Close-prep",
+  "currentPhase": "Close-finalize",
   "currentSliceDescription": "cross-layer removal-sweep gate (validate-gates.sh check 10) — closes retro-012-017",
   "currentBranch": "brief-LOE-013-removal-sweep-gate",
   "awaitingMerge": [],
@@ -128,9 +128,9 @@
     },
     {
       "id": "retro-013-001",
-      "category": "gate-design",
-      "description": "Self-referential allowlist-ratio watch (SDET judgment-call-2 flag). The removal-sweep allowlist (`.implementation/removal-sweep-allow.txt`) currently holds 6 entries, of which the non-orphan/self-referential ones (`scripts/validate-gates.sh` self-doc comments + `scripts/validate-gates.test.ts` test-input strings; arguably also `sequence.test.sh`) are a bootstrapping artifact of the gate introducing itself. The SDET adjudicated this ACCEPTABLE with noted smell. WATCH: if, as real removals accumulate, the non-orphan/self-referential allowlist ratio WORSENS rather than improves, revisit widening the gate's exclusion set (e.g. exclude the gate's own source + test harness, or `*.test.ts` test-input strings) — but only with a documented rationale, since adding to the exclusion set creates a new silent-suppression class. Observation; not slice-blocking.",
-      "note": "- **[gate-design — RETRO-LOE-013, SDET judgment call 2] Self-referential allowlist-ratio watch.** The gate bootstraps itself: its own source + test file reference the canonical removed-artifact path (PROGRESS.md) as documentation/test-input, so they appear as executable hits and were allowlisted-with-reason. These are a one-time introduction artifact. Disposition (SDET + IO): ACCEPTABLE — every entry has a legitimate non-empty reason, and widening the exclusion set would trade explicit reasoned suppressions for a silent class. Revisit ONLY if the ratio worsens with real removals.",
+      "category": "acknowledged",
+      "description": "RESOLVED — FIXED AT SOURCE in PR #83 (commit b442a9e, squashed into da285f3). The self-referential-allowlist concern (SDET judgment-call-2) was eliminated, not merely watched: the real-repo sweep now excludes `scripts/__test_fixtures__/`, `*.test.ts`, and `*.spec.ts` by pathspec (real-repo git grep branch ONLY — fixture mode untouched, red fixtures still red); the validate-gates.sh self-doc comments were reworded to a generic `<removed-artifact-path>` placeholder; and the allowlist was pruned from 10 entries (6 self-referential) back to the 4 genuine `.orchestration/` cross-layer retentions only (the legacy --progress-md no-op flag in orchestrate-state.sh / orchestrate-gates.sh / sequence.sh / sequence.test.sh). The allowlist now means 'intentional cross-layer retentions,' not a test-scaffolding dumping ground. AC-04 re-verified green; 293/293 scripts tests; check 8 byte-unchanged. The exclusions are a documented, scoped decision (real-tree branch only — cannot leak into fixture mode), not a silent-suppression class.",
+      "note": "- **[RESOLVED — BRIEF-LOE-013, resolvedBy=PR#83/b442a9e, resolvedAt=2026-06-22] Self-referential allowlist-ratio concern fixed at source.** The user-directed post-review allowlist-hygiene refinement excluded test scaffolding (`scripts/__test_fixtures__/` + `*.test.ts`/`*.spec.ts`) from the REAL-tree sweep only, reworded the self-doc comments to a placeholder, and pruned the allowlist to the 4 genuine `.orchestration/` retentions. The ratio-watch is moot — zero self-referential entries by construction. (Category `acknowledged` = resolved per the state.json schema enum.)",
       "addedAt": "2026-06-22"
     },
     {
@@ -145,6 +145,13 @@
       "category": "observation",
       "description": "CS-INFRA-005 (atomic-write temp+rename) drafted experimental during BRIEF-LOE-012 Standards audit; left UNRATIFIED/UNCOMMITTED awaiting human ratification per the .code-standards/ governance (machine proposes by:agent, human ratifies by:user).",
       "note": "- **[code-standards — BRIEF-LOE-012 Standards audit, awaits human ratification] CS-INFRA-005 atomic-write standard.** The Standards-review audit (APPROVE, 0 violations) drafted an experimental `CS-INFRA-005` (atomic write via temp file + `fs.renameSync`, the pattern the 5 `task.ts` state-store commands use) but left it **unratified and uncommitted** at `.code-standards/standards/infra/CS-INFRA-005-atomic-write-temp-rename.md`. Per `.code-standards/` governance, promotion is machine-proposes (`by: agent`) / human-ratifies (`by: user`) -- this item tracks the pending human ratification decision. Do NOT auto-ratify. (Observation -- no gate failure.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-013-003",
+      "category": "observation",
+      "description": "CS-INFRA-006 (gate-check SKIP-not-FAIL on optional input) drafted experimental during the BRIEF-LOE-013 Standards audit (APPROVE, 0 violations); left UNRATIFIED/UNCOMMITTED awaiting human ratification per .code-standards/ governance (machine proposes by:agent, human ratifies by:user). The pattern: check 10 (and check 8) SKIP cleanly rather than FAIL when their optional input is absent (no diff base / empty removal set) — never a false PASS, never a hard error. Do NOT auto-ratify.",
+      "note": "- **[code-standards — BRIEF-LOE-013 Standards audit, awaits human ratification] CS-INFRA-006 SKIP-not-FAIL-on-optional-input.** The Standards-review audit (APPROVE, 0 violations) machine-proposed an experimental `CS-INFRA-006` capturing the removal-sweep gate's SKIP-not-FAIL discipline (a gate check whose input is optional must SKIP, not FAIL or falsely PASS, when that input is absent) but left it **unratified and uncommitted** at `.code-standards/standards/infra/CS-INFRA-006-gate-check-skip-not-fail-on-optional-input.md` (untracked, `??`). Per `.code-standards/` governance: machine proposes (`by: agent`) / human ratifies (`by: user`). Do NOT auto-ratify. (Observation -- no gate failure.)",
       "addedAt": "2026-06-22"
     }
   ]
