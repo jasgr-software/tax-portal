@@ -45,6 +45,9 @@ split into a team without rework.
   conventions). For each candidate, diff against existing standards via their `source:` pointers and
   classify **new / changed / unchanged**. Re-ingestion is **incremental and additive**: never silently
   drop, renumber, or overwrite an unchanged standard.
+- **Apply the Generality test** (see § Generality test) to every harvested candidate before cataloguing it:
+  a convention scoped to a single file is generalized to its transferable principle or declined (recorded in
+  the run summary), never catalogued as-is.
 
 ### 2. Clarify
 Flag a **genuine** ambiguity only — a convention that contradicts an ADR, a rule whose scope is
@@ -82,6 +85,9 @@ Re-read your output against this rubric and fix what fails:
 - Pattern/syntax standards (TS, SQL) carry the `do:`/`don't:` snippet pair; conceptual ones may omit it.
 - Every `source:` provenance ref resolves (the cited ADR / `CLAUDE.md` section / path exists).
 - No `## Rule` duplicates an ADR's full text — ADR-backed rules are one sentence + a pointer.
+- **Generality (catalogue-worthiness):** no standard has its `## Rule`, `## Verification`, and `source:` all
+  pointing at a single file — such a candidate is generalized to its transferable principle or declined per
+  § Generality test. A single-file convention dressed as a standard is the defect this rubric line catches.
 - No duplicate ids; cross-links resolve; `OPEN-QUESTIONS.md` uses `SQ-NNN`.
 
 Then write a short **run summary**: harvested sources read, standards added/changed/left-unchanged,
@@ -102,9 +108,12 @@ changed files. The audit does not fetch them itself or reach into other layers; 
    `verification` hook and `// CS-<LANG>-NNN` tag presence. Record a **violation** with its weight
    (`required` / `recommended` / `experimental`) and the violated key.
 2. **Discover new standards.** A real, repeated convention in the diff that the catalogue does not yet
-   capture may be **drafted as a new `experimental` standard** (full authoring per § 3–4), recorded
-   **`by: agent`** and flagged for later human ratification (§ Promote/demote criteria). Auto-assign the
-   **next free `NNN`** in the bucket. This is in-lane cataloguing — additive and non-blocking.
+   capture **and that passes the Generality test (below)** may be **drafted as a new `experimental`
+   standard** (full authoring per § 3–4), recorded **`by: agent`** and flagged for later human
+   ratification (§ Promote/demote criteria). Auto-assign the **next free `NNN`** in the bucket. This is
+   in-lane cataloguing — additive and non-blocking. *"Real and repeated" is necessary but not sufficient:
+   a convention observed only inside a single file — even across several functions there, or applied twice
+   because one site was told to mirror the other — fails the Generality test and must not be drafted as-is.*
 3. **Emit a verdict.** Report the violation counts by weight, the violated keys, and the drafted
    candidates, with a derived verdict: **request-changes** iff there is any `required` violation, else
    **approve**. The audit reports and drafts; it **never** forces the fix — that routing belongs to the
@@ -113,6 +122,30 @@ changed files. The audit does not fetch them itself or reach into other layers; 
 **Lane safety.** The audit writes **only** under `.code-standards/` (the drafted standards) and returns its
 verdict; it touches no application code and never the reviewed branch. An invoker running this autonomously
 must enforce that boundary (see the adapter that drives this mode).
+
+## Generality test (catalogue-worthiness)
+
+Applied at every point a standard is **born or drafted** — harvest (§ 1), audit-discovery (§ 6 step 2) — and
+re-checked at Self-review (§ 5). A candidate is catalogue-worthy **only if it is general enough to recur**:
+it must plausibly apply to code in **more than one file or context** — ideally code **not yet written**, in
+places other than where it was observed. The question is *"would a reviewer cite this on a file that doesn't
+exist yet?"* — not merely *"did this appear more than once?"*
+
+A candidate **fails** the test, and must NOT be drafted as-is, when its `## Rule`, `## Verification`, and
+`source:` all point at a **single file** (a convention internal to one script, even if it appears in several
+functions there, or was applied twice because one site was told to mirror another). That is **documentation
+for that file**, not a standard. Two correct dispositions:
+
+1. **Generalize** to the transferable principle the single-file instance is one example of (tool-/language-
+   agnostic where possible), making the observed file *one example* rather than the whole scope. Draft the
+   generalized form; cite the originating file as an example in `source:`.
+2. **Decline to catalogue** and record it as an **in-file comment** (or a `CONTRIBUTING`/header note) in the
+   owning file. Note the decline in the run summary so the convention is still captured, just not as a
+   standard.
+
+This filter targets **over-narrow** scope. It is distinct from the Clarify check for **undefined** scope
+(§ 2) — a single-file rule is perfectly *defined*, just not *general*; both are scope defects, caught at
+different gates.
 
 ## Standard front matter (schema)
 
