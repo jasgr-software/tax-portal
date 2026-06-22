@@ -10,42 +10,27 @@
 
 ## Current initiative
 
-_None active._ **BRIEF-LOE-011 / Phase 1** completed Close-prep and moved to `## Awaiting PR merge` (PR limbo) —
-2026-06-21. No new slice may Plan while it is unresolved (slice-start gate). The IO is eligible to Plan the next
-slice only after BRIEF-LOE-011 Close-finalize clears.
+_None active._ **BRIEF-LOE-011 / Phase 1 Close-finalize COMPLETE 2026-06-21** — merged `8ec1f5a` (PR #77);
+gates 1–7 PASS, gate 8 GREEN, gate 9 N/A; zero post-merge bugs; removed from `## Awaiting PR merge`. The IO is
+eligible to Plan the next slice (slice-start gate clear). **Phase 1 of scripted-bookkeeping delivered; Phase 2
+(`state.json` / `events.jsonl` + heavier commands) is pending separate ratification — not an active slice.**
 
 ## Awaiting PR merge
 
-**BRIEF-LOE-011 / Phase 1 — `task.ts` CLI (write mutations + bounded read projections) over YAML front matter.**
-Engine-tooling chore, epic `chore/lights-out-enablement`. Branch **`brief-loe-011-task-cli`**.
-`brief_type: document/chore`, `brief_deploys: no` (gate 9 N/A). **Reviewed merge lane.** Close-prep COMPLETE
-2026-06-21; awaiting PR raise + merge.
-
-**⚠️ WORKFLOW-FILE USER-LGTM GATE — must NOT auto-merge.** This PR touches **5 quad-review-governed workflow
-files** (`.implementation/agents/developer.md`, `.implementation/agents/sdet.md` [edited twice — the -003 doc
-rewrite + the Close-prep cmdDone-scope fix], `.implementation/ENGINE.md`, `.implementation/PHASES.md`). Per
-ENGINE § Autonomy Ceiling 3(c) the merge requires an explicit user `LGTM` / `/approve` comment on the PR.
-Reviewed lane: Standards audit → `/pr-review` panel → fix → resolve threads → **user LGTM** → merge on green
-required CI (`lint-and-typecheck` + `security-scan`). No `--admin`, no branch-protection toggle.
-
-**Gate scorecard (pre-merge):**
-1. Per-task submission gates — **3/3 PASS** (+ BUG-LOE-011-001 fix gate)
-2. SDET Review — **3/3 approved** (BUG-LOE-011-001 closed `done`)
-3. Overwatch Audit — N/A folded (engine-tooling; IO design scan covers integration; no mid-dispatch risk signal)
-4. IO Design scan — **PASS** (paved-road convenience; no new required gate; judgment line held; Phase-2 fenced; no product-code creep)
-5. Container Smoke — **PASS** (engine-tooling shape: `validate-gates.sh` ALL CHECKS PASSED over the real tree AND green over the AC-09 mutated fixture tree, corrupted-fixture counterfactual reds it)
-6. SDET Acceptance-validation — **PASS** (AC-LOE-011-01..09 all traced to passing tests/evidence)
-7. SDET CI gate — **PASS** (lint + type-check clean; 172/172 scripts vitest)
-8. Post-merge CI — **PENDING** (Close-finalize, after merge)
-9. Post-merge staging smoke — **N/A** (`brief_deploys: no`)
+_None active._ No slice is in PR limbo. BRIEF-LOE-011 / Phase 1 Close-finalize cleared 2026-06-21 (below).
 
 > **Delivered (bounded-ledger one-line pointer):** **BRIEF-LOE-011 / Phase 1 — `task.ts` CLI over YAML front
-> matter** (engine-tooling chore, `chore/lights-out-enablement`) — branch `brief-loe-011-task-cli`; 3 tasks +
-> BUG-LOE-011-001 all `done`/archived to `tasks/done/`; all 9 AC satisfied + exercised through the CLI; gates
-> 1–7 PASS, gate 8 pending post-merge CI, gate 9 N/A. Durable detail: `RETRO-LOE-011.md` + `HANDOFF-LOE-011.md`
-> + `done/TASK-LOE-011-00{1,2,3}` + `done/BUG-LOE-011-001` + git. **Headline lesson:** the independent-oracle
-> trap appeared THREE times this slice (metrics parity, read-only projection, AC-09 e2e) and was caught each
-> time because the brief baked RETRO-LOE-010's rule in.
+> matter** (engine-tooling chore, `chore/lights-out-enablement`) — merged **`8ec1f5a` (PR #77)**, reviewed lane
+> (squash + delete-branch; user LGTM on the 5 quad-review workflow files per Autonomy Ceiling 3(c); Standards
+> audit PASS + `/pr-review` APPROVE 0-blocker/0-major + `/pr-fix` `ef9c8cb` 8 findings, 10 threads, tests
+> 172→182; no `--admin`, no protection toggle); 3 tasks + BUG-LOE-011-001 all `done`/archived; all 9 AC satisfied
+> + exercised through the CLI; gates 1–7 PASS, **gate 8 GREEN** (main CI `27921857466` success @ `8ec1f5a` +
+> `validate-gates.sh` exit 0 on merged main), gate 9 N/A (`brief_deploys: no`); zero post-merge bugs. Durable
+> detail: `RETRO-LOE-011.md` (incl. § Post-Merge Addendum) + `HANDOFF-LOE-011.md` + `done/TASK-LOE-011-00{1,2,3}`
+> + `done/BUG-LOE-011-001` + git. **Headline:** the independent-oracle trap appeared THREE times this slice and
+> was caught each time because the brief baked RETRO-LOE-010's rule in — the same lesson, encoded in the brief,
+> prevented its own recurrence three times in one slice (contract-as-brief works). Phase 1 makes
+> `task-frontmatter.ts` a real production consumer (closes the #74 over-engineering finding).
 
 _Prior limbo cleared:_
 
@@ -274,3 +259,30 @@ owns: stage the named files → commit → push → raise PR → reviewed lane (
 resolve threads) → user LGTM → merge on green required CI.** This PR MUST NOT auto-merge — it touches 5
 quad-review workflow files (ENGINE § Autonomy Ceiling 3(c)). On merge: re-invoke the IO for Close-finalize
 (verify gate 8). IO ends.
+
+### IO Close-finalize — BRIEF-LOE-011 / Phase 1 — 2026-06-21
+
+**Start:** Resumed from PR limbo. Reconstructed state from primary sources (PROGRESS.md `## Awaiting PR merge`,
+`done/TASK-LOE-011-*` + `done/BUG-LOE-011-001`, `RETRO-LOE-011.md`, `HANDOFF-LOE-011.md`). PR #77 reported
+merged to `main` via squash + delete-branch (reviewed lane) — verified gates 8/9 independently before closing.
+
+**Actions:**
+- **Merge verified.** `git log` confirms `8ec1f5a` on `main`
+  (`feat(tooling): BRIEF-LOE-011 — pnpm task CLI over YAML front matter (Phase 1) (#77)`).
+- **Gate 8 (post-merge CI) GREEN — verified.** `gh run view 27921857466` → `completed/success` on head
+  `8ec1f5a` (lint-and-typecheck, security-scan, test-portal, test-admin). `validate-gates.sh` on merged main →
+  **exit 0, ALL CHECKS PASSED**.
+- **Gate 9 N/A** (`brief_deploys: no`). **Post-merge triage: CLEAN** — zero `BUG-LOE-011-POST-*` files (CI
+  green; no post-merge defects). Recorded.
+- **Post-Merge Addendum** appended to `RETRO-LOE-011.md`: reviewed-lane outcome (Standards audit PASS,
+  `/pr-review` APPROVE 0-blocker/0-major/7-minor+3-nit, `/pr-fix` `ef9c8cb` 8 findings + atomic-write hardening
+  + inverted-clock guard, 10 threads, tests 172→182, user LGTM on the 5 workflow files); gate-8-GREEN detail;
+  the contract-as-brief headline (the same encoded lesson prevented its own recurrence three times in one
+  slice) + the #74 over-engineering-finding closure (`task-frontmatter.ts` now a real production consumer).
+- **Ledger updated.** Removed BRIEF-LOE-011 from `## Awaiting PR merge` → collapsed to the delivered
+  one-line pointer (merged `8ec1f5a`/#77, gate 8 GREEN). `## Current initiative` set to no active slice (Phase 1
+  delivered; Phase 2 pending separate ratification).
+
+**End:** **Close-finalize COMPLETE.** Gates 1–7 PASS, gate 8 GREEN, gate 9 N/A; zero post-merge bugs. Slice
+removed from PR limbo. `## Current initiative` empty — the IO is eligible to Plan the next slice once a brief is
+available (Phase 2 of scripted-bookkeeping awaits separate ratification; the Conductor owns selection). IO ends.

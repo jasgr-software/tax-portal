@@ -140,3 +140,55 @@ declined to make `cmdDone` author the `**Decision**:` prose); (c) Phase-2 scope 
 the heavier commands) stayed fenced out — `progress` is a read projection of existing hot-state, not a new
 store; (d) no product-code creep — zero changes under `apps/**`/`packages/**`/`prisma/**`/`db/**`;
 `package.json` adds only the `task` script.
+
+## Post-Merge Addendum (Close-finalize — 2026-06-21)
+
+**PR #77 merged to `main` via squash + delete-branch (reviewed lane).** Squash commit: **`8ec1f5a`**
+(`feat(tooling): BRIEF-LOE-011 — pnpm task CLI over YAML front matter (Phase 1) (#77)`).
+
+### Reviewed-lane outcome (pre-merge, recorded for the record)
+
+- **Standards-review audit — PASS** (0 violations). CS-INFRA-004 — the standard ratified in PR #76 — verified
+  clean on the new `scripts/task.ts` tooling (zero-runtime-dep: Node built-ins + `./task-frontmatter` only).
+- **`/pr-review` panel — APPROVE (advisory)** — 0 blocker, 0 major, **7 minor + 3 nit**. Both findings that
+  could have risen to major were investigated and landed **minor**: an `appendToWorkLog` operator-precedence
+  question and the `extractAcFromYamlBlock` re-implemented-YAML concern.
+- **`/pr-fix` — all 8 actioned findings addressed** (commit **`ef9c8cb`**): `atomicWriteFile` `wx`+random-suffix
+  hardening; a `cmdDone` inverted-clock guard explicitly referencing the TASK-006-002 defect class
+  (the project-wide `Completed-at`/`Started-at` inversion family); path-traversal regression tests; dead-code
+  cleanup. **10 threads resolved**; tests **172 → 182**.
+- **User LGTM obtained** for the 5 quad-review-governed workflow files (ENGINE § Autonomy Ceiling 3(c)
+  satisfied) — this PR was correctly held from auto-merge.
+
+### Gate 8 (post-merge CI) — GREEN
+
+Main CI run **`27921857466`** → `completed/success` on head `8ec1f5a` (`lint-and-typecheck`, `security-scan`,
+`test-portal`, `test-admin`). `validate-gates.sh` on merged main → **exit 0, ALL CHECKS PASSED**. `pnpm task`
+is runnable on `main`.
+
+### Gate 9 — N/A
+
+`brief_deploys: no` — no staging smoke. **Zero post-merge bugs** (CI green; no `BUG-LOE-011-POST-*` created).
+
+### Headline — the contract-as-brief mechanism works
+
+The reviewed lane **held again**, and the slice is a clean demonstration of the contract-as-brief thesis:
+
+- **Phase 0's independent-oracle lesson (RETRO-LOE-010), baked into the BRIEF-LOE-011 Notes, caught its own
+  recurrence three times in one slice** — the metrics-parity re-implementation (→ BUG-LOE-011-001), the
+  read-only projection fidelity, and the AC-09 e2e self-grading trap — all caught at SDET review **before
+  merge**, each time because the *brief* (not the implementer) pre-named the independent oracle. **The same
+  lesson, encoded in the brief, prevented its own recurrence three times in one slice** — direct evidence that
+  encoding a retro conclusion into the next brief's contract is a working feedback loop, not a hope.
+- **The `/pr-review` panel + `/pr-fix` added defense-in-depth on top of an already-approved PR** — the
+  `atomicWriteFile` `wx`+random-suffix hardening and the `cmdDone` inverted-clock guard (referencing the
+  TASK-006-002 inversion defect class) landed even though the panel verdict was already approve. The reviewed
+  lane is not redundant with SDET sign-off; it hardens the edges SDET passed.
+- **Phase 1 closes the PR #74 over-engineering finding** — it makes `scripts/task-frontmatter.ts` (the Phase-0
+  module flagged as "test-only / over-engineered" by the #74 review lens) a **real production consumer**: every
+  `pnpm task` write routes its front-matter I/O through it, and `pnpm task verify` delegates to its
+  `verifyFrontMatter`. The module now earns its keep.
+
+**Close-finalize COMPLETE.** Gates 1–7 PASS, gate 8 GREEN, gate 9 N/A. Slice removed from `## Awaiting PR
+merge`. Phase 1 of scripted-bookkeeping delivered; Phase 2 (`state.json` / `events.jsonl` + heavier commands)
+pending separate ratification.

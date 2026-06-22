@@ -76,7 +76,7 @@ does not reach in. Approach mirrors the Increment-3 Phase-2 derivers (`orchestra
 branches to agents). **Status: proposal ratified 2026-06-21; Phase 0 (YAML front-matter migration)
 DELIVERED 2026-06-21 — merged `2b8944a` (PR #74) on the reviewed engine lane (`TASK-LOE-010-001..004`).
 The on-disk task/bug format is now YAML front matter; `validate-gates.sh` + the metrics hook read it.
-**Phase 1 (`task.ts` CLI + bounded read projections) RATIFIED 2026-06-21 — briefed as `BRIEF-LOE-011`, build pending.** Phase 2 (`state.json`/`events.jsonl` structured state store) pending separate ratification before briefing.**
+**Phase 1 (`pnpm task` CLI — 7 write subcommands + 6 read projections) DELIVERED 2026-06-21 — merged `8ec1f5a` (PR #77) via `TASK-LOE-011-001..003` on the reviewed lane (panel APPROVE; user LGTM on the 5 quad-review workflow files). Makes `task-frontmatter.ts` a real production consumer, closing the #74 over-engineering finding.** Phase 2 (`state.json`/`events.jsonl` structured state store + heavier commands) pending separate ratification before briefing.**
 
 > **Phase-0 delivery learning (load-bearing — folds into conclusion #3).** The reviewed-lane
 > `/pr-review` panel caught a **blocker that all four prior gates missed** — 39 of 90 migrated files
