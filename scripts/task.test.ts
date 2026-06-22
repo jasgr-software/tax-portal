@@ -60,6 +60,7 @@ import {
   formatBreadcrumb,
   appendToWorkLog,
   resolveTaskFile,
+  isWithin,
   TaskCliError,
   VALID_ROLES,
   // State-store subcommands (BRIEF-LOE-012 / TASK-LOE-012-002)
@@ -69,6 +70,7 @@ import {
   cmdTrace,
   cmdReport,
   renderTrace,
+  parseArgs,
   type MergeCheckpointShims,
 } from "./task.js";
 
@@ -3123,5 +3125,55 @@ describe("cmdReport — AC-LOE-012-06", () => {
     const output = cmdReport({ repoRoot: emptyRepo });
     expect(output).toContain("no state.json");
     fs.rmSync(emptyRepo, { recursive: true, force: true });
+  });
+});
+
+// ─── parseArgs --pr validation (minor-1 review fix) ───────────────────────────
+
+describe("parseArgs --pr validation — minor-1 review fix", () => {
+  it("accepts a pure-digit --pr value", () => {
+    // DECISION (minor-1): /^\d+$/ guard means only numeric strings pass
+    // CS-GEN-003: AC-LOE-012-03
+    const result = parseArgs(["node", "task.ts", "merge-checkpoint", "--pr", "55", "--role", "sdet"]);
+    expect(result.pr).toBe(55);
+  });
+
+  it("rejects non-numeric --pr (e.g. '123abc') with TaskCliError", () => {
+    // DECISION (minor-1): parseInt('123abc') silently returns 123 — guard prevents that
+    // CS-GEN-003: minor-1 review fix
+    expect(() =>
+      parseArgs(["node", "task.ts", "merge-checkpoint", "--pr", "123abc", "--role", "sdet"])
+    ).toThrow(TaskCliError);
+  });
+
+  it("rejects empty --pr with TaskCliError", () => {
+    // A --pr with no following value should not silently become NaN
+    // (next arg is another flag, so next is '--role', which is non-numeric)
+    expect(() =>
+      parseArgs(["node", "task.ts", "merge-checkpoint", "--pr", "--role", "sdet"])
+    ).toThrow(TaskCliError);
+  });
+});
+
+// ─── isWithin path-confinement helper (minor-2 review fix) ────────────────────
+
+describe("isWithin — path-confinement helper (minor-2 review fix)", () => {
+  it("returns true when candidate equals root", () => {
+    expect(isWithin("/a/b", "/a/b")).toBe(true);
+  });
+
+  it("returns true when candidate is a descendant of root", () => {
+    expect(isWithin("/a/b", "/a/b/c")).toBe(true);
+    expect(isWithin("/a/b", "/a/b/c/d.md")).toBe(true);
+  });
+
+  it("returns false when candidate is a sibling of root", () => {
+    // e.g. /a/b2 is NOT inside /a/b (no path.sep after root prefix)
+    expect(isWithin("/a/b", "/a/b2")).toBe(false);
+  });
+
+  it("returns false when candidate is outside root entirely", () => {
+    expect(isWithin("/a/b", "/x/y")).toBe(false);
+    expect(isWithin("/a/b", "/a")).toBe(false);
   });
 });

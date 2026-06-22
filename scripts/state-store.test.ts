@@ -717,6 +717,32 @@ describe("renderReport() — generated narrative (§9 generated view never commi
     const report = renderReport(state, [], { md: true });
     expect(report.trim().length).toBeGreaterThan(0);
   });
+
+  it("strips C0 control chars and ANSI escapes from free-text fields (minor-3 review fix)", () => {
+    // DECISION (minor-3): note/description/event-note are agent-supplied; strip
+    // terminal-escape sequences before rendering to prevent output spoofing.
+    // CS-GEN-003: AC-LOE-012-01
+    const poisonNote = "safe prefix\x1b[31mred\x1b[0m\x01\x02 end";
+    const state = wellFormedState({
+      openRetroItems: [{
+        id: "retro-012-001",
+        category: "CI",
+        description: poisonNote,
+        note: poisonNote,
+        addedAt: "2026-06-22",
+      }],
+    });
+
+    const report = renderReport(state, [], { md: true });
+
+    // Control chars and ANSI sequences must be stripped
+    expect(report).not.toContain("\x1b[");
+    expect(report).not.toContain("\x01");
+    expect(report).not.toContain("\x02");
+    // Printable content is preserved
+    expect(report).toContain("safe prefix");
+    expect(report).toContain("end");
+  });
 });
 
 // ─── Suite 10: AC-09 end-to-end fixture slice ─────────────────────────────────

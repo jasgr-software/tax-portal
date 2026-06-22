@@ -41,6 +41,7 @@ ROADMAP="${REPO_ROOT}/.planning/ROADMAP.md"
 PLANNING_DIR="${REPO_ROOT}/.planning"
 BRIEFS_DIR="${REPO_ROOT}/.implementation/briefs"
 PROGRESS_MD="${REPO_ROOT}/.implementation/tasks/PROGRESS.md"
+STATE_JSON="${REPO_ROOT}/.implementation/state.json"
 GATE_LOG=""            # passed through to orchestrate-gates.sh (default: its own)
 GATE_HISTORY=""        # passed through for the report-snapshot (default: its own)
 NO_GIT=0
@@ -63,6 +64,7 @@ while [[ $# -gt 0 ]]; do
     --planning-dir) PLANNING_DIR="${2:-}"; shift 2 ;;
     --briefs-dir)   BRIEFS_DIR="${2:-}"; shift 2 ;;
     --progress-md)  PROGRESS_MD="${2:-}"; shift 2 ;;
+    --state-json)   STATE_JSON="${2:-}"; shift 2 ;;
     --gate-log)     GATE_LOG="${2:-}"; shift 2 ;;
     --gate-history) GATE_HISTORY="${2:-}"; shift 2 ;;
     --no-git)       NO_GIT=1; shift ;;
@@ -157,7 +159,7 @@ advance() { S[phase]="$1"; state_save; }
 # ---------------------------------------------------------------------------
 run_gate() {
   # $@ extra args to orchestrate-gates.sh
-  local args=(--planning-dir "$PLANNING_DIR" --progress-md "$PROGRESS_MD")
+  local args=(--planning-dir "$PLANNING_DIR" --progress-md "$PROGRESS_MD" --state-json "$STATE_JSON")
   [[ "$NO_GIT" -eq 1 ]] && args+=(--no-git)
   [[ -n "$GATE_LOG" ]] && args+=(--log "$GATE_LOG")
   [[ -n "$GATE_HISTORY" ]] && args+=(--history "$GATE_HISTORY")
@@ -311,8 +313,8 @@ step() {
                   "Compose the build brief for ${S[epic]} per AGENT.md § Compose → write BRIEF to ${BRIEFS_DIR}/." \
                   "sequence.sh --set brief=<path>" ;;
     implement)  agent_node implement standards-review 'v_pr' \
-                  "Invoke the engine: /io ${S[brief]:-<brief>} — drive to its limbo-ledger signal (PR URL in PROGRESS.md). Defer on any inner stop (--halt)." \
-                  "bash .orchestration/bin/orchestrate-state.sh derive-pr --apply   # derives PR# from PROGRESS.md (or: sequence.sh --set pr=<N>)" ;;
+                  "Invoke the engine: /io ${S[brief]:-<brief>} — drive to its limbo-ledger signal (PR recorded in state.json awaitingMerge[]). Defer on any inner stop (--halt)." \
+                  "bash .orchestration/bin/orchestrate-state.sh derive-pr --apply   # derives PR# from state.json awaitingMerge[] (or: sequence.sh --set pr=<N>)" ;;
     standards-review) agent_node standards-review review 'v_std_verdict' \
                   "Audit the PR against .code-standards/: invoke /code-standards-review ${S[pr]:-<N>}; save the pr-standards-verdict payload to runs/PR-${S[pr]:-N}-standards-verdict.json. (Sequencer drives slice PRs = application code, so the audit always runs; the docs-only skip is the Conductor's, not here.)" \
                   "sequence.sh --set std_verdict_file=runs/PR-${S[pr]:-N}-standards-verdict.json" ;;

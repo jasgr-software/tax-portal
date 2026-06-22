@@ -48,13 +48,13 @@ log_has "  ↳ coverage-rows fails (table-cell match, not prose)" '"gate":"readi
 run 1 "missing epic fails readiness"       -- --gate readiness --fixture-dir "$FIX/ready"    --epic EPIC-404
 
 echo "[engine-clear]"
-run 0 "clean PROGRESS passes engine-clear"   -- --gate engine-clear --fixture-dir "$FIX/ready"
-run 1 "busy PROGRESS fails engine-clear"     -- --gate engine-clear --fixture-dir "$FIX/notready"
-# Hardened 2026-06-21: the `_No ... active._` marker family is recognized, so archived
-# `- **BUG-` bullets under it do NOT trip a false-fail (regression guard for the EPIC-009 run).
+# BRIEF-LOE-012 cutover: engine-clear now reads state.json (awaitingMerge[]) + BUG-*.md files.
+run 0 "empty awaitingMerge + no open BUG files passes engine-clear"   -- --gate engine-clear --fixture-dir "$FIX/ready"
+run 1 "in-flight awaitingMerge record fails engine-clear"     -- --gate engine-clear --fixture-dir "$FIX/notready"
+# Regression guard: closed BUG-*.md files (status: closed) do NOT trip the no-active-bugs gate.
 : > "$LOG"
-run 0 "_No ... active._ marker recognized (archived bullets don't false-fail)" -- --gate engine-clear --fixture-dir "$FIX/markerwording"
-log_has "  ↳ no-active-bugs passes under _No ... active._" '"gate":"engine-clear:no-active-bugs","verdict":"pass"'
+run 0 "closed BUG files don't trip engine-clear no-active-bugs" -- --gate engine-clear --fixture-dir "$FIX/markerwording"
+log_has "  ↳ no-active-bugs passes (closed BUG files ignored)" '"gate":"engine-clear:no-active-bugs","verdict":"pass"'
 
 echo "[fix-decision]"
 : > "$LOG"

@@ -87,8 +87,9 @@ for (let i = 0; i < state.awaitingMerge.length; i++) {
   }
 
   // Clock-inversion check: createdAt must not be AFTER lastUpdated.
-  // Lexicographic comparison is valid for ISO 8601 strings in the same timezone.
-  // CS-GEN-003: retro-012-014 (clock-inversion invariant — closed at schema level here)
+  // Lexicographic comparison is valid for ISO 8601 strings in the same timezone (both UTC).
+  // CS-GEN-003: retro-012-014 (clock-inversion invariant — enforced at script level here,
+  // not by the field-type schema, which validates format only)
   if (createdAt > lastUpdated) {
     clockErrors.push(
       `awaitingMerge[${i}]: clock inversion — createdAt "${createdAt}" is AFTER lastUpdated "${lastUpdated}"`

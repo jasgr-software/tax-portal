@@ -159,8 +159,12 @@ export interface StateStore {
 export interface StateEvent {
   /** ISO 8601 UTC timestamp */
   ts: string;
-  /** Event type (phase-transition, merge-checkpoint, post-merge, migration) */
-  type: "phase-transition" | "merge-checkpoint" | "post-merge" | "migration" | "retro-item-added" | "retro-item-resolved";
+  /** Event type — only values that are actually emitted by a command.
+   * DECISION (minor-6 review fix): retro-item-added/retro-item-resolved removed;
+   * no command currently emits them. Add back when a command does.
+   * CS-GEN-003: AC-LOE-012-01
+   */
+  type: "phase-transition" | "merge-checkpoint" | "post-merge" | "migration";
   /** Brief this event belongs to */
   brief: string | null;
   /** Phase at time of event */
@@ -175,174 +179,11 @@ export interface StateEvent {
   payload: Record<string, unknown> | null;
 }
 
-// ─── JSON-Schema definition ───────────────────────────────────────────────────
-
-/**
- * JSON-Schema (draft-07 compatible) for StateStore.
- *
- * DECISION (RETRO-LOE-010 / validation-oracle-independent-of-code):
- * This schema is the INDEPENDENT ORACLE — it is the authority for what a
- * well-formed state.json looks like. The `validateState()` function checks
- * incoming data AGAINST this schema using a minimal vendored validator,
- * NOT by re-reading the serialize path or trusting the same code that wrote it.
- *
- * A malformed state.json MUST fail loudly — this is the Phase-0 YAML-blocker
- * lesson applied to JSON. The counterfactual test proves the oracle catches
- * a deliberately-malformed fixture.
- *
- * CS-INFRA-004: The schema is a plain JS object (no ajv, no third-party).
- * CS-GEN-003: PROPOSAL-scripted-bookkeeping-phase2.md §5 / RETRO-LOE-010
- */
-export const STATE_SCHEMA = {
-  $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://tax-portal/.implementation/state.schema.json",
-  type: "object",
-  required: [
-    "schemaVersion",
-    "lastUpdated",
-    "currentBrief",
-    "currentPhase",
-    "currentSliceDescription",
-    "currentBranch",
-    "awaitingMerge",
-    "openRetroItems",
-  ],
-  additionalProperties: false,
-  properties: {
-    schemaVersion: {
-      type: "string",
-      enum: ["1.0"],
-      description: "Schema version for forward-compatibility detection",
-    },
-    lastUpdated: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}",
-      description: "ISO 8601 UTC timestamp of last write",
-    },
-    currentBrief: {
-      type: ["string", "null"],
-      description: "Current brief ID (null if no active slice)",
-    },
-    currentPhase: {
-      oneOf: [
-        {
-          type: "string",
-          enum: VALID_PHASES as readonly string[],
-          description: "Current phase — closed enum matching PHASES.md",
-        },
-        { type: "null" },
-      ],
-    },
-    currentSliceDescription: {
-      type: ["string", "null"],
-      description: "Human-readable one-line description of the current slice",
-    },
-    currentBranch: {
-      type: ["string", "null"],
-      description: "Git branch name for the current slice",
-    },
-    awaitingMerge: {
-      type: "array",
-      description: "Awaiting-merge records (one per in-flight PR)",
-      items: {
-        type: "object",
-        required: ["pr", "prUrl", "squashSha", "createdAt", "gateVerdicts", "note"],
-        additionalProperties: false,
-        properties: {
-          pr: {
-            type: "integer",
-            minimum: 1,
-            description: "GitHub PR number",
-          },
-          prUrl: {
-            type: "string",
-            pattern: "^https://",
-            description: "GitHub PR URL (derived by CLI, never agent-transcribed)",
-          },
-          squashSha: {
-            type: ["string", "null"],
-            pattern: "^[0-9a-f]{7,40}$",
-            description: "Squash merge SHA (null while pending)",
-          },
-          createdAt: {
-            type: "string",
-            pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}",
-            description: "ISO 8601 UTC timestamp when this record was created",
-          },
-          gateVerdicts: {
-            type: "object",
-            required: ["containerSmoke", "sdetValidation", "sdetCiGate", "sdetQualityAudit"],
-            additionalProperties: false,
-            properties: {
-              containerSmoke: { type: ["string", "null"] },
-              sdetValidation: { type: ["string", "null"] },
-              sdetCiGate: { type: ["string", "null"] },
-              sdetQualityAudit: { type: ["string", "null"] },
-            },
-          },
-          note: {
-            type: ["string", "null"],
-            description: "Optional agent-supplied note (§9.3 — field, not free blob)",
-          },
-        },
-      },
-    },
-    openRetroItems: {
-      type: "array",
-      description: "Open retro action items",
-      items: {
-        type: "object",
-        required: ["id", "category", "description", "note", "addedAt"],
-        additionalProperties: false,
-        properties: {
-          id: {
-            type: "string",
-            pattern: "^retro-",
-            description: "Unique stable retro item ID",
-          },
-          category: {
-            type: "string",
-            enum: [
-              "ungated-fix",
-              "gated-path-fix",
-              "observation",
-              "acknowledged",
-              "CI",
-              "infra",
-              "process",
-              "rule-sunset",
-              "doc-drift",
-              "metric-integrity",
-              "gate-design",
-              "gated-path-candidate",
-              "e2e-determinism",
-              "demo",
-              "sec",
-            ],
-            description: "Category tag for the retro item",
-          },
-          description: {
-            type: "string",
-            minLength: 1,
-            description: "One-line description of the action item",
-          },
-          note: {
-            type: ["string", "null"],
-            description: "Agent-supplied note/rationale (§9.3 — field, not free blob)",
-          },
-          addedAt: {
-            type: "string",
-            pattern: "^\\d{4}-\\d{2}-\\d{2}",
-            description: "ISO 8601 date when this item was added",
-          },
-        },
-      },
-    },
-  },
-} as const;
-
 // ─── Independent JSON-Schema validator (vendored, zero deps) ─────────────────
+// DECISION (minor-4 review fix): STATE_SCHEMA const deleted — it was dead code
+// (no importer, not called by validateState). The oracle IS validateState().
+// Removing it eliminates the category-enum drift hazard (duplicate definition).
+// CS-GEN-003: RETRO-LOE-010
 
 /**
  * A validation error returned by `validateState()`.
@@ -357,7 +198,7 @@ export interface ValidationError {
 }
 
 /**
- * Validate a candidate state object against the STATE_SCHEMA.
+ * Validate a candidate state object — the INDEPENDENT ORACLE.
  *
  * DECISION (RETRO-LOE-010 / validation-oracle-independent-of-code):
  * This is the INDEPENDENT ORACLE. It is intentionally a separate code path
@@ -1194,6 +1035,20 @@ function normaliseRetroCategory(raw: string): string {
 // ─── Report renderer ──────────────────────────────────────────────────────────
 
 /**
+ * Strip C0 control characters and ANSI escape sequences from a free-text string
+ * before rendering it into the human-facing status report.
+ *
+ * DECISION (minor-3 review fix): free-text fields (note, description) come from
+ * agent-supplied content and could contain terminal-escape sequences that would
+ * spoof the rendered output. Strip them before rendering.
+ * CS-GEN-003: AC-LOE-012-01
+ */
+function stripControlChars(s: string): string {
+  // Remove C0/C1 control chars and DEL, then ANSI CSI sequences (ESC [ ... m etc.)
+  return s.replace(/[\x00-\x1f\x7f]/g, "").replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
+}
+
+/**
  * Render a human-readable narrative from `state.json` + `events.jsonl`.
  *
  * Output is NEVER committed and is NEVER read back as a source of truth.
@@ -1229,7 +1084,7 @@ export function renderReport(state: StateStore, events: StateEvent[], opts: { md
         lines.push(`  - SDET Validation: ${rec.gateVerdicts.sdetValidation ?? "(pending)"}`);
         lines.push(`  - SDET CI Gate: ${rec.gateVerdicts.sdetCiGate ?? "(pending)"}`);
         lines.push(`  - SDET Quality Audit: ${rec.gateVerdicts.sdetQualityAudit ?? "(pending)"}`);
-        if (rec.note) lines.push(`  - Note: ${rec.note}`);
+        if (rec.note) lines.push(`  - Note: ${stripControlChars(rec.note)}`);
       }
     }
     lines.push("");
@@ -1241,9 +1096,9 @@ export function renderReport(state: StateStore, events: StateEvent[], opts: { md
       lines.push("_None._");
     } else {
       for (const item of state.openRetroItems) {
-        lines.push(`- **[${item.category}]** ${item.description}`);
+        lines.push(`- **[${item.category}]** ${stripControlChars(item.description)}`);
         if (item.note && item.note !== item.description) {
-          lines.push(`  > ${item.note.slice(0, 120)}`);
+          lines.push(`  > ${stripControlChars(item.note).slice(0, 120)}`);
         }
       }
     }
@@ -1251,7 +1106,7 @@ export function renderReport(state: StateStore, events: StateEvent[], opts: { md
     lines.push("## Recent events");
     const recentEvents = events.slice(-10).reverse();
     for (const ev of recentEvents) {
-      lines.push(`- ${ev.ts} [${ev.role}] ${ev.type}${ev.brief ? ` / ${ev.brief}` : ""}${ev.note ? ` — ${ev.note}` : ""}`);
+      lines.push(`- ${ev.ts} [${ev.role}] ${ev.type}${ev.brief ? ` / ${ev.brief}` : ""}${ev.note ? ` — ${stripControlChars(ev.note)}` : ""}`);
     }
   } else {
     // Compact text format
@@ -1267,7 +1122,7 @@ export function renderReport(state: StateStore, events: StateEvent[], opts: { md
     lines.push("");
     lines.push(`Recent events (${Math.min(events.length, 5)} of ${events.length}):`);
     for (const ev of events.slice(-5).reverse()) {
-      lines.push(`  ${ev.ts.slice(0, 19)} ${ev.type}${ev.brief ? ` ${ev.brief}` : ""}${ev.note ? ` — ${ev.note.slice(0, 60)}` : ""}`);
+      lines.push(`  ${ev.ts.slice(0, 19)} ${ev.type}${ev.brief ? ` ${ev.brief}` : ""}${ev.note ? ` — ${stripControlChars(ev.note).slice(0, 60)}` : ""}`);
     }
   }
 

@@ -128,6 +128,19 @@ export function findRepoRoot(): string {
   return path.resolve(scriptDir, "..");
 }
 
+// ─── Path-confinement helper ──────────────────────────────────────────────────
+
+/**
+ * Returns true iff `candidate` is equal to `root` or is a descendant of `root`.
+ *
+ * DECISION (minor-2 review fix): factor the two-arm predicate so all path-
+ * confinement sites use the same expression and can't drift.
+ * CS-GEN-003: mirrors log-task-edit.py's allowed_root check pattern
+ */
+export function isWithin(root: string, candidate: string): boolean {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+
 // ─── File resolution: ID → path ──────────────────────────────────────────────
 
 /**
@@ -161,7 +174,7 @@ export function resolveTaskFile(
         const fullPath = path.join(dir, entry);
         // Confine to allowedRoot (no traversal outside)
         const resolved = path.resolve(fullPath);
-        if (resolved === allowedRoot || resolved.startsWith(allowedRoot + path.sep)) {
+        if (isWithin(allowedRoot, resolved)) {
           return fullPath;
         }
       }
@@ -1634,7 +1647,7 @@ function findBriefFile(briefId: string, repoRoot: string): string | null {
       // Confine to briefsDir
       const resolved = path.resolve(fullPath);
       const allowedRoot = path.resolve(briefsDir);
-      if (resolved.startsWith(allowedRoot + path.sep) || resolved === allowedRoot) {
+      if (isWithin(allowedRoot, resolved)) {
         return fullPath;
       }
     }
@@ -1662,7 +1675,7 @@ function searchCsDir(dir: string, csId: string, allowedRoot: string): string | n
     const fullPath = path.join(dir, entry.name);
     const resolved = path.resolve(fullPath);
     // Confine to allowedRoot
-    if (!resolved.startsWith(allowedRoot + path.sep) && resolved !== allowedRoot) continue;
+    if (!isWithin(allowedRoot, resolved)) continue;
 
     if (entry.isDirectory()) {
       const found = searchCsDir(fullPath, csId, allowedRoot);
@@ -2475,7 +2488,7 @@ export function cmdPostMerge(opts: {
     // SECURITY: confine the bug file path to the tasks directory
     const allowedRoot = path.resolve(tasksDir);
     const resolvedBugPath = path.resolve(bugFilePath);
-    if (!resolvedBugPath.startsWith(allowedRoot + path.sep)) {
+    if (!isWithin(allowedRoot, resolvedBugPath)) {
       throw new TaskCliError(
         `Bug file path escapes tasks directory (path-confinement violation): ${bugFilePath}`,
         1
@@ -2653,8 +2666,13 @@ function deriveNextBugNumber(tasksDir: string, suffix: string): number {
  */
 export interface TraceResult {
   brief: string;
-  /** Per-AC tier breakdown: AC-ID → { unit: string[], integration: string[], e2e: string[], tier3: string[] } */
-  acMap: Record<string, { unit: string[]; integration: string[]; e2e: string[]; tier3: string[] }>;
+  /** Per-AC tier breakdown: AC-ID → { unit: string[], e2e: string[], tier3: string[] }
+   * DECISION (minor-5 review fix): integration tier dropped — no /integration/ path
+   * segment exists in the default scan roots; adding a dead column misleads.
+   * Re-add when an integration/ convention is established.
+   * CS-GEN-003: AC-LOE-012-05
+   */
+  acMap: Record<string, { unit: string[]; e2e: string[]; tier3: string[] }>;
   /** Total @AC-* tags found across all files */
   totalTags: number;
   /** Files scanned */
@@ -2677,9 +2695,10 @@ export interface TraceResult {
  *
  * Tier classification heuristic (DECISION):
  *   - files under .../e2e/...              → e2e
- *   - files under .../integration/...      → integration
- *   - files with ".test.ts" / ".spec.ts"   → unit (default)
  *   - files under .../tier-3/...           → tier-3
+ *   - everything else                      → unit (the default)
+ * DECISION (minor-5 review fix): integration tier dropped — no /integration/
+ * path segment exists in the default scan roots. Re-add when the convention lands.
  * These are heuristics — the agent is authoritative on adequacy.
  *
  * AC-LOE-012-05
@@ -2717,7 +2736,7 @@ export function cmdTrace(opts: {
   // DECISION: we match @AC-{UPPERCASE-OR-DIGIT-OR-HYPHEN}+ — must start with @AC-
   const acTagPattern = /@(AC-[A-Z0-9][A-Z0-9-]*)/g;
 
-  const acMap: Record<string, { unit: string[]; integration: string[]; e2e: string[]; tier3: string[] }> = {};
+  const acMap: Record<string, { unit: string[]; e2e: string[]; tier3: string[] }> = {};
   let totalTags = 0;
 
   for (const filePath of testFiles) {
@@ -2744,7 +2763,7 @@ export function cmdTrace(opts: {
       }
 
       if (!acMap[acId]) {
-        acMap[acId] = { unit: [], integration: [], e2e: [], tier3: [] };
+        acMap[acId] = { unit: [], e2e: [], tier3: [] };
       }
 
       totalTags++;
@@ -2786,7 +2805,7 @@ function collectTestFiles(dir: string, results: string[], allowedRoot: string): 
     const resolved = path.resolve(fullPath);
 
     // Confine to allowedRoot
-    if (!resolved.startsWith(allowedRoot + path.sep) && resolved !== allowedRoot) continue;
+    if (!isWithin(allowedRoot, resolved)) continue;
 
     if (entry.isDirectory()) {
       // Skip node_modules, .next, dist, build
@@ -2804,16 +2823,16 @@ function collectTestFiles(dir: string, results: string[], allowedRoot: string): 
  * Classify a test file path into a tier.
  * DECISION (TASK-LOE-012-002 / AC-LOE-012-05):
  *   - e2e: files under e2e/ directory paths
- *   - integration: files under integration/ directory paths
  *   - tier-3: files under tier-3/ directory paths (future)
  *   - unit: everything else (the default)
+ * DECISION (minor-5 review fix): integration tier removed — no /integration/
+ * path convention exists in this project's scan roots. Re-add when it does.
  * This is a path-heuristic — the agent is authoritative on actual adequacy.
  * CS-GEN-003: §8 judgment line — the CLI CLASSIFIES by path, NEVER DECIDES adequacy.
  */
-function classifyTestFileTier(filePath: string): "unit" | "integration" | "e2e" | "tier3" {
+function classifyTestFileTier(filePath: string): "unit" | "e2e" | "tier3" {
   const normalized = filePath.replace(/\\/g, "/");
   if (/\/e2e\//.test(normalized)) return "e2e";
-  if (/\/integration\//.test(normalized)) return "integration";
   if (/\/tier-3\//.test(normalized)) return "tier3";
   return "unit";
 }
@@ -2846,22 +2865,21 @@ export function renderTrace(result: TraceResult, json: boolean): string {
   if (acIds.length === 0) {
     lines.push("(no @AC-* tags found matching this brief)");
   } else {
-    // Table header
-    lines.push(`${"AC-ID".padEnd(20)}  ${"UNIT".padEnd(4)}  ${"INTEG".padEnd(5)}  ${"E2E".padEnd(3)}  ${"TIER3".padEnd(5)}  FILES`);
-    lines.push(`${"-".repeat(20)}  ${"-".repeat(4)}  ${"-".repeat(5)}  ${"-".repeat(3)}  ${"-".repeat(5)}  ${"-".repeat(40)}`);
+    // Table header (integration column dropped — minor-5 review fix)
+    lines.push(`${"AC-ID".padEnd(20)}  ${"UNIT".padEnd(4)}  ${"E2E".padEnd(3)}  ${"TIER3".padEnd(5)}  FILES`);
+    lines.push(`${"-".repeat(20)}  ${"-".repeat(4)}  ${"-".repeat(3)}  ${"-".repeat(5)}  ${"-".repeat(40)}`);
 
     for (const acId of acIds) {
       const buckets = result.acMap[acId]!;
       const allFiles = [
         ...buckets.unit.map((f) => `unit:${f}`),
-        ...buckets.integration.map((f) => `integ:${f}`),
         ...buckets.e2e.map((f) => `e2e:${f}`),
         ...buckets.tier3.map((f) => `tier3:${f}`),
       ];
       const filesSummary = allFiles.slice(0, 3).join(", ") + (allFiles.length > 3 ? `, ...+${allFiles.length - 3}` : "");
 
       lines.push(
-        `${acId.padEnd(20)}  ${String(buckets.unit.length).padEnd(4)}  ${String(buckets.integration.length).padEnd(5)}  ` +
+        `${acId.padEnd(20)}  ${String(buckets.unit.length).padEnd(4)}  ` +
         `${String(buckets.e2e.length).padEnd(3)}  ${String(buckets.tier3.length).padEnd(5)}  ${filesSummary}`
       );
     }
@@ -3015,8 +3033,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       case "--pr":
         // merge-checkpoint / post-merge --pr N
-        // SECURITY: parse as integer; guard non-numeric shell injection
+        // SECURITY: reject non-numeric values loudly rather than silently truncating.
+        // parseInt("123abc") returns 123 — the /^\d+$/ guard catches that class.
+        // CS-GEN-003: minor-1 review fix
         if (next !== undefined) {
+          if (!/^\d+$/.test(next)) {
+            throw new TaskCliError(`--pr must be a positive integer, got: ${next}`, 1);
+          }
           const prNum = parseInt(next, 10);
           if (!isNaN(prNum)) result.pr = prNum;
         }

@@ -3,7 +3,7 @@
 #
 # Increment 1 — Gate Rails. The deterministic, pure-code evaluator for the
 # .orchestration/ Conductor's mechanical gates. It re-derives each verdict from
-# PRIMARY SOURCES (epic front-matter, ROADMAP, COVERAGE, PROGRESS.md, git, the
+# PRIMARY SOURCES (epic front-matter, ROADMAP, COVERAGE, state.json, git, the
 # structured PR-review verdict) — never from a recorded "✓" in STATE.md.
 #
 # See .orchestration/design/INCREMENT-1-gate-rails.md and NORTH-STAR.md.
@@ -32,7 +32,8 @@
 # Options:
 #   --fixture-dir <dir>   Resolve all primary sources under <dir>; implies --no-git.
 #   --planning-dir <dir>  Override the .planning dir (default: <repo>/.planning).
-#   --progress-md <file>  Override PROGRESS.md (default: <repo>/.implementation/tasks/PROGRESS.md).
+#   --progress-md <file>  Override PROGRESS.md path (legacy; engine-clear no longer reads it).
+#   --state-json <file>   Override state.json path (default: <repo>/.implementation/state.json).
 #   --pr-verdict <file>   File containing the pr-review-verdict/v1 JSON (raw or HTML-comment-wrapped).
 #   --pr-standards-verdict <file>  File with the pr-standards-verdict/v1 JSON (raw or HTML-comment-wrapped).
 #   --pr <N>              PR number, for the log record (else read from the verdict payload).
@@ -54,6 +55,7 @@ EPIC=""
 FIXTURE_DIR=""
 PLANNING_DIR=""
 PROGRESS_MD=""
+STATE_JSON=""
 PR_VERDICT_FILE=""
 PR_STD_VERDICT_FILE=""
 PR_NUMBER=""
@@ -71,6 +73,7 @@ while [[ $# -gt 0 ]]; do
     --fixture-dir)  FIXTURE_DIR="${2:-}"; shift 2 ;;
     --planning-dir) PLANNING_DIR="${2:-}"; shift 2 ;;
     --progress-md)  PROGRESS_MD="${2:-}"; shift 2 ;;
+    --state-json)   STATE_JSON="${2:-}"; shift 2 ;;
     --pr-verdict)   PR_VERDICT_FILE="${2:-}"; shift 2 ;;
     --pr-standards-verdict) PR_STD_VERDICT_FILE="${2:-}"; shift 2 ;;
     --pr)           PR_NUMBER="${2:-}"; shift 2 ;;
@@ -92,10 +95,12 @@ if [[ -n "$FIXTURE_DIR" ]]; then
   [[ -d "$FIXTURE_DIR" ]] || die "fixture dir not found: $FIXTURE_DIR"
   : "${PLANNING_DIR:=${FIXTURE_DIR}/.planning}"
   : "${PROGRESS_MD:=${FIXTURE_DIR}/.implementation/tasks/PROGRESS.md}"
+  : "${STATE_JSON:=${FIXTURE_DIR}/.implementation/state.json}"
   NO_GIT=1
 else
   : "${PLANNING_DIR:=${REPO_ROOT}/.planning}"
   : "${PROGRESS_MD:=${REPO_ROOT}/.implementation/tasks/PROGRESS.md}"
+  : "${STATE_JSON:=${REPO_ROOT}/.implementation/state.json}"
 fi
 
 if [[ -z "$LOG_FILE" ]]; then
@@ -287,66 +292,60 @@ gate_readiness() {
 
 # ---------------------------------------------------------------------------
 # Gate: engine-clear  (criterion 6 — structural)
-# PROGRESS.md `## Awaiting PR merge` carries no live slice AND `## Active bugs`
-# carries no UN-dispositioned bug.
-#
-# Disposition is a semantic call the engine already records via a maintained
-# italic clear-marker leading each section — historical/archived bullets stay
-# listed for the record. Recognized marker forms (case-insensitive): `_None
-# active._` / `_None._` / `_Empty._` and the natural `_No ... active._` family
-# (e.g. `_No other bugs active._`) the engine ledger also uses — hardened
-# 2026-06-21 after the latter wording produced a benign recurrent false-fail
-# (NORTH-STAR § Why #4: a predictably-benign recurrent false-fail = a
-# mis-specified gate; fix the gate, don't work around it). This gate keys on
-# that marker (the same signal the Conductor reads), and does NOT re-judge each
-# archived bullet. The marker is treated as authoritative; if it is ever wrong
-# while live bullets remain, that is an erosion signal the verdict log surfaces.
-# A section with live bullets and NO clear-marker fails.
+# Re-pointed in BRIEF-LOE-012 cutover: PROGRESS.md deleted; now reads primary
+# sources directly:
+#   awaiting-empty  → state.json awaitingMerge[] must be empty
+#   no-active-bugs  → BUG-*.md files in tasks dir with "status: open" must be 0
 # ---------------------------------------------------------------------------
-section_body() {
-  # Print lines of $PROGRESS_MD strictly between header "## $1" and the next "## ".
-  awk -v h="## $1" '
-    $0==h {f=1; next}
-    f && /^## / {f=0}
-    f {print}
-  ' "$PROGRESS_MD"
-}
-
-# A section is "clear" if it carries an explicit empty/none italic marker, or it
-# has no live bullets of the given kind.
-section_clear() {
-  # $1 section-body  $2 bullet-regex  -> echoes "clear" or "<n> bullets"
-  local body="$1" bullet_re="$2" marker bullets
-  # Recognized clear-markers: _None_ / _Empty_ / the _No ... active_ family.
-  marker="$(printf '%s\n' "$body" | grep -ciE '_(none|empty|no[a-z0-9 ,.'"'"'-]*active)' || true)"
-  bullets="$(printf '%s\n' "$body" | grep -cE "$bullet_re" || true)"
-  if [[ "${marker:-0}" -gt 0 || "${bullets:-0}" -eq 0 ]]; then
-    echo "clear"
-  else
-    echo "${bullets} bullets"
-  fi
-}
-
 gate_engine_clear() {
-  if [[ ! -f "$PROGRESS_MD" ]]; then
-    report_gate "engine-clear:progress-md" fail "PROGRESS.md not found: $PROGRESS_MD" "{}"
-    return
+  # ── awaiting-empty: read awaitingMerge[] from state.json ──────────────────
+  if [[ ! -f "$STATE_JSON" ]]; then
+    report_gate "engine-clear:awaiting-empty" fail "state.json not found: $STATE_JSON" "{}"
+    # still try the bug check
+  else
+    local aw_count aw_json
+    aw_count="$(python3 - "$STATE_JSON" <<'PYEOF'
+import json, sys
+try:
+  data = json.load(open(sys.argv[1]))
+  print(len(data.get("awaitingMerge", [])))
+except Exception as e:
+  sys.stderr.write(f"error reading state.json: {e}\n")
+  sys.exit(2)
+PYEOF
+)"
+    aw_json="{\"awaiting_count\":${aw_count:-0}}"
+    if [[ "${aw_count:-0}" -eq 0 ]]; then
+      report_gate "engine-clear:awaiting-empty" pass "" "$aw_json" ""
+    else
+      report_gate "engine-clear:awaiting-empty" fail "${aw_count} record(s) in awaitingMerge — engine has an in-flight PR" "$aw_json" ""
+    fi
   fi
-  local aw bug aw_raw bug_raw
-  aw_raw="$(section_body 'Awaiting PR merge')"
-  bug_raw="$(section_body 'Active bugs')"
-  aw="$(section_clear "$aw_raw" '^- \*\*PR ')"
-  bug="$(section_clear "$bug_raw" '^- \*\*BUG-')"
 
-  if [[ "$aw" == "clear" ]]; then
-    report_gate "engine-clear:awaiting-empty" pass "" "{\"awaiting\":\"clear\"}" "$aw_raw"
-  else
-    report_gate "engine-clear:awaiting-empty" fail "${aw} awaiting merge, no clear-marker" "{\"awaiting\":\"${aw}\"}" "$aw_raw"
+  # ── no-active-bugs: query BUG-*.md files for status: open ─────────────────
+  # Active bugs = QUERY over BUG-* front matter (§9.1 — not stored in state.json).
+  # Derive tasks dir from STATE_JSON location: dirname(STATE_JSON)/../tasks
+  # This works for both real-repo and fixture modes (STATE_JSON is always set above).
+  local tasks_dir
+  tasks_dir="$(dirname "$STATE_JSON")/tasks"
+
+  local bug_open_count=0
+  local bug_names=""
+  if [[ -d "$tasks_dir" ]]; then
+    while IFS= read -r -d '' bugfile; do
+      # Check status: open in front-matter (first 30 lines, case-insensitive)
+      if head -30 "$bugfile" | grep -qiE '^status:[[:space:]]*open'; then
+        bug_open_count=$(( bug_open_count + 1 ))
+        bug_names="${bug_names} $(basename "$bugfile")"
+      fi
+    done < <(find "$tasks_dir" -maxdepth 1 -name 'BUG-*.md' -print0 2>/dev/null)
   fi
-  if [[ "$bug" == "clear" ]]; then
-    report_gate "engine-clear:no-active-bugs" pass "" "{\"active_bugs\":\"clear\"}" "$bug_raw"
+
+  local bug_json="{\"open_bugs\":${bug_open_count}}"
+  if [[ "$bug_open_count" -eq 0 ]]; then
+    report_gate "engine-clear:no-active-bugs" pass "" "$bug_json" ""
   else
-    report_gate "engine-clear:no-active-bugs" fail "${bug} active, no clear-marker" "{\"active_bugs\":\"${bug}\"}" "$bug_raw"
+    report_gate "engine-clear:no-active-bugs" fail "${bug_open_count} open BUG file(s):${bug_names}" "$bug_json" ""
   fi
 }
 
