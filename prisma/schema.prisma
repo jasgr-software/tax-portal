@@ -163,8 +163,10 @@ model Engagement {
   // DECISION-A: nullable until the prospect signs up (EPIC-004 back-fills this)
   clientUserId          String?   @db.UniqueIdentifier
   clientUser            User?     @relation(fields: [clientUserId], references: [id], onDelete: NoAction)
-  // Status: 'New' (default) | 'In Progress' — full transitions deferred to EPIC-008
-  // Valid values: 'New' | 'In Progress'
+  // Status: 'New' (default) | 'In Progress' | 'Review' | 'Complete' — EPIC-010 adds Review + Complete
+  // Valid values: 'New' | 'In Progress' | 'Review' | 'Complete'
+  // CHECK constraint enforcing the 4-value set lives in Track B (db/migrations/0004-engagement-status-check.sql)
+  // CS-GEN-002: additive — extends the prior 2-value set without forking.
   status                String    @default("New") @db.NVarChar(20)
   // ─── Onboarding state columns (DECISION-B) ───────────────────────────────
   // letterSignedAt: NULL = unsigned (gate closed); non-null = gate open (AC-ONBD-002-01/-02/-03)
@@ -176,6 +178,14 @@ model Engagement {
   // DECISION-I (EPIC-006): questionnaire-step satisfaction marker (DECISION-B family)
   // NULL = step-2 not satisfied; non-null = questionnaire submitted (AC-ONBD-003-03/-04)
   questionnaireSubmittedAt DateTime? @db.DateTimeOffset
+  // ─── EPIC-010 lifecycle confirmation columns (DECISION-010-A) ─────────────
+  // DECISION-010-A: delivery and filing confirmations stored as nullable DATETIMEOFFSET columns.
+  // NULL = not confirmed; non-null = confirmed timestamp (confirming actor in ADR-019 audit row).
+  // No new client-scoped table → reuses sec.pol_Engagement, no new policy (CS-GEN-002).
+  // AC-LIFE-005-03: → Complete gated on BOTH confirmations non-null.
+  // DECISION-010-B: reopen clears both (so a future re-completion re-gates on both).
+  deliveryConfirmedAt   DateTime? @db.DateTimeOffset
+  filingConfirmedAt     DateTime? @db.DateTimeOffset
   // ─── Timestamps ───────────────────────────────────────────────────────────
   createdAt             DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt             DateTime  @updatedAt @db.DateTimeOffset

@@ -239,3 +239,116 @@ test.describe("[AC-AUTH-010-01/-02] cross-app: global sign-out — clearing sess
     ).toBe(false);
   });
 });
+
+// ─── AC-LIFE-003-03 / AC-LIFE-006-02: CLIENT redirected away from admin lifecycle surface ──
+
+/**
+ * TASK-010-004: Client navigating to the admin engagement lifecycle (transition/reopen) surface
+ * is redirected away. The lifecycle controls live in apps/admin only (ADR-006, ADR-010).
+ *
+ * A CLIENT navigating to admin's /engagements/[id] (the transition surface) hits the
+ * middleware's ACCOUNTANT-only enforcement and is redirected back to portal.
+ *
+ * AC-LIFE-003-03: A client cannot change an engagement's status — the admin transition
+ *   surface is unreachable from apps/portal (no UI affordance + cross-app redirect).
+ * AC-LIFE-006-02: A client cannot reopen a completed engagement — reopen is admin-only.
+ *
+ * // ADR-010: client navigating to admin transition surface is redirected
+ * // ADR-006: lifecycle controls are admin-only
+ * // CS-GEN-003: AC ids in comments
+ */
+test.describe("[AC-LIFE-003-03] [AC-LIFE-006-02] cross-app: CLIENT navigating to admin engagement lifecycle surface is redirected", () => {
+  test.afterEach(async ({ page }) => {
+    await clearSession(page);
+  });
+
+  test("[AC-LIFE-003-03] [AC-LIFE-006-02] CLIENT session cannot reach the admin engagement transition/lifecycle page", async ({
+    page,
+    request,
+  }) => {
+    // Given: a signed-in CLIENT session
+    await setupClientSession(page, request);
+
+    // When: CLIENT navigates to the admin engagement lifecycle surface
+    // (the transition/reopen controls for a specific engagement)
+    // We use a placeholder engagement id — the middleware enforces role BEFORE the page loads.
+    // ADR-010: The admin middleware rejects non-ACCOUNTANT sessions.
+    const fakeEngagementId = "00000000-0000-0000-0000-000000000001";
+    let redirectToPortalOrSignIn = false;
+    let adminEngagementPageServed = false;
+
+    page.on("response", (response) => {
+      const loc = response.headers()["location"] ?? "";
+      // Redirect to portal or to admin sign-in counts as "redirected away"
+      if (response.status() === 307 || response.status() === 308) {
+        if (loc.startsWith(PORTAL_ORIGIN) || loc.includes("/sign-in")) {
+          redirectToPortalOrSignIn = true;
+        }
+      }
+    });
+
+    await page.goto(`${ADMIN_URL}/engagements/${fakeEngagementId}`, {
+      waitUntil: "commit",
+    });
+
+    const finalUrl = new URL(page.url());
+
+    // The engagement lifecycle management panel must NOT be served to the CLIENT.
+    // data-testid="engagement-status-panel" is the admin-only lifecycle UI (EngagementStatusPanel).
+    const statusPanel = page.locator('[data-testid="engagement-status-panel"]');
+    const statusPanelCount = await statusPanel.count();
+    if (statusPanelCount === 0) {
+      adminEngagementPageServed = false;
+    } else {
+      adminEngagementPageServed = true;
+    }
+
+    // Then: the CLIENT did NOT get served the admin engagement lifecycle page
+    expect(
+      adminEngagementPageServed,
+      "[AC-LIFE-003-03] CLIENT must NOT be served the admin engagement lifecycle panel (transition/reopen controls)",
+    ).toBe(false);
+
+    // The admin middleware should have redirected the CLIENT away
+    // (either a redirect was observed OR the final URL is not on the admin engagement path)
+    const finalIsAdminEngagementPage =
+      finalUrl.origin === ADMIN_ORIGIN &&
+      finalUrl.pathname.startsWith("/engagements/") &&
+      !finalUrl.pathname.includes("/sign-in");
+
+    // Either a redirect was seen OR we did not end up on the admin engagement page
+    expect(
+      redirectToPortalOrSignIn || !finalIsAdminEngagementPage,
+      "[AC-LIFE-003-03] CLIENT navigating to admin engagement lifecycle surface must be redirected " +
+        `(final URL: ${page.url()}, redirect seen: ${redirectToPortalOrSignIn})`,
+    ).toBe(true);
+  });
+
+  test("[AC-LIFE-003-03] [AC-LIFE-006-02] CLIENT on portal /dashboard has no affordance pointing to the admin transition URL", async ({
+    page,
+    request,
+  }) => {
+    // Given: a signed-in CLIENT session on the portal dashboard
+    await setupClientSession(page, request);
+
+    // When: CLIENT navigates to /dashboard
+    await page.goto(`${PORTAL_URL}/dashboard`);
+
+    // Then: the page content does NOT contain links to the admin transition surface.
+    // AC-LIFE-003-03, AC-LIFE-006-02: no affordance pointing at admin lifecycle controls.
+    const bodyHtml = await page.content();
+
+    // No admin URLs in the portal page content
+    expect(
+      bodyHtml,
+      "[AC-LIFE-003-03] Portal /dashboard must not contain links to the admin origin",
+    ).not.toContain(ADMIN_ORIGIN);
+
+    // No transition or reopen buttons
+    const transitionButtons = page.locator(
+      '[data-testid="advance-status-button"], [data-testid="transition-button"], ' +
+        '[data-testid="reopen-engagement-button"]',
+    );
+    await expect(transitionButtons).toHaveCount(0);
+  });
+});

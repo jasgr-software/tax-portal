@@ -88,6 +88,13 @@ export { getAdminPool, closeAdminPool } from "./admin-connection.js";
 // recordLetterSignatureAsClient — REQUEST POOL signature write (BLOCK-governed; production path)
 // getEngagementStatusForAdmin   — admin pool status-only read for admin surface (TASK-008-003, AC-ONBD-006-01 UI)
 //
+// EPIC-010 lifecycle seam (TASK-010-001):
+// transitionEngagementStatus    — accountant-initiated forward transition (admin pool, DECISION-010-C/D/F)
+// confirmDelivery               — records delivery confirmation timestamp (admin pool, DECISION-010-A)
+// confirmFiling                 — records filing confirmation timestamp (admin pool, DECISION-010-A)
+// reopenEngagement              — Complete → In Progress + clear confirms (admin pool, DECISION-010-B)
+// LIFECYCLE_ALLOWED_TRANSITIONS — allowed forward edges map (DECISION-010-D)
+//
 // NOT on this barrel (substrate/test-only):
 //   recordLetterSignature — admin-pool write that bypasses BLOCK; import from the source module directly.
 export type {
@@ -95,6 +102,11 @@ export type {
   CreateEngagementResult,
   EngagementItem,
   RecordLetterSignatureInput,
+  // EPIC-010 lifecycle types
+  TransitionEngagementInput,
+  TransitionResult,
+  ConfirmEngagementInput,
+  ConfirmResult,
 } from "./repositories/engagement.js";
 export {
   createEngagement,
@@ -103,6 +115,16 @@ export {
   recordLetterSignatureAsClient,
   // Admin-pool status-only read for the admin per-engagement surface (TASK-008-003, AC-ONBD-006-01 UI)
   getEngagementStatusForAdmin,
+  // Admin-pool full lifecycle state read (TASK-010-003, AC-LIFE-001-03, AC-LIFE-005-01/-02)
+  getEngagementForAdmin,
+  // Admin-pool full-visibility engagement list (TASK-010-003, AC-AUTH-002-01/-02)
+  listEngagementsForAdmin,
+  // EPIC-010 lifecycle seam (TASK-010-001)
+  LIFECYCLE_ALLOWED_TRANSITIONS,
+  transitionEngagementStatus,
+  confirmDelivery,
+  confirmFiling,
+  reopenEngagement,
 } from "./repositories/engagement.js";
 
 // Onboarding read model (EPIC-005 / TASK-005-005)
@@ -218,6 +240,17 @@ export type {
   ChecklistReadModel,
 } from "./checklist.js";
 export { resolveChecklist } from "./checklist.js";
+
+// Client-facing engagement status label mapping (EPIC-010 / TASK-010-002)
+// clientFacingLabel     — maps the four internal stages to the three client-facing labels
+//                         (AC-LIFE-002-01/-02/-03, AC-LIFE-004-01/-02/-03, REQ-LIFE-002/-004)
+// CLIENT_FACING_LABELS  — the three allowed output label values (read-only constant)
+// ClientFacingLabel     — the union type "Received" | "In Progress" | "Completed"
+//
+// DECISION-010-E: mapping fixed in v1; not accountant-configurable (OQ-002 resolved).
+// CS-TS-003: placed in packages/db (shared) so both portal + admin can consume it.
+export type { ClientFacingLabel } from "./engagement-label.js";
+export { clientFacingLabel, CLIENT_FACING_LABELS } from "./engagement-label.js";
 
 // Onboarding completion engine (EPIC-008 / TASK-008-001)
 // isOnboardingComplete           — pure predicate: true iff all three step done flags are true
