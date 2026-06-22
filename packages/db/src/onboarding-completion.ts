@@ -224,6 +224,9 @@ export async function processOnboardingCompletion(
     letterSignatureEvidence: null,
     letterTemplateSnapshot: null,
     questionnaireSubmittedAt: engagement.questionnaireSubmittedAt,
+    // DECISION-010-A (EPIC-010): new confirmation columns — not needed for onboarding evaluation
+    deliveryConfirmedAt: null,
+    filingConfirmedAt: null,
     createdAt: new Date(), // not needed for completion evaluation
     updatedAt: new Date(), // not needed for completion evaluation
   };

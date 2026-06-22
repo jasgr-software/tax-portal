@@ -168,6 +168,9 @@ type EngagementRow = {
   letterSignatureEvidence: string | null;
   letterTemplateSnapshot: string | null;
   questionnaireSubmittedAt: Date | null;
+  // DECISION-010-A (EPIC-010): lifecycle confirmation timestamps (optional — may not be selected)
+  deliveryConfirmedAt?: Date | null;
+  filingConfirmedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -609,6 +612,9 @@ function mapEngagementRow(row: EngagementRow): EngagementItem {
     letterSignatureEvidence: row.letterSignatureEvidence,
     letterTemplateSnapshot: row.letterTemplateSnapshot,
     questionnaireSubmittedAt: row.questionnaireSubmittedAt ?? null,
+    // DECISION-010-A (EPIC-010): lifecycle confirmation timestamps
+    deliveryConfirmedAt: row.deliveryConfirmedAt ?? null,
+    filingConfirmedAt: row.filingConfirmedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

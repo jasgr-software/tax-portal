@@ -13,6 +13,17 @@
  * EPIC-006 (TASK-006-001): Added questionnaireSubmittedAt field to EngagementItem.
  *   The questionnaire step's done flag is derived from this field in the onboarding read model.
  *
+ * EPIC-010 (TASK-010-001): Added lifecycle transition/confirm/reopen seam.
+ *   - transitionEngagementStatus — accountant-only forward transition (ADR-003 §7, DECISION-010-F)
+ *   - confirmDelivery / confirmFiling — record delivery/filing confirmation timestamps
+ *   - reopenEngagement — Complete → In Progress, clears both confirmation timestamps (DECISION-010-B)
+ *   All writes: admin pool inside withAuditTransaction; guarded UPDATE + @@ROWCOUNT (DECISION-010-C).
+ *   AC-LIFE-001-01/-02/-03: status invariant enforced at DB (CHECK) + app (allowed-edges map).
+ *   AC-LIFE-003-02/-03: no auto-advance; request-pool CLIENT cannot UPDATE status (BLOCK).
+ *   AC-LIFE-005-03: → Complete gated on BOTH deliveryConfirmedAt + filingConfirmedAt non-null.
+ *   AC-LIFE-006-02: CLIENT cannot reopen (BLOCK on request pool).
+ *   ADR-003, ADR-005, ADR-019, CS-TS-001, CS-TS-002, CS-SQL-001, CS-SQL-003.
+ *
  * Pool strategy:
  *   - createEngagement: ADMIN POOL (app_admin_role, RLS-exempt).
  *     Engagement is created at accept-time inside withAuditTransaction (TASK-005-003),
@@ -46,6 +57,9 @@ import mssqlPkg from "mssql";
 import { getAdminPool } from "../admin-connection.js";
 import { parseSqlServerUrl } from "../sql-server-url.js";
 import { db } from "../client.js";
+// ADR-019: audit writes; ADR-003 §7: admin pool inside withAuditTransaction for privileged writes
+import { withAuditTransaction, recordAuthEvent } from "../audit.js";
+import type { AuditActor } from "../audit.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
 
@@ -81,13 +95,15 @@ export interface CreateEngagementResult {
  * AC-ONBD-002-01/-02: letterSignedAt is the single dynamic onboarding-state field;
  *   NULL = unsigned (gate closed); non-null = signed (gate open).
  * AC-ONBD-002-04: letterSignatureEvidence + letterTemplateSnapshot are recorded on sign.
+ * DECISION-010-A (EPIC-010): deliveryConfirmedAt + filingConfirmedAt lifecycle confirmation timestamps.
+ *   NULL = not confirmed; non-null = confirmed. Both non-null gates the → Complete transition.
  */
 export interface EngagementItem {
   id: string;
   engagementRequestId: string;
   /** DECISION-A (deferred): nullable until back-filled on sign-up. */
   clientUserId: string | null;
-  /** 'New' | 'In Progress' — EPIC-008 owns the status transition. */
+  /** 'New' | 'In Progress' | 'Review' | 'Complete' — EPIC-010 adds Review + Complete. */
   status: string;
   /** NULL = unsigned (gate closed); non-null = gate open (AC-ONBD-002-01/-02/-03). */
   letterSignedAt: Date | null;
@@ -97,6 +113,10 @@ export interface EngagementItem {
   letterTemplateSnapshot: string | null;
   /** DECISION-I (EPIC-006): NULL = questionnaire step not satisfied; non-null = satisfied (AC-ONBD-003-03/-04). */
   questionnaireSubmittedAt: Date | null;
+  /** DECISION-010-A (EPIC-010): NULL = delivery not confirmed; non-null = confirmed timestamp. */
+  deliveryConfirmedAt: Date | null;
+  /** DECISION-010-A (EPIC-010): NULL = filing not confirmed; non-null = confirmed timestamp. */
+  filingConfirmedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -129,6 +149,10 @@ type EngagementRow = {
   letterTemplateSnapshot: string | null;
   /** DECISION-I (EPIC-006): questionnaire-step satisfaction marker. */
   questionnaireSubmittedAt: Date | null;
+  /** DECISION-010-A (EPIC-010): delivery confirmation timestamp. */
+  deliveryConfirmedAt?: Date | null;
+  /** DECISION-010-A (EPIC-010): filing confirmation timestamp. */
+  filingConfirmedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -139,8 +163,11 @@ type EngagementRow = {
  *
  * Two findUnique overloads: by id.
  * Also exposes findFirst (no-arg) for the getMyEngagement resolver.
+ *
+ * CS-TS-001: request-scoped reads go through the `db` wrapper (SESSION_CONTEXT set by wrapper).
  */
 function dbAsEngagementClient() {
+  // CS-TS-001: Only through the packages/db wrapper (SESSION_CONTEXT set by the extends client).
   return db as unknown as {
     engagement: {
       findUnique: (args: { where: { id: string } }) => Promise<EngagementRow | null>;
@@ -448,6 +475,121 @@ export async function recordLetterSignatureAsClient(input: RecordLetterSignature
   }
 }
 
+// ─── Read: getEngagementForAdmin (admin pool — RLS-exempt, lifecycle state) ───
+
+/**
+ * Returns the full lifecycle state of an Engagement for the admin surface.
+ *
+ * Used by: apps/admin engagement detail page (TASK-010-003) to display
+ *   current status + deliveryConfirmedAt + filingConfirmedAt for the
+ *   lifecycle control panel.
+ *
+ * ADR-003 §7: Admin pool — correct for admin-surface reads without SESSION_CONTEXT.
+ * ADR-006: Admin surface only — not accessible from apps/portal.
+ * ADR-005: No new entity/column/policy. Reads existing Engagement columns.
+ *
+ * Returns null when the engagement is not found.
+ *
+ * @param engagementId — the Engagement.id from the URL route param (server-resolved).
+ */
+export async function getEngagementForAdmin(
+  engagementId: string,
+): Promise<{
+  id: string;
+  status: string;
+  deliveryConfirmedAt: Date | null;
+  filingConfirmedAt: Date | null;
+  engagementRequestId: string;
+} | null> {
+  const pool = await getAdminPool();
+  const req = new MssqlRequest(pool);
+  req.input("engagementId", engagementId);
+
+  const result = await req.query<{
+    id: string;
+    status: string;
+    deliveryConfirmedAt: Date | null;
+    filingConfirmedAt: Date | null;
+    engagementRequestId: string;
+  }>(
+    `SELECT [id], [status], [deliveryConfirmedAt], [filingConfirmedAt], [engagementRequestId]
+     FROM [dbo].[Engagement]
+     WHERE [id] = @engagementId`
+  );
+
+  const row = result.recordset[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    status: row.status,
+    deliveryConfirmedAt: row.deliveryConfirmedAt ?? null,
+    filingConfirmedAt: row.filingConfirmedAt ?? null,
+    engagementRequestId: row.engagementRequestId,
+  };
+}
+
+// ─── Read: listEngagementsForAdmin (admin pool — RLS-exempt, full-visibility list) ──
+
+/**
+ * Returns a full-visibility list of all Engagements (with request details) for the admin surface.
+ *
+ * AC-AUTH-002-01: The accountant sees engagements regardless of which client owns them.
+ * AC-AUTH-002-02: The admin engagement list is accessible to the accountant.
+ *
+ * ADR-003 §7: Admin pool — RLS-exempt for accountant use (no SESSION_CONTEXT needed).
+ * ADR-006: Admin surface only — not accessible from apps/portal.
+ *
+ * Returns an empty array when no engagements exist.
+ */
+export async function listEngagementsForAdmin(): Promise<Array<{
+  id: string;
+  status: string;
+  engagementRequestId: string;
+  clientFirstName: string | null;
+  clientLastName: string | null;
+  clientEmail: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}>> {
+  const pool = await getAdminPool();
+  const req = new MssqlRequest(pool);
+
+  const result = await req.query<{
+    id: string;
+    status: string;
+    engagementRequestId: string;
+    clientFirstName: string | null;
+    clientLastName: string | null;
+    clientEmail: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }>(
+    `SELECT e.[id],
+            e.[status],
+            e.[engagementRequestId],
+            er.[firstName] AS clientFirstName,
+            er.[lastName]  AS clientLastName,
+            er.[email]     AS clientEmail,
+            e.[createdAt],
+            e.[updatedAt]
+     FROM [dbo].[Engagement] e
+     LEFT JOIN [dbo].[EngagementRequest] er ON er.[id] = e.[engagementRequestId]
+     ORDER BY e.[createdAt] DESC`
+  );
+
+  return result.recordset.map((row) => ({
+    id: row.id,
+    status: row.status,
+    engagementRequestId: row.engagementRequestId,
+    clientFirstName: row.clientFirstName ?? null,
+    clientLastName: row.clientLastName ?? null,
+    clientEmail: row.clientEmail ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }));
+}
+
 // ─── Read: getEngagementStatusForAdmin (admin pool — RLS-exempt, status-only) ─
 
 /**
@@ -494,6 +636,310 @@ export async function getEngagementStatusForAdmin(
   return { id: row.id, status: row.status };
 }
 
+// ─── Lifecycle seam types (EPIC-010 / TASK-010-001) ──────────────────────────
+
+/**
+ * Allowed forward transition edges (DECISION-010-D).
+ * Arbitrary backward/skip moves are not exposed by this seam.
+ * EPIC-008 automatic New → In Progress is handled separately by processOnboardingCompletion.
+ *
+ * CS-GEN-002: Additive — no prior status values removed.
+ */
+export const LIFECYCLE_ALLOWED_TRANSITIONS: ReadonlyMap<string, string> = new Map([
+  ["New", "In Progress"],
+  ["In Progress", "Review"],
+  ["Review", "Complete"],
+  // Reopen is exposed via reopenEngagement (not via transitionEngagementStatus)
+]);
+
+/**
+ * Input for accountant-initiated lifecycle transitions (DECISION-010-F).
+ * All writes use the admin pool inside withAuditTransaction.
+ *
+ * AC-LIFE-001-03 / AC-LIFE-003-02: accountant drives the forward steps.
+ * ADR-003 §7: admin pool is correct for accountant writes not in a request-pool context.
+ */
+export interface TransitionEngagementInput {
+  /** The Engagement.id to transition (server-resolved — never client-supplied). */
+  engagementId: string;
+  /** Expected current status (guarded WHERE clause — DECISION-010-C). */
+  fromStatus: string;
+  /** Target status (must be in LIFECYCLE_ALLOWED_TRANSITIONS). */
+  toStatus: string;
+  /** The accountant's identity (from server-verified session — ADR-003, ADR-019 §2). */
+  actor: AuditActor;
+  /** Source surface for audit record (ADR-019). */
+  sourceSurface: "admin";
+}
+
+/** Result of transitionEngagementStatus. */
+export interface TransitionResult {
+  /**
+   * true  — the UPDATE succeeded (rowsAffected = 1).
+   * false — guard failed: engagement not found, wrong status, or concurrent update won the race.
+   */
+  transitioned: boolean;
+}
+
+/**
+ * Input for recording a delivery or filing confirmation (DECISION-010-A).
+ * AC-LIFE-005-03: both confirmations required before → Complete.
+ */
+export interface ConfirmEngagementInput {
+  /** The Engagement.id to confirm (server-resolved). */
+  engagementId: string;
+  /** The accountant's identity (from server-verified session). */
+  actor: AuditActor;
+  /** Source surface for audit record. */
+  sourceSurface: "admin";
+}
+
+/** Result of a confirmation write. */
+export interface ConfirmResult {
+  /** true = confirmation recorded; false = engagement not found or already confirmed. */
+  confirmed: boolean;
+}
+
+// ─── Write: transitionEngagementStatus (admin pool — accountant-only) ─────────
+
+/**
+ * Accountant-initiated lifecycle transition (DECISION-010-C/D/F).
+ *
+ * Allowed edges (DECISION-010-D): New→In Progress, In Progress→Review, Review→Complete.
+ * For Review→Complete: ALSO requires deliveryConfirmedAt IS NOT NULL AND filingConfirmedAt IS NOT NULL
+ * (AC-LIFE-005-03). The guard returns { transitioned: false } if either confirmation is missing.
+ *
+ * Fire-once guard: UPDATE WHERE id=@id AND status=@from + @@ROWCOUNT (DECISION-010-C).
+ * Atomic with audit INSERT (ADR-019, withAuditTransaction).
+ *
+ * ADR-003 §7: admin pool — accountant write, no request-pool SESSION_CONTEXT needed.
+ * ADR-005:    BLOCK predicate on the request pool prevents CLIENT from calling this path.
+ *             (This function runs on the admin pool which is BLOCK-exempt — correct.)
+ * ADR-019:    Audit event recorded in the same transaction as the status UPDATE.
+ * CS-TS-001:  Request-scoped reads go through the db wrapper; this is an admin-pool write.
+ * CS-TS-002:  Admin pool only through getAdminPool() inside withAuditTransaction.
+ * CS-GEN-003: // ADR-003, // ADR-005, // ADR-019, // DECISION-010-C, // DECISION-010-D
+ *
+ * @returns { transitioned: true }  — UPDATE succeeded; audit row inserted.
+ * @returns { transitioned: false } — Guard failed (wrong status, missing confirmations, not found).
+ */
+export async function transitionEngagementStatus(
+  input: TransitionEngagementInput,
+): Promise<TransitionResult> {
+  // ADR-003, DECISION-010-D: validate the edge is in the allowed-transitions map before touching DB
+  const allowedTo = LIFECYCLE_ALLOWED_TRANSITIONS.get(input.fromStatus);
+  if (allowedTo !== input.toStatus) {
+    // Not an allowed transition — caller guard (action layer is the trust fence)
+    return { transitioned: false };
+  }
+
+  return withAuditTransaction(async (txn) => {
+    const updateReq = new MssqlRequest(txn);
+    updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
+    updateReq.input("fromStatus", mssqlPkg.NVarChar(20), input.fromStatus);
+    updateReq.input("toStatus", mssqlPkg.NVarChar(20), input.toStatus);
+
+    let sql: string;
+
+    if (input.toStatus === "Complete") {
+      // AC-LIFE-005-03: → Complete additionally requires BOTH confirmations non-null
+      // DECISION-010-C: guarded UPDATE WHERE status=@from AND both confirms non-null
+      sql = `
+        UPDATE [dbo].[Engagement]
+        SET [status] = @toStatus,
+            [updatedAt] = SYSDATETIMEOFFSET()
+        WHERE [id] = @id
+          AND [status] = @fromStatus
+          AND [deliveryConfirmedAt] IS NOT NULL
+          AND [filingConfirmedAt]   IS NOT NULL;
+        SELECT @@ROWCOUNT AS rowsAffected;
+      `;
+    } else {
+      // DECISION-010-C: standard guarded UPDATE WHERE status=@from
+      sql = `
+        UPDATE [dbo].[Engagement]
+        SET [status] = @toStatus,
+            [updatedAt] = SYSDATETIMEOFFSET()
+        WHERE [id] = @id
+          AND [status] = @fromStatus;
+        SELECT @@ROWCOUNT AS rowsAffected;
+      `;
+    }
+
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(sql);
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected === 0) {
+      // Guard fired: wrong status, missing confirmations, or engagement not found.
+      // withAuditTransaction will commit a no-op.
+      return { transitioned: false };
+    }
+
+    // ADR-019: audit event — same transaction as the status UPDATE
+    await recordAuthEvent({
+      actor: input.actor,
+      action: "engagement.transition",  // DECISION-010-G: reuse engagement.transition for forward steps
+      targetType: "Engagement",
+      targetId: input.engagementId,
+      sourceSurface: input.sourceSurface,
+      outcome: "success",
+      transaction: txn,
+    });
+
+    return { transitioned: true };
+  });
+}
+
+// ─── Write: confirmDelivery (admin pool — accountant-only) ────────────────────
+
+/**
+ * Records the delivery confirmation timestamp on an Engagement (DECISION-010-A).
+ *
+ * AC-LIFE-005-03: Both delivery and filing must be confirmed before → Complete.
+ * Sets deliveryConfirmedAt = NOW() if currently NULL (idempotent-safe via IS NULL guard).
+ *
+ * ADR-003 §7: admin pool.
+ * ADR-019: audit event in the same transaction.
+ * DECISION-010-G: audit action 'engagement.confirm_delivery'.
+ */
+export async function confirmDelivery(input: ConfirmEngagementInput): Promise<ConfirmResult> {
+  return withAuditTransaction(async (txn) => {
+    const updateReq = new MssqlRequest(txn);
+    updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(`
+      UPDATE [dbo].[Engagement]
+      SET [deliveryConfirmedAt] = SYSDATETIMEOFFSET(),
+          [updatedAt]           = SYSDATETIMEOFFSET()
+      WHERE [id] = @id
+        AND [deliveryConfirmedAt] IS NULL;
+      SELECT @@ROWCOUNT AS rowsAffected;
+    `);
+
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected === 0) {
+      return { confirmed: false };
+    }
+
+    await recordAuthEvent({
+      actor: input.actor,
+      action: "engagement.confirm_delivery",  // DECISION-010-G
+      targetType: "Engagement",
+      targetId: input.engagementId,
+      sourceSurface: input.sourceSurface,
+      outcome: "success",
+      transaction: txn,
+    });
+
+    return { confirmed: true };
+  });
+}
+
+// ─── Write: confirmFiling (admin pool — accountant-only) ─────────────────────
+
+/**
+ * Records the filing confirmation timestamp on an Engagement (DECISION-010-A).
+ *
+ * AC-LIFE-005-03: Both delivery and filing must be confirmed before → Complete.
+ * Sets filingConfirmedAt = NOW() if currently NULL (idempotent-safe via IS NULL guard).
+ *
+ * ADR-003 §7: admin pool.
+ * ADR-019: audit event in the same transaction.
+ * DECISION-010-G: audit action 'engagement.confirm_filing'.
+ */
+export async function confirmFiling(input: ConfirmEngagementInput): Promise<ConfirmResult> {
+  return withAuditTransaction(async (txn) => {
+    const updateReq = new MssqlRequest(txn);
+    updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(`
+      UPDATE [dbo].[Engagement]
+      SET [filingConfirmedAt] = SYSDATETIMEOFFSET(),
+          [updatedAt]         = SYSDATETIMEOFFSET()
+      WHERE [id] = @id
+        AND [filingConfirmedAt] IS NULL;
+      SELECT @@ROWCOUNT AS rowsAffected;
+    `);
+
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected === 0) {
+      return { confirmed: false };
+    }
+
+    await recordAuthEvent({
+      actor: input.actor,
+      action: "engagement.confirm_filing",  // DECISION-010-G
+      targetType: "Engagement",
+      targetId: input.engagementId,
+      sourceSurface: input.sourceSurface,
+      outcome: "success",
+      transaction: txn,
+    });
+
+    return { confirmed: true };
+  });
+}
+
+// ─── Write: reopenEngagement (admin pool — accountant-only) ──────────────────
+
+/**
+ * Reopens a Complete engagement: Complete → In Progress (DECISION-010-B).
+ *
+ * Clears both confirmation timestamps so a future re-completion re-gates on both
+ * confirmations (deliveryConfirmedAt = NULL, filingConfirmedAt = NULL).
+ *
+ * AC-LIFE-006-02: CLIENT cannot call this (the BLOCK predicate blocks request-pool UPDATEs).
+ * DECISION-010-B: reopen target is In Progress; confirmation timestamps cleared on reopen.
+ *
+ * Fire-once guard: UPDATE WHERE status='Complete' + @@ROWCOUNT.
+ *
+ * ADR-003 §7: admin pool.
+ * ADR-019: audit event 'engagement.reopen' in the same transaction (DECISION-010-G).
+ */
+export async function reopenEngagement(
+  input: ConfirmEngagementInput,
+): Promise<{ reopened: boolean }> {
+  return withAuditTransaction(async (txn) => {
+    const updateReq = new MssqlRequest(txn);
+    updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(`
+      UPDATE [dbo].[Engagement]
+      SET [status]                = N'In Progress',
+          [deliveryConfirmedAt]   = NULL,
+          [filingConfirmedAt]     = NULL,
+          [updatedAt]             = SYSDATETIMEOFFSET()
+      WHERE [id] = @id
+        AND [status] = N'Complete';
+      SELECT @@ROWCOUNT AS rowsAffected;
+    `);
+
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected === 0) {
+      return { reopened: false };
+    }
+
+    await recordAuthEvent({
+      actor: input.actor,
+      action: "engagement.reopen",  // DECISION-010-G
+      targetType: "Engagement",
+      targetId: input.engagementId,
+      sourceSurface: input.sourceSurface,
+      outcome: "success",
+      transaction: txn,
+    });
+
+    return { reopened: true };
+  });
+}
+
 // ─── Internal: row mapper ─────────────────────────────────────────────────────
 
 function mapRow(row: {
@@ -505,6 +951,8 @@ function mapRow(row: {
   letterSignatureEvidence: string | null;
   letterTemplateSnapshot: string | null;
   questionnaireSubmittedAt?: Date | null;
+  deliveryConfirmedAt?: Date | null;
+  filingConfirmedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): EngagementItem {
@@ -517,6 +965,9 @@ function mapRow(row: {
     letterSignatureEvidence: row.letterSignatureEvidence,
     letterTemplateSnapshot: row.letterTemplateSnapshot,
     questionnaireSubmittedAt: row.questionnaireSubmittedAt ?? null,
+    // DECISION-010-A (EPIC-010): lifecycle confirmation timestamps
+    deliveryConfirmedAt: row.deliveryConfirmedAt ?? null,
+    filingConfirmedAt: row.filingConfirmedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
