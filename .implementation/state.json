@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-22T22:13:50.118Z",
-  "currentBrief": "BRIEF-010",
-  "currentPhase": "Close-prep",
-  "currentSliceDescription": "Engagement lifecycle pipeline & engagement visibility — full New→In Progress→Review→Complete, manual transitions, client labels, two-confirmation completion gate, reopen, accountant full-visibility + client own-data isolation",
-  "currentBranch": "brief-010-engagement-lifecycle-pipeline",
+  "lastUpdated": "2026-06-22T22:40:30.000Z",
+  "currentBrief": null,
+  "currentPhase": null,
+  "currentSliceDescription": null,
+  "currentBranch": null,
   "awaitingMerge": [],
   "openRetroItems": [
     {

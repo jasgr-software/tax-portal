@@ -14,10 +14,7 @@
 
 ## Current run
 
-_No active run._ EPIC-009 delivered + validated 2026-06-21 (run closed → collapsed to `## Recent outcomes`).
-The next ready slice is **EPIC-010** (Phase 3, engagement lifecycle / LIFE domain) — `depends_on` EPIC-005 ✅ +
-EPIC-008 ✅ satisfied; build order 010 → (011, 012) → 013 → 014 → 015. Re-invoke `/orchestrate EPIC-010` (or
-`/orchestrate` to auto-select). See `## Pending closeout follow-ups` for the non-blocking carries.
+_No active run._ **EPIC-010 delivered + validated 2026-06-22** (run closed → collapsed to `## Recent outcomes`). Phase 3 progress: **EPIC-009 + EPIC-010 delivered; EPIC-011..015 `planned`**. Next ready: **EPIC-011** and **EPIC-012** (both `depends_on: EPIC-010` ✅; EPIC-012 also EPIC-002 ✅/EPIC-003 ✅). Re-invoke `/orchestrate EPIC-011` (or `/orchestrate` to auto-select). See `## Pending closeout follow-ups`.
 
 ## Pending closeout follow-ups
 
@@ -52,6 +49,7 @@ EPIC-008 ✅ satisfied; build order 010 → (011, 012) → 013 → 014 → 015. 
 > One line per delivered run, newest first. Full detail: `.planning/ROADMAP.md` + `COVERAGE.md` (per-AC), the
 > merged PR, `.implementation/tasks/RETRO-NNN.md` + `HANDOFF-NNN.md`, and `tasks/done/` (per-task).
 
+- **EPIC-010** ✅ DELIVERED 2026-06-22 · PR #87 → `7afd312` · 25/25 in-scope AC · engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete (manual, server-side, audited), two-confirmation completion gate, accountant-only reopen, client-facing labels (Review hidden), + AUTH-002/003/008 feature sign-off over the reused `pol_Engagement` (incl. direct-reference proof). EPIC-008 auto-transition left intact. Standards `approve` (0 viol; drafted experimental CS-TS-004, unratified) → panel APPROVE (0 blocker/major; 5 minor+2 nit, all 7 deferred as tracked follow-ups + threads resolved) → fix SKIP → merged on green required CI. First Phase-3 lifecycle-core slice; does NOT close Phase 3. RETRO-010/HANDOFF-010.
 - **EPIC-009** ✅ DELIVERED 2026-06-21 · PR #71 → `169b09e` · 5/5 in-scope AC (vs **mock** provider) · PoC dev
   sign-in lane — REQ-AUTH-013 (sign-in/sign-out) + consolidated REQ-AUTH-010 (role-based landing); dev-only
   `(dev)/dev-sign-in/` on both surfaces + role/user switcher + global sign-out, **inert under `AUTH_PROVIDER=clerk`**
