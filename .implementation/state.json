@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-22T15:17:57.013Z",
+  "lastUpdated": "2026-06-22T16:11:00.000Z",
   "currentBrief": "BRIEF-LOE-012",
-  "currentPhase": "Close-prep",
+  "currentPhase": "Close-finalize",
   "currentSliceDescription": "structured state store (`state.json` + `events.jsonl`) + the 5 heavier `task.ts`",
   "currentBranch": "brief-LOE-012-state-store",
   "awaitingMerge": [],
@@ -117,6 +117,20 @@
       "category": "gate-design",
       "description": "`check_work_log_content` wording brittleness + late-firing-on-`done`** — `scripts/validate-gates.sh`'s literal `\"Starting implementation\"` substring grep rejected TASK-008-002's truthful synonym \"S...",
       "note": "- **[gate-design — RETRO-008 item 3, observation] `check_work_log_content` wording brittleness + late-firing-on-`done`** — `scripts/validate-gates.sh`'s literal `\"Starting implementation\"` substring grep rejected TASK-008-002's truthful synonym \"Starting TDD\" (fixed at gate-7 by the IO `Impl: io` mechanical Work-Log-wording alignment, commit `06119e2`, NOT fabrication). **Recommend:** broaden the grep to a synonym set (`Starting (implementation|work|TDD|coding)|Beginning implementation`) OR publish the exact required phrase to developers in the Dispatch-Checkpoint guidance. Secondary: the check fires only once a task flips to `done` (skipped at WIP/`review`), so the miss surfaced late at the de-WIP'd-PR CI rather than at the per-task submission gate — consider running it at submission time too. ENGINE/CI-tooling backlog; not slice-blocking.",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-017",
+      "category": "gate-design",
+      "description": "Cross-layer removal-sweep gate — BRIEF-LOE-012 panel MAJOR (orphan-after-removal). The PROGRESS.md doc-retirement sweep was scoped to 5 `.implementation/` files but PROGRESS.md had LIVE `.orchestration/` consumers; recommend a repo-wide `git grep` for any removed artifact as part of every removal task's gate.",
+      "note": "- **[gate-design — BRIEF-LOE-012 panel MAJOR, orphan-after-removal -> recommend a gate] Cross-layer removal-sweep.** `/pr-review` panel found that the in-task PROGRESS.md doc-retirement sweep was scoped to 5 `.implementation/` docs but missed two LIVE `.orchestration/` Conductor consumers that still hard-read the deleted `PROGRESS.md`: `orchestrate-state.sh do_derive_pr` and `orchestrate-gates.sh gate_engine_clear` (via `sequence.sh`). The owning layer's docs were swept; the cross-layer executable consumers were not. `/pr-fix babeaf0` re-pointed both onto `state.json awaitingMerge[]` (+ `--state-json` flag, fixtures, 4 test harnesses; repo-wide grep confirmed no remaining live PROGRESS.md consumer). **Lesson / recommendation:** any task that REMOVES a shared artifact (a doc, a file, a field, an exported symbol) must run a repo-wide `git grep` for ALL executable + doc consumers across EVERY layer (not just the owning layer's docs) as part of its gate -- the removal sweep scope must include cross-layer consumers. Candidate: add a `check_removed_artifact_orphans`-style gate, or a removal-task DoD checkbox requiring the repo-wide grep evidence. ENGINE/CI-tooling backlog; route to a future ungated/CI change. Not slice-blocking (resolved in-PR by `/pr-fix`).",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-018",
+      "category": "observation",
+      "description": "CS-INFRA-005 (atomic-write temp+rename) drafted experimental during BRIEF-LOE-012 Standards audit; left UNRATIFIED/UNCOMMITTED awaiting human ratification per the .code-standards/ governance (machine proposes by:agent, human ratifies by:user).",
+      "note": "- **[code-standards — BRIEF-LOE-012 Standards audit, awaits human ratification] CS-INFRA-005 atomic-write standard.** The Standards-review audit (APPROVE, 0 violations) drafted an experimental `CS-INFRA-005` (atomic write via temp file + `fs.renameSync`, the pattern the 5 `task.ts` state-store commands use) but left it **unratified and uncommitted** at `.code-standards/standards/infra/CS-INFRA-005-atomic-write-temp-rename.md`. Per `.code-standards/` governance, promotion is machine-proposes (`by: agent`) / human-ratifies (`by: user`) -- this item tracks the pending human ratification decision. Do NOT auto-ratify. (Observation -- no gate failure.)",
       "addedAt": "2026-06-22"
     }
   ]
