@@ -116,3 +116,33 @@ feature slice's retro.
 - The slice closing PR's awaiting-merge record (with the four `gateVerdicts` slots) is created at
   Close-finalize / PR-open via `pnpm task merge-checkpoint`, which DERIVES the PR URL + squash SHA from
   gh/git — not fabricated at Close-prep. Gates 1–7 PASS are recorded here in the scorecard.
+
+## Post-review refinement (retro-013-001 fix)
+
+**Concern addressed:** retro-013-001 (self-referential allowlist — 6 of 10 entries were test scaffolding).
+
+**Root-cause fix applied to PR #83:** the allowlist grew to 10 entries because the real-tree `git grep` had
+no exclusions for test infrastructure. The fix adds two pathspec exclusions to the real-repo `git grep`
+branch ONLY (NOT the fixture-mode `grep -rn` branch, where `scripts/__test_fixtures__/` IS the scan
+target):
+
+1. `':!scripts/__test_fixtures__'` — test fixtures are test DATA for the gate, not live consumers.
+2. `':!*.test.ts' ':!*.spec.ts'` — test files reference removed paths as string literals; a real removal
+   that breaks a test surfaces at test-time, not via this gate.
+
+Additionally, the `validate-gates.sh` self-doc comment examples that used the literal removed-artifact path
+(`.implementation/tasks/PROGRESS.md`) were reworded to use a generic placeholder (`<removed-artifact-path>`),
+eliminating that source of self-referential hits.
+
+**Allowlist pruned: 10 entries → 4 genuine `.orchestration/` retentions** (the `orchestrate-state.sh`,
+`orchestrate-gates.sh`, `sequence.sh`, `sequence.test.sh` backward-compat no-op entries). These are real
+cross-layer consumers; they remain in the allowlist.
+
+**AC-04 re-verified:** `bash scripts/validate-gates.sh --removed-files <PROGRESS.md>` → ALL CHECKS PASSED;
+allowlisted echoes show ONLY the 4 genuine `.orchestration/` entries. No test scaffolding in the echoed output.
+
+**Fixture-mode invariant preserved:** all 7 removal-sweep fixtures produce identical verdicts — `removal-sweep-red`
+still exits 1 and names the consumer; `removal-sweep-colon-path` still names `weird:name.sh`. The exclusions
+are strictly scoped to the real-repo `git grep` branch and cannot leak into fixture mode.
+
+**Tests:** 293/293 pass (scripts/ suite). Check 8 byte-unchanged confirmed.

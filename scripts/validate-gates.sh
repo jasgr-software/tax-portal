@@ -727,9 +727,9 @@ check_awaiting_merge_records() {
 # CONSTRUCTED-PATH CATCH:
 #   git grep -F on the repo-relative path catches literal suffixes even inside
 #   variable-expansion forms like:
-#     : "${PROGRESS_MD:=${REPO_ROOT}/.implementation/tasks/PROGRESS.md}"
-#   The literal suffix ".implementation/tasks/PROGRESS.md" is present in source
-#   even though the full path is assembled at runtime.
+#     : "${VAR:=${REPO_ROOT}/<removed-artifact-path>}"
+#   The literal suffix "<removed-artifact-path>" is present in source even
+#   though the full path is assembled at runtime.
 #
 # COMMON-BASENAME EXPLOSION GUARD:
 #   DECISION (BRIEF-LOE-013 / retro-012-017): Path-primary ONLY. The basename
@@ -750,8 +750,13 @@ check_awaiting_merge_records() {
 #   An allowlisted exec hit → PASS (reason echoed). An entry with EMPTY reason
 #   → FAIL (a suppression must be documented, never silent).
 #
-# EXCLUSIONS:
-#   The removed file itself, .git/, node_modules/, the fixture dir.
+# EXCLUSIONS (real-repo mode only):
+#   The removed file itself, .git/, node_modules/, scripts/__test_fixtures__/,
+#   *.test.ts, *.spec.ts. Test fixtures and test files reference removed paths as
+#   DATA (scan targets / string literals), not as live consumers; a real removal
+#   that breaks a test surfaces at test-time, not via this gate. These exclusions
+#   apply ONLY to the real-repo git grep branch — fixture-mode grep scans inside
+#   scripts/__test_fixtures__/ by design (it IS the scan target there).
 #
 # CS-INFRA-003: set -euo pipefail preserved; git grep exit-1-on-no-match is
 #   guarded (|| true on the no-match path).
@@ -885,7 +890,7 @@ check_removed_artifact_orphans() {
   for removed_path in "${removed_files[@]}"; do
     # Determine the grep token: the repo-relative path is the primary, precise signal.
     # git grep -F catches this literal string even inside constructed-path forms like:
-    #   : "${VAR:=${REPO_ROOT}/.implementation/tasks/PROGRESS.md}"
+    #   : "${VAR:=${REPO_ROOT}/<removed-artifact-path>}"
     local grep_token="$removed_path"
 
     # Run git grep -F against the scan root.
@@ -903,9 +908,22 @@ check_removed_artifact_orphans() {
       )"
     else
       # Real-repo mode: git grep -F scans the working tree.
+      # DECISION: Exclude scripts/__test_fixtures__/ from the real-tree sweep.
+      # Test fixtures are test DATA (the scan target in fixture mode), not live
+      # consumers of removed artifacts. Hits there are deliberate setup, not
+      # orphan references. The exclusion is REAL-REPO mode ONLY — in fixture mode
+      # the grep -rn scans INSIDE scripts/__test_fixtures__/ by design (it IS
+      # the scan target). Adding this exclusion here cannot leak into fixture mode.
+      # DECISION: Exclude *.test.ts and *.spec.ts from the real-tree sweep.
+      # Test files reference removed paths as string literals (test inputs), not
+      # as live consumers. A removal that breaks a test surfaces at test-time
+      # (pnpm test), not via this gate. Excluding them removes self-referential
+      # allowlist entries while keeping the gate focused on production consumers.
       grep_hits="$(
         git -C "$REPO_ROOT" grep -Fn -e "$grep_token" -- \
-          ':!.git' ':!node_modules' 2>/dev/null || true
+          ':!.git' ':!node_modules' \
+          ':!scripts/__test_fixtures__' \
+          ':!*.test.ts' ':!*.spec.ts' 2>/dev/null || true
       )"
     fi
 

@@ -23,6 +23,12 @@
 #
 # An executable hit that matches an entry here is downgraded to PASS with its reason
 # echoed in the check output. A non-allowlisted executable hit FAILS the gate.
+#
+# NOTE ON EXCLUSIONS:
+#   scripts/__test_fixtures__/, *.test.ts, and *.spec.ts are excluded from the
+#   real-repo sweep by pathspec in validate-gates.sh (real-repo git grep branch only).
+#   They do NOT need allowlist entries here. Only genuine cross-layer production
+#   consumers that intentionally retain references belong below.
 
 # ── AC-LOE-013-04 reconciliation: the .orchestration/ legacy --progress-md no-op flag ──
 # PROGRESS.md was removed in BRIEF-LOE-012; /pr-fix babeaf0 re-pointed the live
@@ -35,9 +41,3 @@
 .implementation/tasks/PROGRESS.md | .orchestration/bin/orchestrate-gates.sh | Legacy --progress-md no-op flag + PROGRESS_MD default-path var, intentionally retained by /pr-fix babeaf0 for backward compat; gate_engine_clear now reads state.json and no longer reads PROGRESS.md (see comment at L35, L295).
 .implementation/tasks/PROGRESS.md | .orchestration/bin/sequence.sh | Legacy PROGRESS_MD variable + --progress-md flag passthrough retained for backward compat with orchestrate-gates.sh; sequence.sh does not read PROGRESS.md directly, only passes the path as a flag argument to sub-commands that accept (and ignore) --progress-md as a no-op.
 .implementation/tasks/PROGRESS.md | .orchestration/bin/sequence.test.sh | Test fixture path reference retained for backward compat; sequence.test.sh passes --progress-md to the sequencer which accepts it as a no-op flag; the fixture file at that path is not read by gate logic (see sequence.sh L162 + orchestrate-gates.sh L35 comment).
-.implementation/tasks/PROGRESS.md | scripts/validate-gates.sh | Self-referential documentation comment in check_removed_artifact_orphans explaining the constructed-path detection strategy (the comment uses the canonical example path to illustrate git grep -F behaviour); the gate itself does not read PROGRESS.md.
-.implementation/tasks/PROGRESS.md | scripts/validate-gates.test.ts | Test suite for check_removed_artifact_orphans (check 10) uses PROGRESS.md as the canonical removed-artifact subject (it is the real-world example from retro-012-017); the test file does not consume or read the removed file — it references the path as a test input string only.
-.implementation/tasks/PROGRESS.md | scripts/__test_fixtures__/validate-gates/removal-sweep-allowlisted/.fixture-consumer.sh | Test fixture consumer for the allowlisted-pass scenario of check_removed_artifact_orphans; references PROGRESS.md to exercise the allowlist mechanism — this is test infrastructure, not a live dependency on PROGRESS.md.
-.implementation/tasks/PROGRESS.md | scripts/__test_fixtures__/validate-gates/removal-sweep-missing-reason/.fixture-consumer.sh | Test fixture consumer for the empty-reason rejection scenario of check_removed_artifact_orphans; references PROGRESS.md to exercise the mandatory-reason enforcement — this is test infrastructure, not a live dependency on PROGRESS.md.
-.implementation/tasks/PROGRESS.md | scripts/__test_fixtures__/validate-gates/removal-sweep-red/.fixture-consumer.sh | Test fixture consumer for the red counterfactual (constructed-path catch) of check_removed_artifact_orphans; references PROGRESS.md to reproduce the PR #80 failure mode — this is test infrastructure, not a live dependency on PROGRESS.md.
-.implementation/tasks/PROGRESS.md | scripts/__test_fixtures__/validate-gates/removal-sweep-colon-path/weird:name.sh | Regression fixture for the colon-in-path false-negative fix (review finding: minor); this file's name contains a literal colon to trigger the buggy ${hit%%:*} parse — it references PROGRESS.md as the removed artifact under test, not as a live dependency.
