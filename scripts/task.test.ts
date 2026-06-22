@@ -62,6 +62,14 @@ import {
   resolveTaskFile,
   TaskCliError,
   VALID_ROLES,
+  // State-store subcommands (BRIEF-LOE-012 / TASK-LOE-012-002)
+  cmdPhaseTransition,
+  cmdMergeCheckpoint,
+  cmdPostMerge,
+  cmdTrace,
+  cmdReport,
+  renderTrace,
+  type MergeCheckpointShims,
 } from "./task.js";
 
 import { extractFrontMatter, verifyFrontMatter } from "./task-frontmatter.js";
@@ -2262,11 +2270,29 @@ describe("AC-LOE-011-09: End-to-end CLI-driven slice verified by validate-gates.
       path.join(tasksDir, "TASK-E2E-001-e2e-slice-fixture.md")
     );
 
-    // Copy the e2e PROGRESS.md fixture (has all 5 required sections for check 3)
+    // Copy the e2e PROGRESS.md fixture (kept for reference; no longer read by validate-gates.sh
+    // after TASK-LOE-012-003 re-pointed check 3/9 from PROGRESS.md to state.json).
     fs.copyFileSync(
       path.join(FIXTURES_SRC, "PROGRESS-e2e-fixture.md"),
       path.join(tasksDir, "PROGRESS.md")
     );
+
+    // Write a well-formed state.json for check 3 (check_state_json_schema) +
+    // check 9 (check_awaiting_merge_records). Required after TASK-LOE-012-003
+    // re-pointed checks 3 & 9 from PROGRESS.md markdown to the state.json schema oracle.
+    // CS-GEN-003: AC-LOE-012-07 / TASK-LOE-012-003
+    const implDir = path.join(fixtureTreeDir, ".implementation");
+    const wellFormedStateJson = JSON.stringify({
+      schemaVersion: "1.0",
+      lastUpdated: "2026-06-22T12:00:00.000Z",
+      currentBrief: "BRIEF-LOE-011",
+      currentPhase: "Dispatch",
+      currentSliceDescription: "e2e fixture slice for task.test.ts (TASK-LOE-011)",
+      currentBranch: "brief-LOE-011-task-cli",
+      awaitingMerge: [],
+      openRetroItems: [],
+    }, null, 2) + "\n";
+    fs.writeFileSync(path.join(implDir, "state.json"), wellFormedStateJson, "utf8");
 
     // Create a .changed_files manifest for check 4 (gated-path accountability).
     // We have no gated-path changes in the fixture tree, so the file is empty.
@@ -2366,7 +2392,8 @@ describe("AC-LOE-011-09: End-to-end CLI-driven slice verified by validate-gates.
     // Verify well-formed via task-frontmatter.ts (AC-LOE-011-01 / task-frontmatter oracle)
     const extracted = extractFrontMatter(readContent(doneResult.filePath));
     expect(extracted.found).toBe(true);
-    const violations = verifyFrontMatter(extracted.fm!, doneResult.filePath);
+    if (!extracted.found) return; // discriminant guard — narrows to { found: true; fm: FrontMatter; ... }
+    const violations = verifyFrontMatter(extracted.fm, doneResult.filePath);
     expect(violations).toHaveLength(0);
 
     // ─── Step 5: archive ──────────────────────────────────────────────────────
@@ -2486,5 +2513,615 @@ describe("AC-LOE-011-09: End-to-end CLI-driven slice verified by validate-gates.
     expect(statuses[1]).toBe("in-progress");
     expect(statuses[2]).toBe("review");
     expect(statuses[3]).toBe("done");
+  });
+});
+
+// ─── State-store subcommands (BRIEF-LOE-012 / TASK-LOE-012-002) ──────────────
+//
+// Tests cover AC-LOE-012-02..06.
+// CS-GEN-003: PROPOSAL-scripted-bookkeeping-phase2.md §8 judgment line.
+// CS-INFRA-004: zero third-party deps — Node built-ins only.
+
+/** Build a minimal temp repo with .implementation/ structure for state-store tests */
+function makeTempStateRepo(): string {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "state-test-"));
+  fs.mkdirSync(path.join(tmpDir, ".implementation", "tasks"), { recursive: true });
+  return tmpDir;
+}
+
+/** Build a well-formed StateStore fixture for test repos */
+function seedStateJson(repoRoot: string, overrides: Partial<{
+  currentPhase: string | null;
+  currentBrief: string | null;
+  awaitingMerge: unknown[];
+}> = {}): void {
+  const state = {
+    schemaVersion: "1.0",
+    lastUpdated: "2026-06-22T12:00:00.000Z",
+    currentBrief: overrides.currentBrief !== undefined ? overrides.currentBrief : "BRIEF-LOE-012",
+    currentPhase: overrides.currentPhase !== undefined ? overrides.currentPhase : "Dispatch",
+    currentSliceDescription: "test state",
+    currentBranch: "brief-test",
+    awaitingMerge: overrides.awaitingMerge ?? [],
+    openRetroItems: [],
+  };
+  fs.writeFileSync(
+    path.join(repoRoot, ".implementation", "state.json"),
+    JSON.stringify(state, null, 2) + "\n",
+    "utf8"
+  );
+}
+
+/** Read state.json from a temp repo */
+function readStateJson(repoRoot: string): Record<string, unknown> {
+  const raw = fs.readFileSync(
+    path.join(repoRoot, ".implementation", "state.json"),
+    "utf8"
+  );
+  return JSON.parse(raw) as Record<string, unknown>;
+}
+
+/** Read events.jsonl from a temp repo (returns array of parsed events) */
+function readEventsJsonl(repoRoot: string): Array<Record<string, unknown>> {
+  const eventsPath = path.join(repoRoot, ".implementation", "events.jsonl");
+  if (!fs.existsSync(eventsPath)) return [];
+  return fs.readFileSync(eventsPath, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+// ─── phase-transition (AC-LOE-012-02) ────────────────────────────────────────
+
+describe("cmdPhaseTransition — AC-LOE-012-02", () => {
+  let tmpRepo: string;
+
+  beforeEach(() => {
+    tmpRepo = makeTempStateRepo();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it("sets currentPhase + appends a phase-transition event atomically", () => {
+    // AC-LOE-012-02: sets phase + appends event atomically
+    seedStateJson(tmpRepo, { currentPhase: "Plan" });
+
+    const result = cmdPhaseTransition({
+      to: "Dispatch",
+      role: "io",
+      repoRoot: tmpRepo,
+      nowFn: () => "2026-06-22T14:00:00.000Z",
+    });
+
+    expect(result.changed).toBe(true);
+
+    const state = readStateJson(tmpRepo);
+    expect(state["currentPhase"]).toBe("Dispatch");
+    expect(state["lastUpdated"]).toBe("2026-06-22T14:00:00.000Z");
+
+    const events = readEventsJsonl(tmpRepo);
+    expect(events).toHaveLength(1);
+    expect(events[0]!["type"]).toBe("phase-transition");
+    expect(events[0]!["phase"]).toBe("Dispatch");
+    expect(events[0]!["role"]).toBe("io");
+  });
+
+  it("rejects an unknown/illegal phase with non-zero exit", () => {
+    // AC-LOE-012-02: rejects illegal phase
+    seedStateJson(tmpRepo);
+
+    expect(() =>
+      cmdPhaseTransition({
+        to: "NotAPhase",
+        role: "devops",
+        repoRoot: tmpRepo,
+      })
+    ).toThrow(TaskCliError);
+
+    // Nothing was written
+    const state = readStateJson(tmpRepo);
+    expect(state["currentPhase"]).toBe("Dispatch"); // unchanged
+    expect(readEventsJsonl(tmpRepo)).toHaveLength(0);
+  });
+
+  it("re-run to the same settled phase = clean no-op (exit 0)", () => {
+    // AC-LOE-012-02: idempotency — settled re-run
+    seedStateJson(tmpRepo, { currentPhase: "Dispatch" });
+
+    const result = cmdPhaseTransition({
+      to: "Dispatch",
+      role: "io",
+      repoRoot: tmpRepo,
+    });
+
+    expect(result.changed).toBe(false);
+    expect(result.message).toContain("no-op");
+    // No events appended
+    expect(readEventsJsonl(tmpRepo)).toHaveLength(0);
+  });
+
+  it("--dry-run prints diff and writes nothing", () => {
+    // AC-LOE-012-02: --dry-run
+    seedStateJson(tmpRepo, { currentPhase: "Plan" });
+    const stateBefore = readStateJson(tmpRepo);
+
+    const result = cmdPhaseTransition({
+      to: "Dispatch",
+      role: "io",
+      repoRoot: tmpRepo,
+      dryRun: true,
+    });
+
+    expect(result.changed).toBe(false);
+    // State unchanged
+    const stateAfter = readStateJson(tmpRepo);
+    expect(stateAfter["currentPhase"]).toBe(stateBefore["currentPhase"]);
+    // No events appended
+    expect(readEventsJsonl(tmpRepo)).toHaveLength(0);
+  });
+
+  it("rejects invalid role (roster validation)", () => {
+    // AC-LOE-012-02: --role required + roster-validated
+    seedStateJson(tmpRepo);
+    expect(() =>
+      cmdPhaseTransition({
+        to: "Dispatch",
+        role: "not-a-role" as "io",
+        repoRoot: tmpRepo,
+      })
+    ).toThrow(TaskCliError);
+  });
+});
+
+// ─── merge-checkpoint (AC-LOE-012-03) ────────────────────────────────────────
+
+/**
+ * Fake shim: PR URL + SHA come from the shim output, NOT from flags.
+ * This is the prove-derive-from-source test.
+ * AC-LOE-012-03 / CS-GEN-003: §11 derive-from-source precedent
+ */
+function makeFakeShims(prUrl: string, sha: string): MergeCheckpointShims {
+  return {
+    ghPrViewUrl: (_prNumber: number) => prUrl,
+    gitRevParse: () => sha,
+  };
+}
+
+describe("cmdMergeCheckpoint — AC-LOE-012-03", () => {
+  let tmpRepo: string;
+  const FAKE_URL = "https://github.com/test-org/tax-portal/pull/42";
+  const FAKE_SHA = "abc1234def567890abc1234def567890abc12345";
+
+  beforeEach(() => {
+    tmpRepo = makeTempStateRepo();
+    seedStateJson(tmpRepo);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it("DERIVE-FROM-SOURCE: URL + SHA come from gh/git shim, not agent flags", () => {
+    // AC-LOE-012-03 HARD gate: values come from the tool, not a transcribed flag
+    const result = cmdMergeCheckpoint({
+      pr: 42,
+      role: "sdet",
+      repoRoot: tmpRepo,
+      nowFn: () => "2026-06-22T14:00:00.000Z",
+      shims: makeFakeShims(FAKE_URL, FAKE_SHA),
+    });
+
+    expect(result.changed).toBe(true);
+
+    const state = readStateJson(tmpRepo);
+    const awaitingMerge = state["awaitingMerge"] as Array<Record<string, unknown>>;
+    expect(awaitingMerge).toHaveLength(1);
+
+    // Derived from shim, NOT from any flag the agent supplied
+    expect(awaitingMerge[0]!["prUrl"]).toBe(FAKE_URL);
+    expect(awaitingMerge[0]!["squashSha"]).toBe(FAKE_SHA);
+    expect(awaitingMerge[0]!["pr"]).toBe(42);
+  });
+
+  it("gate verdicts are recorded verbatim from agent input (judgment line)", () => {
+    // AC-LOE-012-03: gate verdicts recorded verbatim — CLI RECORDS, NEVER DECIDES
+    // CS-GEN-003: §8 judgment line
+    // DECISION: the CLI stores what the agent says; it never computes or validates the verdict content
+    const result = cmdMergeCheckpoint({
+      pr: 42,
+      role: "sdet",
+      repoRoot: tmpRepo,
+      shims: makeFakeShims(FAKE_URL, FAKE_SHA),
+      gateVerdicts: {
+        containerSmoke: "PASS — smoke suite green",
+        sdetValidation: "PASS — all AC verified",
+        sdetCiGate: "PASS — CI green",
+        sdetQualityAudit: "PASS — no violations",
+      },
+    });
+
+    expect(result.changed).toBe(true);
+    const awaitingMerge = (readStateJson(tmpRepo)["awaitingMerge"] as Array<Record<string, unknown>>);
+    const verdicts = awaitingMerge[0]!["gateVerdicts"] as Record<string, unknown>;
+    expect(verdicts["containerSmoke"]).toBe("PASS — smoke suite green");
+    expect(verdicts["sdetValidation"]).toBe("PASS — all AC verified");
+    expect(verdicts["sdetCiGate"]).toBe("PASS — CI green");
+    expect(verdicts["sdetQualityAudit"]).toBe("PASS — no violations");
+  });
+
+  it("idempotent: re-run for same PR = clean no-op", () => {
+    // AC-LOE-012-03: idempotency
+    const shims = makeFakeShims(FAKE_URL, FAKE_SHA);
+    cmdMergeCheckpoint({ pr: 42, role: "sdet", repoRoot: tmpRepo, shims });
+    const result2 = cmdMergeCheckpoint({ pr: 42, role: "sdet", repoRoot: tmpRepo, shims });
+
+    expect(result2.changed).toBe(false);
+    expect(result2.message).toContain("no-op");
+    // Still only one record
+    const state = readStateJson(tmpRepo);
+    expect((state["awaitingMerge"] as unknown[]).length).toBe(1);
+  });
+
+  it("--dry-run prints diff and writes nothing", () => {
+    // AC-LOE-012-03: --dry-run
+    const stateBefore = readStateJson(tmpRepo);
+
+    cmdMergeCheckpoint({
+      pr: 42,
+      role: "sdet",
+      repoRoot: tmpRepo,
+      dryRun: true,
+      shims: makeFakeShims(FAKE_URL, FAKE_SHA),
+    });
+
+    const stateAfter = readStateJson(tmpRepo);
+    expect(stateAfter["awaitingMerge"]).toEqual(stateBefore["awaitingMerge"]);
+    expect(readEventsJsonl(tmpRepo)).toHaveLength(0);
+  });
+
+  it("rejects invalid role (roster validation)", () => {
+    expect(() =>
+      cmdMergeCheckpoint({
+        pr: 42,
+        role: "bogus" as "io",
+        repoRoot: tmpRepo,
+        shims: makeFakeShims(FAKE_URL, FAKE_SHA),
+      })
+    ).toThrow(TaskCliError);
+  });
+
+  it("rejects non-integer PR number", () => {
+    expect(() =>
+      cmdMergeCheckpoint({
+        pr: -1,
+        role: "devops",
+        repoRoot: tmpRepo,
+        shims: makeFakeShims(FAKE_URL, FAKE_SHA),
+      })
+    ).toThrow(TaskCliError);
+  });
+});
+
+// ─── post-merge (AC-LOE-012-04) ───────────────────────────────────────────────
+
+describe("cmdPostMerge — AC-LOE-012-04", () => {
+  let tmpRepo: string;
+  const FAKE_URL = "https://github.com/test-org/tax-portal/pull/55";
+  const FAKE_SHA = "deadbeef123456789012345678901234deadbeef";
+
+  beforeEach(() => {
+    tmpRepo = makeTempStateRepo();
+    seedStateJson(tmpRepo);
+    // Seed an awaiting-merge record for PR 55
+    const state = readStateJson(tmpRepo) as {
+      schemaVersion: string;
+      lastUpdated: string;
+      currentBrief: string | null;
+      currentPhase: string | null;
+      currentSliceDescription: string | null;
+      currentBranch: string | null;
+      awaitingMerge: Array<Record<string, unknown>>;
+      openRetroItems: unknown[];
+    };
+    state.awaitingMerge = [{
+      pr: 55,
+      prUrl: FAKE_URL,
+      squashSha: FAKE_SHA,
+      createdAt: "2026-06-22T12:00:00.000Z",
+      gateVerdicts: {
+        containerSmoke: "PASS",
+        sdetValidation: "PASS",
+        sdetCiGate: "PASS",
+        sdetQualityAudit: "PASS",
+      },
+      note: null,
+    }];
+    fs.writeFileSync(
+      path.join(tmpRepo, ".implementation", "state.json"),
+      JSON.stringify(state, null, 2) + "\n",
+      "utf8"
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it("PASS branch: clears the awaiting-merge record", () => {
+    // AC-LOE-012-04: pass branch clears the record
+    // DECISION: agent decides to pass; CLI records it and clears the record
+    // CS-GEN-003: §8 judgment line
+    const result = cmdPostMerge({
+      pr: 55,
+      role: "sdet",
+      repoRoot: tmpRepo,
+      nowFn: () => "2026-06-22T15:00:00.000Z",
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.message).toContain("PASS");
+
+    const state = readStateJson(tmpRepo);
+    expect((state["awaitingMerge"] as unknown[]).length).toBe(0);
+
+    const events = readEventsJsonl(tmpRepo);
+    expect(events).toHaveLength(1);
+    expect(events[0]!["type"]).toBe("post-merge");
+    expect((events[0]!["payload"] as Record<string, unknown>)["result"]).toBe("pass");
+  });
+
+  it("FAIL branch: scaffolds BUG file via task-frontmatter.ts AND keeps the record", () => {
+    // AC-LOE-012-04: fail branch scaffolds BUG AND keeps record
+    // DECISION: agent decides to fail + supplies description; CLI records and scaffolds
+    // CS-GEN-003: §8 judgment line; bug scaffold THROUGH task-frontmatter.ts, not re-impl
+    const result = cmdPostMerge({
+      pr: 55,
+      role: "devops",
+      bug: "Post-merge flake: DB connection dropped after deploy",
+      repoRoot: tmpRepo,
+      nowFn: () => "2026-06-22T15:00:00.000Z",
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.message).toContain("FAIL");
+    expect(result.bugFilePath).toBeDefined();
+
+    // BUG file must exist and be valid YAML front matter
+    const bugContent = fs.readFileSync(result.bugFilePath!, "utf8");
+    const extracted = extractFrontMatter(bugContent);
+    expect(extracted.found).toBe(true);
+    if (!extracted.found) return; // discriminant guard — narrows to { found: true; fm: FrontMatter; ... }
+    expect(extracted.fm["status"]).toBe("open");
+    expect(extracted.fm["category"]).toBe("post-merge-regression");
+
+    // BUG description present in body
+    expect(bugContent).toContain("Post-merge flake");
+
+    // The awaiting-merge record must STILL be there (fail = keep)
+    const state = readStateJson(tmpRepo);
+    expect((state["awaitingMerge"] as unknown[]).length).toBe(1);
+
+    // Event appended with fail payload
+    const events = readEventsJsonl(tmpRepo);
+    expect(events).toHaveLength(1);
+    expect((events[0]!["payload"] as Record<string, unknown>)["result"]).toBe("fail");
+    expect((events[0]!["payload"] as Record<string, unknown>)["recordKept"]).toBe(true);
+  });
+
+  it("--dry-run PASS: prints diff, writes nothing", () => {
+    // AC-LOE-012-04: --dry-run on pass
+    const stateBefore = readStateJson(tmpRepo);
+
+    const result = cmdPostMerge({
+      pr: 55,
+      role: "sdet",
+      repoRoot: tmpRepo,
+      dryRun: true,
+    });
+
+    expect(result.changed).toBe(false);
+    const stateAfter = readStateJson(tmpRepo);
+    expect(stateAfter["awaitingMerge"]).toEqual(stateBefore["awaitingMerge"]);
+    expect(readEventsJsonl(tmpRepo)).toHaveLength(0);
+  });
+
+  it("--dry-run FAIL: prints diff, writes nothing (no BUG file)", () => {
+    // AC-LOE-012-04: --dry-run on fail
+    const result = cmdPostMerge({
+      pr: 55,
+      role: "devops",
+      bug: "Connection pool exhausted",
+      repoRoot: tmpRepo,
+      dryRun: true,
+    });
+
+    expect(result.changed).toBe(false);
+    // BUG file must NOT have been created
+    if (result.bugFilePath) {
+      expect(fs.existsSync(result.bugFilePath)).toBe(false);
+    }
+    expect(readEventsJsonl(tmpRepo)).toHaveLength(0);
+  });
+
+  it("errors when no awaiting-merge record found for the PR", () => {
+    // AC-LOE-012-04: guards missing record
+    expect(() =>
+      cmdPostMerge({
+        pr: 999,
+        role: "sdet",
+        repoRoot: tmpRepo,
+      })
+    ).toThrow(TaskCliError);
+  });
+
+  it("rejects invalid role", () => {
+    expect(() =>
+      cmdPostMerge({
+        pr: 55,
+        role: "bogus" as "io",
+        repoRoot: tmpRepo,
+      })
+    ).toThrow(TaskCliError);
+  });
+});
+
+// ─── trace (AC-LOE-012-05) ────────────────────────────────────────────────────
+
+describe("cmdTrace — AC-LOE-012-05", () => {
+  const TRACE_FIXTURES_DIR = path.join(
+    path.dirname(new URL(import.meta.url).pathname),
+    "__test_fixtures__",
+    "trace"
+  );
+
+  it("tallies @AC-* tags into a per-AC tier map (unit vs e2e)", () => {
+    // AC-LOE-012-05: builds tier map from @AC-* tags in test files
+    const result = cmdTrace({
+      brief: "LOE-012",
+      scanRoots: [TRACE_FIXTURES_DIR],
+    });
+
+    // unit-file.test.ts has @AC-LOE-012-02 (×2), @AC-LOE-012-03, @AC-LOE-012-05
+    // e2e/e2e-file.spec.ts has @AC-LOE-012-02, @AC-LOE-012-06
+    expect(result.brief).toBe("LOE-012");
+    expect(result.filesScanned).toBeGreaterThan(0);
+    expect(result.totalTags).toBeGreaterThan(0);
+
+    // AC-LOE-012-02 should appear in both unit and e2e buckets
+    expect(result.acMap["AC-LOE-012-02"]).toBeDefined();
+    expect(result.acMap["AC-LOE-012-02"]!.unit.length).toBeGreaterThan(0);
+    expect(result.acMap["AC-LOE-012-02"]!.e2e.length).toBeGreaterThan(0);
+
+    // AC-LOE-012-06 should appear in e2e bucket only
+    expect(result.acMap["AC-LOE-012-06"]).toBeDefined();
+    expect(result.acMap["AC-LOE-012-06"]!.e2e.length).toBeGreaterThan(0);
+  });
+
+  it("does NOT compute an adequacy verdict (judgment line)", () => {
+    // AC-LOE-012-05 HARD gate: judgment line — trace BUILDS the table, NEVER decides adequacy
+    // CS-GEN-003: §8 judgment line
+    // DECISION: the CLI tallies; the agent decides. The result has no 'adequate', 'pass', or 'fail' fields.
+    const result = cmdTrace({
+      brief: "LOE-012",
+      scanRoots: [TRACE_FIXTURES_DIR],
+    });
+
+    // The result must NOT carry any verdict field
+    const resultKeys = Object.keys(result);
+    expect(resultKeys).not.toContain("adequate");
+    expect(resultKeys).not.toContain("verdict");
+    expect(resultKeys).not.toContain("pass");
+    expect(resultKeys).not.toContain("fail");
+    expect(resultKeys).not.toContain("sufficient");
+  });
+
+  it("renderTrace compact text contains tier table with NOTE line (no adequacy verdict in output)", () => {
+    // AC-LOE-012-05: rendered output must include the NOTE that adequacy is agent-supplied
+    const result = cmdTrace({
+      brief: "LOE-012",
+      scanRoots: [TRACE_FIXTURES_DIR],
+    });
+    const output = renderTrace(result, false);
+    expect(output).toContain("NOTE: adequacy verdict stays agent-supplied");
+  });
+
+  it("renderTrace --json produces structured ac_map", () => {
+    // AC-LOE-012-05: --json output is structured
+    const result = cmdTrace({
+      brief: "LOE-012",
+      scanRoots: [TRACE_FIXTURES_DIR],
+    });
+    const json = JSON.parse(renderTrace(result, true)) as Record<string, unknown>;
+    expect(json["ac_map"]).toBeDefined();
+    expect(typeof json["files_scanned"]).toBe("number");
+  });
+
+  it("returns empty acMap when no @AC-* tags match the brief", () => {
+    // AC-LOE-012-05: brief filter works
+    const result = cmdTrace({
+      brief: "NOMATCH-999",
+      scanRoots: [TRACE_FIXTURES_DIR],
+    });
+    expect(result.acMap).toEqual({});
+    expect(result.totalTags).toBe(0);
+  });
+});
+
+// ─── report (AC-LOE-012-06) ───────────────────────────────────────────────────
+
+describe("cmdReport — AC-LOE-012-06", () => {
+  let tmpRepo: string;
+
+  beforeEach(() => {
+    tmpRepo = makeTempStateRepo();
+    seedStateJson(tmpRepo);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it("renders state as compact text — writes NOTHING to the repo", () => {
+    // AC-LOE-012-06: report renders on demand; output never committed, never read back as truth
+    // DECISION: cmdReport is strictly read-only — no fs.writeFile, no rename, no metrics.
+    // CS-GEN-003: §9 generated view is never a source of truth
+    const implDir = path.join(tmpRepo, ".implementation");
+    const filesBefore = fs.readdirSync(implDir).sort();
+
+    const output = cmdReport({ repoRoot: tmpRepo });
+
+    const filesAfter = fs.readdirSync(implDir).sort();
+    // No new files written
+    expect(filesAfter).toEqual(filesBefore);
+
+    // Output is human-readable narrative
+    expect(output).toContain("BRIEF-LOE-012");
+    expect(output).not.toHaveLength(0);
+  });
+
+  it("renders state as markdown with --md flag — writes NOTHING to the repo", () => {
+    // AC-LOE-012-06: --md renders markdown; still writes nothing
+    const implDir = path.join(tmpRepo, ".implementation");
+    const filesBefore = fs.readdirSync(implDir).sort();
+
+    const output = cmdReport({ repoRoot: tmpRepo, md: true });
+
+    const filesAfter = fs.readdirSync(implDir).sort();
+    expect(filesAfter).toEqual(filesBefore);
+
+    // Markdown headers present
+    expect(output).toContain("## Current initiative");
+    expect(output).toContain("## Awaiting PR merge");
+    expect(output).toContain("BRIEF-LOE-012");
+  });
+
+  it("report includes events when events.jsonl exists", () => {
+    // AC-LOE-012-06: reads events.jsonl
+    const eventsPath = path.join(tmpRepo, ".implementation", "events.jsonl");
+    const event = JSON.stringify({
+      ts: "2026-06-22T12:00:00.000Z",
+      type: "phase-transition",
+      brief: "BRIEF-LOE-012",
+      phase: "Dispatch",
+      role: "io",
+      pr: null,
+      note: "test event",
+      payload: null,
+    });
+    fs.writeFileSync(eventsPath, event + "\n", "utf8");
+
+    const output = cmdReport({ repoRoot: tmpRepo });
+    // Events section should mention the event
+    expect(output).toContain("phase-transition");
+  });
+
+  it("returns placeholder when no state.json exists", () => {
+    // AC-LOE-012-06: graceful no-state placeholder
+    const emptyRepo = makeTempStateRepo();
+    const output = cmdReport({ repoRoot: emptyRepo });
+    expect(output).toContain("no state.json");
+    fs.rmSync(emptyRepo, { recursive: true, force: true });
   });
 });

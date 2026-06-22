@@ -53,12 +53,12 @@ done
 if [[ -n "$FIXTURE_DIR" ]]; then
   TASKS_DIR="${FIXTURE_DIR}/.implementation/tasks"
   TASKS_DONE_DIR="${FIXTURE_DIR}/.implementation/tasks/done"
-  PROGRESS_MD="${FIXTURE_DIR}/.implementation/tasks/PROGRESS.md"
+  STATE_JSON="${FIXTURE_DIR}/.implementation/state.json"
   REPO_SCAN_ROOT="${FIXTURE_DIR}"
 else
   TASKS_DIR="${REPO_ROOT}/.implementation/tasks"
   TASKS_DONE_DIR="${REPO_ROOT}/.implementation/tasks/done"
-  PROGRESS_MD="${REPO_ROOT}/.implementation/tasks/PROGRESS.md"
+  STATE_JSON="${REPO_ROOT}/.implementation/state.json"
   REPO_SCAN_ROOT="${REPO_ROOT}"
 fi
 
@@ -246,49 +246,53 @@ check_bug_files_present_for_done() {
 }
 
 # ---------------------------------------------------------------------------
-# Check 3: check_progress_md_structure
+# Check 3: check_state_json_schema
 #
-# PROGRESS.md must contain all 5 section headers per
-# .implementation/ENGINE.md § PROGRESS.md structure contract:
-#   1. ## Current initiative
-#   2. ## Awaiting PR merge
-#   3. ## Active bugs
-#   4. ## Open retro action items
-#   5. --- (section separator before session entries)
+# .implementation/state.json must exist and pass the independent schema oracle
+# (validateState() from scripts/state-store.ts, CS-GEN-003 RETRO-LOE-010).
+#
+# Re-pointed from PROGRESS.md section check to state.json schema validation
+# per TASK-LOE-012-003 / AC-LOE-012-07. The oracle is REUSED — not re-implemented
+# as a lenient bash JSON check (that would re-introduce the Phase-0 YAML-blocker
+# trap; RETRO-LOE-010 / validation-oracle-independent-of-code).
+#
+# Named code path (Gate Authoring evidence Item 2):
+#   scripts/state-store.ts:validateState() — checks: (1) all required top-level
+#   fields present, (2) additionalProperties: false, (3) schemaVersion == "1.0",
+#   (4) lastUpdated ISO 8601 pattern, (5) currentPhase is closed enum or null,
+#   (6) awaitingMerge array with well-formed records, (7) openRetroItems array.
+#   A malformed state.json (wrong phase, missing field, extra field) MUST fail loudly.
+#
+# CS-INFRA-004: uses tsx (already in devDependencies, zero new deps).
+# CS-GEN-003: AC-LOE-012-07, RETRO-LOE-010
 # ---------------------------------------------------------------------------
 
-check_progress_md_structure() {
-  local check_name="check_progress_md_structure"
+check_state_json_schema() {
+  local check_name="check_state_json_schema"
 
-  if [[ ! -f "$PROGRESS_MD" ]]; then
-    fail "$check_name" "PROGRESS.md not found at $PROGRESS_MD"
+  if [[ ! -f "$STATE_JSON" ]]; then
+    fail "$check_name" "state.json not found at $STATE_JSON"
     return
   fi
 
-  local all_pass=1
-  local required_sections=(
-    "## Current initiative"
-    "## Awaiting PR merge"
-    "## Active bugs"
-    "## Open retro action items"
-  )
+  # Invoke the INDEPENDENT ORACLE from state-store.ts via tsx.
+  # Do NOT re-implement a lenient JSON check here — that is the trap RETRO-LOE-010 identified.
+  # The oracle validates: required fields, types, closed enum (currentPhase), record-level
+  # invariants, and additionalProperties: false. A malformed state.json exits non-zero.
+  local tsx_bin
+  tsx_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/node_modules/.bin/tsx"
+  local state_store_script
+  state_store_script="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/state-store-validate.ts"
 
-  for section in "${required_sections[@]}"; do
-    if ! grep -qF "$section" "$PROGRESS_MD"; then
-      fail "$check_name" "Missing section: '$section'"
-      all_pass=0
-    fi
-  done
+  local validate_output
+  validate_output="$(
+    "${tsx_bin}" "${state_store_script}" "${STATE_JSON}" 2>&1
+  )" || {
+    fail "$check_name" "state.json failed schema validation: ${validate_output}"
+    return
+  }
 
-  # Must have the --- separator
-  if ! grep -q "^---$" "$PROGRESS_MD"; then
-    fail "$check_name" "Missing '---' session-entry separator"
-    all_pass=0
-  fi
-
-  if [[ $all_pass -eq 1 ]]; then
-    pass "$check_name"
-  fi
+  pass "$check_name"
 }
 
 # ---------------------------------------------------------------------------
@@ -623,90 +627,61 @@ check_pr_body_quad_review() {
 }
 
 # ---------------------------------------------------------------------------
-# Check 9: check_pr_awaiting_merge_gate_verdicts
+# Check 9: check_awaiting_merge_records
 #
-# Reads ## Awaiting PR merge section from PROGRESS_MD.
-# If the section is empty / _None._ / no "- **PR " bullet entries → pass.
-# For each "- **PR " bullet entry: locate the "Quality gates 5–8:" clause and
-# verify each of the four named gates appears with either:
-#   <gate-name> PASS   (exact, case-sensitive)
-#   <gate-name> (deferred per hotfix urgency: <task-id>)
-#     where <task-id> matches TASK-[A-Z][A-Z0-9]*-[0-9]{3,} or
-#                              BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,}
+# Reads the awaitingMerge array from .implementation/state.json.
+# Re-pointed from ## Awaiting PR merge markdown awk-parse to structured
+# state.json validation per TASK-LOE-012-003 / AC-LOE-012-07.
 #
-# Implements .implementation/ENGINE.md § Autonomy Ceiling item 3 condition (d).
+# If awaitingMerge is empty → pass.
+# For each record: all four gateVerdicts slots (containerSmoke, sdetValidation,
+# sdetCiGate, sdetQualityAudit) must be present and must be string or null.
+# A missing or non-string/null slot fails loudly (well-formed verdict slot check).
+#
+# Record-level invariant: no clock inversion (createdAt must be a valid ISO 8601
+# timestamp; records with a merged squashSha must have createdAt <= lastUpdated).
+# This structurally closes the long-carried Completed-at/Started-at clock-inversion
+# ungated-fix (retro-012-014) at the schema-validation level.
+#
+# Named code path (Gate Authoring evidence Item 2):
+#   scripts/state-store-validate-awaiting.ts — reads state.json, iterates
+#   awaitingMerge[], checks each record's gateVerdicts keys for presence and
+#   string|null type; checks createdAt ISO 8601 pattern.
+#   A record missing a gateVerdicts slot exits non-zero (LOUD fail).
+#
+# Implements .implementation/ENGINE.md § Autonomy Ceiling item 3 condition (d)
+# via structured state store (TASK-LOE-012-001) rather than markdown parsing.
+#
+# CS-GEN-003: AC-LOE-012-07, retro-012-014 (clock-inversion carried item — CLOSED)
+# CS-INFRA-004: uses tsx (already in devDependencies, zero new deps).
 # ---------------------------------------------------------------------------
 
-check_pr_awaiting_merge_gate_verdicts() {
-  local check_name="check_pr_awaiting_merge_gate_verdicts"
-  local all_pass=1
+check_awaiting_merge_records() {
+  local check_name="check_awaiting_merge_records"
 
-  if [[ ! -f "$PROGRESS_MD" ]]; then
-    fail "$check_name" "PROGRESS.md not found at $PROGRESS_MD"
+  if [[ ! -f "$STATE_JSON" ]]; then
+    fail "$check_name" "state.json not found at $STATE_JSON"
     return
   fi
 
-  # Extract the ## Awaiting PR merge section content:
-  # everything between "## Awaiting PR merge" and the next "##" header or "---" separator.
-  local section_content
-  section_content="$(awk '/^## Awaiting PR merge/{found=1; next} found && /^(##|---)/{exit} found{print}' "$PROGRESS_MD")"
+  # Invoke the INDEPENDENT ORACLE from state-store.ts via tsx.
+  # The awaiting-merge record validator checks: all four gateVerdicts slots
+  # are present (containerSmoke, sdetValidation, sdetCiGate, sdetQualityAudit);
+  # each is string or null; no clock-inversion invariant (createdAt pattern).
+  local tsx_bin
+  tsx_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/node_modules/.bin/tsx"
+  local awaiting_merge_script
+  awaiting_merge_script="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/state-store-validate-awaiting.ts"
 
-  # Check if section is empty / _None._ / has no "- **PR " bullet entries
-  local pr_entries=()
-  while IFS= read -r line; do
-    if [[ "$line" == "- **PR "* ]]; then
-      pr_entries+=("$line")
-    fi
-  done <<< "$section_content"
-
-  if [[ ${#pr_entries[@]} -eq 0 ]]; then
-    pass "$check_name (no PR entries to check)"
+  local validate_output
+  validate_output="$(
+    "${tsx_bin}" "${awaiting_merge_script}" "${STATE_JSON}" 2>&1
+  )" || {
+    fail "$check_name" "awaitingMerge records failed validation: ${validate_output}"
     return
-  fi
+  }
 
-  # The four canonical gate names (case-sensitive)
-  local gate_names=("Container Smoke" "RA Validation" "SDET CI" "SDET Quality Parity")
-  # Structured task-ID regex: TASK-[A-Z][A-Z0-9]*-[0-9]{3,} or BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,}
-  local task_id_regex="(TASK-[A-Z][A-Z0-9]*-[0-9]{3,}|BUG-[A-Z0-9][A-Z0-9]*-[0-9]{3,})"
-
-  for entry in "${pr_entries[@]}"; do
-    # Use the first token after "- **PR " as the PR identifier
-    local pr_id
-    pr_id="$(echo "$entry" | grep -oE '\*\*PR #[0-9]+ — [^*]+\*\*' | head -1)"
-    if [[ -z "$pr_id" ]]; then
-      pr_id="$(echo "$entry" | cut -c1-60)..."
-    fi
-
-    for gate in "${gate_names[@]}"; do
-      # Check for "<gate-name> PASS" (exact, case-sensitive)
-      if echo "$entry" | grep -qF "${gate} PASS"; then
-        continue
-      fi
-
-      # Check for "<gate-name> (deferred per hotfix urgency: <task-id>)"
-      # Extract the annotation value after "deferred per hotfix urgency: "
-      local deferred_value
-      deferred_value="$(echo "$entry" | grep -oP "(?<=${gate} \(deferred per hotfix urgency: )[^)]*" || true)"
-
-      if [[ -n "$deferred_value" ]]; then
-        # Validate the task-ID matches the structured regex
-        if echo "$deferred_value" | grep -qP "^${task_id_regex}$"; then
-          continue
-        else
-          fail "$check_name" "${gate} deferred annotation has malformed task-ID '${deferred_value}' in ${pr_id}"
-          all_pass=0
-        fi
-      else
-        # No PASS and no deferred annotation — silent omission
-        fail "$check_name" "${gate} marker missing in ${pr_id}"
-        all_pass=0
-      fi
-    done
-  done
-
-  if [[ $all_pass -eq 1 ]]; then
-    pass "$check_name"
-  fi
+  pass "$check_name"
 }
 
 # ---------------------------------------------------------------------------
@@ -727,13 +702,13 @@ main() {
 
   check_task_file_completion
   check_bug_files_present_for_done
-  check_progress_md_structure
+  check_state_json_schema
   check_gated_path_accountability
   check_work_log_content
   check_playwright_artifacts
   check_ci_evidence
   check_pr_body_quad_review
-  check_pr_awaiting_merge_gate_verdicts
+  check_awaiting_merge_records
 
   echo ""
   if [[ ${#FAILURES[@]} -eq 0 ]]; then

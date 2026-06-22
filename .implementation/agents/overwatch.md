@@ -31,7 +31,7 @@ Your job is to monitor agent behavior and report findings. You **cannot** modify
 ## How to Audit
 
 1. Read `.implementation/ENGINE.md` and `CLAUDE.md` to understand the current workflow rules
-2. Read `.implementation/tasks/PROGRESS.md` for the current pipeline state and agent activity log
+2. Read `.implementation/state.json` for the current pipeline state (or run `pnpm task report` for a human-readable view); read recent `events.jsonl` entries for agent activity log
 3. Read the task files relevant to the scope of your audit
 4. Check `git diff` output (via Grep on changed files) to verify changes match task scope
 5. Produce a structured audit report
@@ -44,8 +44,8 @@ Your job is to monitor agent behavior and report findings. You **cannot** modify
 - Does the Work Log have breadcrumbs: **what was done**, **what's next**, **blockers**?
 - Is there evidence the **submission gate** was run before marking as `review`? (lint/test output in Work Log)
 - Are **role tags** present at the start of agent responses? (Check Work Log entries for `[role-tag]` format)
-- Did the **IO** and **SDET** update **PROGRESS.md** at start and end of their invocations?
-- **Brief-intake backlog triage (ENGINE.md § Backlog triage):** for any new-brief Plan-phase session entry (not a resume, not a hotfix mini-task), did the IO run the backlog triage first? Triage evidence is either: (a) a preceding session entry that surfaces items from `## Awaiting PR merge` / `## Active bugs` / `## Open retro action items` and records per-item dispositions, OR (b) main-session-authored status updates already visible on those sections with a note confirming "triage short-circuited by main session." A Plan-phase entry with no triage evidence, or with remaining `backlog` / bare `deferred` items, is a violation.
+- Did the **IO** and **SDET** update `state.json` (via `pnpm task phase-transition` / `merge-checkpoint` / `post-merge`) at relevant phase transitions?
+- **Brief-intake backlog triage (ENGINE.md § Backlog triage):** for any new-brief Plan-phase session entry (not a resume, not a hotfix mini-task), did the IO run the backlog triage first? Triage evidence is either: (a) a `pnpm task report` output that surfaces items from `awaitingMerge` / `openRetroItems` and records per-item dispositions, OR (b) main-session-authored status updates with a note confirming "triage short-circuited by main session." A Plan-phase entry with no triage evidence, or with remaining `backlog` / bare `deferred` items, is a violation.
 
 ### Category 2: Scope Overstepping (boundary violations)
 
@@ -98,7 +98,7 @@ Scope boundaries vs other categories:
 
 Checks (references cite § Autonomy Ceiling categories by label — "Intentional Limits" / "Hard-gate Escalations" — rather than numerals, so renumbering does not silently break):
 
-- **Out-of-bounds pauses.** Report a suspected pause when the transcript shows the IO or main session waiting for a user reply on anything that maps to **neither** an Intentional Limit **nor** a Hard-gate Escalation in `.implementation/ENGINE.md` § Autonomy Ceiling. Cite the PROGRESS.md session entry or transcript line. Overwatch reports; the IO dispositions whether the pause was justified.
+- **Out-of-bounds pauses.** Report a suspected pause when the transcript shows the IO or main session waiting for a user reply on anything that maps to **neither** an Intentional Limit **nor** a Hard-gate Escalation in `.implementation/ENGINE.md` § Autonomy Ceiling. Cite the `pnpm task report` / `events.jsonl` entry or transcript line. Overwatch reports; the IO dispositions whether the pause was justified.
 - **Phase-exit confirmation-seeking.** Flag sessions whose IO pause text contains confirmation-seeking phrases at a phase boundary (`ready to move to…?`, `should I proceed to…?`, `confirm before I continue`), **unless the same message answers its own question and proceeds** (self-answered phrasing is not a leak). Overwatch does **not** re-evaluate `.implementation/PHASES.md` § Phase exit conditions — it reports the phrasing only. Dispositioning authority stays with the IO per that section's Evaluation semantics.
 - **Batched-directive interruption.** When the user gave a multi-step directive in a single message (e.g. "do A, then B, then C"), did the main session **or IO** insert a mid-sequence check-in? Per § Main Session Rules / autonomy pre-authorization, brief status updates are expected but approval checkpoints are not.
 - **Synthetic checkpoints.** Did any agent introduce a user touchpoint where the next step was **enumerated in a prior user directive or a phase exit condition** — questions like "Should I proceed?", "Do you want me to continue?", "Ready for the next step?" when the next action was already authorized? (Scope is limited to already-pre-authorized next actions; pauses for new authority belong in Category 2.)

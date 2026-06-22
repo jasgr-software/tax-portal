@@ -41,7 +41,7 @@ not, you validate against the acceptance criteria directly.
 1. Read `.implementation/ENGINE.md` for workflow rules (especially § Acceptance & Methodology, § Submission
    Gate)
 2. Read `CLAUDE.md` for submission-gate commands and project conventions
-3. Read `.implementation/tasks/PROGRESS.md` for current slice state
+3. Read `.implementation/state.json` for current slice state (or run `pnpm task report` for a human-readable view)
 4. Read the **build brief** — its `acceptance_criteria`, `methodology` block (TDD? acceptance format? e2e?
    coverage?), and any `acceptance_scenarios`. These define what "validated" means for this slice.
 5. Read any ids listed under the task's `upstream_refs` front-matter key (e.g. `.architecture/decisions/ADR-*.md`) — binding
@@ -153,7 +153,7 @@ For each task with status `review`:
 
 ## Session Continuity
 
-Update `.implementation/tasks/PROGRESS.md` at start and end of every invocation (`ENGINE.md` § Breadcrumbs).
+At end of every invocation, record gate verdicts via `pnpm task merge-checkpoint` (or by updating `state.json` `awaitingMerge[n].gateVerdicts` directly with `pnpm task` commands). The IO reads `state.json` + `pnpm task report` to track progress. (`ENGINE.md` § Breadcrumbs)
 
 ## Acceptance Scenarios (when the brief mandates them)
 
@@ -184,8 +184,7 @@ migration jobs, inter-service networking, environment config).
    clean slate (`docker compose down -v`), build, up, wait healthy, verify migrate job exited 0, hit service
    health endpoints, verify mail catcher reachable; then basic UI validation (app loads, primary navigation
    renders, an API-backed page loads without CORS errors, new pages/menu items appear and don't 404).
-3. Report pass/fail per check (infrastructure and UI separately) to the IO via a PROGRESS.md session entry —
-   the IO ticks the **Container Smoke gate**. The SDET does not edit PROGRESS.md gate sections directly.
+3. Report pass/fail per check (infrastructure and UI separately) to the IO — the IO runs `pnpm task merge-checkpoint` to record the `containerSmoke` gate verdict in `state.json`. The SDET does not update `state.json` gate sections directly; the IO records them.
 4. On failure, report with logs (`docker compose logs <service>`) or console output and escalate to the IO.
 
 ## UI Demo Capture (during Smoke/Validate — when applicable, NON-GATING)
@@ -199,7 +198,7 @@ already up for the smoke/e2e gates:
    gate). It drives the persona/flow happy-path and writes AC-tagged screenshots to `docs/demos/EPIC-NNN/`.
 2. Confirm the named PNGs landed and show the real seeded UI; assemble/refresh `docs/demos/EPIC-NNN/DEMO.md`
    (title, persona + flow links, one `## NN. <step>  [AC-ID]` section per screen with the embedded image).
-3. Report the demo result (screens captured, path) to the IO via a PROGRESS.md session entry.
+3. Report the demo result (screens captured, path) to the IO (as a `pnpm task trace` note or in the Work Log).
 4. **This is not a gate.** If the demo can't be captured (capture error, or `applicable: no`), record
    "skipped/failed — non-gating" and proceed; a passing e2e/acceptance gate is what gates delivery. Do not
    reject a slice for a missing demo.
@@ -215,15 +214,13 @@ After the CI gate passes, verify that every UI surface in scope has equivalent q
    the brief named.
 4. **Submission-gate parity** — each surface's gate commands are listed in `CLAUDE.md`.
 
-Report pass or per-surface gaps to the IO via a PROGRESS.md session entry — the IO ticks the **Quality audit**
-gate and creates remediation tasks before Close-prep if needed.
+Report pass or per-surface gaps to the IO — the IO records the `sdetQualityAudit` verdict in `state.json` and creates remediation tasks before Close-prep if needed.
 
 ## CI Gate (slice completion)
 
 1. Docker pre-flight — fail the gate if unavailable.
 2. Run the full CI command from `CLAUDE.md`.
-3. Report pass/fail with full output to the IO via a PROGRESS.md session entry — the IO ticks the **SDET CI
-   gate**.
+3. Report pass/fail with full output to the IO — the IO records the `sdetCiGate` verdict in `state.json` via `pnpm task merge-checkpoint`.
 
 ## E2E Execution Pattern
 

@@ -35,6 +35,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as child_process from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { resolve as resolvePath } from "node:path";
 
@@ -46,6 +47,23 @@ import {
   verifyFrontMatter,
   type FrontMatter,
 } from "./task-frontmatter.js";
+
+// CS-GEN-003: Import state-store helpers for the 5 heavier commands
+// (BRIEF-LOE-012 / TASK-LOE-012-002).
+import {
+  readState,
+  writeState,
+  appendEvent,
+  readEvents,
+  VALID_PHASES,
+  type StateStore,
+  type StateEvent,
+  type Phase,
+  type AwaitingMergeRecord,
+  type GateVerdictSlots,
+  serializeState,
+  renderReport,
+} from "./state-store.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,6 +102,17 @@ export interface ParsedArgs {
   fields?: string[];    // --fields f1,f2,… (for show)
   statuses?: string[];  // --status s1,s2,… (for list, multi-value)
   json?: boolean;       // --json opt-in output (AC-LOE-011-06 §10 Q5)
+  // State-store command flags (BRIEF-LOE-012 / TASK-LOE-012-002)
+  dryRun?: boolean;     // --dry-run: print JSON diff, write nothing (AC-LOE-012-02..05)
+  to?: string;          // --to <phase>: for phase-transition
+  pr?: number;          // --pr N: for merge-checkpoint / post-merge
+  // Gate verdicts for merge-checkpoint (agent-supplied; CLI records verbatim)
+  containerSmoke?: string;    // --container-smoke "..."
+  sdetValidation?: string;    // --sdet-validation "..."
+  sdetCiGate?: string;        // --sdet-ci-gate "..."
+  sdetQualityAudit?: string;  // --sdet-quality-audit "..."
+  bug?: string;               // --bug "<desc>" for post-merge fail branch
+  md?: boolean;               // --md for report (markdown output)
 }
 
 // ─── Repo root detection ──────────────────────────────────────────────────────
@@ -994,7 +1023,7 @@ export function deriveTaskId(filePath: string): string {
   const base = path.basename(filePath, ".md");
   // Match TASK-NNN-NNN or BUG-NNN-NNN or TASK-LOE-NNN-NNN etc. (first segment only)
   const m = base.match(/^(TASK-[A-Z0-9]+-[A-Z0-9]+-[0-9]+|BUG-[A-Z0-9]+-[A-Z0-9]+-[0-9]+|TASK-[A-Z0-9]+-[0-9]+|BUG-[A-Z0-9]+-[0-9]+|RETRO-[0-9]+)/i);
-  if (m) return m[1].toUpperCase();
+  if (m && m[1]) return m[1].toUpperCase();
   return base.toUpperCase();
 }
 
@@ -2012,6 +2041,877 @@ export function renderBriefContext(result: BriefContextResult, json: boolean): s
   return parts.join("\n");
 }
 
+// ─── State-store command helpers ──────────────────────────────────────────────
+
+/**
+ * Build an empty StateStore (used when no state.json exists yet).
+ * DECISION: Zero-state has null brief/phase/branch so the first phase-transition
+ * can write a meaningful entry. (BRIEF-LOE-012 §7)
+ * CS-GEN-003
+ */
+function buildEmptyState(nowFn?: () => string): StateStore {
+  return {
+    schemaVersion: "1.0",
+    lastUpdated: nowFn ? nowFn() : nowIso(),
+    currentBrief: null,
+    currentPhase: null,
+    currentSliceDescription: null,
+    currentBranch: null,
+    awaitingMerge: [],
+    openRetroItems: [],
+  };
+}
+
+/**
+ * Compute a JSON diff string between two JSON representations.
+ * Returns a human-readable "before vs after" diff (line-level).
+ * DECISION: This is intentionally a minimal line-diff (not a true unified diff)
+ * to remain zero-dep while being useful for human review.
+ * CS-INFRA-004: zero new runtime npm dependencies.
+ * CS-GEN-003: mirrors the dry-run pattern in state-store.ts migrate().
+ */
+function jsonLineDiff(before: string, after: string): string {
+  const beforeLines = before.split("\n");
+  const afterLines = after.split("\n");
+  const maxLen = Math.max(beforeLines.length, afterLines.length);
+  const diffLines: string[] = [];
+  for (let i = 0; i < maxLen; i++) {
+    const b = beforeLines[i];
+    const a = afterLines[i];
+    if (b !== a) {
+      if (b !== undefined) diffLines.push(`- ${b}`);
+      if (a !== undefined) diffLines.push(`+ ${a}`);
+    }
+  }
+  return diffLines.length > 0 ? diffLines.join("\n") : "(no changes)";
+}
+
+// ─── Subcommand: phase-transition ─────────────────────────────────────────────
+
+/**
+ * `phase-transition --to <phase> --role <r> [--dry-run]`
+ *
+ * Sets `state.json` `currentPhase` + appends a `phase-transition` event
+ * ATOMICALLY together. Rejects illegal/unknown phases non-zero.
+ * Re-run to a settled phase = clean no-op (exit 0).
+ *
+ * THE JUDGMENT LINE (BRIEF-LOE-012 §6 / PROPOSAL-scripted-bookkeeping-phase2.md §8):
+ * // DECISION: This command RECORDS the phase transition — it does NOT decide
+ * // whether the transition is valid from a business perspective. The agent
+ * // decides to invoke the transition; the CLI records it atomically.
+ * // Validation is structural only (is the phase string a legal enum value?).
+ * CS-GEN-003: PROPOSAL-scripted-bookkeeping-phase2.md §8 / AC-LOE-012-02
+ * CS-INFRA-004: zero new runtime npm dependencies.
+ *
+ * AC-LOE-012-02
+ */
+export function cmdPhaseTransition(opts: {
+  to: string;
+  role: Role;
+  note?: string;
+  repoRoot?: string;
+  dryRun?: boolean;
+  nowFn?: () => string;
+}): { changed: boolean; message: string } {
+  // AC-LOE-012-02: --role required + roster-validated
+  if (!validateRole(opts.role)) {
+    throw new TaskCliError(
+      `Unknown role "${opts.role}". Valid roles: ${VALID_ROLES.join(", ")}`,
+      1
+    );
+  }
+
+  // Validate the target phase against the closed VALID_PHASES enum
+  // DECISION: This is structural validation, not a judgment. The phase enum
+  // is authoritative (PHASES.md); an unknown string is always invalid.
+  // CS-GEN-003: VALID_PHASES from state-store.ts — the single source of truth.
+  if (!VALID_PHASES.includes(opts.to as Phase)) {
+    throw new TaskCliError(
+      `Unknown phase "${opts.to}". Valid phases: ${VALID_PHASES.join(", ")}`,
+      1
+    );
+  }
+
+  const targetPhase = opts.to as Phase;
+  const repoRoot = opts.repoRoot ?? findRepoRoot();
+  const now = opts.nowFn ? opts.nowFn() : nowIso();
+
+  // Read current state (or build empty if first run)
+  const current = readState(repoRoot) ?? buildEmptyState(opts.nowFn);
+
+  // IDEMPOTENCY: if the phase is already settled to the same value, clean no-op
+  if (current.currentPhase === targetPhase) {
+    return {
+      changed: false,
+      message: `Phase is already ${targetPhase} — no-op`,
+    };
+  }
+
+  // Build new state
+  const newState: StateStore = {
+    ...current,
+    lastUpdated: now,
+    currentPhase: targetPhase,
+  };
+
+  // Build the event
+  const event: StateEvent = {
+    ts: now,
+    type: "phase-transition",
+    brief: newState.currentBrief,
+    phase: targetPhase,
+    role: opts.role,
+    pr: null,
+    note: opts.note ?? null,
+    payload: {
+      previousPhase: current.currentPhase,
+      targetPhase,
+    },
+  };
+
+  // --dry-run: print diff and return without writing
+  if (opts.dryRun) {
+    const before = serializeState(current);
+    const after = serializeState(newState);
+    console.log("=== DRY RUN: state.json diff (phase-transition) ===");
+    console.log(jsonLineDiff(before, after));
+    console.log(`=== event that would be appended to events.jsonl ===`);
+    console.log(JSON.stringify(event, null, 2));
+    console.log("=== END DRY RUN (nothing written) ===");
+    return {
+      changed: false,
+      message: `dry-run: would transition phase ${current.currentPhase ?? "(none)"} → ${targetPhase}`,
+    };
+  }
+
+  // ATOMICITY: writeState uses atomicWriteFile (temp + rename); then append event.
+  // DECISION: We write state.json FIRST, then append to events.jsonl.
+  // If the event append fails, state.json still reflects the transition (recoverable).
+  // The inverse (event first) would leave a ghost event with no matching state change.
+  // CS-GEN-003: §7 decision 1 — events.jsonl is the append-only audit log.
+  writeState(repoRoot, newState);
+  appendEvent(repoRoot, event);
+
+  return {
+    changed: true,
+    message: `Phase transitioned ${current.currentPhase ?? "(none)"} → ${targetPhase}`,
+  };
+}
+
+// ─── Subcommand: merge-checkpoint ─────────────────────────────────────────────
+
+/**
+ * Injectable shim type for `gh` / `git` calls in merge-checkpoint.
+ * Allows tests to substitute a fake without live network access.
+ * CS-GEN-003: derive-from-source precedent from orchestrate-state.sh / id-alloc.sh
+ * AC-LOE-012-03
+ */
+export interface MergeCheckpointShims {
+  /** Run `gh pr view <N> --json url` and return the URL string */
+  ghPrViewUrl: (prNumber: number) => string;
+  /** Run `git log` / `git rev-parse` to get the HEAD squash SHA */
+  gitRevParse: () => string;
+}
+
+/**
+ * Default shims that call `gh` and `git` via spawnSync.
+ *
+ * SECURITY (AC-LOE-012-03): The PR number is numeric-validated before use.
+ * NEVER allow --pr to carry a shell-injectable string — pass it as a separate
+ * argv element to spawnSync (which does NOT use a shell by default).
+ * CS-GEN-003: §11 derive-from-source — mirrors orchestrate-state.sh pattern.
+ */
+function defaultMergeCheckpointShims(): MergeCheckpointShims {
+  return {
+    ghPrViewUrl(prNumber: number): string {
+      // SECURITY: prNumber is already validated as a positive integer by the caller.
+      // Passed as a separate argv element — no shell interpolation.
+      // CS-GEN-003: §11 derive-from-source
+      const result = child_process.spawnSync(
+        "gh",
+        ["pr", "view", String(prNumber), "--json", "url", "--jq", ".url"],
+        { encoding: "utf8" }
+      );
+      if (result.status !== 0) {
+        throw new TaskCliError(
+          `gh pr view ${prNumber} failed: ${result.stderr ?? result.error?.message ?? "(unknown error)"}`,
+          1
+        );
+      }
+      return (result.stdout ?? "").trim();
+    },
+
+    gitRevParse(): string {
+      // DECISION: Use `git rev-parse HEAD` — the current HEAD after a squash merge
+      // is the squash commit SHA. The agent NEVER types this value.
+      // CS-GEN-003: §11 derive-from-source
+      const result = child_process.spawnSync(
+        "git",
+        ["rev-parse", "HEAD"],
+        { encoding: "utf8" }
+      );
+      if (result.status !== 0) {
+        throw new TaskCliError(
+          `git rev-parse HEAD failed: ${result.stderr ?? result.error?.message ?? "(unknown error)"}`,
+          1
+        );
+      }
+      return (result.stdout ?? "").trim();
+    },
+  };
+}
+
+/**
+ * `merge-checkpoint --pr N --role <r> [--container-smoke "..."] [--sdet-validation "..."]
+ *  [--sdet-ci-gate "..."] [--sdet-quality-audit "..."] [--note "..."] [--dry-run]`
+ *
+ * Creates an awaiting-merge record in `state.json` and appends a `merge-checkpoint`
+ * event to `events.jsonl`. DERIVES the PR URL + squash SHA from `gh`/`git` —
+ * the agent NEVER transcribes them.
+ *
+ * THE JUDGMENT LINE (BRIEF-LOE-012 §6 / PROPOSAL-scripted-bookkeeping-phase2.md §8):
+ * // DECISION: Gate verdicts are AGENT-SUPPLIED inputs recorded VERBATIM.
+ * // The CLI does NOT compute, evaluate, or interpret them. The agent decides
+ * // whether a gate passed; the CLI stores what the agent says.
+ * CS-GEN-003: AC-LOE-012-03 / PROPOSAL-scripted-bookkeeping-phase2.md §8
+ *
+ * AC-LOE-012-03
+ */
+export function cmdMergeCheckpoint(opts: {
+  pr: number;
+  role: Role;
+  gateVerdicts?: Partial<GateVerdictSlots>;
+  note?: string;
+  repoRoot?: string;
+  dryRun?: boolean;
+  nowFn?: () => string;
+  // Injectable shims for gh/git (no live network in tests)
+  shims?: MergeCheckpointShims;
+}): { changed: boolean; message: string; record?: AwaitingMergeRecord } {
+  // AC-LOE-012-03: --role required + roster-validated
+  if (!validateRole(opts.role)) {
+    throw new TaskCliError(
+      `Unknown role "${opts.role}". Valid roles: ${VALID_ROLES.join(", ")}`,
+      1
+    );
+  }
+
+  // SECURITY (AC-LOE-012-03): numeric-validate --pr to prevent shell injection.
+  // opts.pr is already typed as number but verify at runtime for CLI path safety.
+  if (!Number.isInteger(opts.pr) || opts.pr < 1) {
+    throw new TaskCliError(`--pr must be a positive integer, got: ${opts.pr}`, 1);
+  }
+
+  const repoRoot = opts.repoRoot ?? findRepoRoot();
+  const now = opts.nowFn ? opts.nowFn() : nowIso();
+  const shims = opts.shims ?? defaultMergeCheckpointShims();
+
+  // Read current state
+  const current = readState(repoRoot) ?? buildEmptyState(opts.nowFn);
+
+  // IDEMPOTENCY: if a record for this PR already exists, clean no-op
+  const existing = current.awaitingMerge.find((r) => r.pr === opts.pr);
+  if (existing) {
+    return {
+      changed: false,
+      message: `merge-checkpoint for PR #${opts.pr} already exists — no-op`,
+      record: existing,
+    };
+  }
+
+  // DERIVE PR URL + squash SHA from primary sources (never from agent flags)
+  // CS-GEN-003: §11 derive-from-source
+  // DECISION: This is the heart of AC-LOE-012-03 — the agent NEVER transcribes
+  // these values. The CLI shells out to gh/git (injected for tests).
+  const prUrl = shims.ghPrViewUrl(opts.pr);
+  const squashSha = shims.gitRevParse();
+
+  // Validate derived URL (must start with https://)
+  if (!prUrl.startsWith("https://")) {
+    throw new TaskCliError(
+      `Derived PR URL "${prUrl}" does not start with https:// — check gh output`,
+      1
+    );
+  }
+
+  // Build gate verdicts (AGENT-SUPPLIED, recorded verbatim)
+  // DECISION: null = not yet recorded (the agent may supply verdicts incrementally).
+  // CS-GEN-003: §8 judgment line — the CLI RECORDS, NEVER DECIDES.
+  const gateVerdicts: GateVerdictSlots = {
+    containerSmoke: opts.gateVerdicts?.containerSmoke ?? null,
+    sdetValidation: opts.gateVerdicts?.sdetValidation ?? null,
+    sdetCiGate: opts.gateVerdicts?.sdetCiGate ?? null,
+    sdetQualityAudit: opts.gateVerdicts?.sdetQualityAudit ?? null,
+  };
+
+  const record: AwaitingMergeRecord = {
+    pr: opts.pr,
+    prUrl,
+    squashSha,
+    createdAt: now,
+    gateVerdicts,
+    note: opts.note ?? null,
+  };
+
+  // Build new state (append the record)
+  const newState: StateStore = {
+    ...current,
+    lastUpdated: now,
+    awaitingMerge: [...current.awaitingMerge, record],
+  };
+
+  // Build event
+  const event: StateEvent = {
+    ts: now,
+    type: "merge-checkpoint",
+    brief: newState.currentBrief,
+    phase: newState.currentPhase,
+    role: opts.role,
+    pr: opts.pr,
+    note: opts.note ?? null,
+    payload: { prUrl, squashSha, gateVerdicts },
+  };
+
+  // --dry-run: print diff and return without writing
+  if (opts.dryRun) {
+    const before = serializeState(current);
+    const after = serializeState(newState);
+    console.log("=== DRY RUN: state.json diff (merge-checkpoint) ===");
+    console.log(jsonLineDiff(before, after));
+    console.log(`=== event that would be appended to events.jsonl ===`);
+    console.log(JSON.stringify(event, null, 2));
+    console.log("=== END DRY RUN (nothing written) ===");
+    return {
+      changed: false,
+      message: `dry-run: would create merge-checkpoint for PR #${opts.pr}`,
+      record,
+    };
+  }
+
+  writeState(repoRoot, newState);
+  appendEvent(repoRoot, event);
+
+  return {
+    changed: true,
+    message: `merge-checkpoint created for PR #${opts.pr} (url=${prUrl}, sha=${squashSha})`,
+    record,
+  };
+}
+
+// ─── Subcommand: post-merge ────────────────────────────────────────────────────
+
+/**
+ * `post-merge --pr N --role <r> [--bug "<desc>"] [--note "..."] [--dry-run]`
+ *
+ * Pass (no --bug): clears the awaiting-merge record for the PR.
+ * Fail (--bug "<desc>"): scaffolds a BUG-BBB-POST-NNN file via task-frontmatter.ts
+ *                        AND keeps the awaiting-merge record.
+ *
+ * THE JUDGMENT LINE (BRIEF-LOE-012 §6 / PROPOSAL-scripted-bookkeeping-phase2.md §8):
+ * // DECISION: The pass/fail determination and the bug description are AGENT-SUPPLIED
+ * // inputs. The CLI does NOT decide whether the merge passed or failed; it records
+ * // what the agent says and takes the appropriate structural action (clear or scaffold).
+ * CS-GEN-003: AC-LOE-012-04 / PROPOSAL-scripted-bookkeeping-phase2.md §8
+ *
+ * Bug scaffold goes through serializeFrontMatter from task-frontmatter.ts —
+ * NOT a re-implemented YAML writer. (CS-GEN-003)
+ *
+ * AC-LOE-012-04
+ */
+export function cmdPostMerge(opts: {
+  pr: number;
+  role: Role;
+  bug?: string;   // If present → fail branch (scaffold BUG and keep record)
+  note?: string;
+  repoRoot?: string;
+  dryRun?: boolean;
+  nowFn?: () => string;
+}): { changed: boolean; message: string; bugFilePath?: string } {
+  // AC-LOE-012-04: --role required + roster-validated
+  if (!validateRole(opts.role)) {
+    throw new TaskCliError(
+      `Unknown role "${opts.role}". Valid roles: ${VALID_ROLES.join(", ")}`,
+      1
+    );
+  }
+
+  // SECURITY: numeric-validate --pr
+  if (!Number.isInteger(opts.pr) || opts.pr < 1) {
+    throw new TaskCliError(`--pr must be a positive integer, got: ${opts.pr}`, 1);
+  }
+
+  const repoRoot = opts.repoRoot ?? findRepoRoot();
+  const now = opts.nowFn ? opts.nowFn() : nowIso();
+  const today = now.slice(0, 10);
+
+  // Read current state
+  const current = readState(repoRoot) ?? buildEmptyState(opts.nowFn);
+
+  // Find the awaiting-merge record
+  const recIdx = current.awaitingMerge.findIndex((r) => r.pr === opts.pr);
+  if (recIdx === -1) {
+    throw new TaskCliError(
+      `No awaiting-merge record found for PR #${opts.pr}. Run merge-checkpoint first.`,
+      1
+    );
+  }
+
+  const isFail = opts.bug !== undefined && opts.bug !== "";
+
+  if (isFail) {
+    // ── FAIL BRANCH: scaffold BUG file AND keep the awaiting-merge record ────
+    // DECISION: On fail, the record is kept so the accountability ledger shows
+    // the open bug. The agent must re-run post-merge (pass) after the fix.
+    // CS-GEN-003: §8 judgment line — the agent decides to fail; the CLI records it.
+
+    // Derive the BUG file ID from the tasks directory listing
+    // Pattern: BUG-BBB-POST-NNN where NNN is auto-incremented
+    const tasksDir = path.join(repoRoot, ".implementation", "tasks");
+    const bugNumber = deriveNextBugNumber(tasksDir, "POST");
+    const bugId = `BUG-LOE-012-POST-${String(bugNumber).padStart(3, "0")}`;
+    const bugFileName = `${bugId}-post-merge-pr-${opts.pr}.md`;
+    const bugFilePath = path.join(tasksDir, bugFileName);
+
+    // SECURITY: confine the bug file path to the tasks directory
+    const allowedRoot = path.resolve(tasksDir);
+    const resolvedBugPath = path.resolve(bugFilePath);
+    if (!resolvedBugPath.startsWith(allowedRoot + path.sep)) {
+      throw new TaskCliError(
+        `Bug file path escapes tasks directory (path-confinement violation): ${bugFilePath}`,
+        1
+      );
+    }
+
+    // IDEMPOTENCY: if the bug file already exists, it's a no-op
+    if (fs.existsSync(bugFilePath) && !opts.dryRun) {
+      return {
+        changed: false,
+        message: `BUG file ${bugId} already exists — no-op`,
+        bugFilePath,
+      };
+    }
+
+    // Scaffold the BUG file via serializeFrontMatter from task-frontmatter.ts
+    // CS-GEN-003: All FM write goes through task-frontmatter.ts (NOT re-implemented here).
+    const bugFm: FrontMatter = {
+      brief: current.currentBrief ?? "BRIEF-LOE-012",
+      status: "open",
+      assigned_to: opts.role,
+      updated_by: opts.role,
+      found_in: `PR #${opts.pr}`,
+      category: "post-merge-regression",
+      severity: "major",
+      started_at: "—",
+      completed_at: "—",
+    };
+    const bugFmBlock = serializeFrontMatter(bugFm);
+    const bugBody = `\n# ${bugId}: post-merge regression (PR #${opts.pr})\n\n` +
+      `## Description\n\n${opts.bug ?? "(no description)"}\n\n` +
+      `## Filed at\n\n${today} by [${opts.role}]\n\n` +
+      (opts.note ? `## Note\n\n${opts.note}\n\n` : "") +
+      `## Resolution\n\n_Pending._\n`;
+    const bugContent = bugFmBlock + bugBody;
+
+    // Build the post-merge fail event
+    const event: StateEvent = {
+      ts: now,
+      type: "post-merge",
+      brief: current.currentBrief,
+      phase: current.currentPhase,
+      role: opts.role,
+      pr: opts.pr,
+      note: opts.bug ?? null,
+      payload: {
+        result: "fail",
+        bugDescription: opts.bug ?? null,
+        bugFilePath: resolvedBugPath,
+        recordKept: true,
+      },
+    };
+
+    if (opts.dryRun) {
+      console.log("=== DRY RUN: post-merge FAIL branch ===");
+      console.log(`Would scaffold BUG file: ${bugFilePath}`);
+      console.log(`BUG front matter:\n${bugFmBlock.trim()}`);
+      console.log(`=== event that would be appended to events.jsonl ===`);
+      console.log(JSON.stringify(event, null, 2));
+      console.log("=== awaiting-merge record KEPT (fail branch) ===");
+      console.log("=== END DRY RUN (nothing written) ===");
+      return {
+        changed: false,
+        message: `dry-run: would scaffold ${bugId} and keep awaiting-merge record for PR #${opts.pr}`,
+        bugFilePath,
+      };
+    }
+
+    // Write the BUG file (atomic)
+    atomicWriteFile(bugFilePath, bugContent);
+
+    // Update state: keep awaitingMerge record but update lastUpdated
+    const newState: StateStore = {
+      ...current,
+      lastUpdated: now,
+    };
+    writeState(repoRoot, newState);
+    appendEvent(repoRoot, event);
+
+    return {
+      changed: true,
+      message: `post-merge FAIL: scaffolded ${bugId} (PR #${opts.pr} awaiting-merge record kept)`,
+      bugFilePath,
+    };
+
+  } else {
+    // ── PASS BRANCH: clear the awaiting-merge record ──────────────────────────
+    // DECISION: On pass, the record is removed (it is now committed to git history
+    // and the merge is the durable record). The events.jsonl still carries the trace.
+    // CS-GEN-003: §8 judgment line — the agent decides to pass; the CLI records it.
+
+    const rec = current.awaitingMerge[recIdx]!;
+
+    // IDEMPOTENCY: if already cleared (shouldn't happen but guard)
+    const newMerge = current.awaitingMerge.filter((r) => r.pr !== opts.pr);
+
+    const event: StateEvent = {
+      ts: now,
+      type: "post-merge",
+      brief: current.currentBrief,
+      phase: current.currentPhase,
+      role: opts.role,
+      pr: opts.pr,
+      note: opts.note ?? null,
+      payload: {
+        result: "pass",
+        prUrl: rec.prUrl,
+        squashSha: rec.squashSha,
+        recordCleared: true,
+      },
+    };
+
+    const newState: StateStore = {
+      ...current,
+      lastUpdated: now,
+      awaitingMerge: newMerge,
+    };
+
+    if (opts.dryRun) {
+      const before = serializeState(current);
+      const after = serializeState(newState);
+      console.log("=== DRY RUN: state.json diff (post-merge PASS) ===");
+      console.log(jsonLineDiff(before, after));
+      console.log(`=== event that would be appended to events.jsonl ===`);
+      console.log(JSON.stringify(event, null, 2));
+      console.log("=== END DRY RUN (nothing written) ===");
+      return {
+        changed: false,
+        message: `dry-run: would clear awaiting-merge record for PR #${opts.pr}`,
+      };
+    }
+
+    writeState(repoRoot, newState);
+    appendEvent(repoRoot, event);
+
+    return {
+      changed: true,
+      message: `post-merge PASS: awaiting-merge record for PR #${opts.pr} cleared`,
+    };
+  }
+}
+
+/**
+ * Derive the next available BUG number for a given suffix (e.g. "POST").
+ * Scans the tasks directory for BUG-*-POST-NNN-* files and returns max+1.
+ * DECISION: Simple filesystem scan — no separate counter state needed.
+ * CS-GEN-003: path-confinement to tasksDir (no traversal outside).
+ */
+function deriveNextBugNumber(tasksDir: string, suffix: string): number {
+  if (!fs.existsSync(tasksDir)) return 1;
+
+  const pattern = new RegExp(`BUG-[A-Z0-9-]+-${suffix}-(\\d+)`, "i");
+  let max = 0;
+
+  // Scan both active and done/
+  const dirs = [tasksDir, path.join(tasksDir, "done")];
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const entry of fs.readdirSync(dir)) {
+      const m = pattern.exec(entry);
+      if (m) {
+        const n = parseInt(m[1]!, 10);
+        if (n > max) max = n;
+      }
+    }
+  }
+
+  return max + 1;
+}
+
+// ─── Subcommand: trace ────────────────────────────────────────────────────────
+
+/**
+ * Result of the `trace --brief NNN` command.
+ */
+export interface TraceResult {
+  brief: string;
+  /** Per-AC tier breakdown: AC-ID → { unit: string[], integration: string[], e2e: string[], tier3: string[] } */
+  acMap: Record<string, { unit: string[]; integration: string[]; e2e: string[]; tier3: string[] }>;
+  /** Total @AC-* tags found across all files */
+  totalTags: number;
+  /** Files scanned */
+  filesScanned: number;
+}
+
+/**
+ * `trace --brief NNN`
+ *
+ * Tallies `@AC-*` tags from test files into a per-AC tier map
+ * (unit / integration / e2e / tier-3). Builds the table — does NOT compute
+ * an adequacy verdict (that stays agent-supplied).
+ *
+ * THE JUDGMENT LINE (BRIEF-LOE-012 §6 / PROPOSAL-scripted-bookkeeping-phase2.md §8):
+ * // DECISION: trace BUILDS THE TABLE. It tallies occurrences of @AC-* tags
+ * // and maps them to tiers by file location heuristics. It does NOT decide
+ * // whether coverage is adequate — that is an agent judgment. The output is
+ * // a structured input to the agent's adequacy assessment.
+ * CS-GEN-003: AC-LOE-012-05 / PROPOSAL-scripted-bookkeeping-phase2.md §8
+ *
+ * Tier classification heuristic (DECISION):
+ *   - files under .../e2e/...              → e2e
+ *   - files under .../integration/...      → integration
+ *   - files with ".test.ts" / ".spec.ts"   → unit (default)
+ *   - files under .../tier-3/...           → tier-3
+ * These are heuristics — the agent is authoritative on adequacy.
+ *
+ * AC-LOE-012-05
+ */
+export function cmdTrace(opts: {
+  brief: string;
+  repoRoot?: string;
+  /** Override the root paths to scan (injectable for testing) */
+  scanRoots?: string[];
+}): TraceResult {
+  const repoRoot = opts.repoRoot ?? findRepoRoot();
+
+  // DECISION: Default scan roots for this project — cover both apps and scripts.
+  // The agent may override via scanRoots for targeted scans.
+  // CS-GEN-003: path-confinement to repo root (no traversal outside).
+  const defaultScanRoots = [
+    path.join(repoRoot, "apps", "portal", "e2e"),
+    path.join(repoRoot, "apps", "admin", "e2e"),
+    path.join(repoRoot, "apps", "portal", "src"),
+    path.join(repoRoot, "apps", "admin", "src"),
+    path.join(repoRoot, "scripts"),
+    path.join(repoRoot, "packages"),
+  ];
+
+  const scanRoots = opts.scanRoots ?? defaultScanRoots;
+
+  // Collect all test files (*.test.ts, *.spec.ts, *.test.tsx, *.spec.tsx)
+  const testFiles: string[] = [];
+  for (const root of scanRoots) {
+    collectTestFiles(root, testFiles, path.resolve(repoRoot));
+  }
+
+  // Build the AC → tier map
+  // @AC-* tag pattern: @AC-LOE-012-02 or @AC-LOE-012 etc.
+  // DECISION: we match @AC-{UPPERCASE-OR-DIGIT-OR-HYPHEN}+ — must start with @AC-
+  const acTagPattern = /@(AC-[A-Z0-9][A-Z0-9-]*)/g;
+
+  const acMap: Record<string, { unit: string[]; integration: string[]; e2e: string[]; tier3: string[] }> = {};
+  let totalTags = 0;
+
+  for (const filePath of testFiles) {
+    let content: string;
+    try {
+      content = fs.readFileSync(filePath, "utf8");
+    } catch {
+      continue;
+    }
+
+    const tier = classifyTestFileTier(filePath);
+
+    // Find all @AC-* tags in this file
+    const matches = [...content.matchAll(acTagPattern)];
+    for (const m of matches) {
+      const acId = m[1]!; // e.g. "AC-LOE-012-02"
+
+      // Filter by brief if specified
+      // DECISION: brief NNN matches AC-NNN-* patterns where NNN includes the brief suffix.
+      // e.g. brief="LOE-012" matches AC-LOE-012-*, AC-LOE-012
+      if (opts.brief) {
+        const briefUpper = opts.brief.toUpperCase();
+        if (!acId.startsWith(`AC-${briefUpper}`)) continue;
+      }
+
+      if (!acMap[acId]) {
+        acMap[acId] = { unit: [], integration: [], e2e: [], tier3: [] };
+      }
+
+      totalTags++;
+      const relPath = path.relative(repoRoot, filePath);
+
+      // Add file path to the appropriate tier bucket (avoid duplicates)
+      const bucket = acMap[acId]![tier];
+      if (!bucket.includes(relPath)) {
+        bucket.push(relPath);
+      }
+    }
+  }
+
+  return {
+    brief: opts.brief,
+    acMap,
+    totalTags,
+    filesScanned: testFiles.length,
+  };
+}
+
+/**
+ * Collect all test files (*.test.ts, *.spec.ts, *.test.tsx, *.spec.tsx) under a directory.
+ * DECISION: Confine to allowedRoot (no symlink escape).
+ * CS-GEN-003: path-confinement mirrors resolveTaskFile.
+ */
+function collectTestFiles(dir: string, results: string[], allowedRoot: string): void {
+  if (!fs.existsSync(dir)) return;
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    const resolved = path.resolve(fullPath);
+
+    // Confine to allowedRoot
+    if (!resolved.startsWith(allowedRoot + path.sep) && resolved !== allowedRoot) continue;
+
+    if (entry.isDirectory()) {
+      // Skip node_modules, .next, dist, build
+      if (["node_modules", ".next", "dist", "build", ".git"].includes(entry.name)) continue;
+      collectTestFiles(fullPath, results, allowedRoot);
+    } else if (entry.isFile()) {
+      if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+        results.push(fullPath);
+      }
+    }
+  }
+}
+
+/**
+ * Classify a test file path into a tier.
+ * DECISION (TASK-LOE-012-002 / AC-LOE-012-05):
+ *   - e2e: files under e2e/ directory paths
+ *   - integration: files under integration/ directory paths
+ *   - tier-3: files under tier-3/ directory paths (future)
+ *   - unit: everything else (the default)
+ * This is a path-heuristic — the agent is authoritative on actual adequacy.
+ * CS-GEN-003: §8 judgment line — the CLI CLASSIFIES by path, NEVER DECIDES adequacy.
+ */
+function classifyTestFileTier(filePath: string): "unit" | "integration" | "e2e" | "tier3" {
+  const normalized = filePath.replace(/\\/g, "/");
+  if (/\/e2e\//.test(normalized)) return "e2e";
+  if (/\/integration\//.test(normalized)) return "integration";
+  if (/\/tier-3\//.test(normalized)) return "tier3";
+  return "unit";
+}
+
+/**
+ * Render a TraceResult as compact text (default) or JSON.
+ *
+ * THE JUDGMENT LINE (BRIEF-LOE-012 §6):
+ * // DECISION: renderTrace renders the tier map verbatim. It does NOT add
+ * // any adequacy verdict or "sufficient/insufficient" label. The agent reads
+ * // this table and makes the adequacy judgment.
+ * CS-GEN-003: AC-LOE-012-05
+ */
+export function renderTrace(result: TraceResult, json: boolean): string {
+  if (json) {
+    return JSON.stringify({
+      brief: result.brief,
+      files_scanned: result.filesScanned,
+      total_tags: result.totalTags,
+      ac_map: result.acMap,
+    }, null, 2);
+  }
+
+  const lines: string[] = [
+    `trace: brief=${result.brief}  files_scanned=${result.filesScanned}  total_tags=${result.totalTags}`,
+    "",
+  ];
+
+  const acIds = Object.keys(result.acMap).sort();
+  if (acIds.length === 0) {
+    lines.push("(no @AC-* tags found matching this brief)");
+  } else {
+    // Table header
+    lines.push(`${"AC-ID".padEnd(20)}  ${"UNIT".padEnd(4)}  ${"INTEG".padEnd(5)}  ${"E2E".padEnd(3)}  ${"TIER3".padEnd(5)}  FILES`);
+    lines.push(`${"-".repeat(20)}  ${"-".repeat(4)}  ${"-".repeat(5)}  ${"-".repeat(3)}  ${"-".repeat(5)}  ${"-".repeat(40)}`);
+
+    for (const acId of acIds) {
+      const buckets = result.acMap[acId]!;
+      const allFiles = [
+        ...buckets.unit.map((f) => `unit:${f}`),
+        ...buckets.integration.map((f) => `integ:${f}`),
+        ...buckets.e2e.map((f) => `e2e:${f}`),
+        ...buckets.tier3.map((f) => `tier3:${f}`),
+      ];
+      const filesSummary = allFiles.slice(0, 3).join(", ") + (allFiles.length > 3 ? `, ...+${allFiles.length - 3}` : "");
+
+      lines.push(
+        `${acId.padEnd(20)}  ${String(buckets.unit.length).padEnd(4)}  ${String(buckets.integration.length).padEnd(5)}  ` +
+        `${String(buckets.e2e.length).padEnd(3)}  ${String(buckets.tier3.length).padEnd(5)}  ${filesSummary}`
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push("NOTE: adequacy verdict stays agent-supplied. This table is an INPUT to the agent's judgment.");
+
+  return lines.join("\n");
+}
+
+// ─── Subcommand: report ────────────────────────────────────────────────────────
+
+/**
+ * `report [--md]`
+ *
+ * Renders `state.json` + `events.jsonl` as a human-readable narrative.
+ *
+ * THE JUDGMENT LINE (BRIEF-LOE-012 §6 / §9):
+ * // DECISION: report is a GENERATED VIEW. It reads state.json + events.jsonl
+ * // and renders them. Its output is NEVER committed and NEVER read back as
+ * // source of truth (BRIEF-LOE-012 §9). This is the on-demand replacement for
+ * // the prose PROGRESS.md hot-state section. The CLI writes NOTHING to the repo.
+ * CS-GEN-003: AC-LOE-012-06 / BRIEF-LOE-012 §9
+ *
+ * AC-LOE-012-06
+ */
+export function cmdReport(opts: {
+  repoRoot?: string;
+  md?: boolean;
+}): string {
+  // DECISION: report is strictly read-only. No fs.writeFile, no rename, no metrics.
+  // CS-GEN-003: §9 generated view is never a source of truth.
+  const repoRoot = opts.repoRoot ?? findRepoRoot();
+
+  const state = readState(repoRoot);
+  if (!state) {
+    // No state.json yet — render a placeholder
+    if (opts.md) {
+      return "# Implementation State Report\n\n> No state.json found. Run `pnpm task migrate` first.\n";
+    }
+    return "=== Implementation State ===\n(no state.json found — run pnpm task migrate first)\n";
+  }
+
+  const events = readEvents(repoRoot);
+
+  // Delegate to renderReport from state-store.ts (CS-GEN-003: no re-implementation)
+  return renderReport(state, events, { md: opts.md ?? false });
+}
+
 // ─── Argument parser ──────────────────────────────────────────────────────────
 
 /**
@@ -2019,6 +2919,8 @@ export function renderBriefContext(result: BriefContextResult, json: boolean): s
  * Handles: --role, --complexity-estimate, --complexity-actual, --note,
  *          --bug, --did, --next, --blockers, --brief, --all-done,
  *          --fields, --status, --json (read/query flags, AC-LOE-011-06)
+ *          --dry-run, --to, --pr, --container-smoke, --sdet-validation,
+ *          --sdet-ci-gate, --sdet-quality-audit, --md (state-store flags, AC-LOE-012-02..06)
  *
  * DECISION: Hand-rolled arg parser (no third-party library) to honor CS-INFRA-004.
  * CS-INFRA-004: zero new runtime npm dependencies.
@@ -2057,7 +2959,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         i++;
         break;
       case "--bug":
-        result.bugId = next;
+        // For post-merge: --bug "<desc>" is the fail-branch description
+        // For reject: --bug <BUG-ID> is the bug reference
+        // Disambiguated by subcommand in dispatch.
+        if (subcommand === "post-merge") {
+          result.bug = next;
+        } else {
+          result.bugId = next;
+        }
         i++;
         break;
       case "--did":
@@ -2093,6 +3002,46 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case "--json":
         // Opt-in JSON output (§10 Q5)
         result.json = true;
+        break;
+      // State-store flags (BRIEF-LOE-012 / TASK-LOE-012-002, AC-LOE-012-02..06)
+      case "--dry-run":
+        // AC-LOE-012-02..05: print JSON diff, write nothing
+        result.dryRun = true;
+        break;
+      case "--to":
+        // phase-transition --to <phase>
+        if (next !== undefined) result.to = next;
+        i++;
+        break;
+      case "--pr":
+        // merge-checkpoint / post-merge --pr N
+        // SECURITY: parse as integer; guard non-numeric shell injection
+        if (next !== undefined) {
+          const prNum = parseInt(next, 10);
+          if (!isNaN(prNum)) result.pr = prNum;
+        }
+        i++;
+        break;
+      // Gate verdicts for merge-checkpoint (agent-supplied, recorded verbatim)
+      case "--container-smoke":
+        if (next !== undefined) result.containerSmoke = next;
+        i++;
+        break;
+      case "--sdet-validation":
+        if (next !== undefined) result.sdetValidation = next;
+        i++;
+        break;
+      case "--sdet-ci-gate":
+        if (next !== undefined) result.sdetCiGate = next;
+        i++;
+        break;
+      case "--sdet-quality-audit":
+        if (next !== undefined) result.sdetQualityAudit = next;
+        i++;
+        break;
+      case "--md":
+        // report --md: markdown output
+        result.md = true;
         break;
     }
   }
@@ -2294,6 +3243,94 @@ export async function main(argv: string[] = process.argv): Promise<void> {
         break;
       }
 
+      // ─── State-store subcommands (BRIEF-LOE-012 / TASK-LOE-012-002) ─────────
+      // DESIGN: mutating commands require --role; read projections do not.
+      // All state writes are idempotent + atomic; --dry-run prints diff, writes nothing.
+      // CS-GEN-003: §6 judgment line — CLI RECORDS, NEVER DECIDES.
+
+      case "phase-transition": {
+        // AC-LOE-012-02
+        if (!parsed.to) die("phase-transition requires --to <phase>: pnpm task phase-transition --to <phase> --role <r>");
+        if (!validateRole(parsed.role)) dieInvalidRole(parsed.role);
+
+        // CS-GEN-003: exactOptionalPropertyTypes — spread only defined values
+        const ptOpts: Parameters<typeof cmdPhaseTransition>[0] = {
+          to: parsed.to,
+          role: parsed.role as Role,
+        };
+        if (parsed.note !== undefined) ptOpts.note = parsed.note;
+        if (parsed.dryRun !== undefined) ptOpts.dryRun = parsed.dryRun;
+
+        const result = cmdPhaseTransition(ptOpts);
+        console.log(result.changed ? `✓ ${result.message}` : `~ ${result.message}`);
+        break;
+      }
+
+      case "merge-checkpoint": {
+        // AC-LOE-012-03
+        if (parsed.pr === undefined) die("merge-checkpoint requires --pr N: pnpm task merge-checkpoint --pr N --role <r>");
+        if (!validateRole(parsed.role)) dieInvalidRole(parsed.role);
+
+        // Gate verdicts: only include defined values (null is a valid absent verdict)
+        // CS-GEN-003: agent supplies verdicts verbatim; undefined = not supplied this call
+        const gateVerdicts: Partial<GateVerdictSlots> = {};
+        if (parsed.containerSmoke !== undefined) gateVerdicts.containerSmoke = parsed.containerSmoke;
+        if (parsed.sdetValidation !== undefined) gateVerdicts.sdetValidation = parsed.sdetValidation;
+        if (parsed.sdetCiGate !== undefined) gateVerdicts.sdetCiGate = parsed.sdetCiGate;
+        if (parsed.sdetQualityAudit !== undefined) gateVerdicts.sdetQualityAudit = parsed.sdetQualityAudit;
+
+        const mcOpts: Parameters<typeof cmdMergeCheckpoint>[0] = {
+          pr: parsed.pr,
+          role: parsed.role as Role,
+          gateVerdicts,
+        };
+        if (parsed.note !== undefined) mcOpts.note = parsed.note;
+        if (parsed.dryRun !== undefined) mcOpts.dryRun = parsed.dryRun;
+
+        const result = cmdMergeCheckpoint(mcOpts);
+        console.log(result.changed ? `✓ ${result.message}` : `~ ${result.message}`);
+        break;
+      }
+
+      case "post-merge": {
+        // AC-LOE-012-04
+        if (parsed.pr === undefined) die("post-merge requires --pr N: pnpm task post-merge --pr N --role <r> [--bug '<desc>']");
+        if (!validateRole(parsed.role)) dieInvalidRole(parsed.role);
+
+        const pmOpts: Parameters<typeof cmdPostMerge>[0] = {
+          pr: parsed.pr,
+          role: parsed.role as Role,
+        };
+        if (parsed.bug !== undefined) pmOpts.bug = parsed.bug;
+        if (parsed.note !== undefined) pmOpts.note = parsed.note;
+        if (parsed.dryRun !== undefined) pmOpts.dryRun = parsed.dryRun;
+
+        const result = cmdPostMerge(pmOpts);
+        console.log(result.changed ? `✓ ${result.message}` : `~ ${result.message}`);
+        if (result.bugFilePath) {
+          console.log(`  bug file: ${result.bugFilePath}`);
+        }
+        break;
+      }
+
+      case "trace": {
+        // AC-LOE-012-05
+        if (!parsed.brief) die("trace requires --brief NNN: pnpm task trace --brief NNN [--json]");
+
+        const result = cmdTrace({ brief: parsed.brief });
+        console.log(renderTrace(result, parsed.json ?? false));
+        break;
+      }
+
+      case "report": {
+        // AC-LOE-012-06
+        const rpOpts: Parameters<typeof cmdReport>[0] = {};
+        if (parsed.md !== undefined) rpOpts.md = parsed.md;
+        const output = cmdReport(rpOpts);
+        console.log(output);
+        break;
+      }
+
       default:
         die(`Unknown subcommand: "${cmd}". Run pnpm task --help for usage.`);
     }
@@ -2373,8 +3410,36 @@ Read/query subcommands (PROPOSAL-scripted-bookkeeping.md §8.2, AC-LOE-011-06):
       Bounded bundle: task spec + cited ACs + cited CS-* (paste-ready markdown default)
       --json for structured output
 
+State-store subcommands (BRIEF-LOE-012, AC-LOE-012-02..06):
+  phase-transition --to <phase> --role <r> [--note "..."] [--dry-run]
+      Set the current phase in state.json + append a phase-transition event.
+      --dry-run: print JSON diff, write nothing.
+      Valid phases: ${VALID_PHASES.join(", ")}
+      Re-run to the same settled phase = clean no-op (exit 0).
+
+  merge-checkpoint --pr N --role <r>
+      [--container-smoke "..."] [--sdet-validation "..."]
+      [--sdet-ci-gate "..."] [--sdet-quality-audit "..."]
+      [--note "..."] [--dry-run]
+      Create an awaiting-merge record. DERIVES PR URL + SHA from gh/git — NEVER
+      from agent-typed flags. Gate verdicts are AGENT-SUPPLIED inputs (recorded verbatim).
+
+  post-merge --pr N --role <r> [--bug "<desc>"] [--note "..."] [--dry-run]
+      Pass (no --bug): clear the awaiting-merge record for PR N.
+      Fail (--bug "<desc>"): scaffold BUG-BBB-POST-NNN via task-frontmatter.ts AND
+                             keep the awaiting-merge record.
+      The pass/fail decision is AGENT-SUPPLIED — the CLI records it.
+
+  trace --brief NNN [--json]
+      Tally @AC-* tags in test files into a per-AC tier map (unit/integration/e2e/tier-3).
+      Builds the table — NEVER computes an adequacy verdict (stays agent-supplied).
+
+  report [--md]
+      Render state.json + events.jsonl as a human-readable narrative.
+      READ-ONLY: writes NOTHING to the repo. NEVER committed, NEVER read back as truth.
+
 Output: compact text/tables by default; --json opt-in. AC-LOE-011-06 / §10 Q5.
-STRICTLY READ-ONLY: these commands never mutate any file.
+CLI RECORDS, NEVER DECIDES (§6 judgment line): verdicts, adequacy, pass/fail are agent inputs.
 
 Valid roles: ${VALID_ROLES.join(", ")}
 `.trim());

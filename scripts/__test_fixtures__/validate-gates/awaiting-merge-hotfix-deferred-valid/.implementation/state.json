@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-22T12:00:00.000Z",
+  "currentBrief": "BRIEF-TEST",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "test fixture: awaiting-merge-hotfix-deferred-valid",
+  "currentBranch": "test/awaiting-merge-hotfix-deferred-valid",
+  "awaitingMerge": [
+    {
+      "pr": 99,
+      "prUrl": "https://github.com/foo/bar/pull/99",
+      "squashSha": null,
+      "createdAt": "2026-06-22T11:00:00.000Z",
+      "gateVerdicts": {
+        "containerSmoke": "PASS",
+        "sdetValidation": "deferred per hotfix urgency: TASK-LOE-008",
+        "sdetCiGate": "PASS",
+        "sdetQualityAudit": "deferred per hotfix urgency: TASK-LOE-009"
+      },
+      "note": "hotfix: two gates deferred with valid task IDs"
+    }
+  ],
+  "openRetroItems": []
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-22T12:00:00.000Z",
+  "currentBrief": "BRIEF-LOE-012",
+  "currentPhase": "INVALID-PHASE-THAT-DOES-NOT-EXIST",
+  "currentSliceDescription": "Test malformed fixture",
+  "currentBranch": "test-branch",
+  "awaitingMerge": [
+    {
+      "pr": -1,
+      "prUrl": "not-a-url",
+      "squashSha": null,
+      "createdAt": "2026-06-22T12:00:00.000Z",
+      "gateVerdicts": {
+        "containerSmoke": null,
+        "sdетValidation": null,
+        "sdетCiGate": null,
+        "sdетQualityAudit": null,
+        "unknownExtraField": "this should not be here"
+      },
+      "note": null
+    }
+  ],
+  "openRetroItems": [],
+  "unknownTopLevelField": "this violates additionalProperties: false"
+}

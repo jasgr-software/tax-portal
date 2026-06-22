@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-22T12:00:00.000Z",
+  "currentBrief": "BRIEF-TEST",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "test fixture: awaiting-merge-hotfix-deferred-malformed",
+  "currentBranch": "test/awaiting-merge-hotfix-deferred-malformed",
+  "awaitingMerge": [
+    {
+      "pr": 99,
+      "prUrl": "https://github.com/foo/bar/pull/99",
+      "squashSha": null,
+      "createdAt": "2026-06-22T11:00:00.000Z",
+      "gateVerdicts": {
+        "containerSmoke": "PASS",
+        "sdetValidation": "deferred per hotfix urgency: TASK-XXX-MALFORMED",
+        "sdetCiGate": "PASS"
+      },
+      "note": "malformed: sdetQualityAudit slot missing (schema violation)"
+    }
+  ],
+  "openRetroItems": []
+}

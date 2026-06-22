@@ -1,18 +1,17 @@
 # Progress — Archive (index)
 
-> **Bounded-ledger rule (Increment 2 — NORTH-STAR conclusion #7; see `.implementation/ENGINE.md` § State-ledger
-> contract).** This file is a **thin index**, not a prose log. When the IO sweeps the active phase's session
-> entries out of `PROGRESS.md` at a phase transition, it records a **one-line pointer** here — it does **not**
-> append the full prose. The detail is already durable in:
+> **FROZEN HISTORICAL INDEX (TASK-LOE-012-003).** The `PROGRESS.md` prose ledger and its phase-transition sweep
+> process were retired by BRIEF-LOE-012 Phase 2. This file is kept as a read-only historical record of
+> completed slices through BRIEF-LOE-011. **No new entries will be appended here.** The structured state store
+> (`.implementation/state.json` + `events.jsonl`) replaced the live prose sweep; `pnpm task report` renders
+> the on-demand equivalent. The per-slice durable record lives in:
 >
 > - **`.implementation/tasks/done/TASK-*.md`** — per-task implementation record (72+ files).
 > - **`RETRO-NNN.md` / `HANDOFF-NNN.md`** (this dir) — the per-slice curated narrative + carried follow-ups.
 > - **`.planning/ROADMAP.md` + `COVERAGE.md`** — delivery facts + per-AC sign-off.
-> - the **merged PR** and **git history** (`git log -p .implementation/tasks/PROGRESS-ARCHIVE.md` recovers any
->   pre-collapse swept prose).
+> - the **merged PR** and **git history** (pre-collapse swept prose recoverable via `git log -p .implementation/tasks/PROGRESS-ARCHIVE.md`).
 >
-> Collapsing swept prose to a pointer is **de-duplication, not loss.** The live `PROGRESS.md` retains only the
-> active phase's session entries below its `---` separator.
+> `events.jsonl` is the new machine-readable append-only event log for phase-transitions and merge checkpoints.
 
 ---
 

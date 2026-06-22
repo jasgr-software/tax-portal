@@ -18,6 +18,7 @@
 import { describe, it, expect } from "vitest";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import { spawnSync } from "node:child_process";
 
 import {
@@ -130,11 +131,14 @@ describe("validate-gates.sh fixture suite — identical verdicts on migrated fil
     expect(stdout).toContain("FAIL");
   });
 
-  it("progress-missing-section → check_progress_md_structure FAILS", () => {
+  it("progress-missing-section (malformed state.json) → check_state_json_schema FAILS", () => {
+    // Re-pointed from PROGRESS.md section check to state.json schema validation (AC-LOE-012-07).
+    // The fixture has a state.json missing required top-level fields.
+    // CS-GEN-003: RETRO-LOE-010 (independent oracle) / AC-LOE-012-07
     const dir = path.join(FIXTURES_DIR, "progress-missing-section");
     const { exitCode, stdout } = runGates(dir);
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("check_progress_md_structure");
+    expect(stdout).toContain("check_state_json_schema");
     expect(stdout).toContain("FAIL");
   });
 
@@ -171,33 +175,43 @@ describe("validate-gates.sh fixture suite — identical verdicts on migrated fil
     expect(stdout).toContain("FAIL");
   });
 
-  it("awaiting-merge-all-pass → check_pr_awaiting_merge_gate_verdicts PASSES", () => {
+  it("awaiting-merge-all-pass → check_awaiting_merge_records PASSES", () => {
+    // Re-pointed from PROGRESS.md markdown parse to state.json structured records (AC-LOE-012-07).
+    // CS-GEN-003: AC-LOE-012-07
     const dir = path.join(FIXTURES_DIR, "awaiting-merge-all-pass");
     const { exitCode, stdout } = runGates(dir);
     expect(exitCode).toBe(0);
     expect(stdout).toContain("ALL CHECKS PASSED");
   });
 
-  it("awaiting-merge-missing-marker → check_pr_awaiting_merge_gate_verdicts FAILS", () => {
+  it("awaiting-merge-missing-marker (clock-inversion) → check_awaiting_merge_records FAILS", () => {
+    // Re-pointed: now tests that a record with createdAt AFTER lastUpdated fails the
+    // clock-inversion invariant check (retro-012-014 — closes the long-carried ungated-fix).
+    // CS-GEN-003: AC-LOE-012-07, retro-012-014
     const dir = path.join(FIXTURES_DIR, "awaiting-merge-missing-marker");
     const { exitCode, stdout } = runGates(dir);
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("check_pr_awaiting_merge_gate_verdicts");
+    expect(stdout).toContain("check_awaiting_merge_records");
     expect(stdout).toContain("FAIL");
   });
 
-  it("awaiting-merge-hotfix-deferred-valid → check_pr_awaiting_merge_gate_verdicts PASSES", () => {
+  it("awaiting-merge-hotfix-deferred-valid → check_awaiting_merge_records PASSES", () => {
+    // Hotfix: deferred gate verdict strings are valid (not null, present).
+    // CS-GEN-003: AC-LOE-012-07
     const dir = path.join(FIXTURES_DIR, "awaiting-merge-hotfix-deferred-valid");
     const { exitCode, stdout } = runGates(dir);
     expect(exitCode).toBe(0);
     expect(stdout).toContain("ALL CHECKS PASSED");
   });
 
-  it("awaiting-merge-hotfix-deferred-malformed → check_pr_awaiting_merge_gate_verdicts FAILS", () => {
+  it("awaiting-merge-hotfix-deferred-malformed (missing gateVerdicts slot) → check_state_json_schema FAILS", () => {
+    // Malformed state.json: awaitingMerge record missing sdetQualityAudit slot.
+    // Schema oracle (check 3) catches this (additionalProperties check on gateVerdicts).
+    // CS-GEN-003: AC-LOE-012-07, RETRO-LOE-010
     const dir = path.join(FIXTURES_DIR, "awaiting-merge-hotfix-deferred-malformed");
     const { exitCode, stdout } = runGates(dir);
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("check_pr_awaiting_merge_gate_verdicts");
+    // check_state_json_schema catches the missing gateVerdicts slot
     expect(stdout).toContain("FAIL");
   });
 });
@@ -471,5 +485,178 @@ describe("metrics hook parity — front-matter field extraction (AC-LOE-010-05)"
     expect(record.status).toBe("in-progress");
     expect(record.assigned_to).toBe("devops");
     expect(record.complexity_estimate).toBe("3");
+  });
+});
+
+// ─── Suite 5: Check 3 re-point — state.json schema validation (AC-LOE-012-07) ─
+//
+// Gate Authoring Evidence Item 2 (named code path):
+//   scripts/state-store-validate.ts calls validateState() from state-store.ts.
+//   validateState() enforces: required top-level fields, additionalProperties: false,
+//   schemaVersion == "1.0", lastUpdated ISO 8601, currentPhase closed enum or null,
+//   awaitingMerge array with well-formed records (gateVerdicts slots), openRetroItems array.
+//
+// Gate Authoring Evidence Item 3 (counterfactual):
+//   A deliberately-malformed state.json (missing required fields) causes check_state_json_schema
+//   to FAIL LOUDLY (exit 1, error message names the path). See test below.
+//
+// CS-GEN-003: AC-LOE-012-07, RETRO-LOE-010
+
+describe("check_state_json_schema (check 3 re-point) — state.json schema oracle (AC-LOE-012-07)", () => {
+  const STATE_FIXTURES_DIR = path.join(
+    path.dirname(new URL(import.meta.url).pathname),
+    "__test_fixtures__",
+    "state"
+  );
+
+  it("well-formed state.json → check_state_json_schema PASSES", () => {
+    // CS-GEN-003: RETRO-LOE-010 — oracle called on a known-good fixture
+    const dir = path.join(FIXTURES_DIR, "clean");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("check_state_json_schema");
+    expect(stdout).toContain("PASS");
+    expect(stdout).toContain("ALL CHECKS PASSED");
+  });
+
+  // COUNTERFACTUAL (Gate Authoring Evidence Item 3):
+  // A deliberately-malformed state.json (missing required fields) MUST cause
+  // check_state_json_schema to FAIL LOUDLY. This is the independent-oracle test
+  // (RETRO-LOE-010 / validation-oracle-independent-of-code).
+  it("COUNTERFACTUAL: malformed state.json (missing required fields) → check_state_json_schema FAILS LOUDLY", () => {
+    // CS-GEN-003: RETRO-LOE-010 — counterfactual: the oracle rejects the malformed fixture
+    const dir = path.join(FIXTURES_DIR, "progress-missing-section");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("check_state_json_schema");
+    expect(stdout).toContain("FAIL");
+    // Must name the failing path(s) in the error output
+    expect(stdout).toContain("required field");
+  });
+
+  it("COUNTERFACTUAL: state.json with invalid phase enum → check_state_json_schema FAILS", () => {
+    // Use the malformed-state.json fixture from state/ fixtures (has invalid phase)
+    // CS-GEN-003: AC-LOE-012-07 — closed phase enum rejection
+    const malformedStatePath = path.join(STATE_FIXTURES_DIR, "malformed-state.json");
+    // Create a temp fixture dir with a .implementation/state.json pointing at the malformed fixture
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vg-check3-test-"));
+    const implDir = path.join(tmp, ".implementation");
+    const tasksDir = path.join(implDir, "tasks");
+    fs.mkdirSync(tasksDir, { recursive: true });
+    // Copy in malformed state
+    fs.copyFileSync(malformedStatePath, path.join(implDir, "state.json"));
+    // Create a minimal task dir to keep check_task_file_completion happy
+    const result = spawnSync(
+      "bash",
+      [GATES_SCRIPT, "--fixture-dir", tmp],
+      { encoding: "utf8", timeout: 30_000 }
+    );
+    fs.rmSync(tmp, { recursive: true, force: true });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("check_state_json_schema");
+    expect(result.stdout).toContain("FAIL");
+    // The oracle must name the bad phase value
+    expect(result.stdout).toContain("INVALID-PHASE-THAT-DOES-NOT-EXIST");
+  });
+});
+
+// ─── Suite 6: Check 9 re-point — awaitingMerge record validation (AC-LOE-012-07) ─
+//
+// Gate Authoring Evidence Item 2 (named code path):
+//   scripts/state-store-validate-awaiting.ts calls validateState() + clock-inversion
+//   check. The clock-inversion check catches records where createdAt > lastUpdated.
+//   This closes the long-carried retro-012-014 ungated-fix structurally.
+//
+// Gate Authoring Evidence Item 3 (counterfactual):
+//   A state.json with awaitingMerge[0].createdAt AFTER lastUpdated fails check 9.
+//
+// CS-GEN-003: AC-LOE-012-07, retro-012-014 (clock-inversion — CLOSED)
+
+describe("check_awaiting_merge_records (check 9 re-point) — gateVerdicts + clock-inversion (AC-LOE-012-07)", () => {
+  it("empty awaitingMerge → check_awaiting_merge_records PASSES", () => {
+    // CS-GEN-003: AC-LOE-012-07 — no records, trivially valid
+    const dir = path.join(FIXTURES_DIR, "clean");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("check_awaiting_merge_records");
+    expect(stdout).toContain("PASS");
+  });
+
+  it("well-formed awaitingMerge with all PASS verdicts → check_awaiting_merge_records PASSES", () => {
+    const dir = path.join(FIXTURES_DIR, "awaiting-merge-all-pass");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("check_awaiting_merge_records");
+    expect(stdout).toContain("PASS");
+  });
+
+  // COUNTERFACTUAL (Gate Authoring Evidence Item 3):
+  // A state.json where awaitingMerge[0].createdAt is AFTER lastUpdated must fail check 9.
+  // This demonstrates the clock-inversion invariant (retro-012-014 closure).
+  it("COUNTERFACTUAL: awaitingMerge record with clock inversion (createdAt > lastUpdated) → check_awaiting_merge_records FAILS", () => {
+    // CS-GEN-003: retro-012-014 — clock-inversion ungated-fix closed structurally
+    const dir = path.join(FIXTURES_DIR, "awaiting-merge-missing-marker");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("check_awaiting_merge_records");
+    expect(stdout).toContain("FAIL");
+    // Must name the clock-inversion in the error
+    expect(stdout).toContain("clock inversion");
+  });
+
+  it("awaitingMerge record missing gateVerdicts slot → check_state_json_schema FAILS (schema catches it)", () => {
+    // CS-GEN-003: AC-LOE-012-07 — missing gateVerdicts slot is a schema violation (check 3)
+    const dir = path.join(FIXTURES_DIR, "awaiting-merge-hotfix-deferred-malformed");
+    const { exitCode, stdout } = runGates(dir);
+    expect(exitCode).toBe(1);
+    // Schema (check 3) catches missing slots first
+    expect(stdout).toContain("FAIL");
+  });
+});
+
+// ─── Suite 7: Check 8 is byte-unchanged (AC-LOE-012-07) ──────────────────────
+//
+// The brief explicitly corrects the parent proposal's "3/8/9" → only 3 & 9.
+// check_pr_body_quad_review (check 8) must be LEFT UNTOUCHED.
+// This suite asserts check 8 still works exactly as before (byte-unchanged behavior).
+//
+// CS-GEN-003: AC-LOE-012-07
+
+describe("check_pr_body_quad_review (check 8) — byte-unchanged, not modified (AC-LOE-012-07)", () => {
+  it("check 8 still passes for non-workflow PR (unchanged behavior)", () => {
+    // CS-GEN-003: AC-LOE-012-07 — check 8 was NOT modified
+    const dir = path.join(FIXTURES_DIR, "pr-body-non-workflow-ok");
+    const prBodyFile = path.join(dir, "pr-body.txt");
+    const changedFilesFile = path.join(dir, ".changed_files");
+    const { exitCode, stdout } = runGates(dir, [
+      "--pr-body", prBodyFile,
+      "--changed-files", changedFilesFile,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("check_pr_body_quad_review");
+    expect(stdout).toContain("ALL CHECKS PASSED");
+  });
+
+  it("check 8 still fails for workflow PR missing verdict markers (unchanged behavior)", () => {
+    // CS-GEN-003: AC-LOE-012-07 — check 8 was NOT modified
+    const dir = path.join(FIXTURES_DIR, "pr-body-workflow-missing-verdict");
+    const prBodyFile = path.join(dir, "pr-body.txt");
+    const changedFilesFile = path.join(dir, ".changed_files");
+    const { exitCode, stdout } = runGates(dir, [
+      "--pr-body", prBodyFile,
+      "--changed-files", changedFilesFile,
+    ]);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("check_pr_body_quad_review");
+    expect(stdout).toContain("FAIL");
+  });
+
+  it("check 8 function name is check_pr_body_quad_review (byte-unchanged name assertion)", () => {
+    // CS-GEN-003: AC-LOE-012-07 — verify the function name did not change
+    const gatesScript = fs.readFileSync(GATES_SCRIPT, "utf8");
+    // The function must exist with its original name
+    expect(gatesScript).toContain("check_pr_body_quad_review()");
+    // check_pr_body_quad_review must NOT be renamed or removed
+    expect(gatesScript).toContain("check_pr_body_quad_review");
   });
 });

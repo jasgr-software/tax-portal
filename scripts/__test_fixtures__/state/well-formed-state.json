@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-22T12:00:00.000Z",
+  "currentBrief": "BRIEF-LOE-012",
+  "currentPhase": "Dispatch",
+  "currentSliceDescription": "structured state store (state.json + events.jsonl) + the 5 heavier task.ts commands",
+  "currentBranch": "brief-LOE-012-state-store",
+  "awaitingMerge": [],
+  "openRetroItems": [
+    {
+      "id": "retro-012-001",
+      "category": "CI",
+      "description": "test-portal job lacks a packages/** build step",
+      "note": null,
+      "addedAt": "2026-06-22"
+    }
+  ]
+}
