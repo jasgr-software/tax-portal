@@ -7,21 +7,25 @@
 #
 # Phase 1 took control flow + gate verdicts from the agent, but the agent still
 # hand-extracts the values it records via `sequence.sh --set` (the PR number off
-# PROGRESS.md, the merge SHA from gh, the AC count from COVERAGE) and hand-writes
+# state.json, the merge SHA from gh, the AC count from COVERAGE) and hand-writes
 # the close-out one-liner. Those are pure mechanics — this scripts them so each
 # mechanical yield becomes one command, leaving the agent only the semantic nodes.
+#
+# BRIEF-LOE-012 cutover: derive-pr was re-pointed from PROGRESS.md to state.json
+# (awaitingMerge array). PROGRESS.md was deleted; state.json is the new primary
+# source for in-flight PR tracking.
 #
 # Invariants (design § Phase 2):
 #   - Single writer of the machine block: the derive-* verbs EMIT `key=val` and,
 #     with --apply, feed `sequence.sh --set` — they never write the
 #     <!-- conductor-state/v1 --> block themselves. Only `collapse-run` writes,
 #     and only the prose `## Recent outcomes` bullet (the one write nothing else owns).
-#   - Re-derive from primary sources (PROGRESS.md / gh / the verdict JSON / COVERAGE).
+#   - Re-derive from primary sources (state.json / gh / the verdict JSON / COVERAGE).
 #   - Halt on ambiguity, never guess (derive-pr on 0 or >1 awaiting PRs fails loudly).
 #   - Derivers, not deciders: they fill artifacts; the gate rails keep all routing.
 #
 # Usage:
-#   orchestrate-state.sh derive-pr          [--progress-md <f>] [--apply]
+#   orchestrate-state.sh derive-pr          [--state-json <f>] [--apply]
 #   orchestrate-state.sh derive-merge --pr N [--json-file <f>]  [--apply]
 #   orchestrate-state.sh derive-review --verdict-file <f>
 #   orchestrate-state.sh derive-validation --epic EPIC-NNN [--coverage <f>]
@@ -36,7 +40,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-STATE_FILE=""; PROGRESS_MD=""; COVERAGE=""; VERDICT_FILE=""; JSON_FILE=""
+STATE_FILE=""; PROGRESS_MD=""; STATE_JSON=""; COVERAGE=""; VERDICT_FILE=""; JSON_FILE=""
 PR_NUMBER=""; EPIC=""; HEADLINE=""; DATE=""; AC_OVERRIDE=""; APPLY=0
 
 die() { echo "orchestrate-state: $*" >&2; exit 2; }
@@ -49,6 +53,7 @@ while [[ $# -gt 0 ]]; do
     --repo-root)    REPO_ROOT="${2:-}"; shift 2 ;;
     --state)        STATE_FILE="${2:-}"; shift 2 ;;
     --progress-md)  PROGRESS_MD="${2:-}"; shift 2 ;;
+    --state-json)   STATE_JSON="${2:-}"; shift 2 ;;
     --coverage)     COVERAGE="${2:-}"; shift 2 ;;
     --verdict-file) VERDICT_FILE="${2:-}"; shift 2 ;;
     --json-file)    JSON_FILE="${2:-}"; shift 2 ;;
@@ -65,6 +70,7 @@ done
 
 : "${STATE_FILE:=${REPO_ROOT}/.orchestration/STATE.md}"
 : "${PROGRESS_MD:=${REPO_ROOT}/.implementation/tasks/PROGRESS.md}"
+: "${STATE_JSON:=${REPO_ROOT}/.implementation/state.json}"
 : "${COVERAGE:=${REPO_ROOT}/.planning/COVERAGE.md}"
 
 # ---------------------------------------------------------------------------
@@ -102,20 +108,29 @@ emit() { # $1 key=val(s, space-sep)  — stdout is the machine line; echo a huma
 }
 
 # ---------------------------------------------------------------------------
-# derive-pr — the awaiting-merge PR number from PROGRESS.md. Fail loud on 0/>1.
+# derive-pr — the awaiting-merge PR number from state.json (re-pointed from
+# PROGRESS.md in the BRIEF-LOE-012 cutover). Reads awaitingMerge[] and
+# extracts the single pr value. Fail loud on 0 or >1.
 # ---------------------------------------------------------------------------
 do_derive_pr() {
-  [[ -f "$PROGRESS_MD" ]] || die "PROGRESS.md not found: $PROGRESS_MD"
-  local body nums
-  body="$(section_body 'Awaiting PR merge' "$PROGRESS_MD")"
-  # Collect PR numbers from "PR #?NN" and "/pull/NN" / "/pr/NN", unique.
-  nums="$( { printf '%s\n' "$body" | grep -oE 'PR #?[0-9]+' | grep -oE '[0-9]+' || true
-            printf '%s\n' "$body" | grep -oE '/(pull|pr)/[0-9]+' | grep -oE '[0-9]+$' || true
-          } | sort -u )"
-  local count; count="$(printf '%s' "$nums" | grep -c . || true)"
-  [[ "${count:-0}" -ge 1 ]] || die "no PR found in PROGRESS.md '## Awaiting PR merge' — engine has not opened a PR (do not guess)"
-  [[ "${count:-0}" -eq 1 ]] || die "ambiguous: ${count} distinct PRs in '## Awaiting PR merge' ($(printf '%s' "$nums" | tr '\n' ' ')) — refusing to guess"
-  echo "orchestrate-state: derive-pr → PR ${nums} (from PROGRESS.md awaiting-merge)" >&2
+  [[ -f "$STATE_JSON" ]] || die "state.json not found: $STATE_JSON"
+  local nums count
+  # Extract pr values from awaitingMerge array using python3 (system stdlib, no new dep).
+  nums="$(python3 - "$STATE_JSON" <<'PYEOF'
+import json, sys
+try:
+  data = json.load(open(sys.argv[1]))
+  prs = [str(r["pr"]) for r in data.get("awaitingMerge", [])]
+  print("\n".join(sorted(set(prs))))
+except Exception as e:
+  sys.stderr.write(f"error reading state.json: {e}\n")
+  sys.exit(2)
+PYEOF
+)"
+  count="$(printf '%s' "$nums" | grep -c . || true)"
+  [[ "${count:-0}" -ge 1 ]] || die "no PR found in state.json awaitingMerge[] — engine has not opened a PR (do not guess)"
+  [[ "${count:-0}" -eq 1 ]] || die "ambiguous: ${count} distinct PRs in awaitingMerge ($(printf '%s' "$nums" | tr '\n' ' ')) — refusing to guess"
+  echo "orchestrate-state: derive-pr → PR ${nums} (from state.json awaitingMerge)" >&2
   emit "pr=${nums}"
 }
 

@@ -18,6 +18,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 PLN="${FIX}/ready/.planning"
 PROG="${FIX}/ready/.implementation/tasks/PROGRESS.md"
+SJSON="${FIX}/ready/.implementation/state.json"   # BRIEF-LOE-012: engine-clear reads state.json
 NPLN="${FIX}/notready/.planning"
 BR="${TMP}/briefs"; mkdir -p "$BR"
 STATE="${TMP}/state.md"
@@ -41,7 +42,7 @@ bad() { printf "  ✗ %s\n" "$1"; FAIL=$((FAIL+1)); }
 OUT=""; RC=0
 seq_run() {  # seq_run <args...>
   OUT="$(bash "$SEQ" --state "$STATE" --roadmap "$RM" --planning-dir "$PLN" \
-        --progress-md "$PROG" --briefs-dir "$BR" --gate-log "$LOG" \
+        --progress-md "$PROG" --state-json "$SJSON" --briefs-dir "$BR" --gate-log "$LOG" \
         --gate-history "$HIST" --no-git "$@" 2>&1)"; RC=$?
 }
 expect_rc()   { [[ "$RC" -eq "$1" ]] && ok "$2 (exit $RC)" || { bad "$2 — wanted exit $1, got $RC"; printf '%s\n' "$OUT" | sed 's/^/      /'; }; }
@@ -127,7 +128,7 @@ S4="${TMP}/state4.md"
 # fix-route with the panel verdict present but the standards verdict MISSING must
 # halt (a missing audit verdict is a gap, never a clean pass).
 OUT="$(bash "$SEQ" --state "$S4" --roadmap "$RM" --planning-dir "$PLN" --progress-md "$PROG" \
-      --briefs-dir "$BR" --gate-log "$LOG" --gate-history "$HIST" --no-git \
+      --state-json "$SJSON" --briefs-dir "$BR" --gate-log "$LOG" --gate-history "$HIST" --no-git \
       --set phase=fix-route --set pr=57 --set "verdict_file=${APPROVE}" 2>&1)"; RC=$?
 expect_rc 2 "fix-route halts when the standards verdict is missing"
 expect_out "standards-review verdict missing" "fail-loud, not a clean pass"
@@ -136,7 +137,7 @@ echo "[halts]"
 # gate failure: pin a not-ready epic → readiness halts
 SH="${TMP}/state-halt.md"
 OUT="$(bash "$SEQ" --state "$SH" --roadmap "$RM" --planning-dir "$NPLN" --progress-md "$PROG" \
-      --briefs-dir "$BR" --gate-log "$LOG" --gate-history "$HIST" --no-git --epic EPIC-902 2>&1)"; RC=$?
+      --state-json "$SJSON" --briefs-dir "$BR" --gate-log "$LOG" --gate-history "$HIST" --no-git --epic EPIC-902 2>&1)"; RC=$?
 expect_rc 2 "not-ready epic halts at gate"
 expect_out "readiness gate FAILED" "halt names the failing gate"
 # operator --halt

@@ -74,7 +74,7 @@ through the IO pipeline (task file → developer agent → submission gate → S
 by their own agents. The team reads them when a brief cites them and never edits them (it raises questions
 back via `OPEN-QUESTIONS.md`).
 
-**Only one initiative is active at a time** — the `## Current initiative` section in `tasks/PROGRESS.md`
+**Only one initiative is active at a time** — the `currentBrief` field in `.implementation/state.json`
 holds exactly one unit of work.
 
 ## Main Session Rules
@@ -140,10 +140,10 @@ structural user-in-loop checkpoints.
      `.implementation/PHASES.md`, `.implementation/AGENT.md`, or `.implementation/agents/*.md` auto-merges only
      after the user posts a comment matching `^(LGTM|/approve)\b` on the PR. The rule that governs merge
      authority must not be self-bootstrappable.
-   - **(d) Slice-closing PRs require pre-merge gates recorded in PROGRESS.md** — a PR appearing in
-     `## Awaiting PR merge` must record pass verdicts for the pre-merge gates (Container Smoke, SDET
-     Validation, SDET CI gate, SDET quality audit) before auto-merge fires. `scripts/validate-gates.sh` is the
-     verifier. Routine (non-slice-closing) PRs skip (d).
+   - **(d) Slice-closing PRs require pre-merge gates recorded in `state.json`** — a PR appearing in
+     `awaitingMerge` in `.implementation/state.json` must have all four `gateVerdicts` slots filled (Container
+     Smoke, SDET Validation, SDET CI gate, SDET quality audit) before auto-merge fires. `scripts/validate-gates.sh`
+     check 9 (`check_awaiting_merge_records`) is the verifier via the independent oracle. Routine (non-slice-closing) PRs skip (d).
 
    **Off-limits (never auto-merge):** PRs touching credential-pattern files (scan `gh pr diff <n> --name-only`,
    refuse + `PushNotification` on hit), PRs from a fork, PRs with unresolved review threads, PRs labeled
@@ -157,8 +157,8 @@ structural user-in-loop checkpoints.
    started, the agent running a Docker-dependent gate **stops and escalates** with the failure output. No
    loop-retry, no workaround, no gate bypass. **Resume:** user restores Docker.
 
-5. **Slice-start gate stop (PR limbo).** Per `PHASES.md` § Slice-start gate: if `tasks/PROGRESS.md`
-   `## Awaiting PR merge` is non-empty when the IO is invoked for Plan, the IO stops and reports. **Resume:**
+5. **Slice-start gate stop (PR limbo).** Per `PHASES.md` § Slice-start gate: if `.implementation/state.json`
+   `awaitingMerge` is non-empty when the IO is invoked for Plan, the IO stops and reports. **Resume:**
    user merges the limbo PR, or authorizes a hotfix carve-out.
 
 6. **Brief-authoring is upstream.** A new build brief (its scope and acceptance criteria) is produced by the
@@ -261,7 +261,7 @@ Modify, Quality Gates, and Work Log):
 
 A task spec missing any required front-matter field is a mandatory SDET rejection. **Hotfix exception:** for
 `brief_type: hotfix`, acceptance-test authoring may defer to a follow-up the IO creates during Plan (noted in
-PROGRESS.md), with `(pending backfill: TASK-XXX)` annotations. `introduces_gate` is never deferrable.
+the relevant task's Work Log), with `(pending backfill: TASK-XXX)` annotations. `introduces_gate` is never deferrable.
 
 ## Acceptance & Methodology (the validation contract)
 
@@ -306,9 +306,11 @@ Agents must leave enough context to resume if a session is interrupted.
 **Developer agents** use the task file's **Work Log**. Every entry includes: **What was done** (files,
 tests, commands), **What's next**, **Blockers**.
 
-**IO and SDET** use `tasks/PROGRESS.md` — the **single source of truth** for current initiative state, quality
-gates, active bugs, and retro action items. They update it at the start and end of every invocation. Session
-entry shape:
+**IO and SDET** use `.implementation/state.json` + `pnpm task report` — the **single source of truth** for
+current initiative state, quality gates, and retro action items. They update it via the `pnpm task
+phase-transition` / `pnpm task merge-checkpoint` / `pnpm task post-merge` commands at every phase transition and
+at the end of every invocation. Session entry shape (for the Work Log when the IO self-implements; for PROGRESS
+context, use `pnpm task report`):
 
 ```
 ### {Role} {Phase} — {date}
@@ -317,22 +319,30 @@ entry shape:
 **End:** {outcome and next step}
 ```
 
-### PROGRESS.md structure contract
+### state.json schema contract
 
-Five sections: (1) `## Current initiative` — name, branch, goal, phase, gated; task list with statuses. (2)
-`## Awaiting PR merge` — blocks new initiatives until post-merge verification passes. (3) `## Active bugs` —
-cross-cutting BUG files. (4) `## Open retro action items`. (5) `---` marker + session entries (rolled to
-`PROGRESS-ARCHIVE.md` at each phase transition). The IO updates PROGRESS.md at every phase transition and at
-start/end of every invocation.
+The authoritative hot-state is `.implementation/state.json`, validated by the **independent oracle**
+`validateState()` in `scripts/state-store.ts` (RETRO-LOE-010 / validation-oracle-independent-of-code).
 
-**Bounded-ledger rule (NORTH-STAR conclusion #7).** Long-running ledgers carry **bounded hot-state only**.
-`PROGRESS.md` holds the active initiative; closed work does **not** accumulate as prose. When rolling session
-entries to `PROGRESS-ARCHIVE.md` at a phase transition, the IO appends a **one-line pointer** (slice → PR/sha →
-`done/TASK-*` + `RETRO-NNN`/`HANDOFF-NNN`) — **not** the full prose. The detail is already durable in
-`tasks/done/`, the RETRO/HANDOFF artifacts, the merged PR, `.planning/ROADMAP.md`+`COVERAGE.md`, and git
-history; re-keeping it inline is the engine hoarding conclusions instead of trusting sources. *Structured
-row-per-entity tables (COVERAGE, ROADMAP) are exempt — they are bounded by real entities; prose-blob-per-cycle
-archives are the target.* `PROGRESS-ARCHIVE.md` is a thin **index**, not a log.
+Schema version `"1.0"` fields:
+- `currentBrief` (string|null) — active brief ID (null when no slice)
+- `currentPhase` (closed enum|null) — one of: Plan, Dispatch, Audit, Review, Smoke, Validate, Close-prep, Close-finalize
+- `currentSliceDescription` (string|null) — human-readable one-liner
+- `currentBranch` (string|null) — git branch name
+- `awaitingMerge` (array) — in-flight PR records; each carries `pr`, `prUrl`, `squashSha`, `createdAt`, `gateVerdicts` (four slots: `containerSmoke`, `sdetValidation`, `sdetCiGate`, `sdetQualityAudit`), and `note`
+- `openRetroItems` (array) — open retro action items; each carries `id`, `category`, `description`, `note`, `addedAt`
+- `lastUpdated` (ISO 8601 UTC), `schemaVersion` ("1.0")
+
+**Active bugs are NOT stored** — they are a QUERY over BUG-* front matter (`§9.1 one-fact-one-home`).
+
+**On-demand report:** `pnpm task report` (or `pnpm task report --md`) renders a human-readable narrative from
+`state.json` + `events.jsonl`. Never commit the rendered output — it is ephemeral.
+
+**`events.jsonl`** is the append-only event log (phase-transition, merge-checkpoint, post-merge, migration
+events). It is committed alongside `state.json` (§7 decision 1).
+
+`scripts/validate-gates.sh` check 3 (`check_state_json_schema`) validates the schema on every gate run via the
+independent oracle. A malformed `state.json` fails loudly.
 
 ## Dispatch Checkpoint
 
@@ -356,8 +366,9 @@ via git-log timestamps or the absence of a "Starting implementation"-shaped entr
 ## Programmatic Gate Validation
 
 `scripts/validate-gates.sh` is the independent backstop that catches what agent discipline might miss. It
-verifies: task-file gate completion, BUG file existence, PROGRESS.md structure, gated-path accountability,
-Work Log content, test artifacts, and CI run evidence. Run it before pushing or as a CI check.
+verifies: task-file gate completion, BUG file existence, `state.json` schema (check 3), gated-path
+accountability, Work Log content, test artifacts, CI run evidence, and awaiting-merge record integrity
+(check 9 — gateVerdicts slots + clock-inversion invariant). Run it before pushing or as a CI check.
 
 ## Rule Sunset
 
@@ -463,7 +474,7 @@ At Close-prep retro, the IO classifies each finding that clears the **retro prom
 gate failure only):
 
 - **`gated-path-fix`** — needs a gated-path code change; the IO creates the work item during Close-prep.
-- **`ungated-fix`** — fixable by editing ungated files; added to PROGRESS.md `## Open retro action items`.
+- **`ungated-fix`** — fixable by editing ungated files; added to `state.json` `openRetroItems` via `pnpm task retro-add`.
 - **`acknowledged`** — already resolved or a known limitation.
 
 Findings that don't clear the bar stay as observations — no action items, no rule changes. Never commit to
@@ -485,8 +496,7 @@ the IO with that result appended.
 **Agent identification (mandatory):** every spawn prompt must include: (1) read `.implementation/ENGINE.md`
 for workflow rules, (2) read the agent file (`.implementation/agents/{role}.md`, or `.implementation/AGENT.md`
 for the IO) for role instructions, and (3) the self-identification instruction: _"You are the **{role name}**.
-Begin every response with `[{role-tag}]`."_ Developer agents update task files; the IO and SDET update
-`tasks/PROGRESS.md`.
+Begin every response with `[{role-tag}]`."_ Developer agents update task files; the IO updates `state.json` (via `pnpm task phase-transition`/`merge-checkpoint`/`post-merge`) and the SDET records gate verdicts.
 
 **Main-session dispatch executor — minimal contract:**
 
@@ -532,7 +542,7 @@ recorded; any that are genuinely architectural are **raised** to `.architecture/
 Any agent can escalate to the **IO** when stuck or when a problem exceeds its capacity. Escalate early — don't
 waste attempts on problems that need orchestration-level reasoning.
 
-**How:** note `**Escalation: IO consultation requested**` in the Work Log (developers) or PROGRESS.md (SDET)
+**How:** note `**Escalation: IO consultation requested**` in the Work Log (developers) or in a `pnpm task trace` note (SDET)
 with a clear problem description. **When:** a problem needs cross-task reasoning or a decision beyond task
 scope; an issue that can't be fully diagnosed; an ambiguity with implications beyond the slice (raise upstream
 if it belongs to a `.requirements/`/`.architecture/`/`.planning/` layer); **after 2+ failed attempts** on the

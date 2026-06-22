@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-22T15:17:57.013Z",
+  "currentBrief": "BRIEF-LOE-012",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "structured state store (`state.json` + `events.jsonl`) + the 5 heavier `task.ts`",
+  "currentBranch": "brief-LOE-012-state-store",
+  "awaitingMerge": [],
+  "openRetroItems": [
+    {
+      "id": "retro-012-001",
+      "category": "CI",
+      "description": "`test-portal` job lacks a `packages/**` build step** — graduate `test-portal` to required only after adding `pnpm -r --filter './packages/**' build --if-present` (HANDOFF-004 follow-up #3; the `@ta...",
+      "note": "- **[CI — carried, now actionable] `test-portal` job lacks a `packages/**` build step** — graduate `test-portal` to required only after adding `pnpm -r --filter './packages/**' build --if-present` (HANDOFF-004 follow-up #3; the `@tax-portal/ui` failures pre-date EPIC-004, run `27568768517`; EPIC-004 extends the pattern to `@tax-portal/auth`). Tests pass locally (`pnpm -r test` 158/158).",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-002",
+      "category": "infra",
+      "description": "clean-volume bootstrap, Prisma `;port=` / `!`-password parsing, P3019 `mssql`-vs-`sqlserver`; why local Smoke is env-blocked (HANDOFF-004 follow-up #2).",
+      "note": "- **[infra — carried] Local DB-bootstrap + `migrate deploy` P3019** — clean-volume bootstrap, Prisma `;port=` / `!`-password parsing, P3019 `mssql`-vs-`sqlserver`; why local Smoke is env-blocked (HANDOFF-004 follow-up #2).",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-003",
+      "category": "gated-path-candidate",
+      "description": "consider extending `packages/eslint-config` to also restrict `adminDb` imports outside sanctioned admin paths. (Observation; moved with the deferred Clerk-binding scope to the 2FA-enablement slice.)",
+      "note": "- **[gated-path candidate — carried] ESLint import boundary covers only `requestDb`, not `adminDb`** — consider extending `packages/eslint-config` to also restrict `adminDb` imports outside sanctioned admin paths. (Observation; moved with the deferred Clerk-binding scope to the 2FA-enablement slice.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-004",
+      "category": "gated-path-candidate",
+      "description": "`adminDb` type-cast in `apps/admin/src/app/requests/[id]/page.tsx`** — the orphan-route nav fix (TASK-007-006) casts the admin db client to reach the engagement-by-request lookup. SDET-approved; ad...",
+      "note": "- **[gated-path candidate — BRIEF-007 Audit Obs 6] `adminDb` type-cast in `apps/admin/src/app/requests/[id]/page.tsx`** — the orphan-route nav fix (TASK-007-006) casts the admin db client to reach the engagement-by-request lookup. SDET-approved; advisory. Add a typed accessor on the `packages/db` admin client so the cast is not needed; rides the next `packages/db` task that touches this surface. (Observation — not promoted; no gate failure.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-005",
+      "category": "demo",
+      "description": "pre-existing, transient/timing (HANDOFF-004 follow-up #6).",
+      "note": null,
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-006",
+      "category": "metric-integrity",
+      "description": "`Started-at` midnight-sentinel placeholder** — TASK-002-003 AND BUG-002-004 each carry `Started-at: 2026-06-16T00:00:00Z` (a placeholder, not a real start; same pattern seen on several EPIC-004 tas...",
+      "note": "- **[metric-integrity — BRIEF-002 Audit Obs 2] `Started-at` midnight-sentinel placeholder** — TASK-002-003 AND BUG-002-004 each carry `Started-at: 2026-06-16T00:00:00Z` (a placeholder, not a real start; same pattern seen on several EPIC-004 tasks). In range, metadata gate passed, no gate tripped. RETRO-002 item: the Dispatch-Checkpoint `Started-at` write should capture a real clock value, not a midnight sentinel. (Observation — no gate failure; not promoted.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-007",
+      "category": "doc-drift",
+      "description": "comments say \"real app uses `@read_only = 1`\" and cite \"ADR-003 §4 pool hygiene\", both factually wrong after BUG-002-003 / ADR-003 Amendment 1 dropped `@read_only`. **Functional behavior is correct...",
+      "note": "- **[doc-drift — BRIEF-002 Audit Obs 3] stale test-helper comments in `packages/db/src/service.rls.test.ts` (~L70–72, ~L88)** — comments say \"real app uses `@read_only = 1`\" and cite \"ADR-003 §4 pool hygiene\", both factually wrong after BUG-002-003 / ADR-003 Amendment 1 dropped `@read_only`. **Functional behavior is correct — comment text only.** Disposition: **defer to a non-blocking follow-up** (lighter path; this is a comment-only doc-drift in a gated path, not a behavior defect — folding a micro-dispatch through the full pipeline to fix two comment lines is disproportionate). RETRO-002 will carry it as an `ungated`/follow-up note; the comment correction rides the next `packages/db` task that touches this file, OR a dedicated doc-drift cleanup if none arises. Recorded in HANDOFF-002 as a known comment-drift follow-up.",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-008",
+      "category": "process",
+      "description": "app-scoped gates were used throughout (correct for per-task submission). Whether Validate/slice-close should require a full `ci:local` run is ambiguous. RETRO-002 candidate (the SDET CI gate at Val...",
+      "note": "- **[process — BRIEF-002 Audit Obs 4] Full CI (`pnpm ci:local`) not recorded in any BRIEF-002 task Work Log** — app-scoped gates were used throughout (correct for per-task submission). Whether Validate/slice-close should require a full `ci:local` run is ambiguous. RETRO-002 candidate (the SDET CI gate at Validate is the natural home for a full `ci:local` if we want one). (Observation — no gate failure.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-009",
+      "category": "rule-sunset",
+      "description": "Autonomy Ceiling item 2 `--no-verify` clause + the `PushNotification` spam-loop guard, neither triggered in 3+ slices. Surface at Close-prep retro for a keep/remove recommendation per ENGINE.md § R...",
+      "note": "- **[rule-sunset — BRIEF-002 Audit Obs 5] Sunset candidates** — Autonomy Ceiling item 2 `--no-verify` clause + the `PushNotification` spam-loop guard, neither triggered in 3+ slices. Surface at Close-prep retro for a keep/remove recommendation per ENGINE.md § Rule Sunset.",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-010",
+      "category": "infra",
+      "description": "`sqlserver` compose status `(unhealthy)`** — the compose healthcheck runs `sqlcmd -U sa -P \"$MSSQL_SA_PASSWORD\"`, which fails (Error 18456 State 8) because `MSSQL_SA_PASSWORD` only takes effect at ...",
+      "note": "- **[infra — BRIEF-002 Smoke, new manifestation of the carried infra item] `sqlserver` compose status `(unhealthy)`** — the compose healthcheck runs `sqlcmd -U sa -P \"$MSSQL_SA_PASSWORD\"`, which fails (Error 18456 State 8) because `MSSQL_SA_PASSWORD` only takes effect at volume-init and the persisted data volume was bootstrapped with a different SA password. **Not a BRIEF-002 regression; DB fully operational via app principals** (`taxportal_user`/`taxportal_admin` are SQL logins stored in the DB, not SA-gated) — all EPIC-002 DB objects verified present in-container (`sec.fn_service_write_access`; `pol_Service` 4 BLOCK→write predicate + 1 FILTER→read predicate; `taxportal_user` principal). **Non-blocking for Validate.** RETRO-002: the healthcheck should derive its SA password from the same source the volume was bootstrapped with (or the bootstrap should re-assert the env SA password on persisted volumes). Same root family as the carried P3019/bootstrap-fragility infra item — record as a new manifestation, not a new class.",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-011",
+      "category": "ungated-fix",
+      "description": "`scripts/smoke-test.sh` defaults unsuitable for this project** — the script defaults `ADMIN_URL=http://localhost:3001` (not the project-remapped `:13001`) and its `sqlserver` readiness wait uses `s...",
+      "note": "- **[ungated-fix candidate — RETRO-006 item 3] `scripts/smoke-test.sh` defaults unsuitable for this project** — the script defaults `ADMIN_URL=http://localhost:3001` (not the project-remapped `:13001`) and its `sqlserver` readiness wait uses `sqlcmd -U sa -P \"$MSSQL_SA_PASSWORD\"`, which blocks on the carried SA-password/volume mismatch. SDET used the CLAUDE.md manual fallback at BRIEF-006 Smoke. Harden: default `ADMIN_URL` to `:13001`; derive/re-assert the SA password from the volume bootstrap source. Same root family as the `sqlserver` healthcheck item above. (Observation — not promoted; no gate failure.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-012",
+      "category": "ungated-fix",
+      "description": "`@demo` prior-epic PNG byte-churn** — `@demo` runs rewrite prior-epic PNGs (3rd-ish occurrence; main session manually `git checkout`-reverts each slice). TASK-006-007 itself was scope-disciplined (...",
+      "note": "- **[ungated-fix candidate — RETRO-006 item 4] `@demo` prior-epic PNG byte-churn** — `@demo` runs rewrite prior-epic PNGs (3rd-ish occurrence; main session manually `git checkout`-reverts each slice). TASK-006-007 itself was scope-disciplined (only EPIC-006 PNGs written); this concerns the *other* `@demo` specs' default output paths. Scope each `@demo` spec's screenshot output to its own `docs/demos/EPIC-NNN/` path so the manual revert isn't needed. (Observation — not promoted.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-013",
+      "category": "e2e-determinism",
+      "description": "`apps/portal/e2e/specs/onboarding.spec.ts:312` failed once at single-run in the full portal suite (`data-testid=\"onboarding-steps\"` not found within 5000ms), passed on `--retries 1` at 259ms. File ...",
+      "note": "- **[e2e-determinism — RETRO-006 item 5] AC-ONBD-001-01 (EPIC-005-owned) portal e2e flake** — `apps/portal/e2e/specs/onboarding.spec.ts:312` failed once at single-run in the full portal suite (`data-testid=\"onboarding-steps\"` not found within 5000ms), passed on `--retries 1` at 259ms. File unmodified this branch (last touched `f879da2`/EPIC-005). Not a BRIEF-006 regression, not a BRIEF-006 AC. Investigate the `beforeEach`/onboarding-nav fixture timing for that describe block. (Non-blocking follow-up.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-014",
+      "category": "metric-integrity",
+      "description": "recurred again on **TASK-008-002** (`Completed-at 17:17` < `Started-at 22:09`) and **TASK-008-003** (`Completed-at 17:40` < `Started-at 22:27`); prior at TASK-007-001..004. Developer agents wrote `...",
+      "note": "- **[metric-integrity — RETRO-006 item 2 → ELEVATED at BRIEF-007 → 9th+ recurrence at BRIEF-008] Clock-source `Completed-at`/`Started-at` inversion → `ungated-fix`** — recurred again on **TASK-008-002** (`Completed-at 17:17` < `Started-at 22:09`) and **TASK-008-003** (`Completed-at 17:40` < `Started-at 22:27`); prior at TASK-007-001..004. Developer agents wrote `Completed-at` in a later clock session against an earlier `Started-at` instead of leaving it blank for the SDET's atomic close. This is the **9th+ occurrence** project-wide (RETRO-002/003/004/005/006 + BRIEF-007 + BRIEF-008). **Disposition: `ungated-fix`** (Overwatch-recommended; IO-classified). **Fix:** amend `.implementation/agents/developer.md` (and/or the Dispatch-Checkpoint guidance) to **prohibit developer writes to `Completed-at`** — per the Task Metadata Contract, `Completed-at` is SDET-authored (or IO-as-reviewer for `Impl: io`) inside the atomic close edit only. **This is an ungated-path doc edit (quad-review workflow-file change); it does NOT ride the BRIEF-008 PR** — it rides a future docs/ungated change. Tracked here until that change lands. **Fold in the sister `Updated-by`-staleness finding (RETRO-008 item 1a):** all 5 BRIEF-008 tasks were left `Updated-by: webapp-developer`, not flipped to `sdet` on the atomic close — the same close-edit fix should set `Updated-by: sdet` alongside the `Completed-at` write.",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-015",
+      "category": "gated-path-candidate",
+      "description": "3 advisory `onboarding-completion.*` cleanups** — carried from the PR #55 review (panel APPROVE; fix-decision SKIP). Ride the next `packages/db` task that touches `onboarding-completion.*`: (1) **f...",
+      "note": "- **[gated-path candidates — PR #55 panel minors, deferred 2026-06-20] 3 advisory `onboarding-completion.*` cleanups** — carried from the PR #55 review (panel APPROVE; fix-decision SKIP). Ride the next `packages/db` task that touches `onboarding-completion.*`: (1) **fire-once concurrency test gap** (`onboarding-completion.integration.test.ts:507` — the test covers the `status !== 'New'` short-circuit but not the `@@ROWCOUNT`-guard concurrent path; add a concurrent-completion test asserting exactly one transition + one notification); (2) **unused export `ENGAGEMENT_TRANSITION_ACTION`** (`onboarding-completion.ts:74` — drop the export/barrel re-export or wire its consumer); (3) **redundant `EngagementWithClient` interface + field-by-field copy** (`onboarding-completion.ts:79` + copy 172–180 — collapse to the shared type). Full detail + the 2 dispositioned-as-intended items in `RETRO-008.md § Post-Merge Addendum`. (Observation — no gate failure; not slice-blocking.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-012-016",
+      "category": "gate-design",
+      "description": "`check_work_log_content` wording brittleness + late-firing-on-`done`** — `scripts/validate-gates.sh`'s literal `\"Starting implementation\"` substring grep rejected TASK-008-002's truthful synonym \"S...",
+      "note": "- **[gate-design — RETRO-008 item 3, observation] `check_work_log_content` wording brittleness + late-firing-on-`done`** — `scripts/validate-gates.sh`'s literal `\"Starting implementation\"` substring grep rejected TASK-008-002's truthful synonym \"Starting TDD\" (fixed at gate-7 by the IO `Impl: io` mechanical Work-Log-wording alignment, commit `06119e2`, NOT fabrication). **Recommend:** broaden the grep to a synonym set (`Starting (implementation|work|TDD|coding)|Beginning implementation`) OR publish the exact required phrase to developers in the Dispatch-Checkpoint guidance. Secondary: the check fires only once a task flips to `done` (skipped at WIP/`review`), so the miss surfaced late at the de-WIP'd-PR CI rather than at the per-task submission gate — consider running it at submission time too. ENGINE/CI-tooling backlog; not slice-blocking.",
+      "addedAt": "2026-06-22"
+    }
+  ]
+}

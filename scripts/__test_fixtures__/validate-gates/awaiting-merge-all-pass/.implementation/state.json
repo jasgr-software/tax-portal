@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-22T12:00:00.000Z",
+  "currentBrief": "BRIEF-TEST",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "test fixture: awaiting-merge-all-pass",
+  "currentBranch": "test/awaiting-merge-all-pass",
+  "awaitingMerge": [
+    {
+      "pr": 99,
+      "prUrl": "https://github.com/foo/bar/pull/99",
+      "squashSha": null,
+      "createdAt": "2026-06-22T11:00:00.000Z",
+      "gateVerdicts": {
+        "containerSmoke": "PASS",
+        "sdetValidation": "PASS",
+        "sdetCiGate": "PASS",
+        "sdetQualityAudit": "PASS"
+      },
+      "note": "all gates passed"
+    }
+  ],
+  "openRetroItems": []
+}

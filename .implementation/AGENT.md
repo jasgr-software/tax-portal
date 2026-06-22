@@ -33,7 +33,7 @@ the product requirements, system architecture, or delivery roadmap. Those are up
 2. `.implementation/PHASES.md` — phase lifecycle, scorecard, post-close protocol
 3. `CLAUDE.md` — project configuration (tech stacks, gate commands, directory assignments)
 4. `.implementation/seed/sources.md` — where the build brief lives + which upstream layers are available
-5. `.implementation/tasks/PROGRESS.md` — current phase. If any slice is in `## Awaiting PR merge`, stop and
+5. `.implementation/state.json` — current phase and awaiting-merge records (`pnpm task report` for a human-readable view). If `awaitingMerge` is non-empty, stop and
    report — do not enter Plan while an old slice is unresolved.
 
 **Read on demand (phase-dependent):**
@@ -67,7 +67,7 @@ the product requirements, system architecture, or delivery roadmap. Those are up
   them to the main session for execution (see § Composing Dispatch Prompts).
 - **Self-implement simple tasks** — implement `Impl: io` tasks directly (criteria in `PHASES.md` § IO
   Self-Implementation), following the Task Metadata Contract. SDET still reviews your code.
-- **Maintain PROGRESS.md** — update at every phase transition and at start/end of every invocation.
+- **Maintain `state.json`** — run `pnpm task phase-transition` / `pnpm task merge-checkpoint` / `pnpm task post-merge` at every phase transition and at end of every invocation.
 - **Manage branches** — create the feature branch during Plan.
 - **Enforce Gate Authoring Rules** at Plan and Review (`ENGINE.md` § Gate Authoring Rules).
 
@@ -80,16 +80,14 @@ reviews all IO-implemented code. See `ENGINE.md` § Agent Roles for full boundar
 
 ## Phases
 
-Follow the lifecycle in `PHASES.md`. **Phase-transition reflex (every transition):** sweep previous session
-entries to PROGRESS-ARCHIVE.md, update `## Current initiative` with the new phase + task statuses, append the
-phase-start session entry. Unconditional.
+Follow the lifecycle in `PHASES.md`. **Phase-transition at every transition:** run `pnpm task phase-transition --brief NNN --phase <PHASE> --role io` to update `state.json` + append a `phase-transition` event to `events.jsonl`. Unconditional.
 
 Key IO-specific notes:
 
 - **Plan** — Slice-start gate (new slices). Ask the user to run `/compact`. Ingest the brief + cited refs.
   Clarify acceptance criteria + methodology. Docker pre-flight — if Docker is unavailable and cannot start,
   fire `PushNotification` and stop per `ENGINE.md` § Docker Pre-Flight. Create the branch. Design the slice;
-  run the local design-coherence check. Decompose into tasks. Update PROGRESS.md.
+  run the local design-coherence check. Decompose into tasks. Run `pnpm task phase-transition`.
 - **Dispatch** — Compose **exactly one dispatch prompt per IO invocation** in a `## Next Dispatch` block.
   Never return two dispatches in one report. Batch similar fixes into one task. Mid-dispatch Overwatch audit on
   risk signals.
@@ -103,10 +101,9 @@ Key IO-specific notes:
 - **Validate** — Spawn the SDET for the acceptance-validation gate (delivered behavior vs. the brief's
   acceptance criteria under its mandated methodology) + CI gate + quality audit.
 - **Close-prep** — Consistency gate; archive task/bug files; write the completion/handoff report (which
-  acceptance criteria were satisfied); retro (classify only concrete gate failures); move the slice to
-  `## Awaiting PR merge`; request PR approval; end the invocation.
+  acceptance criteria were satisfied); retro (classify only concrete gate failures); run `pnpm task merge-checkpoint --pr NNN --brief NNN --role io` to record the PR in `state.json` `awaitingMerge`; request PR approval; end the invocation.
 - **Close-finalize** — After merge: verify post-merge CI (+ staging smoke if the brief deploys), archive POST
-  bugs, write the Post-Merge Addendum + gate detail to `RETRO-BBB.md`, remove from `## Awaiting PR merge`.
+  bugs, write the Post-Merge Addendum + gate detail to `RETRO-BBB.md`, run `pnpm task post-merge --pr NNN --sha SHA --role io` to remove from `awaitingMerge`.
 
 ## Recording decisions & raising upstream
 
@@ -157,14 +154,14 @@ the block and write a `## Next` paragraph explaining what should happen next. Th
 
 ## Resuming Mid-Slice
 
-Read `tasks/PROGRESS.md` first — the single source of truth:
+Read `.implementation/state.json` first (run `pnpm task report` for a human-readable view) — the single source of truth:
 
-- **`## Awaiting PR merge` non-empty** → attempt **Close-finalize** (merge + post-merge CI + staging smoke
+- **`awaitingMerge` non-empty** → attempt **Close-finalize** (merge + post-merge CI + staging smoke
   verification). If all pass, complete Close-finalize; if any fail, create a `BUG-BBB-POST-NNN` file, report,
   and end — the slice stays in limbo.
-- **A phase is in progress** → resume it.
+- **`currentPhase` is in progress** → resume it.
 - **A phase completed** → start the next.
-- **No slice active** → run the slice-start gate; if a brief is available, enter Plan; if no brief exists, stop
+- **`currentBrief` is null** → run the slice-start gate; if a brief is available, enter Plan; if no brief exists, stop
   and tell the user a brief is needed (briefs are produced upstream, not by the team).
 
 ## Escalation Handling

@@ -31,32 +31,86 @@ exits() {
 }
 
 # --- fixtures ---------------------------------------------------------------
-PROG_ONE="$TMP/progress-one.md"; PROG_MULTI="$TMP/progress-multi.md"; PROG_NONE="$TMP/progress-none.md"
-cat > "$PROG_ONE" <<'EOF'
-# Progress
-## Awaiting PR merge
-
-- **PR 55** — BRIEF-900 awaiting merge (https://github.com/x/y/pull/55)
-
-## Active bugs
-_None._
+# BRIEF-LOE-012 cutover: derive-pr reads state.json awaitingMerge[], not PROGRESS.md.
+STATE_ONE="$TMP/state-one.json"
+STATE_MULTI="$TMP/state-multi.json"
+STATE_NONE="$TMP/state-none.json"
+cat > "$STATE_ONE" <<'EOF'
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-21T00:00:00Z",
+  "currentBrief": "BRIEF-900",
+  "currentPhase": "Review",
+  "currentSliceDescription": "fixture — one awaiting PR",
+  "currentBranch": "brief-900-sample",
+  "awaitingMerge": [
+    {
+      "pr": 55,
+      "prUrl": "https://github.com/x/y/pull/55",
+      "squashSha": null,
+      "createdAt": "2026-06-21T00:00:00Z",
+      "gateVerdicts": {
+        "containerSmoke": null,
+        "sdetValidation": null,
+        "sdetCiGate": null,
+        "sdetQualityAudit": null
+      },
+      "note": "BRIEF-900 awaiting merge"
+    }
+  ],
+  "openRetroItems": []
+}
 EOF
-cat > "$PROG_MULTI" <<'EOF'
-# Progress
-## Awaiting PR merge
-
-- **PR 55** — one
-- **PR 56** — two
-
-## Active bugs
+cat > "$STATE_MULTI" <<'EOF'
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-21T00:00:00Z",
+  "currentBrief": "BRIEF-900",
+  "currentPhase": "Review",
+  "currentSliceDescription": "fixture — two awaiting PRs (ambiguous)",
+  "currentBranch": "brief-900-sample",
+  "awaitingMerge": [
+    {
+      "pr": 55,
+      "prUrl": "https://github.com/x/y/pull/55",
+      "squashSha": null,
+      "createdAt": "2026-06-21T00:00:00Z",
+      "gateVerdicts": {
+        "containerSmoke": null,
+        "sdetValidation": null,
+        "sdetCiGate": null,
+        "sdetQualityAudit": null
+      },
+      "note": null
+    },
+    {
+      "pr": 56,
+      "prUrl": "https://github.com/x/y/pull/56",
+      "squashSha": null,
+      "createdAt": "2026-06-21T00:00:01Z",
+      "gateVerdicts": {
+        "containerSmoke": null,
+        "sdetValidation": null,
+        "sdetCiGate": null,
+        "sdetQualityAudit": null
+      },
+      "note": null
+    }
+  ],
+  "openRetroItems": []
+}
 EOF
-cat > "$PROG_NONE" <<'EOF'
-# Progress
-## Awaiting PR merge
-
-_None active._
-
-## Active bugs
+cat > "$STATE_NONE" <<'EOF'
+{
+  "schemaVersion": "1.0",
+  "lastUpdated": "2026-06-21T00:00:00Z",
+  "currentBrief": null,
+  "currentPhase": null,
+  "currentSliceDescription": null,
+  "currentBranch": null,
+  "awaitingMerge": [],
+  "openRetroItems": []
+}
 EOF
 
 MERGE_JSON="$TMP/merge.json"
@@ -99,9 +153,10 @@ EOF
 echo "orchestrate-state.test"
 
 echo "[derive-pr]"
-eq "pr=55" "single awaiting PR → pr=55"             -- derive-pr --progress-md "$PROG_ONE"
-exits 2 "ambiguous (>1) awaiting PR fails loud"      -- derive-pr --progress-md "$PROG_MULTI"
-exits 2 "no awaiting PR fails loud"                  -- derive-pr --progress-md "$PROG_NONE"
+# BRIEF-LOE-012 cutover: derive-pr reads state.json awaitingMerge[], not PROGRESS.md.
+eq "pr=55" "single awaiting PR → pr=55"             -- derive-pr --state-json "$STATE_ONE"
+exits 2 "ambiguous (>1) awaiting PR fails loud"      -- derive-pr --state-json "$STATE_MULTI"
+exits 2 "no awaiting PR fails loud"                  -- derive-pr --state-json "$STATE_NONE"
 
 echo "[derive-merge]"
 eq "merge_sha=abc1234def5678901234" "merge SHA from json fixture" -- derive-merge --pr 55 --json-file "$MERGE_JSON"

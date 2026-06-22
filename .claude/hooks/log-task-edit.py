@@ -2,8 +2,13 @@
 """PostToolUse hook (Edit|Write): snapshot task file state from .implementation/tasks/.
 
 Records one JSONL line per edit to a task file. Skips templates and aggregator
-files (PROGRESS.md, README.md, etc.). The report script computes state
-transitions by sorting these records by timestamp.
+files (README.md, etc.). The report script computes state transitions by sorting
+these records by timestamp.
+
+Also self-reports state writes to .implementation/state.json (provenance model —
+BRIEF-LOE-012 Phase 2 §4). When state.json is written, records a lightweight
+provenance event in metrics so metrics-report.py can surface state-write frequency.
+The provenance record does NOT add in-file marks to state.json itself.
 
 Always exits 0.
 """
@@ -18,15 +23,18 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 METRICS_FILE = REPO_ROOT / ".claude" / "metrics" / "tasks.jsonl"
+# CS-INFRA-004: No new runtime deps — plain JSONL append (same pattern as tasks.jsonl).
+STATE_METRICS_FILE = REPO_ROOT / ".claude" / "metrics" / "state-writes.jsonl"
 
 SKIP_FILES = {
     "README.md",
-    "PROGRESS.md",
     "PROGRESS-ARCHIVE.md",
     "_TEMPLATE.md",
     "_BUG_TEMPLATE.md",
 }
 TASK_PATH_RE = re.compile(r"\.implementation/tasks/([^/]+\.md)$")
+# CS-GEN-003: state.json path pattern — repo-rooted, not user-supplied (input confinement).
+STATE_JSON_PATH_RE = re.compile(r"\.implementation/state\.json$")
 TASK_ID_RE = re.compile(
     r"^(?:TASK-\d{3}-\d{3}|BUG-\d{3}-\d{3}|RETRO-\d{3}|EP-(?:\d{3}|NEXT))"
 )
@@ -70,6 +78,57 @@ def task_id_from_filename(filename: str) -> str | None:
     return m.group(0) if m else None
 
 
+def _record_state_write(file_path: str) -> None:
+    """Record a provenance event when state.json is written.
+
+    BRIEF-LOE-012 §4 provenance model: state writes self-report consistently
+    so metrics-report.py can surface state-write frequency. NO in-file marks
+    are added to state.json itself — the provenance is stored in a separate
+    metrics file (state-writes.jsonl).
+
+    CS-INFRA-004: plain JSONL append, no new deps.
+    CS-GEN-003: BRIEF-LOE-012 §4 provenance model / TASK-LOE-012-003
+    """
+    # Confine to .implementation/state.json only
+    try:
+        resolved = Path(file_path).resolve()
+        allowed_path = (REPO_ROOT / ".implementation" / "state.json").resolve()
+        if resolved != allowed_path:
+            return
+    except OSError:
+        return
+
+    if not resolved.exists():
+        return
+
+    # Read the current state.json to extract provenance fields (brief, phase).
+    # We read only the top-level scalar fields — no structural mutation.
+    try:
+        with open(resolved, "r", encoding="utf-8") as f:
+            raw = f.read(8192)
+        state_data = json.loads(raw)
+        current_brief = state_data.get("currentBrief")
+        current_phase = state_data.get("currentPhase")
+        schema_version = state_data.get("schemaVersion")
+    except (OSError, json.JSONDecodeError):
+        current_brief = None
+        current_phase = None
+        schema_version = None
+
+    record = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "event": "state-write",
+        "file_path": file_path,
+        "currentBrief": current_brief,
+        "currentPhase": current_phase,
+        "schemaVersion": schema_version,
+    }
+
+    STATE_METRICS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(STATE_METRICS_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -81,6 +140,11 @@ def main() -> None:
         or (payload.get("tool_input") or {}).get("file_path", "")
     )
     if not file_path:
+        return
+
+    # CS-GEN-003: BRIEF-LOE-012 §4 — intercept state.json writes for provenance
+    if STATE_JSON_PATH_RE.search(file_path):
+        _record_state_write(file_path)
         return
 
     m = TASK_PATH_RE.search(file_path)
