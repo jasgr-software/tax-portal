@@ -468,6 +468,33 @@ dispatch).
 `## Testability` section with IO approval in the Work Log. **Pre-push 3× run for e2e-heavy commits:** when a
 fix touches e2e specs, run the affected spec 3 times sequentially with zero flakes before `review`.
 
+## Removal Sweep
+
+When a task **removes a shared artifact (a file)** from the repo, four obligations apply before marking
+`review`. This rule closes retro-012-017 (BRIEF-LOE-012 `/pr-review` MAJOR: a `.orchestration/` consumer was
+missed because the sweep was scoped to `.implementation/` only). Cite: retro-012-017 / BRIEF-LOE-013.
+<!-- CS-GEN-003: retro-012-017 / BRIEF-LOE-013 -->
+
+1. **Pass `check_removed_artifact_orphans`** — this is `scripts/validate-gates.sh` check 10. It runs as part
+   of the existing gate run; no separate CI wiring is needed or added.
+
+2. **Re-point every EXECUTABLE consumer across EVERY layer** — `.sh`, `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`,
+   `.py`, `.yml`, `.yaml`, `package.json` files in **all** repo layers (`.implementation/`, `.orchestration/`,
+   `.planning/`, `apps/`, `packages/`, `scripts/`, `.github/`, etc.) that reference the removed file must be
+   updated before the task reaches `review`. Scoping the sweep to the owning layer only is the precise failure
+   mode retro-012-017 caught.
+
+3. **Record intentional retained references in `.implementation/removal-sweep-allow.txt`** — format is
+   `<removed-path> | <consumer-path> | <mandatory reason>`. An entry with an empty reason field **fails the
+   gate**; every suppression must be documented.
+
+4. **Doc-only (`.md`) references are allowed by rule** — historical retro, handoff, and archive pointers in
+   Markdown files are permanent and legitimate. They require no allowlist entry and do not fail the gate.
+
+**Applies to:** developer agents removing a file as part of a task. **Does not apply to:** file *renames*
+(which `check_removed_artifact_orphans` detects as moves, not deletions) or symbol/section-level removal
+within a file (out of scope for this gate by design).
+
 ## Retro Finding Classification
 
 At Close-prep retro, the IO classifies each finding that clears the **retro promotion bar** (concrete quality

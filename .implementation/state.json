@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-22T16:11:00.000Z",
-  "currentBrief": "BRIEF-LOE-012",
-  "currentPhase": "Close-finalize",
-  "currentSliceDescription": "structured state store (`state.json` + `events.jsonl`) + the 5 heavier `task.ts`",
-  "currentBranch": "brief-LOE-012-state-store",
+  "lastUpdated": "2026-06-22T17:35:51.151Z",
+  "currentBrief": "BRIEF-LOE-013",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "cross-layer removal-sweep gate (validate-gates.sh check 10) — closes retro-012-017",
+  "currentBranch": "brief-LOE-013-removal-sweep-gate",
   "awaitingMerge": [],
   "openRetroItems": [
     {
@@ -121,9 +121,23 @@
     },
     {
       "id": "retro-012-017",
+      "category": "acknowledged",
+      "description": "RESOLVED by BRIEF-LOE-013 (Close-prep 2026-06-22). Cross-layer removal-sweep gate shipped: `scripts/validate-gates.sh` check 10 (`check_removed_artifact_orphans`) — diff-based, un-forgettable detection; executable-fail / doc-allow classification; reason-mandatory allowlist (`.implementation/removal-sweep-allow.txt`); SKIP-not-FAIL on no diff base. ENGINE.md § Removal Sweep standing rule binds every removal task across EVERY layer. AC-04 proves real main stays green (the .orchestration/ retentions are allowlisted-with-reason). Closure recorded in RETRO-LOE-013.md.",
+      "note": "- **[RESOLVED — BRIEF-LOE-013, resolvedBy=BRIEF-LOE-013, resolvedAt=2026-06-22] Cross-layer removal-sweep gate.** The BRIEF-LOE-012 panel MAJOR (orphan-after-removal — PROGRESS.md retirement missed two LIVE `.orchestration/` Conductor consumers) is now operationalized as a task-time gate. check 10 catches the exact PR #80 failure mode (a constructed-path `.sh` consumer of a removed file) at task-time instead of review-time; the red counterfactual fixture reproduces it (exit 1, names the consumer). See RETRO-LOE-013.md for the AC↔evidence map and the two SDET-adjudicated judgment calls. (Category `acknowledged` = resolved/known per the state.json schema enum.)",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-013-001",
       "category": "gate-design",
-      "description": "Cross-layer removal-sweep gate — BRIEF-LOE-012 panel MAJOR (orphan-after-removal). The PROGRESS.md doc-retirement sweep was scoped to 5 `.implementation/` files but PROGRESS.md had LIVE `.orchestration/` consumers; recommend a repo-wide `git grep` for any removed artifact as part of every removal task's gate.",
-      "note": "- **[gate-design — BRIEF-LOE-012 panel MAJOR, orphan-after-removal -> recommend a gate] Cross-layer removal-sweep.** `/pr-review` panel found that the in-task PROGRESS.md doc-retirement sweep was scoped to 5 `.implementation/` docs but missed two LIVE `.orchestration/` Conductor consumers that still hard-read the deleted `PROGRESS.md`: `orchestrate-state.sh do_derive_pr` and `orchestrate-gates.sh gate_engine_clear` (via `sequence.sh`). The owning layer's docs were swept; the cross-layer executable consumers were not. `/pr-fix babeaf0` re-pointed both onto `state.json awaitingMerge[]` (+ `--state-json` flag, fixtures, 4 test harnesses; repo-wide grep confirmed no remaining live PROGRESS.md consumer). **Lesson / recommendation:** any task that REMOVES a shared artifact (a doc, a file, a field, an exported symbol) must run a repo-wide `git grep` for ALL executable + doc consumers across EVERY layer (not just the owning layer's docs) as part of its gate -- the removal sweep scope must include cross-layer consumers. Candidate: add a `check_removed_artifact_orphans`-style gate, or a removal-task DoD checkbox requiring the repo-wide grep evidence. ENGINE/CI-tooling backlog; route to a future ungated/CI change. Not slice-blocking (resolved in-PR by `/pr-fix`).",
+      "description": "Self-referential allowlist-ratio watch (SDET judgment-call-2 flag). The removal-sweep allowlist (`.implementation/removal-sweep-allow.txt`) currently holds 6 entries, of which the non-orphan/self-referential ones (`scripts/validate-gates.sh` self-doc comments + `scripts/validate-gates.test.ts` test-input strings; arguably also `sequence.test.sh`) are a bootstrapping artifact of the gate introducing itself. The SDET adjudicated this ACCEPTABLE with noted smell. WATCH: if, as real removals accumulate, the non-orphan/self-referential allowlist ratio WORSENS rather than improves, revisit widening the gate's exclusion set (e.g. exclude the gate's own source + test harness, or `*.test.ts` test-input strings) — but only with a documented rationale, since adding to the exclusion set creates a new silent-suppression class. Observation; not slice-blocking.",
+      "note": "- **[gate-design — RETRO-LOE-013, SDET judgment call 2] Self-referential allowlist-ratio watch.** The gate bootstraps itself: its own source + test file reference the canonical removed-artifact path (PROGRESS.md) as documentation/test-input, so they appear as executable hits and were allowlisted-with-reason. These are a one-time introduction artifact. Disposition (SDET + IO): ACCEPTABLE — every entry has a legitimate non-empty reason, and widening the exclusion set would trade explicit reasoned suppressions for a silent class. Revisit ONLY if the ratio worsens with real removals.",
+      "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-013-002",
+      "category": "observation",
+      "description": "File-level-only removal-sweep scope (deliberate boundary, documented). check 10 (`check_removed_artifact_orphans`) detects FILE deletions only — symbol/section/field-level removal (a removed exported symbol, a deleted doc section, a dropped config key) is OUT OF SCOPE by design (file deletes are deterministic + low-noise). This is a deliberate future extension, not an oversight; the boundary is noted in the check comment (validate-gates.sh:704-707) and ENGINE.md § Removal Sweep. Carry as a known scope boundary should a future orphan-after-symbol-removal incident motivate finer-grained detection. Observation; no action this slice.",
+      "note": "- **[gate-scope — RETRO-LOE-013] File-level-only removal-sweep boundary.** The gate is file-level by design; symbol/section/field-level removal detection is a deliberate deferred extension. Documented in-code + in ENGINE.md. Tracked so a future symbol-orphan incident has a recorded starting point.",
       "addedAt": "2026-06-22"
     },
     {
