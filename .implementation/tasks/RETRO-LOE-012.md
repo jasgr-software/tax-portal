@@ -144,3 +144,46 @@ scripts/fixtures). All six design invariants hold:
 - **Scripted-bookkeeping initiative is now Phase 0+1+2 complete** — the full `pnpm task` CLI owns per-task
   lifecycle (Phase 1) AND orchestration state (Phase 2). Next strangler advancement: evaluate per the
   scripted-orchestration North Star at the next phase boundary.
+
+## Post-Merge Addendum — Close-finalize (2026-06-22)
+
+**Merge:** PR **#80** squash-merged to `main` as **`cb53536`** (`feat(scripted-bookkeeping): BRIEF-LOE-012 — structured state store (state.json + events.jsonl), Phase 2 (#80)`); branch `brief-LOE-012-state-store` deleted. Confirmed via `gh pr view 80` (`state: MERGED`, `mergeCommit.oid: cb53536…`) + `git log --oneline -1`.
+
+**This is the first slice closed with the new structured store as the ledger** — `PROGRESS.md` is retired; the merge-checkpoint → phase-transition → post-merge sequence was **dogfooded live** through the new `pnpm task` commands (each previewed with `--dry-run` first). `merge-checkpoint --pr 80` DERIVED the PR URL + squash SHA from `gh`/`git` (the PR is merged, so the derivation resolved `cb53536…`); `post-merge --pr 80` took the PASS branch (CI green, no post-merge bug) and cleared the awaiting-merge record. `bash scripts/validate-gates.sh` stayed **ALL CHECKS PASSED** across the mutated `state.json` at every step (check 3 schema + check 9 awaiting-merge integrity), and `pnpm task report --md` renders the finalized slice with an **EMPTY** awaiting-merge section.
+
+### Gate 8 (Post-merge CI) — GREEN
+
+| Run | ID | Conclusion |
+| --- | --- | --- |
+| CI (required: lint-and-typecheck, security-scan, test-portal, test-admin) | `27966493646` | completed / **success** |
+| Code Quality (CodeQL, Analyze javascript-typescript + python) | `27966488624` | completed / **success** |
+
+Both on head `cb53536`. `gh pr checks 80` shows all required checks `pass`. `bash scripts/validate-gates.sh` on merged `main` = **ALL CHECKS PASSED**. Scorecard finalized: gates 1–7 PASS, **gate 8 GREEN**, gate 9 **N/A** (`brief_deploys: no`).
+
+### Gate 9 — N/A
+
+`brief_deploys: no` (engine-tooling slice, no deployable surface). No staging smoke applicable.
+
+### Post-merge triage — CLEAN
+
+Zero `BUG-LOE-012-POST-*` files; CI green; no post-merge defects surfaced. Slice removed from `awaitingMerge`.
+
+### Reviewed-lane outcome (application-code/mixed lane)
+
+- **Standards-review audit: APPROVE** — 0 violations. Drafted an experimental `CS-INFRA-005` (atomic write via temp file + `fs.renameSync`), left **unratified / uncommitted** per `.code-standards/` governance (machine proposes `by: agent`, human ratifies `by: user`). Tracked as `retro-012-018`. Do NOT auto-ratify.
+- **`/pr-review` panel: advisory request-changes** — 13 raw → **10 deduped**: **1 major** + 6 minors + 3 nits.
+  - **MARQUEE — the 1 major: cross-layer orphan-after-removal.** Two `.orchestration/` Conductor scripts still hard-read the deleted `PROGRESS.md`: `orchestrate-state.sh do_derive_pr` and `orchestrate-gates.sh gate_engine_clear` (via `sequence.sh`). The in-task doc-retirement sweep was scoped to **5 `.implementation/` files** and missed these **cross-layer executable consumers**.
+- **`/pr-fix` `babeaf0`** — re-pointed both orphaned scripts onto `state.json awaitingMerge[]` (+ a `--state-json` flag, fixtures, and 4 updated test harnesses; a repo-wide grep confirmed no remaining live `PROGRESS.md` consumer); landed all 6 minors (parse hardening, a shared `isWithin` confinement helper, control-char stripping, deleted dead `STATE_SCHEMA`, dropped the dead `integration` tier, removed unused event types) + the correctness nit. **8/8 review threads resolved; CI green.**
+
+### Headline lessons
+
+1. **(marquee) The removal sweep scope must include ALL executable consumers across EVERY layer — not just the owning layer's docs.** The `.implementation/`-scoped PROGRESS.md retirement sweep missed live `.orchestration/` consumers; the panel's cross-layer catch is the lesson. **Recommendation (now tracked as `retro-012-017`, gate-design):** any task that REMOVES a shared artifact (doc, file, field, exported symbol) must run a **repo-wide `git grep`** for all consumers across every layer as part of its gate — candidate `check_removed_artifact_orphans`-style gate or a removal-task DoD checkbox requiring the grep evidence.
+2. **Independent verification beats shared-assumption validation** (re-affirmed). The earlier BUG-LOE-012-001 homoglyph catch (Cyrillic `ет` in the gate-verdict key identifiers) passed all 179 tests because the tests shared the same Cyrillic keys end-to-end; the SDET's out-of-loop byte-level `grep -Pn "[^\x00-\x7F]"` + `tsc`-baseline delta caught it. Same ethos baked into the slice's permanent regression (`validateState()` is a separate code path from `serializeState()`).
+3. **The carried `Completed-at`/`Started-at` clock-inversion (`retro-012-014`, 9th+ recurrence) is now STRUCTURALLY closed** for the awaiting-merge-record class by check 9's record-level no-inversion invariant. (Residual task-front-matter recurrence remains an advisory developer-doc follow-up, not state.json.)
+
+### Open follow-ups recorded in the new store (NOT PROGRESS.md — it is gone)
+
+- **`retro-012-017`** (gate-design) — cross-layer removal-sweep gate recommendation, from the orphan-after-removal major.
+- **`retro-012-018`** (observation) — unratified experimental **CS-INFRA-005** (atomic-write standard), awaits human ratification.
+
+**Phase-2 closeout: COMPLETE.** `state.json` `currentPhase: Close-finalize`, `awaitingMerge: []`, the slice recorded in `events.jsonl` history; `currentBrief` retained for the addendum record (the next Plan's slice-start gate will clear it).
