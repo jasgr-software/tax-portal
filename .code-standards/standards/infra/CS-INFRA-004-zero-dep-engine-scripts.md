@@ -5,7 +5,7 @@ language: infra
 polarity: do
 rating: recommended
 status: active
-verification: Engine tooling scripts under `scripts/` (db-migrate.ts, db-seed.ts, task-frontmatter.ts, migrate-task-frontmatter.ts) import only Node.js built-in modules (`node:fs`, `node:path`, `node:child_process`, etc.) and sibling scripts. No third-party npm package is added to a root-level `dependencies` or `devDependencies` entry solely to support a tooling script. A reviewer confirms any new `scripts/*.ts` file's imports are limited to Node built-ins and repo-local sibling modules.
+verification: Engine tooling scripts under `scripts/` — any `.ts`/`.sh` that runs as engine tooling (migration runners, gate validators, schema/format checkers, the task/state-store CLIs), not product code — import only Node.js built-in modules (`node:fs`, `node:path`, `node:child_process`, etc.) and sibling scripts. No third-party npm package is added to a root-level `dependencies` or `devDependencies` entry solely to support a tooling script. A reviewer confirms any new `scripts/*.ts` file's imports are limited to Node built-ins and repo-local sibling modules.
 source:
   - scripts/task-frontmatter.ts
   - scripts/db-migrate.ts
