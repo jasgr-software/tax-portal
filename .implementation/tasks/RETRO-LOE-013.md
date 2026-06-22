@@ -66,7 +66,7 @@
 | 5 | Container Smoke | **PASS** | engine tooling, no container — the independent gate over real tree + the red counterfactual fixture is this slice's deploy-layer proof: real tree → ALL CHECKS PASSED; red fixture → exit 1 names consumer; AC-04 → exit 0 |
 | 6 | SDET Acceptance-validation | **PASS** (6/6 AC) | every AC-LOE-013-01..06 traced to a passing test/evidence (see map above) |
 | 7 | SDET CI gate | **PASS** | lint ✓ type-check ✓ build ✓; validate-gates.test.ts 47/47; scripts/ 292/292 |
-| 8 | Post-merge CI | **PENDING** | runs after merge (Close-finalize) |
+| 8 | Post-merge CI | **GREEN** | `da285f3`: CI run 27975425885 success + CodeQL 27975421131 success; required checks (lint-and-typecheck, security-scan, test-portal, test-admin) pass; validate-gates.sh on merged main ALL CHECKS PASSED (check 10 SKIP — no removals). See Post-Merge Addendum. |
 | 9 | Post-merge staging smoke | **N/A** | `brief_deploys: no` |
 
 ## Design-scan verdict
@@ -146,3 +146,67 @@ still exits 1 and names the consumer; `removal-sweep-colon-path` still names `we
 are strictly scoped to the real-repo `git grep` branch and cannot leak into fixture mode.
 
 **Tests:** 293/293 pass (scripts/ suite). Check 8 byte-unchanged confirmed.
+
+## Post-Merge Addendum (Close-finalize 2026-06-22)
+
+> PR **#83** squash-merged to `main` as **`da285f3`** (`feat(tooling): BRIEF-LOE-013 — cross-layer
+> removal-sweep gate (validate-gates.sh check 10), closes retro-012-017 (#83)`), branch deleted.
+
+### Reviewed-lane outcome (application-code lane — `scripts/` is gated)
+
+- **Standards-review audit → APPROVE** (0 violations). The audit machine-proposed an **experimental
+  `CS-INFRA-006`** ("gate check SKIP-not-FAIL on optional input" — the discipline that lets check 10 and
+  check 8 SKIP cleanly when their input is absent rather than FAIL or falsely PASS) and **left it unratified
+  and uncommitted** at `.code-standards/standards/infra/CS-INFRA-006-gate-check-skip-not-fail-on-optional-input.md`
+  (untracked). Per `.code-standards/` governance (machine proposes `by: agent` / human ratifies `by: user`)
+  it stays unratified — tracked as **retro-013-003**. Not ratified at finalize.
+- **`/pr-review` panel → advisory APPROVE** (0 blocker / 0 major; **2 minor + 3 nit**). The lead
+  **empirically reproduced the colon-in-path false-negative** in the check's path parse.
+- **`/pr-fix` (commit `b5a7733`)** fixed the 2 minors (colon-safe path parse + dead `_exec_exts`) and the
+  option-injection nit, added a `weird:name.sh` regression fixture, and resolved 3 review threads.
+- **Post-review allowlist-hygiene refinement (commit `b442a9e`, user-directed).** The `/pr-fix` had grown
+  the allowlist to **10 entries (6 self-referential)** to pass AC-04 by allowlisting the gate's OWN test
+  scaffolding. The refinement: (1) excluded `scripts/__test_fixtures__/` + `*.test.ts`/`*.spec.ts` from the
+  **REAL-tree sweep ONLY** (fixture mode untouched — red fixtures still red); (2) reworded the self-doc
+  comments to a generic `<removed-artifact-path>` placeholder; (3) pruned the allowlist back to the **4
+  genuine `.orchestration/` retentions** only (the legacy `--progress-md` no-op flag in
+  `orchestrate-state.sh` / `orchestrate-gates.sh` / `sequence.sh` / `sequence.test.sh`). **Why it matters:**
+  the allowlist now means "intentional cross-layer retentions," **not** a test-scaffolding dumping ground —
+  every remaining entry is a real consumer with a real reason. 48/48 + 293/293 tests, CI green. This is the
+  source fix for **retro-013-001** (re-categorized `acknowledged` / resolved).
+
+### Gate 8 — Post-merge CI — **GREEN**
+
+- Merge commit `da285f3`. CI run **`27975425885`** = completed/**success**; CodeQL run **`27975421131`** =
+  completed/**success** — both on `da285f3`.
+- Required checks on PR #83 all `pass`: `lint-and-typecheck`, `security-scan`, `test-portal`, `test-admin`.
+- `bash scripts/validate-gates.sh` on merged `main` → **ALL CHECKS PASSED (0 failures)**; check 10
+  (`check_removed_artifact_orphans`) **SKIPs cleanly** (no removed files in the push diff — nothing to sweep),
+  which is the gate's own SKIP-not-FAIL discipline working on the slice that introduced it.
+
+### Gate 9 — Post-merge staging smoke — **N/A** (`brief_deploys: no`).
+
+### Post-merge triage — **CLEAN**
+
+Zero `BUG-LOE-013-POST-*` files; CI green. No post-merge defects.
+
+### State-store finalize (dogfooded the new commands)
+
+The Close-finalize ledger writes used the new BRIEF-LOE-012 state-store commands (each previewed `--dry-run`
+first): `pnpm task phase-transition --to Close-finalize`; `pnpm task merge-checkpoint --pr 83` (DERIVED the
+PR URL + squash SHA `da285f3` from gh/git — not agent-typed — with the four `gateVerdicts` slots recorded as
+agent-supplied inputs: gates 1–7 PASS, gate 8 GREEN, gate 9 N/A); `pnpm task post-merge --pr 83` (PASS branch
+→ awaiting-merge record **cleared**). After the writes: `validate-gates.sh` stays **green** over the mutated
+`state.json` (check 3 schema PASS, check 9 awaiting-merge PASS); `pnpm task report --md` renders the finalized
+slice with **`## Awaiting PR merge — _None active._`**.
+
+### Headline lesson
+
+**The gate built to catch orphan-after-removal had to avoid sweeping its OWN test fixtures.** The fix was a
+**real-tree-vs-fixture-mode sweep-scope distinction** — the real-repo `git grep` branch excludes the test
+harness by pathspec, while fixture mode (where the harness IS the scan target) is untouched. The
+`/pr-review` panel (which reproduced the colon false-negative) **and** the user-directed allowlist-hygiene
+refinement together kept the allowlist meaningful: it is a registry of intentional cross-layer retentions,
+not a suppression dumping ground. This **closes the retro-012-017 loop** (the BRIEF-LOE-012 cross-layer
+orphan-after-removal MAJOR is now an un-forgettable task-time gate) **and demonstrates the new gate working
+cleanly on its own slice's merge** (check 10 SKIP on no-removal diff).
