@@ -1,6 +1,6 @@
 # Proposal: Move mechanical bookkeeping from agents to a task-state CLI
 
-**Status:** Approved — **Phase 0 DELIVERED 2026-06-21** (merged `2b8944a` / PR #74 via `TASK-LOE-010-001..004`). **Phase 1 DELIVERED 2026-06-21** (merged `8ec1f5a` / PR #77 via `TASK-LOE-011-001..003` + `BUG-LOE-011-001`) — the `pnpm task` CLI (7 write subcommands + 6 read projections) over the front matter, on `task-frontmatter.ts` (its first production consumer, closing the #74 over-engineering finding). Phase 2 (structured state store — `state.json`/`events.jsonl` + `phase-transition`/`merge-checkpoint`/`trace`/`report`/`post-merge`) pending separate ratification.
+**Status:** Approved — **Phase 0 DELIVERED 2026-06-21** (merged `2b8944a` / PR #74 via `TASK-LOE-010-001..004`). **Phase 1 DELIVERED 2026-06-21** (merged `8ec1f5a` / PR #77 via `TASK-LOE-011-001..003` + `BUG-LOE-011-001`) — the `pnpm task` CLI (7 write subcommands + 6 read projections) over the front matter, on `task-frontmatter.ts` (its first production consumer, closing the #74 over-engineering finding). **Phase 2 RATIFIED 2026-06-22** (structured state store — `state.json`/`events.jsonl` + `phase-transition`/`merge-checkpoint`/`trace`/`report`/`post-merge`); build contract [`BRIEF-LOE-012`](../briefs/BRIEF-LOE-012-state-store.md), ratification record [`PROPOSAL-scripted-bookkeeping-phase2.md`](./PROPOSAL-scripted-bookkeeping-phase2.md).
 **Scope:** `.implementation/**` (engine, phases, agent docs), `scripts/`, `package.json`
 **Author:** main session
 **Date:** 2026-06-21
