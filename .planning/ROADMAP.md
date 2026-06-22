@@ -7,6 +7,34 @@
 
 ## Status / amendment history
 
+- **2026-06-22 (EPIC-010 delivered — Phase 3 proper opens; the engagement becomes lifecycle-managed)** — the
+  engagement-lifecycle-pipeline & visibility slice shipped (PR #87, squash merge `7afd312`). All **25 in-scope
+  AC** signed off `verified` in `COVERAGE.md`: AC-LIFE-001-01/-02/-03 (four-stage New→In Progress→Review→Complete
+  pipeline — status invariant, New default, forward order), AC-LIFE-002-01/-02/-03 (simplified client-facing
+  labels; internal Review hidden as "In Progress"; three client states), AC-LIFE-003-01/-02/-03 (manual
+  accountant transitions; no auto-advance except the EPIC-008 onboarding transition; client cannot transition),
+  AC-LIFE-004-01/-02/-03 (Review is an internal accountant stage — no client action, not an approval step),
+  AC-LIFE-005-01/-02/-03 (two-confirmation completion gate — delivery + filing, both required),
+  AC-LIFE-006-01/-02 (accountant reopen; client cannot reopen), AC-AUTH-002-01/-02/-03 (accountant full
+  visibility), **AC-AUTH-003-01/-02/-03 (client own-data isolation — the HARD per-policy `pol_Engagement`
+  matrix + the direct-reference fetch-by-id proof; the isolation *mechanism* was built in Phase 2 (EPIC-005/007)
+  and these are the *feature* AC signed off here over that mechanism, not a second count)**, and
+  AC-AUTH-008-01/-02 (indefinite client access after completion). EPIC-010 → `delivered`. The single automatic
+  transition (EPIC-008 onboarding New→In Progress) is left intact as the one exception to manual control
+  (AC-LIFE-003-02 verified-by-reference against the intact EPIC-008 suite). Sign-off basis [C] (COVERAGE): green
+  required CI (`lint-and-typecheck` + `security-scan`) on PR #87 + post-merge `main` `7afd312` (CI run
+  `27988679054`; advisory `test-portal`/`test-admin` ✅; CodeQL ✅), plus the implementation engine's SDET
+  acceptance-validation at the ADR-012 tiers against the real container stack — tier-3 `packages/db`
+  (`engagement.lifecycle.transition.test.ts`, the HARD `engagement.lifecycle.rls.test.ts` `pol_Engagement`
+  matrix incl. direct-reference denial, `engagement.persistence.test.ts`), tier-2/5 `engagement-label.test.ts`,
+  tier-6 e2e (admin `engagement-lifecycle.spec.ts` 9/9, portal `engagement-labels.spec.ts` 9/9, portal
+  `engagement-isolation.spec.ts` 4/4, cross-app), container smoke PASS. **This is the first Phase-3-proper
+  slice delivered** (EPIC-009 was a cross-cutting PoC sign-in lane that did not advance Phase 3 proper). **Phase-3
+  progress: EPIC-009 + EPIC-010 delivered; EPIC-011..015 `planned`.** **Totals: 190 placed / 122 verified / 68
+  planned.** **Next:** **EPIC-011** (attributes) and **EPIC-012** (creation paths & multi-participant) are both
+  next-ready — `depends_on: EPIC-010` ✅ (EPIC-012 also needs EPIC-002 ✅ / EPIC-003 ✅); the FILE chain
+  EPIC-013→014→015 follows. Run `/orchestrate EPIC-011` (or EPIC-012).
+
 - **2026-06-21 (EPIC-009 delivered — the PoC two-role sign-in lane ships; mock realization)** — the dev
   sign-in lane realizing **REQ-AUTH-013** against the `AUTH_PROVIDER=mock` seam (a usable in-browser sign-in
   page + role/user switcher over the existing mock-session seam, wired to the demo seed accounts, **inert under
@@ -388,12 +416,12 @@ the FILE domain remain for the follow-up pass.
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
 | **EPIC-009** | Sign-in lane — realizes the **sign-in/sign-out capability** (REQ-AUTH-013) and the consolidated **role-based landing** (REQ-AUTH-010) — **5 AC** (2 new sign-in/sign-out, realized vs the mock provider; 3 redirect already verified). In the PoC it ships as a usable in-browser sign-in page + role/user switcher over the mock-session seam (`AUTH_PROVIDER=mock`), wired to the demo seed accounts, **inert under the real provider**, so a tester can drive/demo as the Accountant or any seeded Client without the devtools hack. Real Clerk + 2FA → Phase 5. | `delivered` (PR #71, `169b09e`, 2026-06-21) — 5/5 in-scope AC `verified` **vs the mock provider** (real-Clerk re-validation → Phase 5) | EPIC-004 ✅ |
-| **EPIC-010** | Engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete pipeline, manual transitions, simplified client-facing labels (Review hidden), two-confirmation completion gate, accountant-only reopen, accountant full visibility + client own-data isolation + indefinite post-completion access (25 AC: LIFE-001/002/003/004/005/006, AUTH-002/003/008) | `planned` | EPIC-005 ✅, EPIC-008 ✅ |
-| **EPIC-011** | Engagement attributes — accountant-set due date, accountant-only internal notes, priority/flag marker (9 AC: LIFE-007/008/009) | `planned` | EPIC-010 |
-| **EPIC-012** | Engagement creation paths & multi-participant — returning-client request (DOOR-009), accountant-initiated engagement (DOOR-010), duplicate guard per (client, service, tax year) with warn+override (LIFE-011), multiple concurrent engagements (LIFE-010), multi-participant engagements / separate accounts (LIFE-012, AUTH-007); introduces the engagement **tax-year** attribute (20 AC) | `planned` | EPIC-010, EPIC-002 ✅, EPIC-003 ✅ |
-| **EPIC-013** | Secure file exchange — accountant upload + both-party download + accountant-managed folders + top-level org by engagement & tax year + version history (13 AC: FILE-001 remainder, FILE-009/010/011) | `planned` | EPIC-007 ✅, EPIC-010, EPIC-012 |
-| **EPIC-014** | File deletion, soft-delete & 7-year retention — accountant-only delete, soft-delete, the in-window retention floor (10 AC: FILE-004/006/005, NFR-006) | `planned` | EPIC-013, EPIC-010 |
-| **EPIC-015** | Post-retention purge & legal hold — accountant-confirmed/never-automatic purge, legal hold, retention-vs-erasure precedence, audit-survives-purge (16 AC: FILE-013/014/015, NFR-010-07) | `planned` | EPIC-014, EPIC-010 |
+| **EPIC-010** | Engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete pipeline, manual transitions, simplified client-facing labels (Review hidden), two-confirmation completion gate, accountant-only reopen, accountant full visibility + client own-data isolation + indefinite post-completion access (25 AC: LIFE-001/002/003/004/005/006, AUTH-002/003/008) | `delivered` (PR #87, `7afd312`, 2026-06-22) — 25/25 in-scope AC `verified` · **first Phase-3-proper slice** | EPIC-005 ✅, EPIC-008 ✅ |
+| **EPIC-011** | Engagement attributes — accountant-set due date, accountant-only internal notes, priority/flag marker (9 AC: LIFE-007/008/009) | `planned` | EPIC-010 ✅ |
+| **EPIC-012** | Engagement creation paths & multi-participant — returning-client request (DOOR-009), accountant-initiated engagement (DOOR-010), duplicate guard per (client, service, tax year) with warn+override (LIFE-011), multiple concurrent engagements (LIFE-010), multi-participant engagements / separate accounts (LIFE-012, AUTH-007); introduces the engagement **tax-year** attribute (20 AC) | `planned` | EPIC-010 ✅, EPIC-002 ✅, EPIC-003 ✅ |
+| **EPIC-013** | Secure file exchange — accountant upload + both-party download + accountant-managed folders + top-level org by engagement & tax year + version history (13 AC: FILE-001 remainder, FILE-009/010/011) | `planned` | EPIC-007 ✅, EPIC-010 ✅, EPIC-012 |
+| **EPIC-014** | File deletion, soft-delete & 7-year retention — accountant-only delete, soft-delete, the in-window retention floor (10 AC: FILE-004/006/005, NFR-006) | `planned` | EPIC-013, EPIC-010 ✅ |
+| **EPIC-015** | Post-retention purge & legal hold — accountant-confirmed/never-automatic purge, legal hold, retention-vs-erasure precedence, audit-survives-purge (16 AC: FILE-013/014/015, NFR-010-07) | `planned` | EPIC-014, EPIC-010 ✅ |
 
 > **EPIC-009 realizes the sign-in/sign-out capability** (REQ-AUTH-013) + the consolidated role-based landing
 > (REQ-AUTH-010), placed in Phase 3 per user direction but with **no dependency on the LIFE/FILE work** — it
@@ -403,13 +431,14 @@ the FILE domain remain for the follow-up pass.
 > Readiness** (placeholder). The dev-lane affordances (switcher, inert-under-`clerk` guard) are EPIC-009
 > dev-acceptance, not product AC.
 >
-> **Build order:** **EPIC-010** first (no un-delivered Phase-3 predecessor — its `depends_on` EPIC-005 ✅ +
-> EPIC-008 ✅ are satisfied). **EPIC-011** and **EPIC-012** both build on EPIC-010 and are independent of each
-> other (parallelizable). The **FILE chain** is linear and follows the lifecycle core: **EPIC-013** (needs
-> EPIC-010 + EPIC-012's tax-year + EPIC-007 ✅) → **EPIC-014** (needs EPIC-013) → **EPIC-015** (needs
+> **Build order:** **EPIC-010 is delivered** (PR #87, `7afd312`, 2026-06-22 — 25/25 in-scope AC verified; the
+> first Phase-3-proper slice). **EPIC-011** and **EPIC-012** both build on EPIC-010 and are independent of each
+> other (parallelizable) — both are now **next-ready** (`depends_on: EPIC-010` ✅; EPIC-012 also needs
+> EPIC-002 ✅ / EPIC-003 ✅). The **FILE chain** is linear and follows the lifecycle core: **EPIC-013** (needs
+> EPIC-010 ✅ + EPIC-012's tax-year + EPIC-007 ✅) → **EPIC-014** (needs EPIC-013) → **EPIC-015** (needs
 > EPIC-014). **EPIC-009 is delivered** (PR #71, `169b09e`, 2026-06-21 — the PoC sign-in lane, 5/5 AC verified
-> vs the mock provider); it was independent of the LIFE/FILE chain, so the rest of Phase 3 (EPIC-010..015) is
-> still entirely `planned` and EPIC-009's delivery does **not** advance Phase 3 proper.
+> vs the mock provider); it was independent of the LIFE/FILE chain and did **not** advance Phase 3 proper.
+> **Phase-3 progress (2026-06-22): EPIC-009 + EPIC-010 delivered; EPIC-011..015 `planned`.**
 >
 > **Scope split (recorded 2026-06-21):** **REQ-FILE-012** (overdue document-request flagging + configurable
 > reminder cadence) is routed to **Phase 4**, not the Phase-3 FILE epics — it depends on the

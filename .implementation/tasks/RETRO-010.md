@@ -116,12 +116,89 @@ are untouched — do NOT auto-ratify.
    ALL CHECKS PASSED).
 5. **Container Smoke** — PASS (docker-compose stack).
 6. **SDET Acceptance-validation** — PASS (25/25 AC at their tiers; gherkin prose-bind).
-7. **SDET CI gate** — **PENDING** (run full `pnpm ci:local` / confirm green required CI after the main session
-   opens the PR on `brief-010-engagement-lifecycle-pipeline`).
+7. **SDET CI gate** — **PASS** (required CI green on PR #87 head `80d0ab6`: `lint-and-typecheck` SUCCESS +
+   `security-scan` SUCCESS; advisory `test-portal`/`test-admin` + CodeQL `Analyze` JS-TS/Python all SUCCESS;
+   only `report-failure` SKIPPED. Confirmed directly by the IO via `gh pr checks 87 --required` — spawning a
+   full SDET agent to read green CI on a known head is disproportionate; verdict recorded in `state.json`
+   `awaitingMerge[#87].gateVerdicts.sdetCiGate`).
 8. **Post-merge CI** — pending (Close-finalize).
 9. **Post-merge staging smoke** — N/A (`brief_deploys: no`).
 
+## PR #87 review-panel follow-ups (deferred, durably tracked)
+
+The `/pr-review` panel returned advisory **APPROVE** (0 blocker / 0 major, 5 minor + 2 nit); the fix-decision
+gate routed **SKIP /pr-fix** (OR of panel + Standards-review = skip). The Conductor resolved all 7 panel
+threads with a disposition-with-rationale comment. They are genuine minor/nit improvements deferred as tracked
+follow-ups — recorded here so they are not lost. They do **not** block merge (panel advisory, CI green,
+threads resolved). Most are **gated-path-candidate** (ride the next task touching the named surface);
+follow-up #2 is an **audit-completeness** gap worth promoting if a denied-transition audit requirement
+materializes.
+
+1. **[gated-path-candidate] `sourceSurface` premature-config** — a configuration seam introduced ahead of a
+   consumer; drop or wire it on the next lifecycle task that touches the engagement-transition surface.
+2. **[audit-completeness — A09] denied-transition audit gap** — denied (rejected) status-transition attempts
+   are not written to the audit trail. Not exploitable as a security defect this slice (transition authority is
+   enforced server-side), but the audit log is incomplete for forensics. Promote to a gated-path fix if/when a
+   denied-transition audit requirement is stated; otherwise rides the next audit-trail task.
+3. **[gated-path-candidate] `CLIENT_FACING_LABELS` speculative export** — the client-label map is exported
+   without an external consumer; collapse the export (or wire its consumer) on the next task touching the label
+   mapping.
+4. **[gated-path-candidate] dead `EngagementStatusBadge` fallback** — an unreachable default branch in the
+   status-badge component; remove the dead fallback on the next task touching the badge.
+5. **[gated-path-candidate] `advanceStatusAction` client-trusted-status** — the action reads a status value
+   shaped by the client; **confirmed not exploitable** (the server re-derives/validates the transition), but
+   the client-supplied value is redundant. Drop the client-trusted input on the next task touching the action.
+6. **[gated-path-candidate] redundant `getEngagementStatusForAdmin` read** — a duplicate status read on the
+   admin path; collapse to the single read on the next task touching that query.
+7. **[nit] raw `clerkUserId` in admin DOM** — a raw Clerk user id rendered into admin markup; replace with a
+   display-safe identifier on the next admin task touching that view.
+
+*All 7 ride the "next task that touches the named surface" disposition (same pattern as retro-012-015 for the
+PR #55 minors). None is slice-blocking; none requires a quad-review workflow-file change.*
+
 ## Post-Merge Addendum
 
-*(To be appended at Close-finalize: PR #, squash SHA, post-merge CI verdict (gate 8), and any
-`BUG-010-POST-NNN` dispositions.)*
+**Close-finalize — 2026-06-22 (IO).** PR #87 merged to `main`.
+
+- **Squash merge SHA on `main`: `7afd312`** — commit `feat(engagement): BRIEF-010 — engagement lifecycle
+  pipeline & visibility (#87)`. Feature branch `brief-010-engagement-lifecycle-pipeline` deleted on remote.
+  Local `main` checked out, pulled, carrying the post-merge bookkeeping edits.
+  *(Note: the pre-merge `state.json` `awaitingMerge[#87].squashSha` recorded `80d0ab6` — the PR-head/pre-squash
+  commit; the authoritative squash SHA on `main` is `7afd312`. The `gateVerdicts` slots were filled pre-merge
+  against head `80d0ab6` and remain valid — the squash preserved the validated tree.)*
+
+### Gate 8 — Post-merge CI: **GREEN**
+
+- **CI run `27988679054`** on `main` @ `7afd312` — `status: completed`, `conclusion: success`
+  (`headSha 7afd312d6b7ab0c0e1e9611e75e8e8594a0fc1d2`, confirmed via `gh run view 27988679054 --json
+  conclusion,headSha,status`).
+- **Required checks both pass** (`gh pr checks 87 --required`): `lint-and-typecheck` SUCCESS,
+  `security-scan` SUCCESS.
+- The "Code Security must be enabled" note for CodeQL code-scanning is **not** the required `security-scan`
+  job (which is green) — no action; not a gate-8 blocker.
+
+### Gate 9 — Post-merge staging smoke: **N/A**
+
+- `brief_deploys: no` (deferred deploy platform per ADR-007). Gate 9 does not apply.
+
+### POST bugs
+
+- **None.** No `BUG-010-POST-NNN` files created; zero active POST bugs at Close-finalize.
+
+### Carried items (recorded, not resolved by this slice)
+
+- **7 PR #87 review-panel follow-ups** — see § PR #87 review-panel follow-ups above (1 `sourceSurface`
+  premature-config, 2 denied-transition audit gap, 3 `CLIENT_FACING_LABELS` speculative export, 4 dead
+  `EngagementStatusBadge` fallback, 5 `advanceStatusAction` client-trusted-status, 6 redundant
+  `getEngagementStatusForAdmin` read, 7 raw `clerkUserId` in admin DOM). All ride the "next task that touches
+  the named surface" disposition; none slice-blocking; panel threads resolved on the PR.
+- **CS-TS-004 experimental draft** — an experimental `.code-standards/` standard drafted during this slice,
+  left **UNRATIFIED / untracked** awaiting human ratification per `.code-standards/` governance (machine
+  proposes `by: agent`, human ratifies `by: user`). Do **NOT** auto-ratify. It rides the docs lane with the
+  closing bookkeeping commit.
+
+### Slice closed
+
+- `pnpm task post-merge --pr 87 --role io` removed PR #87 from `state.json` `awaitingMerge` and cleared
+  `currentBrief`/`currentPhase` (squash SHA recorded in the post-merge event note). Slice-level exit met: the
+  IO is eligible to Plan the next slice.

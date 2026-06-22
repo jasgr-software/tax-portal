@@ -2,7 +2,7 @@
 id: EPIC-010
 title: Engagement lifecycle pipeline & engagement visibility
 phase: 3
-status: planned
+status: delivered
 slice: The accountant advances an engagement through New → In Progress → Review → Complete with manual transitions and a two-confirmation completion gate, can reopen a completed engagement, and sees every engagement; the client sees only their own engagements under simplified labels and retains access after completion.
 requirements:
   - REQ-LIFE-001: [AC-LIFE-001-01, AC-LIFE-001-02, AC-LIFE-001-03]
