@@ -135,6 +135,15 @@ export interface EngagementItem {
   deliveryConfirmedAt: Date | null;
   /** DECISION-010-A (EPIC-010): NULL = filing not confirmed; non-null = confirmed timestamp. */
   filingConfirmedAt: Date | null;
+  /**
+   * DECISION-B (BRIEF-012 / EPIC-012): Third component of the engagement identity tuple
+   * (client, service type, tax year). NULL for existing engagements (no back-fill);
+   * set at creation time by TASK-012-002/-003. Consumed downstream by EPIC-013.
+   * Optional (?) for backward-compat with existing code that constructs EngagementItem
+   * without the field — callers that do not supply it get undefined (treated as null).
+   * // AC-LIFE-010-02 // AC-LIFE-011-01 // DECISION-B // CS-GEN-002
+   */
+  taxYear?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -171,6 +180,8 @@ type EngagementRow = {
   deliveryConfirmedAt?: Date | null;
   /** DECISION-010-A (EPIC-010): filing confirmation timestamp. */
   filingConfirmedAt?: Date | null;
+  /** DECISION-B (BRIEF-012 / EPIC-012): nullable tax year integer. */
+  taxYear?: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -525,6 +536,8 @@ export async function getEngagementForAdmin(
   // EPIC-011 / TASK-011-003: additive attribute fields (CS-GEN-002)
   dueDate: Date | null;
   isPriority: boolean;
+  // DECISION-B (BRIEF-012 / EPIC-012): nullable tax year integer (CS-GEN-002)
+  taxYear: number | null;
 } | null> {
   const pool = await getAdminPool();
   const req = new MssqlRequest(pool);
@@ -538,9 +551,10 @@ export async function getEngagementForAdmin(
     engagementRequestId: string;
     dueDate: Date | null;
     isPriority: boolean;
+    taxYear: number | null;
   }>(
     `SELECT [id], [status], [deliveryConfirmedAt], [filingConfirmedAt], [engagementRequestId],
-            [dueDate], [isPriority]
+            [dueDate], [isPriority], [taxYear]
      FROM [dbo].[Engagement]
      WHERE [id] = @engagementId`
   );
@@ -557,6 +571,8 @@ export async function getEngagementForAdmin(
     // CS-GEN-002: additive — new fields from EPIC-011/TASK-011-003
     dueDate: row.dueDate ?? null,
     isPriority: row.isPriority ?? false,
+    // DECISION-B (BRIEF-012 / EPIC-012): taxYear — nullable for existing rows
+    taxYear: row.taxYear ?? null,
   };
 }
 
@@ -1381,6 +1397,8 @@ function mapRow(row: {
   questionnaireSubmittedAt?: Date | null;
   deliveryConfirmedAt?: Date | null;
   filingConfirmedAt?: Date | null;
+  /** DECISION-B (BRIEF-012 / EPIC-012): nullable tax year integer. */
+  taxYear?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }): EngagementItem {
@@ -1396,6 +1414,9 @@ function mapRow(row: {
     // DECISION-010-A (EPIC-010): lifecycle confirmation timestamps
     deliveryConfirmedAt: row.deliveryConfirmedAt ?? null,
     filingConfirmedAt: row.filingConfirmedAt ?? null,
+    // DECISION-B (BRIEF-012 / EPIC-012): tax year — nullable for existing rows (no back-fill)
+    // AC-LIFE-010-02: concurrent engagements tracked independently by (client, service, taxYear) tuple
+    taxYear: row.taxYear ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

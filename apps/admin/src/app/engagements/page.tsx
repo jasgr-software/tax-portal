@@ -126,9 +126,19 @@ export default async function EngagementsPage() {
               All active and completed client engagements.
             </p>
           </div>
-          <span className="text-sm text-gray-400">
-            {engagements.length} engagement{engagements.length !== 1 ? "s" : ""}
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-400">
+              {engagements.length} engagement{engagements.length !== 1 ? "s" : ""}
+            </span>
+            {/* AC-DOOR-010-01: Initiate-engagement entry point */}
+            <a
+              href="/engagements/new"
+              data-testid="initiate-engagement-button"
+              className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              + New Engagement
+            </a>
+          </div>
         </div>
 
         {dbError && (

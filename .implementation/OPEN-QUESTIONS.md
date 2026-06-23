@@ -155,3 +155,26 @@ BRIEF-009 untouched in `## Awaiting PR merge`. Record both slices' coexistence e
 slice-start-gate state is auditable. If the user prefers strict serialization (merge BRIEF-009 first, then Plan
 LOE-010), they halt here and the IO yields. **Recommendation:** proceed — lane isolation + the value-preserving/
 identical-verdict ACs make concurrent limbo safe, and the directive authorizes it.
+
+---
+
+## OQ-012-01 — Returning-client contact resolution depends on prior-engagement history (DECISION-E)
+
+**Status:** raised-upstream (Phase-5 real-auth concern; not slice-blocking)
+**Slice:** BRIEF-012 / EPIC-012 · **Raised:** 2026-06-23 · **By:** io
+
+**Context.** The `User` model carries only `id`/`clerkId`/`email`/`role` — no name fields (minimal
+deferred-auth design, real Clerk profile attributes are Phase 5). To satisfy AC-DOOR-009-03 ("the returning-client
+flow does not require re-entering on-file contact"), `createReturningClientRequest` resolves the caller's
+first/last/email by JOINing `User.clerkId → User.id → Engagement.clientUserId → EngagementRequest` (the contact
+on the client's prior engagement's originating request). A returning client with **no** prior engagement carrying
+contact fields hits `UserContactNotFoundError` (unit-tested; the UI surfaces a no-contact-on-file state).
+
+**Why it may be upstream.** A durable design would store the client's contact as a first-class **user-profile
+attribute** (decoupled from engagement history) — that is a product/architecture decision (real Clerk profile
+attributes, Phase 5 — Production Readiness), not an implementation detail resolvable at slice altitude. The PoC
+resolution is faithful to the "returning client = has prior history" semantics and the mock-first posture.
+
+**IO disposition (proceeding):** ship the JOIN-based resolution for the PoC; revisit when real Clerk user
+profiles land in Phase 5. No `.architecture/` ADR authored by the team. Tracked here for the architecture layer
+to absorb when Phase-5 auth wiring is planned.

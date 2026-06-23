@@ -216,6 +216,19 @@ export default async function EngagementDetailPage({
             View document requests →
           </a>
         </div>
+
+        {/* Link to participants for this engagement — TASK-012-005 */}
+        {/* AC-AUTH-007-01: accountant can invite additional CLIENT participants */}
+        {/* ADR-001: each participant signs in with their own account (no shared login) */}
+        <div className="mt-4">
+          <a
+            href={`/engagements/${engagementId}/participants`}
+            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+            data-testid="participants-link"
+          >
+            Manage participants →
+          </a>
+        </div>
       </main>
     </div>
   );

@@ -135,6 +135,9 @@ model User {
   // DECISION-A: clientUserId is nullable on Engagement — created before the prospect signs up;
   //             back-filled at sign-up time. See Engagement.clientUserId.
   engagements Engagement[]
+  // EPIC-012: Reverse relation — a User may participate in many engagements as an additional CLIENT
+  // DECISION-D (BRIEF-012): participant link tracked in EngagementParticipant join table (AC-AUTH-007-01/-03)
+  engagementParticipations EngagementParticipant[]
 
   @@map("User")
 }
@@ -200,6 +203,14 @@ model Engagement {
   // CS-GEN-002: additive column.
   isPriority            Boolean   @default(false)
   // NOTE: dueDate/isPriority carry NO confidentiality AC; they reuse sec.pol_Engagement. No new policy needed.
+  // ─── EPIC-012 engagement identity (DECISION-B / BRIEF-012) ────────────────────
+  // DECISION-B (BRIEF-012): taxYear is the third component of the engagement identity tuple
+  //   (client, service type, tax year). Nullable — existing engagements remain null (no back-fill).
+  //   Set at engagement creation by the creation-path tasks (TASK-012-002/-003).
+  //   Consumed downstream by EPIC-013 (file org by engagement & tax year).
+  //   NOT a UNIQUE DB constraint — duplicate guard is application-level (TASK-012-002 DECISION-C).
+  // CS-GEN-002: additive column.
+  taxYear               Int?
   // ─── Reverse relations ────────────────────────────────────────────────────────
   // EPIC-006: Reverse relation — at most one QuestionnaireAnswer per Engagement (AC-ONBD-003-04)
   questionnaireAnswer   QuestionnaireAnswer?
@@ -210,8 +221,56 @@ model Engagement {
   // RLS policy: sec.pol_EngagementNote (Track B: db/policies/0008-engagement-note-policy.sql).
   // AC-LIFE-008-02 / AC-LIFE-008-03: notes are accountant-only; CLIENT reads ZERO.
   notes                 EngagementNote[]
+  // EPIC-012: Reverse relation — additional CLIENT participants on the engagement (AC-LIFE-012-01/-03)
+  // DECISION-D (BRIEF-012): the join table approach keeps clientUserId for back-compat (AC-AUTH-003).
+  // RLS policy: sec.pol_EngagementParticipant (Track B: db/policies/0009-engagement-participant-policy.sql).
+  participants          EngagementParticipant[]
 
   @@map("Engagement")
+}
+
+// ─── EngagementParticipant ────────────────────────────────────────────────────
+// Join table: Engagement ↔ User (many-to-many), for the MULTI-PARTICIPANT feature (EPIC-012).
+// CLIENT-SCOPED AND CLIENT-ISOLATED: a participant reads only their own link rows.
+// RLS (ADR-005 § Tables-in-scope): CLIENT reads only their own participant rows (linked by userId);
+//   ACCOUNTANT reads all; admin pool is always RLS-exempt.
+//   Security policy: sec.pol_EngagementParticipant (Track B: db/policies/0009-engagement-participant-policy.sql).
+//
+// ADR-002: UNIQUEIDENTIFIER PK with NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// DECISION-D (BRIEF-012): the primary clientUserId FK on Engagement is preserved for back-compat
+//   (AC-AUTH-003); this table adds participant access without changing the existing ownership model.
+//   The engagement RLS CLIENT branch is extended (OR EXISTS participant link) — not replaced.
+//
+// AC-LIFE-012-01/-03: an engagement can have >1 participant; all link to the same engagement.
+// AC-AUTH-007-01/-03: a single engagement may have multiple CLIENT participants;
+//   each reaches the shared engagement through their own account (the participant link).
+//
+// @@unique([engagementId, userId]): each user is linked to each engagement at most once.
+// FK onDelete: NoAction — never cascade-delete when an engagement or user is removed.
+//
+// CS-SQL-001: this table ships sec.pol_EngagementParticipant + engagement-participant isolation test.
+// CS-SQL-003: predicate is an inline TVF, shallow, admin/accountant-first, fail-closed.
+// CS-GEN-002: additive — new table; no existing model modified destructively.
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test.
+
+model EngagementParticipant {
+  id           String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Engagement — the engagement this participant is linked to (AC-LIFE-012-01/-03)
+  // onUpdate: NoAction required by Prisma cyclic-cascade validation (multi-path through User)
+  engagementId String   @db.UniqueIdentifier
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // FK → User — the participant's user account (AC-AUTH-007-01: separate portal account)
+  // onUpdate: NoAction required by Prisma cyclic-cascade validation (multi-path through Engagement → EngagementRequest → User)
+  userId       String   @db.UniqueIdentifier
+  user         User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Role discriminator — default 'CLIENT' (v1: all participants are CLIENT-role)
+  // Reserved for potential future differentiation (no v1 scope per BRIEF-012 Out-of-scope)
+  role         String   @default("CLIENT") @db.NVarChar(20)
+  createdAt    DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+
+  // Each user may appear at most once per engagement
+  @@unique([engagementId, userId])
+  @@map("EngagementParticipant")
 }
 
 // ─── LetterTemplate ───────────────────────────────────────────────────────────
