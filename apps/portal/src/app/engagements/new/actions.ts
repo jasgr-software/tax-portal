@@ -81,8 +81,11 @@ export interface SubmitReturningClientRequestResult {
   fieldErrors?: Record<string, string[]>;
   /** When true, the error is a rate-limit rejection (ADR-022). */
   rateLimited?: boolean;
-  /** When true, the caller cannot resolve their on-file contact (DECISION-E). */
-  noContactOnFile?: boolean;
+  // MINOR-003 (PR #93 review): noContactOnFile removed — the field was set but never read
+  // by any caller. The "no contact on file" condition is already surfaced via the error string
+  // and the success: false flag. Callers should check error for the human-readable message.
+  // The UserContactNotFoundError catch arm is preserved (it sets the error message); only
+  // the unused discriminator field is removed from the return type.
 }
 
 // ─── Rate-limit endpoint ──────────────────────────────────────────────────────
@@ -294,7 +297,7 @@ export async function submitReturningClientRequest(
         error:
           "We could not find your contact details on file. " +
           "Please contact your accountant to get started.",
-        noContactOnFile: true,
+        // MINOR-003: noContactOnFile removed from result type (was set but never read)
       };
     }
 

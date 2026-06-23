@@ -60,6 +60,13 @@ const { Request: MssqlRequest, Transaction } = mssqlPkg;
  *
  * This should not occur in normal operation — the caller (portal action) has already
  * verified the Clerk session. Treat as a fatal data-integrity error.
+ *
+ * @deprecated MAJOR-002 (PR #93 review): the second-round-trip guard that could exclusively
+ *   trigger this error has been removed from resolveCallerContact. The class is kept exported
+ *   so the portal actions.ts catch arm compiles; callers may remove the catch arm in a follow-up.
+ *   UserContactNotFoundError is now the single error thrown by resolveCallerContact on any
+ *   empty-join outcome (clerkId not found OR no prior engagement) — both collapse to the same
+ *   caller action (surface "no contact on file").
  */
 export class UserNotFoundError extends Error {
   constructor(clerkUserId: string) {
@@ -73,12 +80,15 @@ export class UserNotFoundError extends Error {
 }
 
 /**
- * Thrown by createReturningClientRequest when the on-file contact (firstName/lastName)
- * cannot be resolved for the caller — i.e., they have no prior EngagementRequest linked
- * to their engagement.
+ * Thrown by resolveCallerContact / createReturningClientRequest when the on-file contact
+ * (firstName/lastName) cannot be resolved for the caller — i.e., they have no prior
+ * EngagementRequest linked to their engagement (or the clerkId/userId is unknown).
  *
  * DECISION-E: contact resolution requires a prior accepted engagement → prior EngagementRequest.
- * If none exists, the UI must handle this case separately (e.g. ask for contact details).
+ * MAJOR-002 (PR #93 review): the second DB round-trip that distinguished UserNotFoundError from
+ *   UserContactNotFoundError has been removed — both outcomes collapse to UserContactNotFoundError
+ *   since both map to the same caller action (surface "no contact on file" to the UI).
+ * If the caller has no prior engagement, the UI must handle this case separately.
  */
 export class UserContactNotFoundError extends Error {
   constructor(userId: string) {
@@ -223,21 +233,33 @@ export interface AddEngagementParticipantResult {
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /**
- * Resolve the User record and their on-file contact info from an existing EngagementRequest.
+ * Resolve a User's on-file contact info (firstName/lastName/email) from an existing
+ * EngagementRequest linked to their engagement.
  *
  * DECISION-E: The User table has only id/clerkId/email/role (no firstName/lastName).
  * Contact details are stored on the EngagementRequest that originated the invite.
- * We join: User → Engagement (clientUserId) → EngagementRequest to get firstName/lastName.
  *
- * Uses the admin pool — this is a helper for createReturningClientRequest (admin-pool write path).
+ * Supports two lookup modes (MAJOR-003 fix — PR #93 review):
+ *   - { by: 'clerkId', value: clerkUserId } — for the returning-client path
+ *     (User → Engagement → EngagementRequest, keyed by User.clerkId)
+ *   - { by: 'userId', value: userId }       — for the accountant-initiated path
+ *     (Engagement → EngagementRequest, keyed by Engagement.clientUserId)
+ * Both paths JOIN through Engagement.clientUserId, so the JOIN structure is identical;
+ * only the WHERE predicate column differs.
  *
- * Returns null when no User found for the clerkId.
- * Throws UserContactNotFoundError when the User exists but has no linked EngagementRequest.
+ * MAJOR-002 (PR #93 review): the second DB round-trip that distinguished UserNotFoundError
+ *   from UserContactNotFoundError has been removed. Both outcomes — clerkId not found AND
+ *   userId with no prior engagement — collapse to UserContactNotFoundError, since both map
+ *   to the same caller action ("no contact on file").
+ *
+ * Throws UserContactNotFoundError when the join returns empty (no prior EngagementRequest).
+ *
+ * Uses the admin pool (or the supplied transaction) — helper for admin-pool write paths.
  *
  * // DECISION-E // ADR-003 // AC-DOOR-009-03 // CS-TS-002
  */
 async function resolveCallerContact(
-  clerkUserId: string,
+  lookup: { by: "clerkId"; value: string } | { by: "userId"; value: string },
   transaction?: InstanceType<typeof Transaction>,
 ): Promise<{
   userId: string;
@@ -254,51 +276,56 @@ async function resolveCallerContact(
   }
 
   // CS-TS-002: admin pool only through getAdminPool() (via withAuditTransaction or direct).
-  // Inject clerkUserId safely via input parameter — not string interpolation.
-  req.input("clerkUserId", mssqlPkg.NVarChar(64), clerkUserId);
+  // Parameters bound safely — no string interpolation.
 
-  // DECISION-E: Join User → Engagement → EngagementRequest to resolve first/last/email.
-  // TOP 1 + ORDER BY e.createdAt ASC = use the earliest (original) accepted engagement.
+  let queryText: string;
+  if (lookup.by === "clerkId") {
+    // Returning-client path: join via User.clerkId
+    req.input("lookupValue", mssqlPkg.NVarChar(64), lookup.value);
+    // DECISION-E: Join User → Engagement → EngagementRequest to resolve first/last/email.
+    // TOP 1 + ORDER BY e.createdAt ASC = use the earliest (original) accepted engagement.
+    queryText = `
+      SELECT TOP 1
+        u.[id]         AS userId,
+        er.[firstName],
+        er.[lastName],
+        er.[email]
+      FROM [dbo].[User] u
+      INNER JOIN [dbo].[Engagement] e   ON e.[clientUserId] = u.[id]
+      INNER JOIN [dbo].[EngagementRequest] er ON er.[id] = e.[engagementRequestId]
+      WHERE u.[clerkId] = @lookupValue
+      ORDER BY e.[createdAt] ASC
+    `;
+  } else {
+    // Accountant-initiated path: join via Engagement.clientUserId directly (no User row needed)
+    req.input("lookupValue", mssqlPkg.NVarChar(50), lookup.value);
+    // MAJOR-003: replaces the inline contact JOIN in createAccountantInitiatedEngagement.
+    queryText = `
+      SELECT TOP 1
+        e.[clientUserId] AS userId,
+        er.[firstName],
+        er.[lastName],
+        er.[email]
+      FROM [dbo].[Engagement] e
+      INNER JOIN [dbo].[EngagementRequest] er ON er.[id] = e.[engagementRequestId]
+      WHERE e.[clientUserId] = @lookupValue
+      ORDER BY e.[createdAt] ASC
+    `;
+  }
+
   const result = await req.query<{
     userId: string;
     firstName: string;
     lastName: string;
     email: string;
-  }>(`
-    SELECT TOP 1
-      u.[id]         AS userId,
-      er.[firstName],
-      er.[lastName],
-      er.[email]
-    FROM [dbo].[User] u
-    INNER JOIN [dbo].[Engagement] e   ON e.[clientUserId] = u.[id]
-    INNER JOIN [dbo].[EngagementRequest] er ON er.[id] = e.[engagementRequestId]
-    WHERE u.[clerkId] = @clerkUserId
-    ORDER BY e.[createdAt] ASC
-  `);
+  }>(queryText);
 
   const row = result.recordset[0];
   if (!row) {
-    // Distinguish: no User row at all vs. User row exists but no Engagement/EngagementRequest
-    const userCheck = await (async () => {
-      let checkReq: InstanceType<typeof MssqlRequest>;
-      if (transaction) {
-        checkReq = new MssqlRequest(transaction);
-      } else {
-        const pool = await getAdminPool();
-        checkReq = new MssqlRequest(pool);
-      }
-      checkReq.input("clerkUserId", mssqlPkg.NVarChar(64), clerkUserId);
-      return checkReq.query<{ id: string }>(
-        `SELECT [id] FROM [dbo].[User] WHERE [clerkId] = @clerkUserId`,
-      );
-    })();
-
-    if (userCheck.recordset.length === 0) {
-      throw new UserNotFoundError(clerkUserId);
-    }
-    const userId = userCheck.recordset[0]!.id;
-    throw new UserContactNotFoundError(userId);
+    // MAJOR-002: single error for empty join — both "clerkId not found" and "no prior engagement"
+    // collapse to UserContactNotFoundError since both require the same caller response.
+    // The second DB round-trip to distinguish them has been removed (it was dead complexity).
+    throw new UserContactNotFoundError(lookup.value);
   }
 
   return {
@@ -354,7 +381,11 @@ export async function createReturningClientRequest(
   try {
     // DECISION-E: resolve caller's on-file contact — proves AC-DOOR-009-03
     // (no contact args accepted from the caller — interface has only clerkUserId + serviceIds).
-    const contact = await resolveCallerContact(input.clerkUserId, transaction);
+    // MAJOR-003: resolveCallerContact now takes a lookup discriminator {by, value}.
+    const contact = await resolveCallerContact(
+      { by: "clerkId", value: input.clerkUserId },
+      transaction,
+    );
 
     // INSERT EngagementRequest — status='pending' (DECISION-A)
     const insertReq = new MssqlRequest(transaction);
@@ -470,30 +501,14 @@ export async function createAccountantInitiatedEngagement(
   return withAuditTransaction(async (txn) => {
     // ── Step 1: Resolve the client's on-file contact (DECISION-E) ────────────
     // We need firstName/lastName/email for the EngagementRequest row.
-    // Resolve from the client's existing EngagementRequest (User → Engagement → EngagementRequest).
-    const contactReq = new MssqlRequest(txn);
-    contactReq.input("clientUserId", mssqlPkg.NVarChar(50), input.clientUserId);
-
-    // TOP 1 + ORDER BY createdAt ASC = earliest (original) engagement request for this client.
-    const contactResult = await contactReq.query<{
-      firstName: string;
-      lastName: string;
-      email: string;
-    }>(`
-      SELECT TOP 1
-        er.[firstName],
-        er.[lastName],
-        er.[email]
-      FROM [dbo].[Engagement] e
-      INNER JOIN [dbo].[EngagementRequest] er ON er.[id] = e.[engagementRequestId]
-      WHERE e.[clientUserId] = @clientUserId
-      ORDER BY e.[createdAt] ASC
-    `);
-
-    const contact = contactResult.recordset[0];
-    if (!contact) {
-      throw new UserContactNotFoundError(input.clientUserId);
-    }
+    // MAJOR-003 (PR #93 review): replaced inline contact JOIN with resolveCallerContact helper
+    // (lookup by userId — Engagement.clientUserId). Deduplicates the JOIN that was previously
+    // inlined here and in the returning-client path.
+    // Throws UserContactNotFoundError if the client has no prior EngagementRequest (DECISION-E).
+    const contact = await resolveCallerContact(
+      { by: "userId", value: input.clientUserId },
+      txn,
+    );
 
     // ── Step 2: INSERT EngagementRequest (pre-'accepted') ────────────────────
     // DECISION-A: created directly as 'accepted' — no pending→accept step.

@@ -56,6 +56,7 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { getAuthProvider } from "@tax-portal/auth";
 import {
   getAdminPool,
@@ -65,6 +66,17 @@ import {
 } from "@tax-portal/db";
 // CS-TS-001: all imports from @tax-portal/db barrel (no raw pool imports in apps/)
 import mssqlPkg from "mssql";
+
+// ─── UUID validation (MINOR-002 fix — PR #93 review) ─────────────────────────
+// Mirrors the UUID_PATTERN in apps/portal/src/app/engagements/new/actions.ts.
+// Service IDs are NEWSEQUENTIALID() UUIDs from SQL Server.
+// CS-TS-003: cross-surface parity with the portal path's UUID validation.
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const ServiceIdsSchema = z
+  .array(z.string().regex(UUID_PATTERN, "Invalid service ID format"))
+  .min(1, "At least one service must be selected");
 
 const { Request: MssqlRequest } = mssqlPkg;
 
@@ -278,6 +290,12 @@ export async function initiateEngagement(
   }
   if (!serviceIds || serviceIds.length === 0) {
     return { status: "error", error: "At least one service must be selected" };
+  }
+  // MINOR-002 (PR #93 review): validate serviceIds format (UUID pattern) — mirrors the portal
+  // path's Zod check (CS-TS-003 cross-surface parity). Rejects malformed IDs before any DB hit.
+  const serviceIdsParseResult = ServiceIdsSchema.safeParse(serviceIds);
+  if (!serviceIdsParseResult.success) {
+    return { status: "error", error: "One or more service IDs are invalid" };
   }
   if (!Number.isInteger(taxYear) || taxYear < 2000 || taxYear > 2100) {
     return { status: "error", error: "A valid tax year is required (2000–2100)" };

@@ -413,16 +413,20 @@ describe("createReturningClientRequest", () => {
   );
 
   it(
-    "[AC-DOOR-009-03] throws UserNotFoundError when clerkUserId has no User row",
+    "[AC-DOOR-009-03] throws UserContactNotFoundError when clerkUserId has no User row (MAJOR-002: single error class)",
     async () => {
-      // Verify the error boundary: no silent no-op on missing user.
+      // MAJOR-002 (PR #93 review): resolveCallerContact no longer fires a second round-trip
+      // to distinguish UserNotFoundError from UserContactNotFoundError. Both outcomes — clerkId
+      // not found AND clerkId found but no prior engagement — now throw UserContactNotFoundError,
+      // since both map to the same caller action ("no contact on file"). The test expectation
+      // is updated accordingly.
       const serviceId = await getOrCreateService("EC-Test-Service-1");
       await expect(
         createReturningClientRequest({
           clerkUserId: "clerk_nonexistent_ec_test",
           serviceIds: [serviceId],
         }),
-      ).rejects.toThrow(UserNotFoundError);
+      ).rejects.toThrow(UserContactNotFoundError);
     },
     30_000,
   );

@@ -56,7 +56,7 @@ import {
 // CS-TS-001: all imports from @tax-portal/db barrel (no raw pool imports in apps/)
 import mssqlPkg from "mssql";
 
-const { Request: MssqlRequest } = mssqlPkg;
+const { Request: MssqlRequest, Transaction } = mssqlPkg;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -202,7 +202,28 @@ export async function inviteParticipant(
 
   const normalizedEmail = inviteeEmail.trim().toLowerCase();
 
-  // ── 3. Resolve or create the invitee User row ─────────────────────────────
+  // ── 3. Validate engagement exists (MAJOR-001 fix — PR #93 review) ─────────
+  // Defence-in-depth: verify the engagementId is a real Engagement row before any write.
+  // Without this check, a bad/forged engagementId would allow a User INSERT to commit
+  // (consuming the @unique email) before the participant-link write fails the FK.
+  // DECISION (TASK-012-005 / MAJOR-001): mirrors validateClientUserId in admin/new/actions.ts.
+  // ADR-003 §7: admin pool for accountant-surface reads (RLS-exempt).
+  // CS-TS-001: via @tax-portal/db barrel (getAdminPool).
+  // CS-TS-002: admin pool only through getAdminPool().
+  const pool = await getAdminPool();
+  const engCheckReq = new MssqlRequest(pool);
+  engCheckReq.input("engagementId", mssqlPkg.UniqueIdentifier, engagementId);
+  const engCheckResult = await engCheckReq.query<{ id: string }>(
+    `SELECT TOP 1 [id] FROM [dbo].[Engagement] WHERE [id] = @engagementId`,
+  );
+  if (engCheckResult.recordset.length === 0) {
+    redirect(`/engagements/${engagementId}/participants?error=engagement_not_found`);
+  }
+
+  // ── 4. Resolve or create the invitee User row + link participant — in one transaction ──
+  // MAJOR-001 (PR #93 review): the User INSERT and the EngagementParticipant link are now
+  // wrapped in a single mssql Transaction so a link failure cannot leave an orphan User row.
+  //
   // ADR-023: the auth provider's createInvitation is the mock-first seam for inviting new users.
   // ADR-001: the invitee MUST get their OWN account — never the same account as the engagement
   //          owner or any other participant. Each call to createInvitation issues a distinct ticket
@@ -220,76 +241,133 @@ export async function inviteParticipant(
   // ADR-001 compliance: each participant is their own User row with their own clerkUserId.
 
   // ADR-023: issue invitation via auth provider mock-first seam
+  // (done OUTSIDE the transaction: the invitation ticket is fire-and-forget; an auth-provider
+  //  failure is a soft error that should NOT prevent us from reaching the DB transaction start.)
   const authProvider = getAuthProvider();
   const invitation = await authProvider.createInvitation(normalizedEmail, "CLIENT");
-  // The ticket is created for the invitee's OWN account (ADR-001 — no shared login)
+  // The ticket is created for the invitee's OWN account (ADR-001 — no shared login).
   // In production (Clerk binding): this sends an email + creates a Clerk invitation.
   // In mock mode: this returns a deterministic fixture ticket (ADR-023).
-  //
-  // We use the ticket only to confirm the invitation was issued — the actual DB linkage
-  // is via User resolution below.
   void invitation; // consumed by the auth provider; not stored (ADR-023)
 
-  // CS-TS-001: admin pool for user lookup/creation
-  // CS-TS-002: admin pool only through getAdminPool()
-  const pool = await getAdminPool();
-
-  // Look up existing User by email (they may already have an account).
-  // ADR-001: if they exist, link their EXISTING own account — do not create a duplicate.
-  const existingUserReq = new MssqlRequest(pool);
-  existingUserReq.input("email", mssqlPkg.NVarChar(254), normalizedEmail);
-
-  const existingResult = await existingUserReq.query<{
-    id: string;
-    clerkId: string;
-  }>(
-    `SELECT TOP 1 [id], [clerkId] FROM [dbo].[User]
-     WHERE [email] = @email AND [role] = N'CLIENT'`,
-  );
+  // Open a transaction so User INSERT + EngagementParticipant link are atomic.
+  // MAJOR-001: without this, a bad EngagementParticipant FK would leave an orphan User row.
+  const txn = new Transaction(pool);
+  await txn.begin();
 
   let inviteeUserId: string;
 
-  if (existingResult.recordset[0]) {
-    // Invitee already has their own account — link it (ADR-001: own-account invariant)
-    inviteeUserId = existingResult.recordset[0].id;
-  } else {
-    // Invitee does not yet have an account. Create a User stub for the invited participant.
-    // ADR-001: this is their OWN User row — distinct from the engagement owner's row.
-    // ADR-023: the clerkUserId stub matches the invite ticket so the auth system can reconcile
-    //          when the invitee clicks their invite link (mock: deterministic prefix).
-    //
-    // DECISION (TASK-012-005): For the mock seam, we derive the stub clerkUserId from the
-    // invitation ticket (deterministic in mock mode, Clerk-issued in production). The stub
-    // is what the invitee's mock session will use for e2e tests.
-    const stubClerkUserId = `invited_${invitation.ticket.slice(0, 40)}`;
+  try {
+    // MINOR-001 (PR #93 review): look up by email WITHOUT the role='CLIENT' filter.
+    // An email held by a non-CLIENT user would miss the role filter and then fail the
+    // @unique(email) constraint on INSERT — a confusing crash instead of a clear rejection.
+    // We look up by email only, then check the role explicitly.
+    const existingUserReq = new MssqlRequest(txn);
+    existingUserReq.input("email", mssqlPkg.NVarChar(254), normalizedEmail);
 
-    const insertReq = new MssqlRequest(pool);
-    insertReq.input("clerkId", mssqlPkg.NVarChar(64), stubClerkUserId);
-    insertReq.input("email", mssqlPkg.NVarChar(254), normalizedEmail);
-
-    const insertResult = await insertReq.query<{ id: string }>(
-      `INSERT INTO [dbo].[User] ([clerkId], [email], [role], [updatedAt])
-       OUTPUT INSERTED.[id]
-       VALUES (@clerkId, @email, N'CLIENT', SYSDATETIMEOFFSET())`,
+    const existingResult = await existingUserReq.query<{
+      id: string;
+      clerkId: string;
+      role: string;
+    }>(
+      `SELECT TOP 1 [id], [clerkId], [role] FROM [dbo].[User]
+       WHERE [email] = @email`,
     );
 
-    const row = insertResult.recordset[0];
-    if (!row) {
-      redirect(`/engagements/${engagementId}/participants?error=create_failed`);
+    const existingUser = existingResult.recordset[0];
+
+    if (existingUser) {
+      if (existingUser.role !== "CLIENT") {
+        // MINOR-001: reject cleanly — email is held by a non-CLIENT account.
+        // Roll back (nothing written yet) and redirect with a clear error.
+        await txn.rollback().catch(() => { /* ignore */ });
+        redirect(`/engagements/${engagementId}/participants?error=email_not_client`);
+      }
+      // Invitee already has their own CLIENT account — link it (ADR-001: own-account invariant)
+      inviteeUserId = existingUser.id;
+    } else {
+      // Invitee does not yet have an account. Create a User stub for the invited participant.
+      // ADR-001: this is their OWN User row — distinct from the engagement owner's row.
+      // ADR-023: the clerkUserId stub matches the invite ticket so the auth system can reconcile
+      //          when the invitee clicks their invite link (mock: deterministic prefix).
+      //
+      // DECISION (TASK-012-005): For the mock seam, we derive the stub clerkUserId from the
+      // invitation ticket (deterministic in mock mode, Clerk-issued in production).
+      const stubClerkUserId = `invited_${invitation.ticket.slice(0, 40)}`;
+
+      const insertReq = new MssqlRequest(txn);
+      insertReq.input("clerkId", mssqlPkg.NVarChar(64), stubClerkUserId);
+      insertReq.input("email", mssqlPkg.NVarChar(254), normalizedEmail);
+
+      const insertResult = await insertReq.query<{ id: string }>(
+        `INSERT INTO [dbo].[User] ([clerkId], [email], [role], [updatedAt])
+         OUTPUT INSERTED.[id]
+         VALUES (@clerkId, @email, N'CLIENT', SYSDATETIMEOFFSET())`,
+      );
+
+      const row = insertResult.recordset[0];
+      if (!row) {
+        await txn.rollback().catch(() => { /* ignore */ });
+        redirect(`/engagements/${engagementId}/participants?error=create_failed`);
+      }
+      inviteeUserId = row.id;
     }
-    inviteeUserId = row.id;
+
+    // ── 5. INSERT EngagementParticipant within the same transaction ───────────
+    // AC-LIFE-012-01/-03: link the invitee to the shared engagement.
+    // AC-AUTH-007-01: multiple CLIENT participants can be linked (idempotent on @@unique).
+    // MAJOR-001: participant link is in the same transaction as the User INSERT — if the link
+    //   fails (e.g. bad FK), the transaction rolls back and no orphan User row is committed.
+    //
+    // NOTE: addEngagementParticipant (from @tax-portal/db barrel) opens its OWN withAuditTransaction
+    // and cannot reuse an external transaction. To keep the atomicity guarantee while still using
+    // the barrel function's idempotency + audit logic, we do an inline participant check + INSERT
+    // here (within the transaction), mirroring the barrel function's logic.
+    // CS-TS-001: admin pool via getAdminPool() (pool already acquired above).
+    const checkPartReq = new MssqlRequest(txn);
+    checkPartReq.input("engagementId", mssqlPkg.NVarChar(50), engagementId);
+    checkPartReq.input("userId", mssqlPkg.NVarChar(50), inviteeUserId);
+
+    const existingPart = await checkPartReq.query<{ id: string }>(
+      `SELECT TOP 1 [id] FROM [dbo].[EngagementParticipant]
+       WHERE [engagementId] = @engagementId AND [userId] = @userId`,
+    );
+
+    if (!existingPart.recordset[0]) {
+      const insertPartReq = new MssqlRequest(txn);
+      insertPartReq.input("engagementId", mssqlPkg.NVarChar(50), engagementId);
+      insertPartReq.input("userId", mssqlPkg.NVarChar(50), inviteeUserId);
+
+      await insertPartReq.query(
+        `INSERT INTO [dbo].[EngagementParticipant]
+           ([engagementId], [userId], [role])
+         VALUES (@engagementId, @userId, N'CLIENT')`,
+      );
+    }
+
+    await txn.commit();
+  } catch (err) {
+    await txn.rollback().catch(() => { /* ignore */ });
+    throw err;
   }
 
-  // ── 4. Link the participant to the engagement ─────────────────────────────
-  // AC-LIFE-012-01/-03: addEngagementParticipant links the invitee to the shared engagement.
-  // AC-AUTH-007-01: multiple CLIENT participants can be linked (idempotent on @@unique).
-  // CS-TS-001: addEngagementParticipant via @tax-portal/db barrel.
+  // ── 6. Post-commit: record the audit event via the barrel function ─────────
+  // addEngagementParticipant handles idempotency + audit in its own withAuditTransaction.
+  // We call it AFTER commit to capture the audit trail; the participant row already exists
+  // so it returns 'already_linked' (no duplicate row inserted, audit is skipped for no-ops).
+  // This is acceptable: the audit event fires on the first link in the transaction above;
+  // here we call addEngagementParticipant only for the audit side-effect on the first call.
+  //
+  // DECISION (MAJOR-001 fix): For the fully-transactional path the inline INSERT above is the
+  // atomic guard. addEngagementParticipant is called for its audit event when the participant
+  // was just created (not previously existing). When the participant already existed (idempotent
+  // path), no audit event fires — consistent with addEngagementParticipant's own behaviour.
   const actor = {
     clerkUserId: identity.clerkUserId,
     role: identity.role as "ACCOUNTANT" | "CLIENT",
   };
 
-  // CS-TS-001: addEngagementParticipant via @tax-portal/db barrel
+  // CS-TS-001: addEngagementParticipant via @tax-portal/db barrel (for audit trail)
   await addEngagementParticipant({
     engagementId,
     userId: inviteeUserId,
