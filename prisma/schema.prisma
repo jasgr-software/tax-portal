@@ -190,11 +190,26 @@ model Engagement {
   createdAt             DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt             DateTime  @updatedAt @db.DateTimeOffset
 
+  // ─── EPIC-011 engagement attribute columns (DECISION-011-A / DECISION-011-B) ──
+  // DECISION-011-A: nullable date-only due date (calendar date, not a timestamp — @db.Date).
+  //   Client-readable is acceptable (no confidentiality AC). Write path is accountant-only (TASK-011-002).
+  // CS-GEN-002: additive column — does not alter or remove any existing column.
+  dueDate               DateTime? @db.Date
+  // DECISION-011-B: priority flag. Set = true, clear = false. Default false (not prioritized).
+  //   Client-readable is acceptable (no confidentiality AC).
+  // CS-GEN-002: additive column.
+  isPriority            Boolean   @default(false)
+  // NOTE: dueDate/isPriority carry NO confidentiality AC; they reuse sec.pol_Engagement. No new policy needed.
+  // ─── Reverse relations ────────────────────────────────────────────────────────
   // EPIC-006: Reverse relation — at most one QuestionnaireAnswer per Engagement (AC-ONBD-003-04)
   questionnaireAnswer   QuestionnaireAnswer?
   // EPIC-007: Reverse relations — document-request checklist + uploaded documents (AC-FILE-008-01)
   documentRequests      DocumentRequest[]
   documents             Document[]
+  // EPIC-011: Reverse relation — accountant-internal notes (DECISION-011-C; never client-readable)
+  // RLS policy: sec.pol_EngagementNote (Track B: db/policies/0008-engagement-note-policy.sql).
+  // AC-LIFE-008-02 / AC-LIFE-008-03: notes are accountant-only; CLIENT reads ZERO.
+  notes                 EngagementNote[]
 
   @@map("Engagement")
 }
@@ -379,6 +394,42 @@ model Document {
   updatedAt         DateTime  @updatedAt @db.DateTimeOffset
 
   @@map("Document")
+}
+
+// ─── EngagementNote ───────────────────────────────────────────────────────────
+// Accountant-internal notes on an engagement. ACCOUNTANT-ONLY — never client-readable.
+// RLS (ADR-005 § Tables-in-scope): ACCOUNTANT reads all; CLIENT and anonymous → ZERO rows (fail-closed).
+//   Security policy: sec.pol_EngagementNote (Track B: db/policies/0008-engagement-note-policy.sql).
+//   This is the ACCOUNTANT-ONLY BLOCK/own-row family — NOT the client-isolation pol_Engagement family.
+//   CLIENT principals (even those who own the parent Engagement) read ZERO notes. DECISION-011-C.
+//
+// ADR-002: UNIQUEIDENTIFIER PK with NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// AC-LIFE-008-02: accountant can add internal notes to an engagement.
+// AC-LIFE-008-03: notes are never shown to the client — the policy enforces this at the DB layer.
+//
+// createdBy: accountant clerkId at creation (audit trail, mirrors DocumentRequest.createdBy).
+// FK → Engagement onDelete: NoAction — never cascade-delete notes when engagement is removed.
+// body: free-text note content; NVarChar(Max) for unlimited length.
+//
+// CS-SQL-001: this table ships sec.pol_EngagementNote + engagement-note.rls.test.ts (HARD GATE).
+// CS-SQL-003: predicate is an inline TVF, shallow, admin/accountant-first, fail-closed.
+// CS-GEN-002: additive — new table; no existing model modified destructively.
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test.
+
+model EngagementNote {
+  id           String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Engagement — one engagement can have many notes (DECISION-011-C)
+  // onDelete: NoAction — never cascade-delete an engagement's notes.
+  engagementId String   @db.UniqueIdentifier
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: NoAction)
+  // Free-text note body (AC-LIFE-008-02)
+  body         String   @db.NVarChar(Max)
+  // Accountant clerkId at creation — audit trail (mirrors DocumentRequest.createdBy)
+  createdBy    String   @db.NVarChar(64)
+  createdAt    DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt    DateTime @updatedAt @db.DateTimeOffset
+
+  @@map("EngagementNote")
 }
 
 // ─── Notification ─────────────────────────────────────────────────────────────

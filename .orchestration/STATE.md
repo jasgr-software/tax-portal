@@ -14,7 +14,29 @@
 
 ## Current run
 
-_No active run._ **EPIC-010 delivered + validated 2026-06-22** (run closed → collapsed to `## Recent outcomes`). Phase 3 progress: **EPIC-009 + EPIC-010 delivered; EPIC-011..015 `planned`**. Next ready: **EPIC-011** and **EPIC-012** (both `depends_on: EPIC-010` ✅; EPIC-012 also EPIC-002 ✅/EPIC-003 ✅). Re-invoke `/orchestrate EPIC-011` (or `/orchestrate` to auto-select). See `## Pending closeout follow-ups`.
+- **Epic:** EPIC-011 — Engagement attributes (due date, accountant-only internal notes, priority flag) · phase 3
+- **Brief:** BRIEF-011 — `.implementation/briefs/BRIEF-011-engagement-attributes.md`
+- **Phase:** Compose → Implement
+- **Base branch:** `main` · **Feature branch:** (engine-created, e.g. `brief-011-engagement-attributes`)
+- **PR:** _(not yet opened)_
+- **Status:** Gate **GO** (readiness rails all PASS; criterion-5 AC-testability confirmed; BUG-008-001 dispositioned/non-blocking/out-of-scope — same precedent as EPIC-009/010). Brief composed from EPIC-011 + REQ-LIFE-007/008/009 + ADR-003/005/006/012/019. Handing to the engine (`/io`).
+
+### Phase log
+
+#### Select — 2026-06-22
+- **Start:** Pinned EPIC-011 (`$ARGUMENTS`).
+- **Actions:** Read `ROADMAP.md`, `EPIC-011`, `COVERAGE.md`. EPIC-011 `status: planned`, `depends_on: [EPIC-010]` (delivered ✅), 9 AC (LIFE-007/008/009), COVERAGE rows present.
+- **End:** Candidate recorded → Gate.
+
+#### Gate — 2026-06-22
+- **Start:** Apply the 7-criterion readiness predicate.
+- **Actions:** `orchestrate-gates.sh --gate readiness --epic EPIC-011` → all 5 evaluated rails PASS (status-planned, open-questions-empty, deps-delivered, coverage-rows, git-clean-branch-free). `--gate engine-clear` → `awaiting-empty` PASS; `no-active-bugs` FAIL on **BUG-008-001** — confirmed dispositioned (`status: open — tracked follow-up`, `severity: non-blocking (env-only)`, EPIC-007/ADR-009 origin, upload-delivery e2e tier only), irrelevant to EPIC-011 (no file-upload path); same disposition under which EPIC-009 + EPIC-010 gated GO and delivered. Criterion 5 (AC→testable text): confirmed all 9 AC resolve to clean testable text + gherkin in REQ-LIFE-007/008/009.
+- **End:** **GO** → Compose.
+
+#### Compose — 2026-06-22
+- **Start:** Map GO epic → build brief honoring the engine contract.
+- **Actions:** Wrote `.implementation/briefs/BRIEF-011-engagement-attributes.md` (9 AC; `acceptance_format: gherkin` → epic § Acceptance scenarios; e2e required; net-new shapes → Data & Interface Contract incl. the accountant-only notes BLOCK policy; code_standards selected by touched buckets). Not a phase-closeout slice → no `phase_walkthrough`.
+- **End:** Brief complete → Implement (`/io`).
 
 ## Pending closeout follow-ups
 

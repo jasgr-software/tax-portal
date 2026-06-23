@@ -24,6 +24,24 @@
  *   AC-LIFE-006-02: CLIENT cannot reopen (BLOCK on request pool).
  *   ADR-003, ADR-005, ADR-019, CS-TS-001, CS-TS-002, CS-SQL-001, CS-SQL-003.
  *
+ * EPIC-011 (TASK-011-002): Added engagement-attribute seams + notes read seam.
+ *   - setEngagementDueDate     — accountant-only guarded UPDATE (ADR-003, ADR-019, DECISION-011-D)
+ *   - setEngagementPriority    — accountant-only flag/unflag (ADR-003, ADR-019, DECISION-011-D)
+ *   - recordEngagementNote     — accountant-only INSERT into EngagementNote (ADR-003, ADR-019, DECISION-011-D)
+ *   - listEngagementNotes      — request-pool read under withRequestContext so sec.pol_EngagementNote
+ *                                is the access gate (ADR-003, ADR-005, CS-TS-001, DECISION-011-D)
+ *   AC-LIFE-007-01/-02: setEngagementDueDate handles both first-set and update (single guarded UPDATE).
+ *   AC-LIFE-007-03: per-engagement attribution proven in integration tests.
+ *   AC-LIFE-008-02: recordEngagementNote INSERTs an EngagementNote row; audit action engagement.note_recorded.
+ *   AC-LIFE-008-02: listEngagementNotes reads under withRequestContext (RLS is the access gate).
+ *   AC-LIFE-009-01/-02: setEngagementPriority handles flag (true) + unflag (false).
+ *   AC-LIFE-009-03: per-engagement attribution proven in integration tests.
+ *   DECISION-011-E: audit action strings — engagement.due_date_set, engagement.priority_set,
+ *     engagement.note_recorded.
+ *   CS-GEN-001: note body NEVER logged in audit rows.
+ *   CS-GEN-002: additive — extends existing functions, no fork.
+ *   CS-GEN-003: // ADR-003, // ADR-005, // ADR-019, // DECISION-011-D, // DECISION-011-E.
+ *
  * Pool strategy:
  *   - createEngagement: ADMIN POOL (app_admin_role, RLS-exempt).
  *     Engagement is created at accept-time inside withAuditTransaction (TASK-005-003),
@@ -484,6 +502,10 @@ export async function recordLetterSignatureAsClient(input: RecordLetterSignature
  *   current status + deliveryConfirmedAt + filingConfirmedAt for the
  *   lifecycle control panel.
  *
+ * EPIC-011 (TASK-011-003): Extended additively to include dueDate + isPriority.
+ *   CS-GEN-002: additive extension — no existing fields removed or renamed.
+ *   These fields are read by EngagementAttributesPanel (TASK-011-003).
+ *
  * ADR-003 §7: Admin pool — correct for admin-surface reads without SESSION_CONTEXT.
  * ADR-006: Admin surface only — not accessible from apps/portal.
  * ADR-005: No new entity/column/policy. Reads existing Engagement columns.
@@ -500,6 +522,9 @@ export async function getEngagementForAdmin(
   deliveryConfirmedAt: Date | null;
   filingConfirmedAt: Date | null;
   engagementRequestId: string;
+  // EPIC-011 / TASK-011-003: additive attribute fields (CS-GEN-002)
+  dueDate: Date | null;
+  isPriority: boolean;
 } | null> {
   const pool = await getAdminPool();
   const req = new MssqlRequest(pool);
@@ -511,8 +536,11 @@ export async function getEngagementForAdmin(
     deliveryConfirmedAt: Date | null;
     filingConfirmedAt: Date | null;
     engagementRequestId: string;
+    dueDate: Date | null;
+    isPriority: boolean;
   }>(
-    `SELECT [id], [status], [deliveryConfirmedAt], [filingConfirmedAt], [engagementRequestId]
+    `SELECT [id], [status], [deliveryConfirmedAt], [filingConfirmedAt], [engagementRequestId],
+            [dueDate], [isPriority]
      FROM [dbo].[Engagement]
      WHERE [id] = @engagementId`
   );
@@ -526,6 +554,9 @@ export async function getEngagementForAdmin(
     deliveryConfirmedAt: row.deliveryConfirmedAt ?? null,
     filingConfirmedAt: row.filingConfirmedAt ?? null,
     engagementRequestId: row.engagementRequestId,
+    // CS-GEN-002: additive — new fields from EPIC-011/TASK-011-003
+    dueDate: row.dueDate ?? null,
+    isPriority: row.isPriority ?? false,
   };
 }
 
@@ -938,6 +969,403 @@ export async function reopenEngagement(
 
     return { reopened: true };
   });
+}
+
+// ─── EPIC-011: Engagement attribute seams (TASK-011-002) ─────────────────────
+//
+// All write seams (setEngagementDueDate, setEngagementPriority, recordEngagementNote)
+// follow the EPIC-010 pattern verbatim:
+//   admin pool inside withAuditTransaction → guarded UPDATE/INSERT + @@ROWCOUNT → atomic audit event.
+//
+// The notes READ seam (listEngagementNotes) runs under withRequestContext so
+// sec.pol_EngagementNote is the access gate — NOT app-layer filtering.
+// ADR-003, ADR-005, CS-TS-001, CS-TS-002, CS-GEN-001, CS-GEN-002, CS-GEN-003.
+
+/**
+ * Input for setting the due date on an engagement (first-set or update).
+ *
+ * AC-LIFE-007-01/-02: single seam handles both first-set and update — a plain guarded UPDATE.
+ * DECISION-011-D: accountant-only write; admin pool inside withAuditTransaction.
+ * DECISION-011-E: audit action string 'engagement.due_date_set'.
+ */
+export interface SetEngagementDueDateInput {
+  /** The Engagement.id to update (server-resolved — never client-supplied). */
+  engagementId: string;
+  /**
+   * The new due date (calendar date only — @db.Date, not a timestamp).
+   * Pass null to clear the due date.
+   */
+  dueDate: Date | null;
+  /** The accountant's identity (from server-verified session — ADR-003, ADR-019 §2). */
+  actor: AuditActor;
+  /** Source surface for audit record (ADR-019). */
+  sourceSurface: "admin";
+}
+
+/** Result of setEngagementDueDate. */
+export interface SetDueDateResult {
+  /**
+   * true  — the UPDATE succeeded (rowsAffected = 1).
+   * false — engagement not found.
+   */
+  success: boolean;
+}
+
+/**
+ * Input for setting (flag) or clearing (unflag) the priority flag.
+ *
+ * AC-LIFE-009-01/-02: single seam handles flag (isPriority=true) and unflag (isPriority=false).
+ * DECISION-011-D: accountant-only write; admin pool inside withAuditTransaction.
+ * DECISION-011-E: audit action string 'engagement.priority_set'.
+ */
+export interface SetEngagementPriorityInput {
+  /** The Engagement.id to update (server-resolved — never client-supplied). */
+  engagementId: string;
+  /** true = flag as priority; false = unflag. */
+  isPriority: boolean;
+  /** The accountant's identity (from server-verified session — ADR-003, ADR-019 §2). */
+  actor: AuditActor;
+  /** Source surface for audit record (ADR-019). */
+  sourceSurface: "admin";
+}
+
+/** Result of setEngagementPriority. */
+export interface SetPriorityResult {
+  /**
+   * true  — the UPDATE succeeded (rowsAffected = 1).
+   * false — engagement not found.
+   */
+  success: boolean;
+}
+
+/**
+ * Input for recording an accountant-internal note on an engagement.
+ *
+ * AC-LIFE-008-02: accountant can add internal notes to an engagement.
+ * DECISION-011-D: accountant-only write; admin pool inside withAuditTransaction.
+ * DECISION-011-E: audit action string 'engagement.note_recorded'.
+ * CS-GEN-001: note body is NEVER written to the audit row — only the engagementId (targetId).
+ */
+export interface RecordEngagementNoteInput {
+  /** The Engagement.id the note is attached to (server-resolved — never client-supplied). */
+  engagementId: string;
+  /**
+   * The note body text (AC-LIFE-008-02).
+   * CS-GEN-001: NEVER written to the audit row — stored only in EngagementNote.body.
+   */
+  body: string;
+  /** The accountant's clerkId (mirrors DocumentRequest.createdBy pattern). */
+  createdBy: string;
+  /** The accountant's identity (from server-verified session — ADR-003, ADR-019 §2). */
+  actor: AuditActor;
+  /** Source surface for audit record (ADR-019). */
+  sourceSurface: "admin";
+}
+
+/** Result of recordEngagementNote. */
+export interface RecordNoteResult {
+  /**
+   * true  — the INSERT succeeded (note created).
+   * false — engagement not found (FK violation caught; INSERT returned no rows).
+   */
+  success: boolean;
+  /** The newly created EngagementNote id, when success=true. */
+  noteId?: string;
+}
+
+/**
+ * An EngagementNote item returned from the read seam.
+ * AC-LIFE-008-02: accountant can view internal notes on any engagement.
+ */
+export interface EngagementNoteItem {
+  id: string;
+  engagementId: string;
+  /** Note body (AC-LIFE-008-02). CS-GEN-001: never in audit rows. */
+  body: string;
+  /** Accountant clerkId at creation (audit trail). */
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── Write: setEngagementDueDate (admin pool — accountant-only) ───────────────
+
+/**
+ * Sets or updates the due date on an engagement (DECISION-011-D, AC-LIFE-007-01/-02).
+ *
+ * Handles both first-set (dueDate was NULL) and update (dueDate had a previous value) —
+ * a single unconditioned UPDATE: no IS NULL guard needed because both are valid operations.
+ * Pass dueDate=null to clear the due date.
+ *
+ * Fire-once guard: WHERE id=@id + @@ROWCOUNT = 0 → { success: false } (engagement not found).
+ *
+ * ADR-003 §7: admin pool — accountant write, no request-pool SESSION_CONTEXT needed.
+ * ADR-019:    Audit event 'engagement.due_date_set' recorded in the same transaction.
+ * DECISION-011-D: verbatim EPIC-010 pattern — admin pool inside withAuditTransaction.
+ * DECISION-011-E: audit action string 'engagement.due_date_set'.
+ * CS-TS-001:  Admin-pool write, not going through the request-scoped db wrapper.
+ * CS-TS-002:  Admin pool only through getAdminPool() (via withAuditTransaction).
+ * CS-GEN-003: // ADR-003, // ADR-019, // DECISION-011-D, // DECISION-011-E
+ *
+ * @returns { success: true }  — UPDATE succeeded; audit row inserted.
+ * @returns { success: false } — engagement not found (@@ROWCOUNT = 0).
+ */
+// CALLER CONTRACT: caller MUST enforce ACCOUNTANT identity before calling this function.
+// This write runs RLS-exempt on the admin pool — the trust fence is getAccountantIdentity()
+// in the server action, not a policy here. (Review finding: security/minor.)
+export async function setEngagementDueDate(
+  input: SetEngagementDueDateInput,
+): Promise<SetDueDateResult> {
+  // ADR-003, DECISION-011-D: admin pool inside withAuditTransaction
+  return withAuditTransaction(async (txn) => {
+    const updateReq = new MssqlRequest(txn);
+    updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
+    // CS-GEN-003: ADR-003 Amendment 1 — no @read_only flag; Date type for @db.Date column
+    // Both null (clear) and a Date value bind identically — one unconditional call suffices.
+    // Review finding: over-engineering/minor — collapse redundant if/else.
+    updateReq.input("dueDate", mssqlPkg.Date, input.dueDate);
+
+    // DECISION-011-D: guarded UPDATE + @@ROWCOUNT — verbatim EPIC-010 pattern
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(`
+      UPDATE [dbo].[Engagement]
+      SET [dueDate]   = @dueDate,
+          [updatedAt] = SYSDATETIMEOFFSET()
+      WHERE [id] = @id;
+      SELECT @@ROWCOUNT AS rowsAffected;
+    `);
+
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected === 0) {
+      // Engagement not found — withAuditTransaction will commit a no-op.
+      return { success: false };
+    }
+
+    // ADR-019: audit event in the same transaction — DECISION-011-E audit action string
+    // CS-GEN-001: no note body / PII in the audit row; targetType=Engagement, targetId=engagementId
+    await recordAuthEvent({
+      actor: input.actor,
+      action: "engagement.due_date_set",  // DECISION-011-E
+      targetType: "Engagement",
+      targetId: input.engagementId,
+      sourceSurface: input.sourceSurface,
+      outcome: "success",
+      transaction: txn,
+    });
+
+    return { success: true };
+  });
+}
+
+// ─── Write: setEngagementPriority (admin pool — accountant-only) ──────────────
+
+/**
+ * Sets or clears the priority flag on an engagement (DECISION-011-D, AC-LIFE-009-01/-02).
+ *
+ * isPriority=true → flag as priority; isPriority=false → unflag.
+ * Both operations go through the same seam (no separate flag/unflag path).
+ *
+ * Fire-once guard: WHERE id=@id + @@ROWCOUNT = 0 → { success: false } (engagement not found).
+ *
+ * ADR-003 §7: admin pool — accountant write, no request-pool SESSION_CONTEXT needed.
+ * ADR-019:    Audit event 'engagement.priority_set' recorded in the same transaction.
+ * DECISION-011-D: verbatim EPIC-010 pattern — admin pool inside withAuditTransaction.
+ * DECISION-011-E: audit action string 'engagement.priority_set'.
+ * CS-TS-001:  Admin-pool write, not going through the request-scoped db wrapper.
+ * CS-TS-002:  Admin pool only through getAdminPool() (via withAuditTransaction).
+ * CS-GEN-003: // ADR-003, // ADR-019, // DECISION-011-D, // DECISION-011-E
+ *
+ * @returns { success: true }  — UPDATE succeeded; audit row inserted.
+ * @returns { success: false } — engagement not found (@@ROWCOUNT = 0).
+ */
+// CALLER CONTRACT: caller MUST enforce ACCOUNTANT identity before calling this function.
+// This write runs RLS-exempt on the admin pool — the trust fence is getAccountantIdentity()
+// in the server action, not a policy here. (Review finding: security/minor.)
+export async function setEngagementPriority(
+  input: SetEngagementPriorityInput,
+): Promise<SetPriorityResult> {
+  // ADR-003, DECISION-011-D: admin pool inside withAuditTransaction
+  return withAuditTransaction(async (txn) => {
+    const updateReq = new MssqlRequest(txn);
+    updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
+    updateReq.input("isPriority", mssqlPkg.Bit, input.isPriority ? 1 : 0);
+
+    // DECISION-011-D: guarded UPDATE + @@ROWCOUNT — verbatim EPIC-010 pattern
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(`
+      UPDATE [dbo].[Engagement]
+      SET [isPriority] = @isPriority,
+          [updatedAt]  = SYSDATETIMEOFFSET()
+      WHERE [id] = @id;
+      SELECT @@ROWCOUNT AS rowsAffected;
+    `);
+
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected === 0) {
+      // Engagement not found — withAuditTransaction will commit a no-op.
+      return { success: false };
+    }
+
+    // ADR-019: audit event in the same transaction — DECISION-011-E audit action string
+    // CS-GEN-001: no note body / PII in the audit row; targetType=Engagement, targetId=engagementId
+    await recordAuthEvent({
+      actor: input.actor,
+      action: "engagement.priority_set",  // DECISION-011-E
+      targetType: "Engagement",
+      targetId: input.engagementId,
+      sourceSurface: input.sourceSurface,
+      outcome: "success",
+      transaction: txn,
+    });
+
+    return { success: true };
+  });
+}
+
+// ─── Write: recordEngagementNote (admin pool — accountant-only) ───────────────
+
+/**
+ * Records an accountant-internal note on an engagement (DECISION-011-D, AC-LIFE-008-02).
+ *
+ * INSERTs an EngagementNote row (body, createdBy, engagementId). The audit event records
+ * targetType='Engagement', targetId=engagementId — the body is NEVER written to the audit row
+ * (CS-GEN-001: no PII/content in audit rows).
+ *
+ * ADR-003 §7: admin pool — accountant write, no request-pool SESSION_CONTEXT needed.
+ * ADR-019:    Audit event 'engagement.note_recorded' recorded in the same transaction.
+ * DECISION-011-D: verbatim EPIC-010 pattern — admin pool inside withAuditTransaction.
+ * DECISION-011-E: audit action string 'engagement.note_recorded'.
+ * CS-GEN-001:  note body is NEVER written to the audit row — stored only in EngagementNote.body.
+ * CS-TS-001:  Admin-pool write, not going through the request-scoped db wrapper.
+ * CS-TS-002:  Admin pool only through getAdminPool() (via withAuditTransaction).
+ * CS-GEN-003: // ADR-003, // ADR-019, // CS-GEN-001, // DECISION-011-D, // DECISION-011-E
+ *
+ * @returns { success: true, noteId }  — INSERT succeeded; note created.
+ * @returns { success: false }         — engagement not found (FK violation or bad id).
+ */
+// CALLER CONTRACT: caller MUST enforce ACCOUNTANT identity before calling this function.
+// This write runs RLS-exempt on the admin pool — the trust fence is getAccountantIdentity()
+// in the server action, not a policy here. (Review finding: security/minor.)
+export async function recordEngagementNote(
+  input: RecordEngagementNoteInput,
+): Promise<RecordNoteResult> {
+  // ADR-003, DECISION-011-D: admin pool inside withAuditTransaction
+  return withAuditTransaction(async (txn) => {
+    const insertReq = new MssqlRequest(txn);
+    insertReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+    // CS-GEN-001: body is stored in EngagementNote, never in AuditEvent
+    insertReq.input("body", mssqlPkg.NVarChar(mssqlPkg.MAX), input.body);
+    insertReq.input("createdBy", mssqlPkg.NVarChar(64), input.createdBy);
+
+    // DECISION-011-D: INSERT with OUTPUT to get the new id — no @@ROWCOUNT guard needed
+    // (OUTPUT INSERTED.id will be empty if FK violation prevents the INSERT)
+    let noteId: string | undefined;
+    try {
+      const insertResult = await insertReq.query<{ id: string }>(`
+        INSERT INTO [dbo].[EngagementNote]
+          ([engagementId], [body], [createdBy], [updatedAt])
+        OUTPUT INSERTED.[id]
+        VALUES (@engagementId, @body, @createdBy, SYSDATETIMEOFFSET());
+      `);
+      noteId = insertResult.recordset[0]?.id;
+    } catch {
+      // FK violation (engagement not found) — withAuditTransaction will rollback.
+      return { success: false };
+    }
+
+    if (!noteId) {
+      // Should not happen — OUTPUT INSERTED.id always returns on success
+      return { success: false };
+    }
+
+    // ADR-019: audit event in the same transaction — DECISION-011-E audit action string
+    // CS-GEN-001: body NEVER in audit row — targetType=Engagement, targetId=engagementId only
+    await recordAuthEvent({
+      actor: input.actor,
+      action: "engagement.note_recorded",  // DECISION-011-E
+      targetType: "Engagement",
+      targetId: input.engagementId,        // CS-GEN-001: engagement id, NOT note body
+      sourceSurface: input.sourceSurface,
+      outcome: "success",
+      transaction: txn,
+    });
+
+    return { success: true, noteId };
+  });
+}
+
+// ─── Read: listEngagementNotes (request pool — RLS gate: sec.pol_EngagementNote) ─
+
+/**
+ * Lists engagement notes for an engagement, under the request-scoped wrapper.
+ *
+ * CRITICAL: this seam runs under withRequestContext so sec.pol_EngagementNote is the
+ * access gate — NOT app-layer filtering. A CLIENT principal who sets SESSION_CONTEXT
+ * with role='CLIENT' returns ZERO rows because the policy has no CLIENT branch.
+ *
+ * This is what makes the AC-LIFE-008-02 guarantee real:
+ *   - ACCOUNTANT context → sees all notes for this engagement.
+ *   - CLIENT context (even owning client) → ZERO rows (policy enforces it, not the seam).
+ *   - Null SESSION_CONTEXT → ZERO rows (fail-closed, ADR-003 §5).
+ *
+ * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+ *
+ * ADR-003:     REQUEST POOL; SESSION_CONTEXT must be set before the query.
+ * ADR-005:     sec.pol_EngagementNote FILTER predicate governs visibility.
+ * CS-TS-001:   Uses db (Prisma request-pool wrapper) — SESSION_CONTEXT propagated automatically.
+ * CS-GEN-003:  // ADR-003, // ADR-005, // CS-TS-001, // DECISION-011-D
+ *
+ * @param engagementId — the Engagement.id to list notes for (server-resolved — never client-supplied).
+ * @returns Array of EngagementNoteItem visible to the current SESSION_CONTEXT principal.
+ *          ACCOUNTANT → all notes for the engagement.
+ *          CLIENT / null → empty array (RLS fail-closed).
+ */
+export async function listEngagementNotes(
+  engagementId: string,
+): Promise<EngagementNoteItem[]> {
+  // CS-TS-001: uses db (Prisma request-pool wrapper) — SESSION_CONTEXT set by the wrapper.
+  // CS-TS-002: never uses adminDb or requestDb directly — always through the db wrapper.
+  // ADR-003: MUST be called inside withRequestContext() / withClerkIdentity().
+  // ADR-005: sec.pol_EngagementNote FILTER predicate is the access gate (not app logic).
+
+  // DECISION (TASK-011-002): db is a Proxy whose TypeScript type is `ReturnType<PrismaClient["$extends"]>`.
+  // The $extends-based Proxy makes direct property access opaque to TypeScript (same issue as the
+  // dbAsEngagementClient() pattern used for Engagement reads above). We explicitly cast to a typed
+  // interface that matches the engagementNote delegate shape we need, following the established
+  // pattern in this module. CS-TS-001: we still go through the `db` wrapper — the cast does not
+  // bypass SESSION_CONTEXT propagation.
+  type EngagementNoteRow = {
+    id: string;
+    engagementId: string;
+    body: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  const typedDb = db as unknown as {
+    engagementNote: {
+      findMany: (args: {
+        where: { engagementId: string };
+        orderBy: { createdAt: "asc" | "desc" };
+      }) => Promise<EngagementNoteRow[]>;
+    };
+  };
+
+  const rows = await typedDb.engagementNote.findMany({
+    where: { engagementId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    engagementId: row.engagementId,
+    body: row.body,
+    createdBy: row.createdBy,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }));
 }
 
 // ─── Internal: row mapper ─────────────────────────────────────────────────────
