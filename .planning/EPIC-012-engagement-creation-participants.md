@@ -2,7 +2,7 @@
 id: EPIC-012
 title: Engagement creation paths & multi-participant engagements
 phase: 3
-status: planned
+status: delivered
 slice: Engagements can be created beyond the onboarding path — a returning client requests a new service from inside the portal, and the accountant initiates one directly for an existing client — with a duplicate guard per (client, service, tax year), support for multiple concurrent engagements, and multiple participant accounts linked to one shared engagement.
 requirements:
   - REQ-DOOR-009: [AC-DOOR-009-01, AC-DOOR-009-02, AC-DOOR-009-03, AC-DOOR-009-04]
