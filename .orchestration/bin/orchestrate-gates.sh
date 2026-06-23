@@ -322,30 +322,49 @@ PYEOF
     fi
   fi
 
-  # ── no-active-bugs: query BUG-*.md files for status: open ─────────────────
+  # ── no-active-bugs: query BUG-*.md files for a *blocking* open bug ─────────
   # Active bugs = QUERY over BUG-* front matter (§9.1 — not stored in state.json).
-  # Derive tasks dir from STATE_JSON location: dirname(STATE_JSON)/../tasks
-  # This works for both real-repo and fixture modes (STATE_JSON is always set above).
+  # A bug blocks the gate iff `status:` begins with `open` AND `severity:` does NOT
+  # begin with `non-blocking`. A bug explicitly dispositioned `severity: non-blocking`
+  # (e.g. env-only, proven at a lower test tier, carried as a tracked follow-up) is
+  # open-but-not-blocking: halting on it every run is a predictably-benign halt, which
+  # NORTH-STAR § Why #4 classifies as a mis-specified gate (not caution) — recurrent
+  # benign halts train the operator to wave past halts. Conservative default holds:
+  # anything not *explicitly* non-blocking still blocks. Both signals are re-derived
+  # from the BUG front matter (conclusion #3 — read the source, not a recorded verdict).
+  # Derive tasks dir from STATE_JSON location: dirname(STATE_JSON)/tasks (real + fixture).
   local tasks_dir
   tasks_dir="$(dirname "$STATE_JSON")/tasks"
 
-  local bug_open_count=0
-  local bug_names=""
+  local bug_open_count=0 bug_names=""
+  local bug_disposed_count=0 bug_disposed_names=""
   if [[ -d "$tasks_dir" ]]; then
     while IFS= read -r -d '' bugfile; do
-      # Check status: open in front-matter (first 30 lines, case-insensitive)
-      if head -30 "$bugfile" | grep -qiE '^status:[[:space:]]*open'; then
-        bug_open_count=$(( bug_open_count + 1 ))
-        bug_names="${bug_names} $(basename "$bugfile")"
+      local fm; fm="$(head -30 "$bugfile")"
+      # status: open* in front-matter (case-insensitive) — else not a candidate.
+      printf '%s' "$fm" | grep -qiE '^status:[[:space:]]*open' || continue
+      # severity: non-blocking* → dispositioned, does not block (but is surfaced).
+      if printf '%s' "$fm" | grep -qiE '^severity:[[:space:]]*non-blocking'; then
+        bug_disposed_count=$(( bug_disposed_count + 1 ))
+        bug_disposed_names="${bug_disposed_names} $(basename "$bugfile")"
+        continue
       fi
+      bug_open_count=$(( bug_open_count + 1 ))
+      bug_names="${bug_names} $(basename "$bugfile")"
     done < <(find "$tasks_dir" -maxdepth 1 -name 'BUG-*.md' -print0 2>/dev/null)
   fi
 
-  local bug_json="{\"open_bugs\":${bug_open_count}}"
+  local bug_json="{\"open_blocking_bugs\":${bug_open_count},\"open_nonblocking_bugs\":${bug_disposed_count}}"
   if [[ "$bug_open_count" -eq 0 ]]; then
     report_gate "engine-clear:no-active-bugs" pass "" "$bug_json" ""
+    # Surface dispositioned bugs (never silently drop them — NORTH-STAR § no silent caps).
+    # NB: a proper `if` (not `[[ ]] &&`) so a false test does not become the function's
+    # exit status under `set -e` (a trailing `&&` returning 1 would abort the gate).
+    if [[ "$bug_disposed_count" -gt 0 ]]; then
+      printf "    ⓘ %s open non-blocking bug(s) skipped:%s\n" "$bug_disposed_count" "$bug_disposed_names"
+    fi
   else
-    report_gate "engine-clear:no-active-bugs" fail "${bug_open_count} open BUG file(s):${bug_names}" "$bug_json" ""
+    report_gate "engine-clear:no-active-bugs" fail "${bug_open_count} blocking open BUG file(s):${bug_names}" "$bug_json" ""
   fi
 }
 
