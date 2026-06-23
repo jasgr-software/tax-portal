@@ -280,7 +280,11 @@ agent_node() {
 # Validators (re-derive from primary sources where possible — the contract test).
 v_ac()        { [[ "${S[ac_ok]:-}" == "yes" ]]; }
 v_brief()     {
-  local f; f="$(find "$BRIEFS_DIR" -maxdepth 1 -name "BRIEF-*${S[epic]#EPIC-}*.md" 2>/dev/null | head -1)"
+  # Anchor to the epic-brief naming convention BRIEF-<NNN>-<slug>.md (AGENT.md § Compose):
+  # the epic number must IMMEDIATELY follow "BRIEF-". The old loose glob (BRIEF-*<NNN>*.md)
+  # collided with unrelated infix briefs sharing the number — e.g. EPIC-012 matched the
+  # already-delivered BRIEF-LOE-012-state-store.md — and falsely satisfied the Compose gate.
+  local f; f="$(find "$BRIEFS_DIR" -maxdepth 1 -name "BRIEF-${S[epic]#EPIC-}-*.md" 2>/dev/null | head -1)"
   [[ -z "$f" && -n "${S[brief]:-}" ]] && f="${S[brief]}"
   [[ -n "$f" && -f "$f" ]] && { S[brief]="$f"; return 0; }
   return 1

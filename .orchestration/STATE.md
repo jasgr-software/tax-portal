@@ -15,7 +15,18 @@
 ## Current run
 
 - **No active run.** Last completed: **EPIC-011** ✅ DELIVERED 2026-06-23 (PR #89 → `9445e36`) — see `## Recent outcomes`.
-- **Next ready slice:** **EPIC-012** (engagement creation paths & multi-participant, 20 AC; `depends_on` EPIC-010 ✅ / EPIC-002 ✅ / EPIC-003 ✅ — all satisfied). Re-invoke `/orchestrate` (auto-selects EPIC-012) or `/orchestrate EPIC-012` to start the next slice. The FILE chain EPIC-013 → 014 → 015 follows; Phase 3 is not yet closed (EPIC-012..015 remain `planned`).
+- **A 2026-06-23 `/orchestrate EPIC-012` attempt halted at Compose** on a sequencer-validator defect (now **fixed** — see below); the machine block has been `--reset` and EPIC-012 is ready for a fresh run.
+- **Next ready slice:** **EPIC-012** (engagement creation paths & multi-participant, 20 AC; `depends_on` EPIC-010 ✅ / EPIC-002 ✅ / EPIC-003 ✅ — all satisfied; readiness + engine-clear + AC-testability all passed on the halted attempt). Re-invoke `/orchestrate EPIC-012` — Compose will now correctly yield to author the real brief. The FILE chain EPIC-013 → 014 → 015 follows; Phase 3 is not yet closed (EPIC-012..015 remain `planned`).
+
+### Resolved blocker — sequencer Compose-validator glob collision (fixed this PR)
+
+The deterministic sequencer's Compose validator `v_brief()` globbed `BRIEF-*${epic#EPIC-}*.md` → for EPIC-012
+that was `BRIEF-*012*.md`, which **matched the unrelated, already-delivered `BRIEF-LOE-012-state-store.md`**
+(scripted-bookkeeping Phase 2 engine tooling — merged PRs #79/#80/#81) and falsely satisfied the Compose gate,
+auto-advancing toward `implement` with the wrong brief. It was **systemic** — EPIC-013 would next collide with
+`BRIEF-LOE-013-removal-sweep-gate.md`. **Fix:** anchored the glob to the epic-brief naming convention
+`BRIEF-<NNN>-*.md` (`BRIEF-${epic#EPIC-}-*.md`) so the epic number must immediately follow `BRIEF-`, excluding
+any `BRIEF-LOE-NNN-*` infix brief. All 42 `sequence.test.sh` cases pass. Shipped via the docs-lane.
 
 ## Pending closeout follow-ups
 
@@ -42,54 +53,19 @@
 - **[Increment-3 sequencer adoption — RESOLVED 2026-06-23, score at Phase-3 close]** The adoption gap is closed:
   `/orchestrate` (`.claude/commands/orchestrate.md`) now **drives via `bin/sequence.sh`** (code nodes Select/Gate/
   Fix-route/Report run in-script; agent nodes via exit-10 yields + `--set` record-hints; cold-starts from the
-  `<!-- conductor-state/v1 -->` block). Surfaced + fixed a coupled mis-spec: the `engine-clear:no-active-bugs` rail
-  **halted on the dispositioned BUG-008-001** every run (the LLM Conductor had silently overridden it for
-  EPIC-009/010/011). Per NORTH-STAR § Why #4 (predictably-benign halt = mis-specified gate) the rail was respec'd —
-  a bug blocks only if `status: open*` AND `severity:` not `non-blocking*` (source-derived, conservative default,
-  +2 tests; user-ratified 2026-06-23). Dry-run proven: cold-start → select EPIC-012 → gate GO → yield at ac-check.
-  **Score in the Phase-3 Advancement-log row** (item 4: Inc-3 *adoption* landed; one gate respec'd judge→code-spec).
-- **[Dev-lane shared-component / manifest single-source-of-truth — DEFERRED, tracked in RETRO-009]** the two dev-lane
-  demo-account manifests + the two `DevBannerClient` components are duplicated byte-for-byte across `apps/portal` +
-  `apps/admin` (two separate Next builds). Durable fix = one shared `packages/*` manifest + presentational component
-  sourced from the demo seed (NOT a cross-app import). The `/pr-review` `DevBannerClient`-dup thread was resolved on
-  PR #71 with this deferral documented. **Resume:** fold into a future seed/shared-`packages` task. Non-gating.
-
-## Recent outcomes
-
-> One line per delivered run, newest first. Full detail: `.planning/ROADMAP.md` + `COVERAGE.md` (per-AC), the
-> merged PR, `.implementation/tasks/RETRO-NNN.md` + `HANDOFF-NNN.md`, and `tasks/done/` (per-task).
-
-- **EPIC-011** ✅ DELIVERED 2026-06-23 · PR #89 → `9445e36` · 9/9 in-scope AC (AC-LIFE-007/008/009-01..03) · engagement attributes — due date (`@db.Date`), accountant-only internal notes (new `EngagementNote` table + fail-closed `sec.pol_EngagementNote` RLS policy `0008`, HARD tier-3 RLS test + tier-6 portal-negative e2e), priority flag; three RLS-exempt admin-pool write seams guarded by `getAccountantIdentity()`. Standards `approve` (0 viol; 9 CS keys passed) → panel **request-changes** (0 blocker / **1 major** / 4 minor / 2 nit; lead promoted the cross-lens `new Date` flag to a major **display** off-by-one — `formatDate`/`formatDateDisplay` local-time accessors on a UTC-midnight Date) → `/pr-fix` `50116c2d` (fixed 5/7: UTC display accessors + strict `^\d{4}-\d{2}-\d{2}$` input guard + tests + redundant-if/else collapse + seam contract comments; 2 nits dispositioned as intentional `0004`-pattern clones, threads resolved) → merged on green required CI. First-time-resumed mid-flight run (paused overnight at Review). Does NOT close Phase 3. RETRO-011/HANDOFF-011.
-- **EPIC-010** ✅ DELIVERED 2026-06-22 · PR #87 → `7afd312` · 25/25 in-scope AC · engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete (manual, server-side, audited), two-confirmation completion gate, accountant-only reopen, client-facing labels (Review hidden), + AUTH-002/003/008 feature sign-off over the reused `pol_Engagement` (incl. direct-reference proof). EPIC-008 auto-transition left intact. Standards `approve` (0 viol; drafted experimental CS-TS-004, unratified) → panel APPROVE (0 blocker/major; 5 minor+2 nit, all 7 deferred as tracked follow-ups + threads resolved) → fix SKIP → merged on green required CI. First Phase-3 lifecycle-core slice; does NOT close Phase 3. RETRO-010/HANDOFF-010.
-- **EPIC-009** ✅ DELIVERED 2026-06-21 · PR #71 → `169b09e` · 5/5 in-scope AC (vs **mock** provider) · PoC dev
-  sign-in lane — REQ-AUTH-013 (sign-in/sign-out) + consolidated REQ-AUTH-010 (role-based landing); dev-only
-  `(dev)/dev-sign-in/` on both surfaces + role/user switcher + global sign-out, **inert under `AUTH_PROVIDER=clerk`**
-  (HARD gate, counterfactual-proven). Reviewed lane: standards `approve` → panel request-changes (1 major guard-
-  predicate divergence + 5 minor + 2 nit) → `/pr-fix` `5551052` (fixed 5/6; shared fail-closed `isMockAuthSanctioned()`;
-  1 minor `DevBannerClient`-dup deferred). Zero net-new schema/policy/provider seam. **Real-Clerk re-validation + 2FA
-  deferred to Phase 5; does NOT advance Phase 3 proper.** RETRO-009/HANDOFF-009.
-- **EPIC-008** ✅ DELIVERED 2026-06-20 · PR #55 → `7fe2872` · 8/8 AC · onboarding completion — gate close →
-  automatic New→In Progress (the single automatic lifecycle transition) → accountant-only notification; **ZERO
-  schema migration** (behavior over existing shapes). **🎉 Phase-2 capstone — closes Phase 2 (the onboarding
-  gate: EPIC-005/006/007/008); 44/44 Phase-2 AC, 95/95 Phase-1+2 AC verified.** Panel APPROVE (0 blocker/major;
-  7 threads dispositioned+resolved). BUG-008-001 (Azurite infra) stays OPEN. Phase-2 video deferred (see Pending).
-  RETRO-008/HANDOFF-008.
-- **EPIC-007** ✅ DELIVERED 2026-06-19 · PR #52 → `eaa5875` (close-out #53 → `d49c984`) · 19/19 AC · initial
-  document upload — first secure malware-scanned, non-public file-storage path; `FileStorage`+`FileScanner` ports;
-  third client-isolation policy `0007`. Panel found+fixed 2 majors (headline: `completeUpload` cross-tenant gap).
-- **EPIC-006** ✅ DELIVERED 2026-06-18 · PR #50 → `e55f8c5` · 7/7 AC · intake questionnaire — per-service-type
-  templates; second client-isolation policy `0006`. Gate caught the EPIC-002 `status`-scalar drift (fixed upstream).
-- **EPIC-005** ✅ DELIVERED 2026-06-18 · PR #48 → `f879da2` · 10/10 AC · onboarding spine + engagement-letter
-  e-sign gate — first client-owned rows + first client-isolation policy `pol_Engagement`; `packages/esign` seam.
-- **EPIC-003** ✅ DELIVERED 2026-06-17 · PR #42 → `ec151cb` · 20/20 AC · accountant request inbox — **🎉 Phase 1 /
-  MVP complete (51/51 AC).** Notification spine + `0004` accountant-only read policy.
-- **EPIC-002** ✅ DELIVERED 2026-06-16 · PR #40 → `70ea10e` · 7/7 AC · accountant services-catalog CRUD.
-- **EPIC-004** ✅ DELIVERED 2026-06-16 · PR #38 → `0444551` · 11/15 in-scope AC (4 2FA deferred) · auth +
-  two-role model (ACCOUNTANT/CLIENT), invitation-only clients, role-based cross-app redirect.
-- **EPIC-001** ✅ DELIVERED 2026-06-15 · PR #35 → `f7f6c9d` · 13/13 AC · public front door (browse active
-  services + submit an engagement request, anonymous).
-
----
-
-*Prior verbose run-ledger prose (EPIC-001..007 full narratives) was collapsed into the one-liners above on
-2026-06-19 under the Increment-2 bounded-ledger rule. Recover any of it via `git log -p .orchestration/STATE.md`.*
+<!-- conductor-state/v1
+phase=select
+epic=
+brief=
+pr=
+std_verdict_file=
+verdict_file=
+lane=
+fix_route=
+merge_sha=
+ac_ok=
+fix_done=
+validated=
+halt_reason=
+updated=2026-06-23T15:36:30Z
+-->
