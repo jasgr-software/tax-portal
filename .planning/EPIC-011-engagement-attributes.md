@@ -2,7 +2,7 @@
 id: EPIC-011
 title: Engagement attributes — due date, internal notes, priority flag
 phase: 3
-status: planned
+status: delivered
 slice: The accountant attaches working metadata to an engagement — a due date she can set and update, private internal notes only she can see, and a priority/flag marker she can set and clear — to plan and triage her workload.
 requirements:
   - REQ-LIFE-007: [AC-LIFE-007-01, AC-LIFE-007-02, AC-LIFE-007-03]

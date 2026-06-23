@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-23T01:32:22.438Z",
-  "currentBrief": "BRIEF-011",
-  "currentPhase": "Close-prep",
-  "currentSliceDescription": "Engagement attributes — accountant-set due date, accountant-only internal notes, priority/flag marker (EPIC-011; 9 AC: LIFE-007/008/009)",
-  "currentBranch": "brief-011-engagement-attributes",
+  "lastUpdated": "2026-06-23T12:21:30.000Z",
+  "currentBrief": null,
+  "currentPhase": null,
+  "currentSliceDescription": null,
+  "currentBranch": null,
   "awaitingMerge": [],
   "openRetroItems": [
     {

@@ -94,7 +94,40 @@ No new items added. All carried `retro-012-*` / `retro-013-*` items remain as re
 or resolved by BRIEF-011. The pending human-ratification items (`retro-012-018` CS-INFRA-005, `retro-013-003`
 CS-INFRA-006) are unaffected — this slice introduced no new code-standard.
 
-## Post-Merge Addendum
+## Post-Merge Addendum (Close-finalize — 2026-06-23)
 
-*(To be appended at Close-finalize after PR merge: post-merge CI verdict (gate 8), staging smoke N/A — brief
-does not deploy, gate-detail confirmation, and `pnpm task post-merge` removal from `awaitingMerge`.)*
+**PR #89 squash-merged to `main`** as commit `9445e36` (`9445e3645e825dfa90cd3b8b203f12a88852b189`), mergedAt
+`2026-06-23T12:15:23Z`, via the reviewed lane (Lane B). Remote feature branch auto-deleted by the squash merge;
+local stale branch `brief-011-engagement-attributes` force-deleted (squash merges leave the local ref unmerged
+by commit identity).
+
+### Gate 8 — post-merge CI: **PASS**
+Verified on the merge commit `9445e36` (not the PR head):
+- **CI** run `28025445472` — `conclusion: success`. Required checks all green: `lint-and-typecheck` ✓,
+  `security-scan` ✓, `test-admin` ✓, `test-portal` ✓ (`report-failure` skipped as designed).
+- **CodeQL** run `28025442436` — `success`; `Analyze (javascript-typescript)` ✓, `Analyze (python)` ✓.
+- (For continuity: the cited PR-head run `28025196265` on `50116c2d` was also `success` pre-merge — the
+  post-merge run on `9445e36` re-confirms green on the integrated `main`.)
+
+### Gate 9 — staging smoke: **N/A**
+`brief_deploys: no` — no staging deployment for this slice; gate 9 does not apply.
+
+### Active post-merge bugs: **none**
+Zero `BUG-011-POST-*` files created. No post-merge defects surfaced; nothing blocks finalize.
+
+### Engine ledger reconciliation
+The PR squash captured the `state.json` snapshot at `01:32Z` (`awaitingMerge: []`), which **pre-dated** the
+Close-prep `merge-checkpoint` write at `01:36Z`. On the merged `main` this manifested as an empty `awaitingMerge`
+with the merge-checkpoint already present in `events.jsonl`. Reconciled at Close-finalize by re-asserting the
+`merge-checkpoint` (deriving the now-final squash SHA `9445e36`) and then clearing it via `post-merge --pr 89`
+(PASS, no bug). `events.jsonl` now carries the full Close-prep → Close-finalize sequence:
+`merge-checkpoint` → `post-merge` → `phase-transition (Close-finalize)`. **Lesson (observation, not a gate
+failure):** when the Conductor commits `state.json` into the slice PR before the IO records the merge-checkpoint,
+the merged snapshot lags the local hot-state; Close-finalize must re-assert+clear rather than expect a populated
+`awaitingMerge`. Same one-fact-one-home discipline holds — `events.jsonl` is the durable record and was intact.
+
+### Slice closed
+`state.json`: `awaitingMerge` cleared; `currentBrief` / `currentPhase` / `currentSliceDescription` /
+`currentBranch` reset to `null` (slice-level exit per PHASES.md). Task files already archived to `tasks/done/`
+(committed in the PR). **EPIC-011 / BRIEF-011 is DONE** — all 9 AC delivered and merged; ready for the
+Conductor's `/planning` Validate write-back into `COVERAGE.md`.
