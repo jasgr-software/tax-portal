@@ -53,9 +53,12 @@ import {
   createAccountantInitiatedEngagement,
   findDuplicateEngagements,
   addEngagementParticipant,
-  UserNotFoundError,
   UserContactNotFoundError,
 } from "./repositories/engagement-creation.js";
+// NOTE: UserNotFoundError is intentionally not imported here — after MAJOR-002 (PR #93 review)
+// the clerkId-not-found case now throws UserContactNotFoundError instead of UserNotFoundError.
+// UserNotFoundError remains exported (portal action still has a catch arm for it) but no test
+// currently asserts on it directly.
 import type { AuditActor } from "./audit.js";
 
 // CS-TS-001 // CS-TS-002 // ADR-003 // ADR-019 // CS-GEN-001 // CS-GEN-003
@@ -892,7 +895,7 @@ describe("addEngagementParticipant", () => {
 
       // Seed engagement (direct insert — no need for the full creation seam here)
       const { userId: ownerUserId } = await seedUser("part_owner");
-      const serviceId = await getOrCreateService("EC-Test-Service-1");
+      await getOrCreateService("EC-Test-Service-1"); // ensure reference data exists (not used directly)
       const prior = await seedAcceptedEngagementForUser({
         userId: ownerUserId,
         firstName: "Kate",
