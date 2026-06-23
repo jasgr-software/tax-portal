@@ -14,19 +14,13 @@
 
 ## Current run
 
-- **No active run.** Last completed: **EPIC-011** ✅ DELIVERED 2026-06-23 (PR #89 → `9445e36`) — see `## Recent outcomes`.
-- **A 2026-06-23 `/orchestrate EPIC-012` attempt halted at Compose** on a sequencer-validator defect (now **fixed** — see below); the machine block has been `--reset` and EPIC-012 is ready for a fresh run.
-- **Next ready slice:** **EPIC-012** (engagement creation paths & multi-participant, 20 AC; `depends_on` EPIC-010 ✅ / EPIC-002 ✅ / EPIC-003 ✅ — all satisfied; readiness + engine-clear + AC-testability all passed on the halted attempt). Re-invoke `/orchestrate EPIC-012` — Compose will now correctly yield to author the real brief. The FILE chain EPIC-013 → 014 → 015 follows; Phase 3 is not yet closed (EPIC-012..015 remain `planned`).
+- **No active run.** Last completed: **EPIC-012** ✅ DELIVERED 2026-06-23 (PR #93 → `5883fed`) — see `## Recent outcomes`.
+- **Next ready slice:** **EPIC-013** (secure file exchange — accountant upload + both-party download + folders + top-level org by engagement & **tax year** (the attribute EPIC-012 introduced) + version history; 13 AC; `depends_on` EPIC-007 ✅ / EPIC-010 ✅ / EPIC-012 ✅ — all satisfied). Re-invoke `/orchestrate` (auto-selects EPIC-013) or `/orchestrate EPIC-013`. The FILE chain EPIC-013 → 014 → 015 finishes Phase 3.
 
-### Resolved blocker — sequencer Compose-validator glob collision (fixed this PR)
+## Recent outcomes
 
-The deterministic sequencer's Compose validator `v_brief()` globbed `BRIEF-*${epic#EPIC-}*.md` → for EPIC-012
-that was `BRIEF-*012*.md`, which **matched the unrelated, already-delivered `BRIEF-LOE-012-state-store.md`**
-(scripted-bookkeeping Phase 2 engine tooling — merged PRs #79/#80/#81) and falsely satisfied the Compose gate,
-auto-advancing toward `implement` with the wrong brief. It was **systemic** — EPIC-013 would next collide with
-`BRIEF-LOE-013-removal-sweep-gate.md`. **Fix:** anchored the glob to the epic-brief naming convention
-`BRIEF-<NNN>-*.md` (`BRIEF-${epic#EPIC-}-*.md`) so the epic number must immediately follow `BRIEF-`, excluding
-any `BRIEF-LOE-NNN-*` infix brief. All 42 `sequence.test.sh` cases pass. Shipped via the docs-lane.
+- EPIC-012 ✅ DELIVERED 2026-06-23 · PR #93 → `5883fed` · 20/20 AC verified · RETRO-012/HANDOFF-012 · panel request-changes (3 major) → `/pr-fix` green · the deterministic sequencer drove the full DAG end-to-end · **prereq fix:** Compose-validator `v_brief()` glob-collision (matched the already-delivered `BRIEF-LOE-012`) fixed + merged first (PR #92 → `4b3f3f0`).
+- EPIC-011 ✅ DELIVERED 2026-06-23 · PR #89 → `9445e36` · 9/9 AC verified · accountant-only `pol_EngagementNote` RLS proven both ways.
 
 ## Pending closeout follow-ups
 
@@ -45,11 +39,12 @@ any `BRIEF-LOE-NNN-*` infix brief. All 42 `sequence.test.sh` cases pass. Shipped
 - **[C4 drift triage — DEFERRED, user-directed 2026-06-19]** triage the four C4 backfill as-built-vs-ADR drifts
   (commit `9900d6a`) with `/planning` + `/architecture` — esp. the ADR-005/009/010 schema-lag (table-set ahead
   of `prisma/schema.prisma`). Not slice-blocking; a Phase-2-wrap-up task.
-- **[Cross-surface-parity sunset counter TRIPPED 3-of-3 — needs user/Overwatch ratification]** RETRO-009 recorded
-  the third consecutive clean cross-surface-parity pass (CLAUDE.md § Platform-frontend scope sunset trigger). The
-  rule's keep/remove review is now due. RETRO-009 recommends **KEEP** (the admin-lane mirror in EPIC-009 was a real
-  parity obligation, not a no-op). **Resume:** ratify keep-or-remove with the user/Overwatch; if KEEP, reset the
-  counter annotation; if REMOVE, strike the rule from CLAUDE.md § Platform-frontend scope. Non-gating.
+- **[Cross-surface-parity sunset counter — KEEP reinforced by EPIC-012; ratification still due]** RETRO-009
+  recorded a third consecutive clean cross-surface-parity pass (CLAUDE.md § Platform-frontend scope sunset
+  trigger). **EPIC-012 was a genuine two-surface slice** (portal returning-client request + participant view;
+  admin initiate + duplicate guard + invite) — the parity rule was **load-bearing, not a no-op**, so the 3-of-3
+  clean-pass streak does **not** extend (RETRO-012 recommends **KEEP**). **Resume:** ratify keep-or-remove with
+  the user/Overwatch; if KEEP, reset the counter annotation; if REMOVE, strike the rule. Non-gating.
 - **[Increment-3 sequencer adoption — RESOLVED 2026-06-23, score at Phase-3 close]** The adoption gap is closed:
   `/orchestrate` (`.claude/commands/orchestrate.md`) now **drives via `bin/sequence.sh`** (code nodes Select/Gate/
   Fix-route/Report run in-script; agent nodes via exit-10 yields + `--set` record-hints; cold-starts from the
@@ -67,5 +62,5 @@ ac_ok=
 fix_done=
 validated=
 halt_reason=
-updated=2026-06-23T15:36:30Z
+updated=2026-06-23T19:05:08Z
 -->

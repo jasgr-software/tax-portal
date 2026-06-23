@@ -30,12 +30,12 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-009 (sign-in lane: sign-in/sign-out + consolidated redirect) | 5 |
 | &nbsp;&nbsp;— EPIC-010 (lifecycle pipeline & visibility) | 25 |
 | &nbsp;&nbsp;— EPIC-011 (engagement attributes) | 9 |
-| &nbsp;&nbsp;— EPIC-012 (creation paths & multi-participant) | 20 |
+| &nbsp;&nbsp;— EPIC-012 (creation paths & multi-participant) | 20 (all `verified` — PR#93 `5883fed`) |
 | &nbsp;&nbsp;— EPIC-013 (secure file exchange) | 13 |
 | &nbsp;&nbsp;— EPIC-014 (file deletion, soft-delete & retention) | 10 |
 | &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 |
-| AC `verified` (signed off) | **131** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**) **+ all 25 EPIC-010 lifecycle-core AC** (LIFE-001/002/003/004/005/006, AUTH-002/003/008 — the four-stage pipeline, client-facing labels, two-confirmation completion gate, accountant reopen, full visibility + client own-data isolation + indefinite post-completion access; PR#87 `7afd312` 2026-06-22; AUTH-003-* are the **feature** AC over the Phase-2-built isolation mechanism — not double-counted) **+ all 9 EPIC-011 engagement-attributes AC** (LIFE-007/008/009 — per-engagement due date set/update, accountant-only internal notes behind the HARD `pol_EngagementNote` RLS, priority flag set/clear, each per-engagement; PR#89 `9445e36` 2026-06-23). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization); EPIC-010 delivered — Phase 3 proper opens. NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
-| AC still `planned` (placed, not yet verified) | **59** — the remaining Phase-3 lifecycle/FILE AC (EPIC-012 20, EPIC-013 13, EPIC-014 10, EPIC-015 16, placed 2026-06-21), awaiting build + CI sign-off. *(EPIC-011's 9 AC flipped `planned`→`verified` 2026-06-23 via PR#89; EPIC-010's 25 AC flipped 2026-06-22 via PR#87; EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped 2026-06-21 via PR#71 — see Verified row.)* |
+| AC `verified` (signed off) | **151** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**) **+ all 25 EPIC-010 lifecycle-core AC** (LIFE-001/002/003/004/005/006, AUTH-002/003/008 — the four-stage pipeline, client-facing labels, two-confirmation completion gate, accountant reopen, full visibility + client own-data isolation + indefinite post-completion access; PR#87 `7afd312` 2026-06-22; AUTH-003-* are the **feature** AC over the Phase-2-built isolation mechanism — not double-counted) **+ all 9 EPIC-011 engagement-attributes AC** (LIFE-007/008/009 — per-engagement due date set/update, accountant-only internal notes behind the HARD `pol_EngagementNote` RLS, priority flag set/clear, each per-engagement; PR#89 `9445e36` 2026-06-23) **+ all 20 EPIC-012 creation-paths & multi-participant AC** (DOOR-009/010 returning-client + accountant-initiated creation, LIFE-010 concurrent engagements, LIFE-011 duplicate warn+override, LIFE-012/AUTH-007 multi-participant separate-accounts behind the HARD `pol_EngagementParticipant`/extended `pol_Engagement` RLS — participant isolation proven both ways; PR#93 `5883fed` 2026-06-23). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization); EPIC-010/011/012 delivered — Phase 3 proper advancing. NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
+| AC still `planned` (placed, not yet verified) | **39** — the remaining Phase-3 FILE-chain AC (EPIC-013 13, EPIC-014 10, EPIC-015 16, placed 2026-06-21), awaiting build + CI sign-off. *(EPIC-012's 20 AC flipped `planned`→`verified` 2026-06-23 via PR#93; EPIC-011's 9 AC flipped 2026-06-23 via PR#89; EPIC-010's 25 AC flipped 2026-06-22 via PR#87; EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped 2026-06-21 via PR#71 — see Verified row.)* |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -267,6 +267,59 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > `engagement-note-confidentiality.spec.ts` (a client participant never sees the note text); container smoke PASS.
 > The same per-PR-CI-tier follow-up tracked for EPIC-001 applies here.
 >
+> **EPIC-012 (20 AC) signed off 2026-06-23 — engagements gain creation paths beyond the front door + the
+> multi-participant model.** The engagement-creation-paths & multi-participant slice (a signed-in **returning
+> client** requests a new engagement from inside the Client Portal; the **accountant initiates** one directly for
+> an existing client with no accept/decline; a **duplicate guard** per (client, service, tax year) warns + shows
+> the existing engagement + offers navigate-or-override, never silently; a client may hold **multiple concurrent**
+> engagements; and an engagement may have **more than one participant**, each their own account, sharing the one
+> engagement — introducing the engagement **tax-year** attribute) shipped (PR #93, squash merge `5883fed`); see
+> basis note [E]. **Third Phase-3-proper slice delivered.** All 20 in-scope AC verified: AC-DOOR-009-01..04
+> (returning-client request from inside the portal — active-services checklist, **on-file contact reused, no
+> re-entry**, surfaces in the admin inbox), AC-DOOR-010-01..04 (accountant-initiated — select services, request
+> pre-`accepted` with no accept/decline, primary participant linked), AC-LIFE-010-01/-02 (multiple concurrent
+> engagements persist and stay isolated), AC-LIFE-011-01..04 (duplicate guard: match/negatives, warn + existing
+> shown, override-creates / navigate, never-silent), AC-LIFE-012-01..03 + AC-AUTH-007-01..03 (multi-participant,
+> each their own distinct account/credentials — never shared — all associating to the one shared engagement).
+> Net-new platform capabilities: the **`EngagementParticipant` entity** + the **HARD `pol_EngagementParticipant`
+> scoped-table RLS policy** (a participant reads only their own link rows; ACCOUNTANT all; fail-closed), the
+> **additive extension of `sec.fn_engagement_access`** CLIENT branch owner→(owner OR participant-link) with the
+> owner branch byte-identical (AC-AUTH-003 no-regression), the **nullable `Engagement.taxYear`** attribute
+> (consumed downstream by EPIC-013's REQ-FILE-011 top-level org), and **both creation seams riding the existing
+> `EngagementRequest` + `withAuditTransaction` envelope** (no Engagement fork). The **participant-isolation
+> boundary was proven both ways** — HARD tier-3 RLS (linked participant reaches the shared engagement; unrelated
+> client + null SESSION_CONTEXT read ZERO; ACCOUNTANT all; owner no-regression) **and** the tier-6 portal surface
+> negative (unrelated client → 404). EPIC-012 → `delivered`. **Creation-paths scope held:** the anonymous
+> front-door path (Phase 1), real Clerk invitations (Phase 5), per-participant differentiated permissions (v1
+> scope note), and onboarding of the created engagement (Phase-2 epics) were correctly NOT built. **EPIC-012 does
+> NOT close Phase 3** — the FILE chain EPIC-013→014→015 remains `planned` (EPIC-013 depends on this slice's
+> tax-year attribute). **Phase-3 progress: EPIC-009 + EPIC-010 + EPIC-011 + EPIC-012 delivered; EPIC-013..015
+> `planned`.** **Tracked forward item (NOT an unmet AC):** **OQ-012-01** — DECISION-E resolves a returning
+> client's on-file contact by JOINing through their prior engagement's originating `EngagementRequest`; this
+> satisfies AC-DOOR-009-03 ("no re-entry", **verified**) for the PoC, but a durable user-profile-contact design
+> decoupled from engagement history is deferred to Phase 5 (real Clerk profile attributes) — a product/architecture
+> call, not a planning AC gap.
+>
+> **[E] Evidence basis for the EPIC-012 sign-off (2026-06-23).** Same user-accepted CI-as-the-gate basis as
+> [A]/[B]/[C]/[D] — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging gate does not
+> exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on PR #93 and on the
+> post-merge `main` squash `5883fed` — **CI** ✅ + **CodeQL** ✅ (post-merge run `success`). Each of the 20
+> in-scope AC has automated test(s) **tagged with its AC id** on the merge commit (verified by the validate phase
+> via `git grep` against `5883fed` — all 20 ids resolve to one or more test files), validated by the
+> implementation engine's SDET acceptance-validation gate (gate 6 APPROVE) at the prescribed ADR-012 tiers
+> (engine sign-off in `.implementation/tasks/HANDOFF-012.md`; brief
+> `.implementation/briefs/BRIEF-012-engagement-creation-participants.md`), exercised against the real container
+> stack: **HARD tier-3 RLS** `packages/db/src/engagement-participant.client-isolation.rls.test.ts` (15 — participant
+> reaches shared engagement, unrelated client ZERO, null fail-closed, ACCOUNTANT all, owner no-regression) for the
+> AUTH-007/LIFE-012 isolation + LIFE-010-02 concurrent isolation; tier-3 integration
+> `packages/db/src/engagement-creation.test.ts` (17 — both creation seams, on-file-contact reuse, duplicate
+> match/override, participant linking); tier-6 e2e on the full docker-compose stack — `apps/portal/e2e/specs/
+> returning-client-request.spec.ts` + `participant-shared-access.spec.ts` and `apps/admin/e2e/specs/
+> accountant-initiated-engagement.spec.ts` + `engagement-participants.spec.ts` (19 specs green; container smoke
+> PASS). Pre-existing non-regression failures (document-upload BUG-008-001 / EPIC-013 file territory / Mailhog +
+> sign-in-lane port-remap infra) are confirmed outside the BRIEF-012 changeset. The same per-PR-CI-tier follow-up
+> tracked for EPIC-001 applies here.
+>
 > **[A] applied to the EPIC-006 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
 > EPIC-001/002/003/004/005 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging
 > gate does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on the
@@ -469,26 +522,26 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-LIFE-009 | AC-LIFE-009-01 | EPIC-011 | 3 | `AC-LIFE-009-01` | verified | PR#89 `9445e36` (2026-06-23) · SDET+CI [D] — admin e2e + tier-3 (`setEngagementPriority` true) |
 | REQ-LIFE-009 | AC-LIFE-009-02 | EPIC-011 | 3 | `AC-LIFE-009-02` | verified | PR#89 `9445e36` (2026-06-23) · SDET+CI [D] — admin e2e + tier-3 (`setEngagementPriority` false) |
 | REQ-LIFE-009 | AC-LIFE-009-03 | EPIC-011 | 3 | `AC-LIFE-009-03` | verified | PR#89 `9445e36` (2026-06-23) · SDET+CI [D] — tier-3 `engagement-attributes.test.ts` (distinct-engagement isolation: A flag leaves B unaffected) |
-| REQ-DOOR-009 | AC-DOOR-009-01 | EPIC-012 | 3 | `AC-DOOR-009-01` | planned | — (placed 2026-06-21) |
-| REQ-DOOR-009 | AC-DOOR-009-02 | EPIC-012 | 3 | `AC-DOOR-009-02` | planned | — (placed 2026-06-21) |
-| REQ-DOOR-009 | AC-DOOR-009-03 | EPIC-012 | 3 | `AC-DOOR-009-03` | planned | — (placed 2026-06-21) |
-| REQ-DOOR-009 | AC-DOOR-009-04 | EPIC-012 | 3 | `AC-DOOR-009-04` | planned | — (placed 2026-06-21) |
-| REQ-DOOR-010 | AC-DOOR-010-01 | EPIC-012 | 3 | `AC-DOOR-010-01` | planned | — (placed 2026-06-21) |
-| REQ-DOOR-010 | AC-DOOR-010-02 | EPIC-012 | 3 | `AC-DOOR-010-02` | planned | — (placed 2026-06-21) |
-| REQ-DOOR-010 | AC-DOOR-010-03 | EPIC-012 | 3 | `AC-DOOR-010-03` | planned | — (placed 2026-06-21) |
-| REQ-DOOR-010 | AC-DOOR-010-04 | EPIC-012 | 3 | `AC-DOOR-010-04` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-010 | AC-LIFE-010-01 | EPIC-012 | 3 | `AC-LIFE-010-01` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-010 | AC-LIFE-010-02 | EPIC-012 | 3 | `AC-LIFE-010-02` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-011 | AC-LIFE-011-01 | EPIC-012 | 3 | `AC-LIFE-011-01` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-011 | AC-LIFE-011-02 | EPIC-012 | 3 | `AC-LIFE-011-02` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-011 | AC-LIFE-011-03 | EPIC-012 | 3 | `AC-LIFE-011-03` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-011 | AC-LIFE-011-04 | EPIC-012 | 3 | `AC-LIFE-011-04` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-012 | AC-LIFE-012-01 | EPIC-012 | 3 | `AC-LIFE-012-01` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-012 | AC-LIFE-012-02 | EPIC-012 | 3 | `AC-LIFE-012-02` | planned | — (placed 2026-06-21) |
-| REQ-LIFE-012 | AC-LIFE-012-03 | EPIC-012 | 3 | `AC-LIFE-012-03` | planned | — (placed 2026-06-21) |
-| REQ-AUTH-007 | AC-AUTH-007-01 | EPIC-012 | 3 | `AC-AUTH-007-01` | planned | — (placed 2026-06-21) |
-| REQ-AUTH-007 | AC-AUTH-007-02 | EPIC-012 | 3 | `AC-AUTH-007-02` | planned | — (placed 2026-06-21) |
-| REQ-AUTH-007 | AC-AUTH-007-03 | EPIC-012 | 3 | `AC-AUTH-007-03` | planned | — (placed 2026-06-21); each participant sees the shared engagement, unrelated client ZERO |
+| REQ-DOOR-009 | AC-DOOR-009-01 | EPIC-012 | 3 | `AC-DOOR-009-01` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-DOOR-009 | AC-DOOR-009-02 | EPIC-012 | 3 | `AC-DOOR-009-02` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-DOOR-009 | AC-DOOR-009-03 | EPIC-012 | 3 | `AC-DOOR-009-03` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-DOOR-009 | AC-DOOR-009-04 | EPIC-012 | 3 | `AC-DOOR-009-04` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-DOOR-010 | AC-DOOR-010-01 | EPIC-012 | 3 | `AC-DOOR-010-01` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-DOOR-010 | AC-DOOR-010-02 | EPIC-012 | 3 | `AC-DOOR-010-02` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-DOOR-010 | AC-DOOR-010-03 | EPIC-012 | 3 | `AC-DOOR-010-03` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-DOOR-010 | AC-DOOR-010-04 | EPIC-012 | 3 | `AC-DOOR-010-04` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-010 | AC-LIFE-010-01 | EPIC-012 | 3 | `AC-LIFE-010-01` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-010 | AC-LIFE-010-02 | EPIC-012 | 3 | `AC-LIFE-010-02` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-011 | AC-LIFE-011-01 | EPIC-012 | 3 | `AC-LIFE-011-01` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-011 | AC-LIFE-011-02 | EPIC-012 | 3 | `AC-LIFE-011-02` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-011 | AC-LIFE-011-03 | EPIC-012 | 3 | `AC-LIFE-011-03` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-011 | AC-LIFE-011-04 | EPIC-012 | 3 | `AC-LIFE-011-04` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-012 | AC-LIFE-012-01 | EPIC-012 | 3 | `AC-LIFE-012-01` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-012 | AC-LIFE-012-02 | EPIC-012 | 3 | `AC-LIFE-012-02` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-LIFE-012 | AC-LIFE-012-03 | EPIC-012 | 3 | `AC-LIFE-012-03` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-AUTH-007 | AC-AUTH-007-01 | EPIC-012 | 3 | `AC-AUTH-007-01` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-AUTH-007 | AC-AUTH-007-02 | EPIC-012 | 3 | `AC-AUTH-007-02` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
+| REQ-AUTH-007 | AC-AUTH-007-03 | EPIC-012 | 3 | `AC-AUTH-007-03` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E]; each participant sees the shared engagement, unrelated client ZERO (HARD RLS both ways) |
 | REQ-FILE-001 | AC-FILE-001-01 | EPIC-013 | 3 | `AC-FILE-001-01` | planned | — (placed 2026-06-21); accountant upload (client-upload -02/-05 were EPIC-007) |
 | REQ-FILE-001 | AC-FILE-001-03 | EPIC-013 | 3 | `AC-FILE-001-03` | planned | — (placed 2026-06-21); accountant download |
 | REQ-FILE-001 | AC-FILE-001-04 | EPIC-013 | 3 | `AC-FILE-001-04` | planned | — (placed 2026-06-21); client download |

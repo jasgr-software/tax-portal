@@ -53,3 +53,16 @@ following are observations (no action items, no rule changes):
   `engagementRequestId`, no new `EngagementService` join; both creation paths ride tested machinery.
 - **Demo `e2e:demo` prior-epic PNG churn (retro-012-012) recurred** — reverted manually at Close-prep (the
   standing pattern). The per-spec output-path scoping fix remains the open follow-up.
+
+## Post-Merge Addendum (Close-finalize) — 2026-06-23
+
+- **Merged:** PR #93 squash-merged to `main` → `5883fedacf3bd96b8acc36782428b36269cb88e0`. Branch deleted.
+- **Post-merge CI (gate 8): PASS** — `CI` + `CodeQL` both `success` on `5883fed` (required `lint-and-typecheck`
+  + `security-scan` green; advisory `test-portal`/`test-admin` green).
+- **Gate 9 (staging smoke): N/A** — `brief_deploys: no`.
+- **Panel + fix:** the `/pr-review` panel posted request-changes (3 major + 5 minor); `/pr-fix` (commits
+  `aac09af`, `ae0f040`) fixed all 3 major + 3 actionable minor and brought CI green. 2 low-confidence minors
+  (`EngagementParticipant.role` reserved-config; the no-op marker migration) were **dispositioned-and-left**
+  with rationale and the threads resolved at merge — neither warranted schema/migration churn.
+- **`awaitingMerge` cleared** via `pnpm task post-merge --pr 93 --sha 5883fed`. No `BUG-012-POST-*` filed.
+- **OQ-012-01** (DECISION-E multi-hop contact resolution) remains `raised-upstream` for Phase-5 real-auth.
