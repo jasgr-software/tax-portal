@@ -14,29 +14,8 @@
 
 ## Current run
 
-- **Epic:** EPIC-011 — Engagement attributes (due date, accountant-only internal notes, priority flag) · phase 3
-- **Brief:** BRIEF-011 — `.implementation/briefs/BRIEF-011-engagement-attributes.md`
-- **Phase:** Compose → Implement
-- **Base branch:** `main` · **Feature branch:** (engine-created, e.g. `brief-011-engagement-attributes`)
-- **PR:** _(not yet opened)_
-- **Status:** Gate **GO** (readiness rails all PASS; criterion-5 AC-testability confirmed; BUG-008-001 dispositioned/non-blocking/out-of-scope — same precedent as EPIC-009/010). Brief composed from EPIC-011 + REQ-LIFE-007/008/009 + ADR-003/005/006/012/019. Handing to the engine (`/io`).
-
-### Phase log
-
-#### Select — 2026-06-22
-- **Start:** Pinned EPIC-011 (`$ARGUMENTS`).
-- **Actions:** Read `ROADMAP.md`, `EPIC-011`, `COVERAGE.md`. EPIC-011 `status: planned`, `depends_on: [EPIC-010]` (delivered ✅), 9 AC (LIFE-007/008/009), COVERAGE rows present.
-- **End:** Candidate recorded → Gate.
-
-#### Gate — 2026-06-22
-- **Start:** Apply the 7-criterion readiness predicate.
-- **Actions:** `orchestrate-gates.sh --gate readiness --epic EPIC-011` → all 5 evaluated rails PASS (status-planned, open-questions-empty, deps-delivered, coverage-rows, git-clean-branch-free). `--gate engine-clear` → `awaiting-empty` PASS; `no-active-bugs` FAIL on **BUG-008-001** — confirmed dispositioned (`status: open — tracked follow-up`, `severity: non-blocking (env-only)`, EPIC-007/ADR-009 origin, upload-delivery e2e tier only), irrelevant to EPIC-011 (no file-upload path); same disposition under which EPIC-009 + EPIC-010 gated GO and delivered. Criterion 5 (AC→testable text): confirmed all 9 AC resolve to clean testable text + gherkin in REQ-LIFE-007/008/009.
-- **End:** **GO** → Compose.
-
-#### Compose — 2026-06-22
-- **Start:** Map GO epic → build brief honoring the engine contract.
-- **Actions:** Wrote `.implementation/briefs/BRIEF-011-engagement-attributes.md` (9 AC; `acceptance_format: gherkin` → epic § Acceptance scenarios; e2e required; net-new shapes → Data & Interface Contract incl. the accountant-only notes BLOCK policy; code_standards selected by touched buckets). Not a phase-closeout slice → no `phase_walkthrough`.
-- **End:** Brief complete → Implement (`/io`).
+- **No active run.** Last completed: **EPIC-011** ✅ DELIVERED 2026-06-23 (PR #89 → `9445e36`) — see `## Recent outcomes`.
+- **Next ready slice:** **EPIC-012** (engagement creation paths & multi-participant, 20 AC; `depends_on` EPIC-010 ✅ / EPIC-002 ✅ / EPIC-003 ✅ — all satisfied). Re-invoke `/orchestrate` (auto-selects EPIC-012) or `/orchestrate EPIC-012` to start the next slice. The FILE chain EPIC-013 → 014 → 015 follows; Phase 3 is not yet closed (EPIC-012..015 remain `planned`).
 
 ## Pending closeout follow-ups
 
@@ -71,6 +50,7 @@
 > One line per delivered run, newest first. Full detail: `.planning/ROADMAP.md` + `COVERAGE.md` (per-AC), the
 > merged PR, `.implementation/tasks/RETRO-NNN.md` + `HANDOFF-NNN.md`, and `tasks/done/` (per-task).
 
+- **EPIC-011** ✅ DELIVERED 2026-06-23 · PR #89 → `9445e36` · 9/9 in-scope AC (AC-LIFE-007/008/009-01..03) · engagement attributes — due date (`@db.Date`), accountant-only internal notes (new `EngagementNote` table + fail-closed `sec.pol_EngagementNote` RLS policy `0008`, HARD tier-3 RLS test + tier-6 portal-negative e2e), priority flag; three RLS-exempt admin-pool write seams guarded by `getAccountantIdentity()`. Standards `approve` (0 viol; 9 CS keys passed) → panel **request-changes** (0 blocker / **1 major** / 4 minor / 2 nit; lead promoted the cross-lens `new Date` flag to a major **display** off-by-one — `formatDate`/`formatDateDisplay` local-time accessors on a UTC-midnight Date) → `/pr-fix` `50116c2d` (fixed 5/7: UTC display accessors + strict `^\d{4}-\d{2}-\d{2}$` input guard + tests + redundant-if/else collapse + seam contract comments; 2 nits dispositioned as intentional `0004`-pattern clones, threads resolved) → merged on green required CI. First-time-resumed mid-flight run (paused overnight at Review). Does NOT close Phase 3. RETRO-011/HANDOFF-011.
 - **EPIC-010** ✅ DELIVERED 2026-06-22 · PR #87 → `7afd312` · 25/25 in-scope AC · engagement lifecycle pipeline & visibility — full New→In Progress→Review→Complete (manual, server-side, audited), two-confirmation completion gate, accountant-only reopen, client-facing labels (Review hidden), + AUTH-002/003/008 feature sign-off over the reused `pol_Engagement` (incl. direct-reference proof). EPIC-008 auto-transition left intact. Standards `approve` (0 viol; drafted experimental CS-TS-004, unratified) → panel APPROVE (0 blocker/major; 5 minor+2 nit, all 7 deferred as tracked follow-ups + threads resolved) → fix SKIP → merged on green required CI. First Phase-3 lifecycle-core slice; does NOT close Phase 3. RETRO-010/HANDOFF-010.
 - **EPIC-009** ✅ DELIVERED 2026-06-21 · PR #71 → `169b09e` · 5/5 in-scope AC (vs **mock** provider) · PoC dev
   sign-in lane — REQ-AUTH-013 (sign-in/sign-out) + consolidated REQ-AUTH-010 (role-based landing); dev-only
