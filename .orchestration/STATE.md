@@ -39,6 +39,15 @@
   rule's keep/remove review is now due. RETRO-009 recommends **KEEP** (the admin-lane mirror in EPIC-009 was a real
   parity obligation, not a no-op). **Resume:** ratify keep-or-remove with the user/Overwatch; if KEEP, reset the
   counter annotation; if REMOVE, strike the rule from CLAUDE.md § Platform-frontend scope. Non-gating.
+- **[Increment-3 sequencer adoption — RESOLVED 2026-06-23, score at Phase-3 close]** The adoption gap is closed:
+  `/orchestrate` (`.claude/commands/orchestrate.md`) now **drives via `bin/sequence.sh`** (code nodes Select/Gate/
+  Fix-route/Report run in-script; agent nodes via exit-10 yields + `--set` record-hints; cold-starts from the
+  `<!-- conductor-state/v1 -->` block). Surfaced + fixed a coupled mis-spec: the `engine-clear:no-active-bugs` rail
+  **halted on the dispositioned BUG-008-001** every run (the LLM Conductor had silently overridden it for
+  EPIC-009/010/011). Per NORTH-STAR § Why #4 (predictably-benign halt = mis-specified gate) the rail was respec'd —
+  a bug blocks only if `status: open*` AND `severity:` not `non-blocking*` (source-derived, conservative default,
+  +2 tests; user-ratified 2026-06-23). Dry-run proven: cold-start → select EPIC-012 → gate GO → yield at ac-check.
+  **Score in the Phase-3 Advancement-log row** (item 4: Inc-3 *adoption* landed; one gate respec'd judge→code-spec).
 - **[Dev-lane shared-component / manifest single-source-of-truth — DEFERRED, tracked in RETRO-009]** the two dev-lane
   demo-account manifests + the two `DevBannerClient` components are duplicated byte-for-byte across `apps/portal` +
   `apps/admin` (two separate Next builds). Durable fix = one shared `packages/*` manifest + presentational component

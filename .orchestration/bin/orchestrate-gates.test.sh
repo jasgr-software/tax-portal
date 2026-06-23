@@ -55,6 +55,17 @@ run 1 "in-flight awaitingMerge record fails engine-clear"     -- --gate engine-c
 : > "$LOG"
 run 0 "closed BUG files don't trip engine-clear no-active-bugs" -- --gate engine-clear --fixture-dir "$FIX/markerwording"
 log_has "  ↳ no-active-bugs passes (closed BUG files ignored)" '"gate":"engine-clear:no-active-bugs","verdict":"pass"'
+# Disposition respec: an OPEN bug dispositioned `severity: non-blocking` does NOT block
+# the gate (NORTH-STAR § Why #4 — predictably-benign halt = mis-specified gate), but is surfaced.
+: > "$LOG"
+run 0 "open non-blocking bug does not trip engine-clear no-active-bugs" -- --gate engine-clear --fixture-dir "$FIX/disposed"
+log_has "  ↳ no-active-bugs passes (open non-blocking bug skipped)" '"gate":"engine-clear:no-active-bugs","verdict":"pass"'
+log_has "  ↳ evidence records the skipped non-blocking bug" '"open_nonblocking_bugs":1'
+# Conservative default holds: an open bug with NO non-blocking disposition still blocks,
+# via the no-active-bugs rail alone (empty awaitingMerge in this fixture).
+: > "$LOG"
+run 1 "open blocking bug still fails engine-clear no-active-bugs" -- --gate engine-clear --fixture-dir "$FIX/blockingbug"
+log_has "  ↳ no-active-bugs fails on a real open bug" '"gate":"engine-clear:no-active-bugs","verdict":"fail"'
 
 echo "[fix-decision]"
 : > "$LOG"
