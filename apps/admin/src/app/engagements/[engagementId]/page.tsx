@@ -1,9 +1,10 @@
 /**
  * apps/admin/src/app/engagements/[engagementId]/page.tsx
  *
- * Per-engagement view for the accountant — lifecycle management surface.
+ * Per-engagement view for the accountant — lifecycle management + attribute surface.
  *
  * TASK-010-003: Accountant transition / completion-gate / reopen surface.
+ * TASK-011-003: Accountant attribute management (due date / note / priority flag) surface.
  *
  * Acceptance criteria:
  *   AC-LIFE-001-03: accountant advances New → In Progress → Review → Complete in order
@@ -11,29 +12,40 @@
  *   AC-LIFE-005-01: delivery confirmation required before Complete (UI + server)
  *   AC-LIFE-005-02: filing confirmation required before Complete (UI + server)
  *   AC-LIFE-006-01: accountant reopens a Complete engagement
+ *   AC-LIFE-007-01: accountant sets a due date on an engagement
+ *   AC-LIFE-007-02: accountant updates the due date after it has been set
+ *   AC-LIFE-008-01: accountant records internal notes on an engagement
+ *   AC-LIFE-009-01: accountant flags an engagement as priority
+ *   AC-LIFE-009-02: accountant removes the priority flag
  *
  * ADR-010: apps/admin has NO public routes. Middleware guarantees ACCOUNTANT before this page.
  *   This page adds a defense-in-depth identity guard (mirrors document-requests/page.tsx).
- * ADR-003: DB reads use getEngagementForAdmin (admin pool — no SESSION_CONTEXT needed for
- *   admin-surface reads, per DECISION in TASK-008-003). No withRequestContext needed here.
+ * ADR-003: Engagement attributes read via getEngagementForAdmin (admin pool — no SESSION_CONTEXT
+ *   needed for admin-surface reads, per DECISION in TASK-008-003).
+ *   Notes read via listEngagementNotes MUST be wrapped in withRequestContext (REQUEST POOL,
+ *   sec.pol_EngagementNote governs visibility — ADR-003 / ADR-005 / CS-TS-001).
  * ADR-005: Identity from verified session only — never from URL params or form data.
- * ADR-006: This page is apps/admin ONLY. No mirror route in apps/portal.
+ * ADR-006: This page is apps/admin ONLY. No mirror route in apps/portal. Notes panel
+ *   NEVER surfaced in apps/portal (CS-TS-003 negative obligation).
  *
  * Pool strategy:
  *   Page guard: identity check via getAuthProvider() (mirrors document-requests/page.tsx).
- *   Engagement read: getEngagementForAdmin (admin pool, TASK-010-003 additive read).
+ *   Engagement read: getEngagementForAdmin (admin pool, TASK-011-003 extended select).
+ *   Notes read: listEngagementNotes wrapped in withRequestContext (REQUEST POOL, ADR-003).
  *
- * // ADR-003: admin pool for admin-surface reads
- * // ADR-006: admin surface only
- * // CS-TS-001: uses admin-pool via getEngagementForAdmin (no raw Prisma)
+ * // ADR-003: admin pool for admin-surface reads; withRequestContext for notes (RLS gate)
+ * // ADR-006: admin surface only — notes panel NEVER in apps/portal
+ * // CS-TS-001: uses @tax-portal/db barrel for all reads (no raw pool import)
+ * // CS-TS-003: notes management admin-only; portal negative enforced by no portal code added
  * // CS-GEN-003: cite governing authority in comments
  */
 
 import { headers } from "next/headers";
 import { getAuthProvider } from "@tax-portal/auth";
-import { getEngagementForAdmin } from "@tax-portal/db";
+import { getEngagementForAdmin, listEngagementNotes, withRequestContext } from "@tax-portal/db";
 // CS-TS-001: uses @tax-portal/db barrel (no raw pool import)
 import { EngagementStatusPanel } from "./_components/EngagementStatusPanel";
+import { EngagementAttributesPanel } from "./_components/EngagementAttributesPanel";
 
 // ─── Route params ─────────────────────────────────────────────────────────────
 
@@ -80,8 +92,21 @@ export default async function EngagementDetailPage({
 
   // Load engagement lifecycle state — admin pool (RLS-exempt for accountant surface).
   // ADR-003 §7: admin pool is correct for admin-surface reads (no SESSION_CONTEXT needed).
+  // TASK-011-003: getEngagementForAdmin now also returns dueDate + isPriority (additive, CS-GEN-002).
   // CS-TS-001: getEngagementForAdmin uses admin pool via @tax-portal/db barrel.
   const engagement = await getEngagementForAdmin(engagementId);
+
+  // Load internal notes under withRequestContext — sec.pol_EngagementNote is the access gate.
+  // ADR-003: MUST be inside withRequestContext so SESSION_CONTEXT is set (ACCOUNTANT role).
+  // ADR-005: sec.pol_EngagementNote FILTER enforces accountant-only visibility server-side.
+  // CS-TS-001: listEngagementNotes uses the request-pool db wrapper.
+  // CS-GEN-001: note bodies are displayed to the accountant only — not logged here.
+  // CS-TS-003: notes are loaded in apps/admin ONLY — this code never runs in apps/portal.
+  const notes = engagement
+    ? await withRequestContext(identity.clerkUserId, identity.role, () =>
+        listEngagementNotes(engagementId),
+      )
+    : [];
 
   if (!engagement) {
     return (
@@ -169,6 +194,18 @@ export default async function EngagementDetailPage({
           deliveryConfirmed={engagement.deliveryConfirmedAt !== null}
           filingConfirmed={engagement.filingConfirmedAt !== null}
         />
+
+        {/* Attribute management panel — TASK-011-003 */}
+        {/* AC-LIFE-007-01/-02: due date; AC-LIFE-008-01: internal notes; AC-LIFE-009-01/-02: priority flag */}
+        {/* ADR-006 / CS-TS-003: This panel is apps/admin ONLY — notes NEVER surfaced in apps/portal */}
+        <div className="mt-6">
+          <EngagementAttributesPanel
+            engagementId={engagementId}
+            dueDate={engagement.dueDate}
+            isPriority={engagement.isPriority}
+            notes={notes}
+          />
+        </div>
 
         {/* Link to document requests for this engagement */}
         <div className="mt-6">

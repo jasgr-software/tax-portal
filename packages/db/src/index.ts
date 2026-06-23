@@ -95,6 +95,14 @@ export { getAdminPool, closeAdminPool } from "./admin-connection.js";
 // reopenEngagement              — Complete → In Progress + clear confirms (admin pool, DECISION-010-B)
 // LIFECYCLE_ALLOWED_TRANSITIONS — allowed forward edges map (DECISION-010-D)
 //
+// EPIC-011 attribute seams (TASK-011-002):
+// setEngagementDueDate     — accountant-only: set/update/clear dueDate (admin pool, DECISION-011-D)
+// setEngagementPriority    — accountant-only: flag/unflag isPriority (admin pool, DECISION-011-D)
+// recordEngagementNote     — accountant-only: INSERT EngagementNote (admin pool, DECISION-011-D)
+// listEngagementNotes      — REQUEST POOL read; sec.pol_EngagementNote is the gate (CS-TS-001, ADR-005)
+//   CLIENT context → ZERO rows (RLS fail-closed); ACCOUNTANT → all notes.
+//   MUST be called inside withRequestContext() / withClerkIdentity().
+//
 // NOT on this barrel (substrate/test-only):
 //   recordLetterSignature — admin-pool write that bypasses BLOCK; import from the source module directly.
 export type {
@@ -107,6 +115,14 @@ export type {
   TransitionResult,
   ConfirmEngagementInput,
   ConfirmResult,
+  // EPIC-011 attribute types (TASK-011-002)
+  SetEngagementDueDateInput,
+  SetDueDateResult,
+  SetEngagementPriorityInput,
+  SetPriorityResult,
+  RecordEngagementNoteInput,
+  RecordNoteResult,
+  EngagementNoteItem,
 } from "./repositories/engagement.js";
 export {
   createEngagement,
@@ -125,6 +141,12 @@ export {
   confirmDelivery,
   confirmFiling,
   reopenEngagement,
+  // EPIC-011 attribute seams (TASK-011-002, DECISION-011-D)
+  setEngagementDueDate,
+  setEngagementPriority,
+  recordEngagementNote,
+  // REQUEST POOL notes read — RLS is the gate (ADR-005, CS-TS-001; MUST be in withRequestContext)
+  listEngagementNotes,
 } from "./repositories/engagement.js";
 
 // Onboarding read model (EPIC-005 / TASK-005-005)
