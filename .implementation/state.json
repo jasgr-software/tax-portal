@@ -1,11 +1,25 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-23T18:19:23.533Z",
+  "lastUpdated": "2026-06-23T18:22:39.967Z",
   "currentBrief": "BRIEF-012",
   "currentPhase": "Close-prep",
   "currentSliceDescription": "Engagement creation paths (returning-client request + accountant-initiated) & multi-participant engagements; introduces engagement tax-year",
   "currentBranch": "brief-012-engagement-creation-participants",
-  "awaitingMerge": [],
+  "awaitingMerge": [
+    {
+      "pr": 93,
+      "prUrl": "https://github.com/jasgr-software/tax-portal/pull/93",
+      "squashSha": "0a362e9c86b8bcc402b1ed8004d136841f3c9e12",
+      "createdAt": "2026-06-23T18:22:39.967Z",
+      "gateVerdicts": {
+        "containerSmoke": "PASS — both apps healthy + load; all 19 BRIEF-012 e2e green on the container stack (SDET Smoke)",
+        "sdetValidation": "APPROVE — 20/20 AC AC-id-tagged + passing at prescribed tiers; 4 hard extra_gates proven (RLS both-ways, concurrent independence, cross-app request→inbox, duplicate warn/navigate/override-never-silent)",
+        "sdetCiGate": "PASS — lint/type-check/build clean; @tax-portal/db 32/32 BRIEF-012 (17 creation + 15 RLS), portal 231/231, admin 348/348; only 2 pre-existing unrelated document.upload failures",
+        "sdetQualityAudit": "PASS (2 advisory: DECISION-E multi-hop→OQ-012-01; parseSqlServerUrl dup) — AC-id tag contract honored, HARD RLS gate present, no security regression, gate evidence + complexity metadata complete"
+      },
+      "note": "EPIC-012 reviewed-lane slice; 6 tasks done; HANDOFF-012/RETRO-012 written; awaiting Conductor Standards-review→panel→fix→merge"
+    }
+  ],
   "openRetroItems": [
     {
       "id": "retro-012-001",
