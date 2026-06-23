@@ -1110,6 +1110,9 @@ export interface EngagementNoteItem {
  * @returns { success: true }  — UPDATE succeeded; audit row inserted.
  * @returns { success: false } — engagement not found (@@ROWCOUNT = 0).
  */
+// CALLER CONTRACT: caller MUST enforce ACCOUNTANT identity before calling this function.
+// This write runs RLS-exempt on the admin pool — the trust fence is getAccountantIdentity()
+// in the server action, not a policy here. (Review finding: security/minor.)
 export async function setEngagementDueDate(
   input: SetEngagementDueDateInput,
 ): Promise<SetDueDateResult> {
@@ -1118,11 +1121,9 @@ export async function setEngagementDueDate(
     const updateReq = new MssqlRequest(txn);
     updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
     // CS-GEN-003: ADR-003 Amendment 1 — no @read_only flag; Date type for @db.Date column
-    if (input.dueDate !== null) {
-      updateReq.input("dueDate", mssqlPkg.Date, input.dueDate);
-    } else {
-      updateReq.input("dueDate", mssqlPkg.Date, null);
-    }
+    // Both null (clear) and a Date value bind identically — one unconditional call suffices.
+    // Review finding: over-engineering/minor — collapse redundant if/else.
+    updateReq.input("dueDate", mssqlPkg.Date, input.dueDate);
 
     // DECISION-011-D: guarded UPDATE + @@ROWCOUNT — verbatim EPIC-010 pattern
     const updateResult = await updateReq.query<{ rowsAffected: number }>(`
@@ -1178,6 +1179,9 @@ export async function setEngagementDueDate(
  * @returns { success: true }  — UPDATE succeeded; audit row inserted.
  * @returns { success: false } — engagement not found (@@ROWCOUNT = 0).
  */
+// CALLER CONTRACT: caller MUST enforce ACCOUNTANT identity before calling this function.
+// This write runs RLS-exempt on the admin pool — the trust fence is getAccountantIdentity()
+// in the server action, not a policy here. (Review finding: security/minor.)
 export async function setEngagementPriority(
   input: SetEngagementPriorityInput,
 ): Promise<SetPriorityResult> {
@@ -1241,6 +1245,9 @@ export async function setEngagementPriority(
  * @returns { success: true, noteId }  — INSERT succeeded; note created.
  * @returns { success: false }         — engagement not found (FK violation or bad id).
  */
+// CALLER CONTRACT: caller MUST enforce ACCOUNTANT identity before calling this function.
+// This write runs RLS-exempt on the admin pool — the trust fence is getAccountantIdentity()
+// in the server action, not a policy here. (Review finding: security/minor.)
 export async function recordEngagementNote(
   input: RecordEngagementNoteInput,
 ): Promise<RecordNoteResult> {

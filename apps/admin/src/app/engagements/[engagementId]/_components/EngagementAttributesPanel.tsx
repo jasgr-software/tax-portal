@@ -63,14 +63,18 @@ interface EngagementAttributesPanelProps {
 }
 
 // ─── Helper: format a Date for display ────────────────────────────────────────
+// Due dates are stored as UTC-midnight Date objects (new Date("YYYY-MM-DD") → UTC).
+// Use UTC accessors so the calendar date is preserved in any sub-UTC timezone (US locales).
+// Review finding: correctness/major — off-by-one for negative-offset locales.
 
 function formatDate(date: Date | null): string {
   if (!date) return "";
-  // Format as YYYY-MM-DD for the date input value
+  // Use UTC accessors — the date arrives as UTC-midnight; local accessors shift the day
+  // back by 1 for any negative-offset (sub-UTC) timezone. // CS-GEN-003
   const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -78,7 +82,10 @@ function formatDate(date: Date | null): string {
 
 function formatDateDisplay(date: Date | null): string {
   if (!date) return "Not set";
+  // timeZone:"UTC" ensures UTC-midnight dates display as the stored calendar date in
+  // any locale — without it, US sub-UTC locales render the previous day. // CS-GEN-003
   return new Date(date).toLocaleDateString("en-US", {
+    timeZone: "UTC",
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -133,11 +140,14 @@ export function EngagementAttributesPanel({
       if (result.success) {
         // Optimistic append — revalidatePath will refresh the full list on next navigation.
         // For immediate UI feedback, we construct a local stub.
+        // createdBy is omitted from the stub: the notes list never renders it today, and
+        // hardcoding a literal would show stale authorship if that column is ever added.
+        // Review finding: security/minor — drop createdBy literal from optimistic stub.
         const stub: EngagementNoteItem = {
           id: `local-${Date.now()}`,
           engagementId,
           body: noteBody,
-          createdBy: "you",
+          createdBy: "",
           createdAt: new Date(),
           updatedAt: new Date(),
         };

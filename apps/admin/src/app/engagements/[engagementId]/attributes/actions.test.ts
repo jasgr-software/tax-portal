@@ -211,6 +211,20 @@ describe("[AC-LIFE-007-01] [AC-LIFE-007-02] setDueDateAction — accountant sets
     );
   });
 
+  it("[AC-LIFE-007-01] passes the exact UTC-midnight Date to the seam (correctness/major round-trip)", async () => {
+    // Review finding: correctness/major — assert value-level contract: "YYYY-MM-DD" must
+    // arrive at the seam as UTC-midnight Date, preserving the calendar date regardless of TZ.
+    await setDueDateAction(ENGAGEMENT_ID, "2026-06-22");
+
+    const call = mockSetEngagementDueDate.mock.calls[0]?.[0];
+    const dueDate: Date = call?.dueDate;
+    expect(dueDate).toBeInstanceOf(Date);
+    // UTC accessors must yield the calendar date that was passed in — not a shifted day.
+    expect(dueDate.getUTCFullYear()).toBe(2026);
+    expect(dueDate.getUTCMonth()).toBe(5); // 0-indexed June
+    expect(dueDate.getUTCDate()).toBe(22);
+  });
+
   it("[AC-LIFE-007-01] actor for ADR-019 audit event comes ONLY from verified session", async () => {
     await setDueDateAction(ENGAGEMENT_ID, "2026-12-31");
 
@@ -268,6 +282,26 @@ describe("[AC-LIFE-007-01] [AC-LIFE-007-02] setDueDateAction — accountant sets
 
   it("[AC-LIFE-007-01] rejects an invalid date string", async () => {
     const result = await setDueDateAction(ENGAGEMENT_ID, "not-a-date");
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/date|format/i);
+    expect(mockSetEngagementDueDate).not.toHaveBeenCalled();
+  });
+
+  it("[AC-LIFE-007-01][security] rejects a full ISO datetime string (strict YYYY-MM-DD guard)", async () => {
+    // Review finding: security/A05 — strict regex rejects ISO datetimes that new Date()
+    // would otherwise silently coerce: "2026-06-22T00:00:00Z" must not be accepted.
+    const result = await setDueDateAction(ENGAGEMENT_ID, "2026-06-22T00:00:00Z");
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/date|format/i);
+    expect(mockSetEngagementDueDate).not.toHaveBeenCalled();
+  });
+
+  it("[AC-LIFE-007-01][security] rejects a bare year string (strict YYYY-MM-DD guard)", async () => {
+    // Review finding: security/A05 — "2026" parses via new Date() to a valid Date;
+    // the strict regex must reject it before parse.
+    const result = await setDueDateAction(ENGAGEMENT_ID, "2026");
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toMatch(/date|format/i);

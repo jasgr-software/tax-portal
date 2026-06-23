@@ -119,9 +119,17 @@ export async function setDueDateAction(
   }
 
   // Parse the date string — null/empty means "clear the due date"
+  // Strict format guard: reject ISO datetimes ("2026-06-22T00:00:00Z"), bare years ("2026"),
+  // or any other input that new Date() silently coerces to a valid date.
+  // Review finding: security/A05 — strict ^\d{4}-\d{2}-\d{2}$ before new Date(...).
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   let dueDate: Date | null = null;
   if (dueDateStr && dueDateStr.trim()) {
-    const parsed = new Date(dueDateStr.trim());
+    const trimmed = dueDateStr.trim();
+    if (!DATE_RE.test(trimmed)) {
+      return { success: false, error: "Invalid date format — expected YYYY-MM-DD" };
+    }
+    const parsed = new Date(trimmed);
     if (isNaN(parsed.getTime())) {
       return { success: false, error: "Invalid date format — expected YYYY-MM-DD" };
     }
