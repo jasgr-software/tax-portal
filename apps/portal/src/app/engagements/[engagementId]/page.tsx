@@ -4,22 +4,31 @@
  * Direct-reference client engagement view — resolves an engagement by id via the
  * sec.pol_Engagement FILTER predicate (request pool, SESSION_CONTEXT set).
  *
- * If the CLIENT does not own the requested engagement, the FILTER returns null and
- * this page renders a 404-style not-found response. This is the AC-AUTH-003-03
- * direct-reference isolation proof: CLIENT-B supplying CLIENT-A's engagement id via
- * this URL gets denied at the data layer (FILTER fail-closed, ADR-005).
+ * If the CLIENT does not own the requested engagement AND is not a linked participant,
+ * the FILTER returns null and this page renders a 404-style not-found response.
+ *
+ * TASK-012-005 (multi-participant access):
+ *   The sec.pol_Engagement FILTER was extended in TASK-012-001 (DECISION-D) to include
+ *   the participant-link branch:
+ *     CLIENT branch = (e.clientUserId = me) OR EXISTS(EngagementParticipant ep WHERE ep.engagementId = e.id AND ep.userId = me)
+ *   This page does NOT need app-layer filtering changes — the RLS FILTER handles participant
+ *   access transparently. A linked participant calling getEngagementForClient will receive
+ *   the engagement row (the FILTER grants access via the participant branch).
+ *   An unrelated CLIENT still sees ZERO (fail-closed — AC-AUTH-007-03).
+ *   This satisfies AC-AUTH-007-03 at the surface level (UI/e2e layer); the tier-3 RLS
+ *   proof is in TASK-012-001 (engagement-participant.client-isolation.rls.test.ts).
  *
  * DECISION (TASK-010-004): The dashboard listing covers AC-AUTH-003-01/-02 (a CLIENT
  * sees only their own engagements via getMyEngagement/FILTER). AC-AUTH-003-03 requires
  * a direct-reference path (fetch-by-id) where a CLIENT can navigate to another CLIENT's
  * engagement by supplying the id in the URL. This page provides that test surface:
  * CLIENT-B navigating to /engagements/<CLIENT-A-id> is denied (returns not-found).
- * This is recorded in the Work Log as a deliberate scope inclusion.
  *
  * ADR-003: DB read via withRequestContext(CLIENT identity) — SESSION_CONTEXT set,
  *   FILTER predicate governs row visibility.
  * ADR-005: sec.pol_Engagement FILTER does the isolation — NOT app-layer filtering.
- *   A non-owner CLIENT's SESSION_CONTEXT causes the FILTER to return null (fail-closed).
+ *   A non-owner, non-participant CLIENT's SESSION_CONTEXT causes the FILTER to return
+ *   null (fail-closed). A linked participant's SESSION_CONTEXT passes (DECISION-D).
  * ADR-006: /engagements/[id] is apps/portal only (client read-only surface).
  * ADR-010: /dashboard/engagements/* is NOT public — requires CLIENT session.
  *
@@ -28,9 +37,11 @@
  * AC-LIFE-006-02: NO reopen affordance.
  * AC-LIFE-004-02/-03: Review → "In Progress" with no client action required.
  * AC-AUTH-003-03: FILTER denies direct-reference access to another client's engagement.
+ * AC-AUTH-007-03: a linked participant can reach the shared engagement through their own
+ *   account; an unrelated CLIENT cannot (RLS fail-closed — no app-layer guard needed).
  * AC-AUTH-008-01/-02: Complete engagements remain fully viewable.
  *
- * // ADR-005: FILTER governs isolation on fetch-by-id path
+ * // ADR-005: FILTER governs isolation on fetch-by-id path (owner + participant branch, TASK-012-001)
  * // ADR-006: portal surface only
  * // CS-TS-001: DB read via withRequestContext (packages/db wrapper)
  * // CS-TS-002: no raw pool import

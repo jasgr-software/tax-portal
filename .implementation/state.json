@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-23T12:21:30.000Z",
-  "currentBrief": null,
-  "currentPhase": null,
-  "currentSliceDescription": null,
-  "currentBranch": null,
+  "lastUpdated": "2026-06-23T18:19:23.533Z",
+  "currentBrief": "BRIEF-012",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "Engagement creation paths (returning-client request + accountant-initiated) & multi-participant engagements; introduces engagement tax-year",
+  "currentBranch": "brief-012-engagement-creation-participants",
   "awaitingMerge": [],
   "openRetroItems": [
     {

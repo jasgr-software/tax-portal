@@ -1,0 +1,38 @@
+-- db/migrations/0005-engagement-participant-rls.sql
+-- Track B: raw SQL migration — ADR-005 §2/§3, ADR-002
+-- Applied by: scripts/db-migrate.ts (Track B step — after Track A Prisma migrations)
+--
+-- Applies the two raw-SQL policy changes for EPIC-012 / TASK-012-001:
+--   1. db/policies/0009-engagement-participant-policy.sql — new RLS policy for EngagementParticipant
+--   2. db/policies/0005-engagement-policy.sql — extended CLIENT branch (owner OR participant)
+--
+-- NOTE: This migration file does NOT contain the policy SQL inline — the policies live in
+-- db/policies/ (idempotent, re-applicable) and are applied by scripts/db-migrate.ts via the
+-- Track B policies runner. This file exists in db/migrations/ to document the dependency order:
+--   EngagementParticipant table (Track A) MUST exist before the participant policy can be applied.
+--
+-- CS-SQL-001: EngagementParticipant is a client-scoped table → ships sec.pol_EngagementParticipant
+--             (db/policies/0009) AND a dedicated isolation test (packages/db/src/
+--             engagement-participant.client-isolation.rls.test.ts).
+-- CS-SQL-002: raw SQL track for the security policies only; the entity table is Track A (Prisma).
+-- CS-SQL-003: predicates are inline TVFs, shallow, admin/accountant-first, fail-closed.
+-- CS-GEN-002: additive — 0005 CLIENT branch extended with OR EXISTS (no branch removed).
+-- CS-GEN-003: governing keys cited in policy files and test.
+--
+-- Idempotent: the policies (0005 + 0009) use CREATE OR ALTER FUNCTION + DROP IF EXISTS / CREATE.
+-- Re-applying this migration (pnpm db:policies:apply) is safe.
+--
+-- DECISION-D (BRIEF-012): participant link via EngagementParticipant join table.
+--   fn_engagement_access CLIENT branch extended to: owner-OR-participant (both EXISTS checks).
+--   Primary clientUserId owner branch is BYTE-IDENTICAL (AC-AUTH-003 preserved, no regression).
+--   An unrelated CLIENT (neither owner nor participant) sees ZERO rows (both EXISTS empty).
+--
+-- Applied as part of: pnpm db:migrate (Track B policies runner applies 0005 + 0009 in order)
+
+-- This migration is a marker/documentation file only.
+-- The actual DDL for the security policies lives in:
+--   db/policies/0005-engagement-policy.sql  (idempotent CREATE OR ALTER)
+--   db/policies/0009-engagement-participant-policy.sql  (idempotent CREATE OR ALTER)
+-- Both are applied by scripts/db-migrate.ts Track B policies runner.
+SELECT 1 AS [rls_migration_marker]; -- no-op batch to satisfy the GO-split runner
+GO

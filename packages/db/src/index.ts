@@ -18,7 +18,7 @@ export { withClerkIdentity, withRequestContext, currentRequestContext } from "./
 
 // Re-export Prisma types so consumers don't need to import @prisma/client directly.
 // This includes EngagementRequest, Notification, Service, User, Engagement, LetterTemplate,
-// QuestionnaireTemplate, QuestionnaireAnswer model types, and Prisma namespace.
+// QuestionnaireTemplate, QuestionnaireAnswer, EngagementParticipant model types, and Prisma namespace.
 export type {
   EngagementRequest,
   Notification,
@@ -29,6 +29,9 @@ export type {
   LetterTemplate,
   QuestionnaireTemplate,
   QuestionnaireAnswer,
+  // EPIC-012: EngagementParticipant join table (DECISION-D, BRIEF-012 multi-participant engagements)
+  // AC-LIFE-012-01/-03, AC-AUTH-007-01/-03
+  EngagementParticipant,
   Prisma,
 } from "@prisma/client";
 
@@ -262,6 +265,35 @@ export type {
   ChecklistReadModel,
 } from "./checklist.js";
 export { resolveChecklist } from "./checklist.js";
+
+// Engagement-creation seams (EPIC-012 / TASK-012-002)
+// createReturningClientRequest          — pending EngagementRequest for a returning (signed-in) client;
+//   contact resolved from on-file User→Engagement→EngagementRequest (AC-DOOR-009-03, DECISION-E).
+// createAccountantInitiatedEngagement   — pre-accepted request + Engagement + participant link in one audit tx
+//   (AC-DOOR-010-04, AC-LIFE-010-01, AC-LIFE-012-01, DECISION-A).
+// findDuplicateEngagements              — QUERY (not a DB constraint) for duplicate (client,service,taxYear)
+//   detection (AC-LIFE-011-01/-02, DECISION-C). Override path (AC-LIFE-011-03) must work.
+// addEngagementParticipant              — link an additional participant; idempotent on @@unique
+//   (AC-LIFE-012-01, AC-AUTH-007-01).
+// CS-GEN-001: no PII in audit rows; CS-TS-001/-002: admin pool via getAdminPool()/withAuditTransaction.
+export type {
+  CreateReturningClientRequestInput,
+  CreateReturningClientRequestResult,
+  CreateAccountantInitiatedEngagementInput,
+  CreateAccountantInitiatedEngagementResult,
+  FindDuplicateEngagementsInput,
+  DuplicateEngagementMatch,
+  AddEngagementParticipantInput,
+  AddEngagementParticipantResult,
+} from "./repositories/engagement-creation.js";
+export {
+  UserNotFoundError,
+  UserContactNotFoundError,
+  createReturningClientRequest,
+  createAccountantInitiatedEngagement,
+  findDuplicateEngagements,
+  addEngagementParticipant,
+} from "./repositories/engagement-creation.js";
 
 // Client-facing engagement status label mapping (EPIC-010 / TASK-010-002)
 // clientFacingLabel     — maps the four internal stages to the three client-facing labels
