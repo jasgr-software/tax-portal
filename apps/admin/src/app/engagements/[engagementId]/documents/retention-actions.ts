@@ -40,9 +40,6 @@ import {
   purgeEngagement,
   placeLegalHold,
   liftLegalHold,
-  activeHoldsFor,
-  purgeEligibility,
-  retentionDeadlineFor,
 } from "@tax-portal/db";
 import type {
   AuditActor,
@@ -71,10 +68,6 @@ export type PlaceLegalHoldActionResult =
 
 export type LiftLegalHoldActionResult =
   | { success: true; data: LiftLegalHoldResult }
-  | { success: false; error: string };
-
-export type GetPurgeEligibilityActionResult =
-  | { success: true; data: { eligibility: PurgeEligibilityResult; holds: LegalHoldItem[] } }
   | { success: false; error: string };
 
 // ─── Identity helper ──────────────────────────────────────────────────────────
@@ -365,67 +358,3 @@ export async function liftLegalHoldAction(
   return { success: true, data: liftResult };
 }
 
-/**
- * Read the purge eligibility + active holds for an engagement (accountant-only).
- *
- * This is a read-only action — it derives eligibility from activeHoldsFor + purgeEligibility
- * (the pure function from TASK-015-002). The UI surfaces the reason without re-implementing
- * the eligibility rule client-side.
- *
- * AC-FILE-013-01: Eligibility surfaced (window check).
- * AC-FILE-014-03: Hold blocks purge even post-expiry (surfaced as 'blocked-by-hold').
- *
- * ADR-018 §3/§5/§6: eligibility = (window elapsed AND no hold).
- * CS-TS-001: activeHoldsFor from @tax-portal/db barrel (admin pool).
- * CS-TS-004: identity from session cookie; rejects CLIENT role.
- *
- * @param engagementId - The Engagement.id.
- * @param engagementCompletedAt - The completedAt from the engagement row (retention clock anchor).
- *
- * // ADR-003 // ADR-018 §3/§5/§6 // CS-TS-001 // CS-TS-004 // CS-GEN-003
- * // AC-FILE-013-01 // AC-FILE-014-03
- */
-export async function getPurgeEligibilityAction(
-  engagementId: string,
-  engagementCompletedAt: string | null,
-): Promise<GetPurgeEligibilityActionResult> {
-  // ── 1. Identity guard (ACCOUNTANT-only, ADR-003, CS-TS-004) ──────────────────
-  const identity = await getAccountantIdentity(); // ADR-003 // CS-TS-004
-  if (!identity) {
-    return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
-  }
-
-  // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!engagementId?.trim()) {
-    return { success: false, error: "A valid engagement ID is required" };
-  }
-
-  // ── 3. Read active holds (admin pool — purge blocker input) ──────────────────
-  // CS-TS-001: activeHoldsFor from @tax-portal/db barrel (admin pool).
-  // ADR-018 §6: holds resolve both scopes (engagement-direct + client-scoped).
-  let holds: LegalHoldItem[];
-  try {
-    holds = await activeHoldsFor(engagementId.trim()); // CS-TS-001
-  } catch (err: unknown) {
-    console.error("[getPurgeEligibilityAction] activeHoldsFor failed:", err);
-    return { success: false, error: "Failed to read legal holds. Please try again." };
-  }
-
-  // ── 4. Derive eligibility (pure function, no DB) ──────────────────────────────
-  // purgeEligibility: pure function from TASK-015-002.
-  // Reuse the server-side derivation — do NOT re-implement the rule in the component.
-  // ADR-018 §3/§5/§6: precedence: (1) hold → (2) window → (3) eligible.
-  const completedAt = engagementCompletedAt ? new Date(engagementCompletedAt) : null;
-  const eligibility = purgeEligibility(
-    { id: engagementId.trim(), completedAt },
-    holds,
-  ); // ADR-018 §3/§5/§6 // AC-FILE-013-01 // AC-FILE-014-03
-
-  // CS-GEN-001: holds list may contain engagementId/holdId only — no client names or PII.
-  return { success: true, data: { eligibility, holds } };
-}
-
-// ─── re-export pure helper for component use ─────────────────────────────────
-// The component imports retentionDeadlineFor to display a human-readable deadline
-// without a server round-trip. This is a pure read with no PII.
-export { retentionDeadlineFor };

@@ -197,7 +197,8 @@ export function RetentionPanel({
         return;
       }
 
-      switch (result.data.outcome) {
+      const holdData = result.data;
+      switch (holdData.outcome) {
         case "placed":
           setHoldResult("Legal hold placed on this engagement.");
           // Optimistically update the holds list so the UI reflects the new state.
@@ -205,7 +206,7 @@ export function RetentionPanel({
           setActiveHolds((prev) => [
             ...prev,
             {
-              id: result.data.outcome === "placed" ? (result.data as { outcome: "placed"; holdId: string }).holdId : "",
+              id: holdData.holdId,
               scope: "engagement" as const,
               engagementId,
               clientUserId: null,

@@ -53,14 +53,12 @@
  */
 
 import mssqlPkg from "mssql";
-import { getAdminPool } from "../admin-connection.js";
 import { withAuditTransaction, recordAuthEvent } from "../audit.js";
 import type { AuditActor } from "../audit.js";
 import {
   retentionDeadlineFor,
 } from "./retention.js";
 import type { RetentionEngagementInput } from "./retention.js";
-import { activeHoldsFor } from "./legal-hold.js";
 import type { LegalHoldItem } from "./legal-hold.js";
 import { getStorage } from "@tax-portal/storage";
 
@@ -127,12 +125,9 @@ export type PurgeEngagementResult =
 type EngagementRow = {
   id: string;
   completedAt: Date | null;
-  clientUserId: string | null;
 };
 
 type DocumentVersionRow = {
-  id: string;
-  documentId: string;
   storageKey: string;
 };
 
@@ -212,17 +207,35 @@ export function purgeEligibility(
  * ACCOUNTANT-CONFIRMED — caller must pass confirmed: true (AC-FILE-013-03 / ADR-018 §5).
  * NEVER-AUTOMATIC — this function has no cron or scheduled trigger (ADR-018 §5 / AC-FILE-013-04).
  *
- * Protocol (inside a single withAuditTransaction):
+ * ATOMICITY PROTOCOL (ADR-019 §3 / AC-FILE-013-06 / AC-NFR-010-07):
+ *   ALL DB statements run on the TRANSACTION connection (new MssqlRequest(txn)).
+ *   This enrolls every read and write in the same mssql Transaction so that:
+ *   - The engagement read, holds re-check, version-key SELECT, both DELETEs, and the
+ *     'engagement.purged' audit INSERT all commit or rollback atomically.
+ *   - If recordAuthEvent throws, txn.rollback() rolls back the DELETEs too (fail-closed).
+ *   - TOCTOU defence: holds re-check runs ON the transaction connection, so a hold placed
+ *     after the read but before the commit is observed (serializable within the txn scope).
+ *
+ * STORAGE-BYTE SEQUENCING (ADR-009 / AC-FILE-013-06):
+ *   Storage bytes are deleted AFTER the DB transaction commits successfully.
+ *   Rationale: bytes deletion is inherently non-transactional (no rollback).
+ *   Deleting bytes only after the row-delete + audit commit means a DB failure leaves
+ *   recoverable rows (no orphaned-and-unauditable destruction).
+ *   A crash after commit but before storage deletion leaves orphaned bytes — acceptable
+ *   (the rows are gone; a future scrub can collect orphaned keys). The inverse is not
+ *   acceptable (bytes gone, rows intact, no audit).
+ *
+ * Protocol:
  *   1. Re-resolve eligibility server-side from the DB (never trust caller eligibility).
- *      Load engagement + activeHoldsFor inside the same transaction.
+ *      Engagement load + holds re-check run inside the same transaction.
  *   2. Require confirmed === true — if false, return 'not-confirmed' (no-op).
- *   3. Collect all DocumentVersion storageKey values for the engagement.
- *   4. Call storage.delete(key) per DocumentVersion key (ADR-009 two-track lifecycle).
- *   5. Physical DELETE: DocumentVersion rows, then Document rows (admin pool — ONE sanctioned path).
- *      // DECISION: AuditEvent rows are EXCLUDED from the purge sweep — they are the append-only
- *      // ledger (ADR-019 §4/§5). Purge audit records survive by design.
+ *   3. Collect all DocumentVersion + Document storageKeys INSIDE the transaction.
+ *   4. Physical DELETE: DocumentVersion rows, then Document rows — ALL on txn.
+ *      // DECISION: AuditEvent rows are EXCLUDED from the purge sweep — they are the
+ *      // append-only ledger (ADR-019 §4/§5). Purge audit records survive by design.
  *      // DECISION: Temporal-history side-row purge is deferred under OQ-014-01.
- *   6. Emit 'engagement.purged' audit event in the same transaction (ADR-019 §3 fail-closed).
+ *   5. Emit 'engagement.purged' audit event IN THE SAME TRANSACTION (ADR-019 §3).
+ *   6. AFTER the transaction commits: call storage.delete(key) per collected key.
  *
  * Returns a discriminated outcome so the UI layer can surface the refusal reason.
  *
@@ -250,18 +263,25 @@ export async function purgeEngagement(
   }
 
   let result: PurgeEngagementResult = { outcome: "not-found" };
+  // Storage keys to delete AFTER the transaction commits (storage deletion is
+  // non-transactional; defer until row-delete + audit are durably committed).
+  // ADR-009: bytes deleted after DB commit — fail leaves recoverable rows, not orphaned bytes.
+  let storageKeysToDelete: string[] = [];
 
   await withAuditTransaction(async (txn) => {
-    const pool = await getAdminPool();
+    // ATOMICITY: every DB statement below uses new MssqlRequest(txn) to enroll in the
+    // transaction. No statement uses the pool directly (pool-based requests auto-commit
+    // and bypass the transaction boundary in node-mssql).
+    // ADR-019 §3 / AC-FILE-013-06 / AC-NFR-010-07
 
-    // ─── Step 1: Load the engagement (admin pool — RLS-exempt, ADR-005 §2) ────
+    // ─── Step 1: Load the engagement (txn — RLS-exempt admin pool, ADR-005 §2) ──
     // Re-resolve eligibility server-side INSIDE the txn.
     // Never trust a client-passed eligibility — ADR-003 §5 defence-in-depth.
-    const engReq = new MssqlRequest(pool);
+    const engReq = new MssqlRequest(txn);
     engReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
 
     const engResult = await engReq.query<EngagementRow>(
-      `SELECT [id], [completedAt], [clientUserId]
+      `SELECT [id], [completedAt]
        FROM [dbo].[Engagement]
        WHERE [id] = @engagementId`
     );
@@ -272,11 +292,44 @@ export async function purgeEngagement(
       return;
     }
 
-    // ─── Step 2: Re-resolve eligibility server-side ───────────────────────────
-    // Resolve active holds (direct engagement hold OR client-scoped hold).
-    // activeHoldsFor uses the admin pool — safe inside the transaction scope.
-    // ADR-018 §6 / AC-FILE-014-03
-    const holds = await activeHoldsFor(input.engagementId);
+    // ─── Step 2: Re-resolve active holds (txn — TOCTOU defence) ──────────────
+    // Inline the holds query on the transaction connection so a hold placed BETWEEN
+    // the read and the DELETE is observed within the same transaction scope.
+    // AC-FILE-014-03 / ADR-018 §6
+    //
+    // Resolves both scopes (mirrors activeHoldsFor logic — ADR-018 §6):
+    //   (a) Direct engagement hold
+    //   (b) Client-scoped hold (covering all engagements of that client)
+    const holdsReq = new MssqlRequest(txn);
+    holdsReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const holdsResult = await holdsReq.query<{ id: string }>(
+      `SELECT h.[id]
+       FROM [dbo].[LegalHold] h
+       WHERE h.[liftedAt] IS NULL
+         AND (
+           (h.[scope] = 'engagement' AND h.[engagementId] = @engagementId)
+           OR
+           (h.[scope] = 'client' AND h.[clientUserId] = (
+             SELECT e.[clientUserId] FROM [dbo].[Engagement] e WHERE e.[id] = @engagementId
+           ) AND h.[clientUserId] IS NOT NULL)
+         )`
+    );
+
+    // Build a minimal LegalHoldItem array for purgeEligibility (only length is checked).
+    const holds: LegalHoldItem[] = holdsResult.recordset.map((r) => ({
+      id: r.id,
+      scope: "engagement" as const,
+      engagementId: input.engagementId,
+      clientUserId: null,
+      placedByClerkId: "",
+      placedAt: new Date(),
+      liftedByClerkId: null,
+      liftedAt: null,
+      reason: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
 
     const eligibility = purgeEligibility(
       { id: engRow.id, completedAt: engRow.completedAt ?? null },
@@ -292,14 +345,14 @@ export async function purgeEngagement(
       return;
     }
 
-    // ─── Step 3: Collect DocumentVersion storageKeys ──────────────────────────
+    // ─── Step 3: Collect DocumentVersion storageKeys (txn) ───────────────────
     // Gather all DocumentVersion rows for the engagement's Documents.
-    // ADR-009 two-track lifecycle: bytes are removed COORDINATED with the row delete.
-    const versionsReq = new MssqlRequest(pool);
+    // ADR-009 two-track lifecycle: keys collected here; bytes deleted after commit.
+    const versionsReq = new MssqlRequest(txn);
     versionsReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
 
     const versionsResult = await versionsReq.query<DocumentVersionRow>(
-      `SELECT dv.[id], dv.[documentId], dv.[storageKey]
+      `SELECT dv.[storageKey]
        FROM [dbo].[DocumentVersion] dv
        INNER JOIN [dbo].[Document] d ON d.[id] = dv.[documentId]
        WHERE d.[engagementId] = @engagementId`
@@ -307,35 +360,23 @@ export async function purgeEngagement(
 
     const versionRows = versionsResult.recordset;
 
-    // ─── Step 4: Remove storage bytes per DocumentVersion key ─────────────────
-    // ADR-009: storage-object purge is coordinated with DB purge (two-track lifecycle).
-    // CS-GEN-001: do NOT log storageKey values (contains engagement path information).
-    // // ADR-009 // CS-GEN-001
-    const storage = getStorage();
-    for (const vRow of versionRows) {
-      await storage.delete(vRow.storageKey);
-    }
-
-    // Also remove the current Document storageKey (in case it differs from any version rows).
-    // This covers the initial upload case where no DocumentVersion child rows exist yet.
-    const docKeysReq = new MssqlRequest(pool);
+    // Also collect current Document storageKeys (covers initial upload before versioning).
+    const docKeysReq = new MssqlRequest(txn);
     docKeysReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
     const docKeysResult = await docKeysReq.query<{ storageKey: string }>(
       `SELECT [storageKey] FROM [dbo].[Document]
        WHERE [engagementId] = @engagementId`
     );
 
-    for (const docKeyRow of docKeysResult.recordset) {
-      // Only delete if not already covered by a DocumentVersion row key.
-      const alreadyDeleted = versionRows.some(
-        (v) => v.storageKey === docKeyRow.storageKey,
-      );
-      if (!alreadyDeleted) {
-        await storage.delete(docKeyRow.storageKey);
-      }
-    }
+    // Dedupe keys: DocumentVersion keys + Document keys not already covered.
+    const versionKeySet = new Set(versionRows.map((v) => v.storageKey));
+    const extraDocKeys = docKeysResult.recordset
+      .map((r) => r.storageKey)
+      .filter((k) => !versionKeySet.has(k));
+    // Capture for post-commit deletion (ADR-009).
+    storageKeysToDelete = [...versionKeySet, ...extraDocKeys];
 
-    // ─── Step 5: Physically DELETE DocumentVersion then Document rows ──────────
+    // ─── Step 4: Physically DELETE DocumentVersion then Document rows (txn) ───
     //
     // ADMIN POOL — this is the ONE sanctioned physical DELETE path (ADR-018 §1 / CS-SQL-002).
     // All other delete paths use soft-delete (ADR-018 §1).
@@ -354,7 +395,7 @@ export async function purgeEngagement(
     // DELETE order: child rows before parent rows (FK constraint safety).
     // // CS-SQL-002 // ADR-018 §5 // ADR-005
 
-    const deleteVersionsReq = new MssqlRequest(pool);
+    const deleteVersionsReq = new MssqlRequest(txn);
     deleteVersionsReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
 
     await deleteVersionsReq.query(
@@ -364,7 +405,7 @@ export async function purgeEngagement(
        WHERE d.[engagementId] = @engagementId`
     );
 
-    const deleteDocsReq = new MssqlRequest(pool);
+    const deleteDocsReq = new MssqlRequest(txn);
     deleteDocsReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
 
     await deleteDocsReq.query(
@@ -372,7 +413,7 @@ export async function purgeEngagement(
        WHERE [engagementId] = @engagementId`
     );
 
-    // ─── Step 6: Emit 'engagement.purged' audit event ─────────────────────────
+    // ─── Step 5: Emit 'engagement.purged' audit event (txn — fail-closed) ─────
     // ADR-019 §3: fail-closed — audit INSERT in the same transaction.
     // ADR-019 §4: INSERT only; no UPDATE/DELETE path from app code.
     // CS-GEN-001: no PII — targetId = engagementId only.
@@ -389,7 +430,22 @@ export async function purgeEngagement(
     });
 
     result = { outcome: "purged" };
+    // storageKeysToDelete is populated above; bytes are deleted after txn.commit().
   });
+
+  // ─── Step 6: Remove storage bytes AFTER the transaction commits ───────────
+  // ADR-009: storage-object purge is coordinated with DB purge (two-track lifecycle).
+  // SEQUENCING: bytes deleted only after rows + audit are durably committed.
+  // A crash here leaves orphaned bytes — acceptable (rows are gone; scrub can collect).
+  // Inverse is NOT acceptable (bytes gone, rows intact, no audit record).
+  // CS-GEN-001: do NOT log storageKey values (contains engagement path information).
+  // // ADR-009 // CS-GEN-001
+  if (result.outcome === "purged" && storageKeysToDelete.length > 0) {
+    const storage = getStorage();
+    for (const key of storageKeysToDelete) {
+      await storage.delete(key);
+    }
+  }
 
   return result;
 }

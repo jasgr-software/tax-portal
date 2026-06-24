@@ -55,7 +55,7 @@
  * // AC-FILE-015-01 // AC-FILE-015-02 // AC-NFR-010-07
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 import mssqlPkg from "mssql";
 import { parseSqlServerUrl } from "./sql-server-url.js";
 import { purgeEngagement } from "./repositories/purge.js";
@@ -563,6 +563,88 @@ describe("purgeEngagement — integration (ADR-018 §5, ADR-019, ADR-009)", () =
     });
 
     expect(result.outcome).toBe("not-found");
+  }, 30000);
+
+  /**
+   * FAIL-CLOSED / ROLLBACK: if the audit INSERT throws mid-purge, the row DELETEs
+   * are rolled back — Document + DocumentVersion rows survive.
+   *
+   * This is the regression test for the atomicity blocker:
+   *   The bug — running DELETEs on the pool (autocommit) instead of the txn — means
+   *   forcing recordAuthEvent to throw after the DELETEs would leave rows GONE with
+   *   no audit record. With the fix, all statements run on the txn and rollback atomically.
+   *
+   * Test strategy:
+   *   1. Spy on the audit module's recordAuthEvent and force it to throw for
+   *      action='engagement.purged'.
+   *   2. Call purgeEngagement(confirmed=true) on an eligible engagement.
+   *   3. Assert the call throws (bubbles up from withAuditTransaction after rollback).
+   *   4. Assert Document + DocumentVersion rows are STILL PRESENT (rolled back).
+   *   5. Assert no 'engagement.purged' AuditEvent row exists.
+   *   6. Assert storage.delete was NOT called (bytes deletion deferred post-commit).
+   *
+   * Mutation-test proof:
+   *   This test goes RED against the original code (DELETEs on pool → autocommit →
+   *   rows are gone even though the txn rolled back) and GREEN against the fix
+   *   (DELETEs on txn → they roll back with the aborted audit INSERT).
+   *
+   * // AC-FILE-013-06 // AC-NFR-010-07 // ADR-019 §3 // ADR-009
+   */
+  it("[fail-closed] audit INSERT failure rolls back DELETEs — rows survive, no audit row, no storage delete", async () => {
+    const { engId, realStorageKey } = await seedEngagementWithDocument(expiredCompletedAt());
+
+    // Verify the rows exist before the attempted purge.
+    expect(await countDocumentRows(engId)).toBeGreaterThanOrEqual(1);
+    expect(await countDocumentVersionRows(engId)).toBeGreaterThanOrEqual(1);
+
+    // Spy on recordAuthEvent (from the audit module loaded by purge.ts) and force it
+    // to throw when the action is 'engagement.purged'.
+    // This simulates a DB constraint / network error during the audit INSERT.
+    // All other recordAuthEvent calls (e.g. hold placement) are allowed through.
+    const auditModule = await import("./audit.js");
+    const recordAuthEventSpy = vi
+      .spyOn(auditModule, "recordAuthEvent")
+      .mockImplementation(async (input) => {
+        if (input.action === "engagement.purged") {
+          throw new Error("[test-injection] forced audit INSERT failure");
+        }
+        // Pass through for any other action (not expected in this test).
+        return auditModule.recordAuthEvent(input);
+      });
+
+    // purgeEngagement should throw — withAuditTransaction rolls back and re-throws.
+    await expect(
+      purgeEngagement({
+        engagementId: engId,
+        actor: accountantActor,
+        confirmed: true,
+      }),
+    ).rejects.toThrow("[test-injection] forced audit INSERT failure");
+
+    // Restore the spy immediately after the call.
+    recordAuthEventSpy.mockRestore();
+
+    // CRITICAL ASSERTIONS — prove the DELETEs were rolled back:
+
+    // Document rows must still exist (rollback undid the DELETE).
+    // If this fails, the DELETEs ran on the pool (autocommit) instead of the txn.
+    const docsAfter = await countDocumentRows(engId);
+    expect(docsAfter).toBeGreaterThanOrEqual(1); // rows survived rollback
+
+    const versionsAfter = await countDocumentVersionRows(engId);
+    expect(versionsAfter).toBeGreaterThanOrEqual(1); // rows survived rollback
+
+    // No 'engagement.purged' audit row (the INSERT was the one that threw).
+    const purgedAuditCount = await countAuditEventRowsForAction(engId, "engagement.purged");
+    expect(purgedAuditCount).toBe(0); // no audit row — the txn rolled back
+
+    // Storage bytes must NOT have been deleted (storage deletion is deferred to post-commit;
+    // since the txn was rolled back, the post-commit step is never reached).
+    const statAfter = await getStorage().stat(realStorageKey);
+    expect(statAfter).not.toBeNull(); // bytes still present
+
+    // Cleanup the engagement (the rows survived, so we need to clean up manually).
+    await cleanupEngagement(engId);
   }, 30000);
 
 });

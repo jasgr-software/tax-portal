@@ -50,7 +50,6 @@ vi.mock(
     purgeEngagementAction: mockPurgeEngagementAction,
     placeLegalHoldAction: mockPlaceLegalHoldAction,
     liftLegalHoldAction: mockLiftLegalHoldAction,
-    retentionDeadlineFor: vi.fn(),
   }),
 );
 
@@ -58,7 +57,6 @@ vi.mock("../retention-actions", () => ({
   purgeEngagementAction: mockPurgeEngagementAction,
   placeLegalHoldAction: mockPlaceLegalHoldAction,
   liftLegalHoldAction: mockLiftLegalHoldAction,
-  retentionDeadlineFor: vi.fn(),
 }));
 
 // Mock @tax-portal/db — not needed in component tests

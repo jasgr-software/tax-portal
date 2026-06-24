@@ -46,16 +46,12 @@ const {
   mockPurgeEngagement,
   mockPlaceLegalHold,
   mockLiftLegalHold,
-  mockActiveHoldsFor,
-  mockPurgeEligibility,
   mockRevalidatePath,
 } = vi.hoisted(() => ({
   mockGetIdentity: vi.fn(),
   mockPurgeEngagement: vi.fn(),
   mockPlaceLegalHold: vi.fn(),
   mockLiftLegalHold: vi.fn(),
-  mockActiveHoldsFor: vi.fn(),
-  mockPurgeEligibility: vi.fn(),
   mockRevalidatePath: vi.fn(),
 }));
 
@@ -86,9 +82,6 @@ vi.mock("@tax-portal/db", () => ({
   purgeEngagement: mockPurgeEngagement,
   placeLegalHold: mockPlaceLegalHold,
   liftLegalHold: mockLiftLegalHold,
-  activeHoldsFor: mockActiveHoldsFor,
-  purgeEligibility: mockPurgeEligibility,
-  retentionDeadlineFor: vi.fn(),
 }));
 
 // ─── Import after mocks ───────────────────────────────────────────────────────
@@ -97,7 +90,6 @@ import {
   purgeEngagementAction,
   placeLegalHoldAction,
   liftLegalHoldAction,
-  getPurgeEligibilityAction,
 } from "./retention-actions.js";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -129,8 +121,6 @@ describe("[AC-FILE-013-02] [AC-FILE-014-01] [AC-FILE-014-05] [security] non-ACCO
     mockPurgeEngagement.mockResolvedValue({ outcome: "purged" });
     mockPlaceLegalHold.mockResolvedValue({ outcome: "placed", holdId: HOLD_ID });
     mockLiftLegalHold.mockResolvedValue({ outcome: "lifted" });
-    mockActiveHoldsFor.mockResolvedValue([]);
-    mockPurgeEligibility.mockReturnValue({ eligible: true, reason: "eligible" });
   });
 
   // purgeEngagementAction — identity guard (AC-FILE-013-02, CS-TS-004)
@@ -196,14 +186,6 @@ describe("[AC-FILE-013-02] [AC-FILE-014-01] [AC-FILE-014-05] [security] non-ACCO
     expect(mockLiftLegalHold).not.toHaveBeenCalled();
   });
 
-  // getPurgeEligibilityAction — identity guard
-  it("[security] getPurgeEligibilityAction: null identity rejected, no DB read", async () => {
-    const result = await getPurgeEligibilityAction(ENGAGEMENT_ID, null);
-
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toMatch(/unauthorized/i);
-    expect(mockActiveHoldsFor).not.toHaveBeenCalled();
-  });
 });
 
 // ─── Tests: AC-FILE-013-03 — explicit confirmation required for purge ──────────
