@@ -33,9 +33,9 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-012 (creation paths & multi-participant) | 20 (all `verified` — PR#93 `5883fed`) |
 | &nbsp;&nbsp;— EPIC-013 (secure file exchange) | 13 (all `verified` — PR#95 `4aa26d0`) |
 | &nbsp;&nbsp;— EPIC-014 (file deletion, soft-delete & retention) | 10 (all `verified` — PR#97 `37707ad`) |
-| &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 |
-| AC `verified` (signed off) | **174** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**) **+ all 25 EPIC-010 lifecycle-core AC** (LIFE-001/002/003/004/005/006, AUTH-002/003/008 — the four-stage pipeline, client-facing labels, two-confirmation completion gate, accountant reopen, full visibility + client own-data isolation + indefinite post-completion access; PR#87 `7afd312` 2026-06-22; AUTH-003-* are the **feature** AC over the Phase-2-built isolation mechanism — not double-counted) **+ all 9 EPIC-011 engagement-attributes AC** (LIFE-007/008/009 — per-engagement due date set/update, accountant-only internal notes behind the HARD `pol_EngagementNote` RLS, priority flag set/clear, each per-engagement; PR#89 `9445e36` 2026-06-23) **+ all 20 EPIC-012 creation-paths & multi-participant AC** (DOOR-009/010 returning-client + accountant-initiated creation, LIFE-010 concurrent engagements, LIFE-011 duplicate warn+override, LIFE-012/AUTH-007 multi-participant separate-accounts behind the HARD `pol_EngagementParticipant`/extended `pol_Engagement` RLS — participant isolation proven both ways; PR#93 `5883fed` 2026-06-23) **+ all 13 EPIC-013 secure-file-exchange AC** (FILE-001-01/-03/-04 accountant upload + both-party download, FILE-009-01/-02/-03 replace → newest current → prior versions retained AND accessible, FILE-010-01/-02/-03/-04 organize/create-rename-arrange/place-in-folder/accountant-only-behind-HARD-`pol`-isolated folders, FILE-011-01/-02/-03 top-level group by engagement + tax year + navigate engagement→tax-year→folder; the reviewed-lane `/pr-review` panel caught a **version-download IDOR** (blocker) the in-slice gates missed — fixed in-PR so `requestDownloadUrlForVersionAction` threads `versionId`, resolves the version under the request-pool/RLS, asserts `documentId` match, and signs only the server-resolved key, with cross-resource key-substitution negative tests on both surfaces; PR#95 `4aa26d0` 2026-06-23) **+ all 10 EPIC-014 file-deletion / soft-delete / 7-year-retention AC** (FILE-004-01/-02/-03 accountant-only delete with the no-client-delete boundary proven **both ways** — HARD `pol`-isolation RLS + a portal no-delete-path negative e2e; FILE-006-01/-02/-03 soft-delete leaves the working view / file retained-not-destroyed in-window / recoverable until retention elapses; FILE-005-01/-02/-03 retention clock 7 years from completion / in-window nothing removes incl. an accountant deletion / retention governs in-window; AC-NFR-006-01 system-enforced retention — the NFR twin of FILE-005; PR#97 `37707ad` 2026-06-24). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization); EPIC-010/011/012/013/014 delivered — Phase 3 proper advancing (EPIC-015 remains the only un-delivered Phase-3 epic). NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
-| AC still `planned` (placed, not yet verified) | **16** — the remaining Phase-3 FILE-chain AC (EPIC-015 16, placed 2026-06-21), awaiting build + CI sign-off. *(EPIC-014's 10 AC flipped `planned`→`verified` 2026-06-24 via PR#97 `37707ad`; EPIC-013's 13 AC flipped 2026-06-23 via PR#95 `4aa26d0`; EPIC-012's 20 AC flipped 2026-06-23 via PR#93; EPIC-011's 9 AC flipped 2026-06-23 via PR#89; EPIC-010's 25 AC flipped 2026-06-22 via PR#87; EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped 2026-06-21 via PR#71 — see Verified row.)* |
+| &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 (all `verified` — PR#99 `53b3444`) |
+| AC `verified` (signed off) | **190** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**) **+ all 25 EPIC-010 lifecycle-core AC** (LIFE-001/002/003/004/005/006, AUTH-002/003/008 — the four-stage pipeline, client-facing labels, two-confirmation completion gate, accountant reopen, full visibility + client own-data isolation + indefinite post-completion access; PR#87 `7afd312` 2026-06-22; AUTH-003-* are the **feature** AC over the Phase-2-built isolation mechanism — not double-counted) **+ all 9 EPIC-011 engagement-attributes AC** (LIFE-007/008/009 — per-engagement due date set/update, accountant-only internal notes behind the HARD `pol_EngagementNote` RLS, priority flag set/clear, each per-engagement; PR#89 `9445e36` 2026-06-23) **+ all 20 EPIC-012 creation-paths & multi-participant AC** (DOOR-009/010 returning-client + accountant-initiated creation, LIFE-010 concurrent engagements, LIFE-011 duplicate warn+override, LIFE-012/AUTH-007 multi-participant separate-accounts behind the HARD `pol_EngagementParticipant`/extended `pol_Engagement` RLS — participant isolation proven both ways; PR#93 `5883fed` 2026-06-23) **+ all 13 EPIC-013 secure-file-exchange AC** (FILE-001-01/-03/-04 accountant upload + both-party download, FILE-009-01/-02/-03 replace → newest current → prior versions retained AND accessible, FILE-010-01/-02/-03/-04 organize/create-rename-arrange/place-in-folder/accountant-only-behind-HARD-`pol`-isolated folders, FILE-011-01/-02/-03 top-level group by engagement + tax year + navigate engagement→tax-year→folder; the reviewed-lane `/pr-review` panel caught a **version-download IDOR** (blocker) the in-slice gates missed — fixed in-PR so `requestDownloadUrlForVersionAction` threads `versionId`, resolves the version under the request-pool/RLS, asserts `documentId` match, and signs only the server-resolved key, with cross-resource key-substitution negative tests on both surfaces; PR#95 `4aa26d0` 2026-06-23) **+ all 10 EPIC-014 file-deletion / soft-delete / 7-year-retention AC** (FILE-004-01/-02/-03 accountant-only delete with the no-client-delete boundary proven **both ways** — HARD `pol`-isolation RLS + a portal no-delete-path negative e2e; FILE-006-01/-02/-03 soft-delete leaves the working view / file retained-not-destroyed in-window / recoverable until retention elapses; FILE-005-01/-02/-03 retention clock 7 years from completion / in-window nothing removes incl. an accountant deletion / retention governs in-window; AC-NFR-006-01 system-enforced retention — the NFR twin of FILE-005; PR#97 `37707ad` 2026-06-24) **+ all 16 EPIC-015 post-retention-purge & legal-hold AC** (FILE-013-01..06 purge eligible only post-window / accountant-admin-only proven both ways / explicit-confirmation / never-automatic-on-expiry / eligible-but-unpurged stays retained / purge audited + record survives; FILE-014-01..07 hold on engagement / hold on client → all engagements / held = no purge even post-expiry / indefinite no-auto-expire / lift restores eligibility / place + lift each audited; FILE-015-01/-02 in-window erasure = access-revocation-only / physical destruction only post-window + no-hold + confirmed; AC-NFR-010-07 audit survives purge; the reviewed-lane `/pr-review` panel caught a **purge-atomicity blocker** the in-slice gates missed — purge statements ran off-transaction, so a mid-purge failure could destroy data while leaving no audit record; fixed in-PR so the whole purge runs inside the `withAuditTransaction` envelope and rolls back all-or-nothing, with audit-survives-purge now proven by a dedicated rollback regression test; PR#99 `53b3444` 2026-06-24). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization); EPIC-010/011/012/013/014/015 delivered — EPIC-015 CLOSES Phase 3 (it was the last un-delivered Phase-3 epic). NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
+| AC still `planned` (placed, not yet verified) | **0** — every placed Phase-1 + Phase-2 + Phase-3 AC is now `verified`; Phase 3 is closed. *(EPIC-015's 16 AC flipped `planned`→`verified` 2026-06-24 via PR#99 `53b3444`; EPIC-014's 10 AC flipped 2026-06-24 via PR#97 `37707ad`; EPIC-013's 13 AC flipped 2026-06-23 via PR#95 `4aa26d0`; EPIC-012's 20 AC flipped 2026-06-23 via PR#93; EPIC-011's 9 AC flipped 2026-06-23 via PR#89; EPIC-010's 25 AC flipped 2026-06-22 via PR#87; EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped 2026-06-21 via PR#71 — see Verified row.)* |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -413,6 +413,60 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > recoverable) and portal `no-client-delete.spec.ts` (2/2 — no client-facing remove path). The same
 > per-PR-CI-tier follow-up tracked for EPIC-001 applies here.
 >
+> **EPIC-015 (16 AC) signed off 2026-06-24 — the destructive end of the document lifecycle lands under tight
+> accountant governance; EPIC-015 CLOSES Phase 3.** The post-retention-purge & legal-hold slice (once an
+> engagement's **7-year retention window has elapsed** its data becomes **purge-eligible**; the **accountant**
+> — admin only, **never** the client, **never** automatically — may **purge** it but only after an **explicit
+> confirmation**; a **legal hold** placed on an engagement or on a client **suspends** purge eligibility
+> **indefinitely** until lifted, overriding the retention clock; during the window a client erasure request is
+> honored as **access-revocation only**, never physical removal; and the **audit record survives the purge**)
+> shipped (PR #99, squash merge `53b3444`); see basis note [H]. **Sixth and final Phase-3 slice delivered —
+> EPIC-015 closes Phase 3.** All 16 in-scope AC verified: AC-FILE-013-01..06 (purge-eligible only post-window /
+> accountant-admin-only — proven both ways, RLS admin-pool path + portal no-affordance e2e / explicit
+> confirmation / never-automatic-on-expiry / eligible-but-unpurged stays accessible+retained / purge audited +
+> the record survives), AC-FILE-014-01..07 (hold on an engagement / hold on a client → all their engagements /
+> held = no purge even post-expiry / indefinite, no auto-expire / lift restores eligibility if window elapsed /
+> place + lift each audited), AC-FILE-015-01/-02 (in-window client erasure = access-revocation only / physical
+> destruction impossible until post-window + no-hold + explicit confirmation), and **AC-NFR-010-07** (the
+> audit records — including the purge event — survive the purge). EPIC-015 → `delivered`. **Reviewed-lane
+> finding (now hardened in the delivered build):** the `/pr-review` 3-lens panel caught a **purge-atomicity
+> blocker** the in-slice gates missed — the purge DELETE statements ran **off the audit transaction**, so a
+> mid-purge failure could destroy document/version rows while leaving **no audit record** (directly
+> threatening AC-FILE-013-06 / AC-NFR-010-07). **Fixed in-PR** (folded into the squash): the entire purge runs
+> inside the `withAuditTransaction` envelope and rolls back **all-or-nothing**, and audit-survives-purge is now
+> proven by a dedicated rollback regression test (`purge.integration.test.ts` — inject a mid-purge failure →
+> assert the purge throws, all rows survive, and the audit record is intact). **Scope held (no over-claim):**
+> EPIC-015 claims **only AC-NFR-010-07** from REQ-NFR-010 — the rest of the audit-trail **feature** (NFR-010-01..06:
+> document-access logging, transition logging, the accountant-only audit *read* surface, audit retention)
+> remains a **Phase-4 audit-trail slice**; the **OQ-014-01 temporal-history mechanism** (ADR-018 §2) stays
+> raised-upstream as a deferred cross-cutting mechanism, **not an unmet AC**; and **wholesale client-identity
+> hard-delete (REQ-IDNT-005)** stays deferred from v1 (ADR-018; OQ-004). **EPIC-015 CLOSES Phase 3** — every
+> placed Phase-3 AC (EPIC-009..015) is now `verified`; **190/190 placed AC verified, 0 planned**. Phase 4
+> (notifications/activity feed + the audit-trail read surface) is the next roadmap phase to decompose.
+>
+> **[H] Evidence basis for the EPIC-015 sign-off (2026-06-24).** Same user-accepted CI-as-the-gate basis as
+> [A]/[B]/[C]/[D]/[E]/[F]/[G] — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007
+> staging gate does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on
+> PR #99 and on the post-merge `main` squash `53b3444` — post-merge **CI** run `28114529547` `success`
+> (`lint-and-typecheck` ✅ / `security-scan` ✅ / `test-admin` ✅ / `test-portal` ✅) + **CodeQL** `success` on
+> `53b3444`. Each of the 16 in-scope AC has automated test(s) **tagged with its AC id** on the merge commit
+> (verified by the validate phase via `git grep` against `53b3444` — all 16 ids resolve to one or more
+> `*.test.ts`/`*.tsx`/`*.spec.ts` files), validated by the implementation engine's SDET acceptance-validation
+> gate at the prescribed ADR-012 tiers against the real container stack (`pnpm ci:local` exit 0; container
+> smoke PASS, env-caveat: the known P3019 local `DATABASE_URL` scheme block — retro-012-002, same basis as
+> EPIC-014): **tier-3** `packages/db` — `purge-eligibility.test.ts` (eligible only post-window /
+> never-automatic / eligible-but-unpurged retained / destruction-only-post-window-no-hold-confirmed /
+> hold-no-auto-expire), `purge.integration.test.ts` (confirmed-purge removes rows + storage, **audit survives
+> purge** + the panel-hardened all-or-nothing rollback regression, in-window-erasure-access-revocation-only),
+> `purge.rls.test.ts` + `legal-hold.rls.test.ts` (the **HARD admin-pool-only** matrix — purge/hold/lift
+> unreachable from a client request handler), `legal-hold.integration.test.ts` (hold on engagement / hold on
+> client → all engagements / held = no purge post-expiry / lift restores eligibility / place + lift audited);
+> **tier-6** e2e on the full docker-compose stack — admin `purge-legal-hold.spec.ts` (confirm-before-purge,
+> place + lift hold each audited) and portal `no-client-purge-hold.spec.ts` (the no-client-purge-hold boundary
+> — no purge/hold/lift affordance for any engagement, including one the client uploaded to). The
+> audit-survives-purge guarantee (AC-FILE-013-06 / AC-NFR-010-07) is now hardened by the reviewed-lane
+> atomicity fix described above. The same per-PR-CI-tier follow-up tracked for EPIC-001 applies here.
+>
 > **[A] applied to the EPIC-006 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
 > EPIC-001/002/003/004/005 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging
 > gate does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on the
@@ -658,22 +712,22 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-FILE-005 | AC-FILE-005-02 | EPIC-014 | 3 | `AC-FILE-005-02` | verified | [G] PR#97 `37707ad`; no removal in-window incl. accountant delete — `retention.test.ts` + `document.soft-delete.integration.test.ts` |
 | REQ-FILE-005 | AC-FILE-005-03 | EPIC-014 | 3 | `AC-FILE-005-03` | verified | [G] PR#97 `37707ad`; retention governs in-window — `retention.test.ts` + `document.soft-delete.integration.test.ts` |
 | REQ-NFR-006 | AC-NFR-006-01 | EPIC-014 | 3 | `AC-NFR-006-01` | verified | [G] PR#97 `37707ad`; system-enforced retention (NFR twin of FILE-005) — `retention.test.ts` |
-| REQ-FILE-013 | AC-FILE-013-01 | EPIC-015 | 3 | `AC-FILE-013-01` | planned | — (placed 2026-06-21); eligible only post-window |
-| REQ-FILE-013 | AC-FILE-013-02 | EPIC-015 | 3 | `AC-FILE-013-02` | planned | — (placed 2026-06-21); accountant/admin-only |
-| REQ-FILE-013 | AC-FILE-013-03 | EPIC-015 | 3 | `AC-FILE-013-03` | planned | — (placed 2026-06-21); explicit confirmation required |
-| REQ-FILE-013 | AC-FILE-013-04 | EPIC-015 | 3 | `AC-FILE-013-04` | planned | — (placed 2026-06-21); never automatic on expiry |
-| REQ-FILE-013 | AC-FILE-013-05 | EPIC-015 | 3 | `AC-FILE-013-05` | planned | — (placed 2026-06-21); eligible-but-unpurged stays retained |
-| REQ-FILE-013 | AC-FILE-013-06 | EPIC-015 | 3 | `AC-FILE-013-06` | planned | — (placed 2026-06-21); purge audited, record survives |
-| REQ-FILE-014 | AC-FILE-014-01 | EPIC-015 | 3 | `AC-FILE-014-01` | planned | — (placed 2026-06-21); hold on engagement |
-| REQ-FILE-014 | AC-FILE-014-02 | EPIC-015 | 3 | `AC-FILE-014-02` | planned | — (placed 2026-06-21); hold on client → all engagements |
-| REQ-FILE-014 | AC-FILE-014-03 | EPIC-015 | 3 | `AC-FILE-014-03` | planned | — (placed 2026-06-21); held = no purge even post-expiry |
-| REQ-FILE-014 | AC-FILE-014-04 | EPIC-015 | 3 | `AC-FILE-014-04` | planned | — (placed 2026-06-21); indefinite, no auto-expire |
-| REQ-FILE-014 | AC-FILE-014-05 | EPIC-015 | 3 | `AC-FILE-014-05` | planned | — (placed 2026-06-21); lift restores eligibility |
-| REQ-FILE-014 | AC-FILE-014-06 | EPIC-015 | 3 | `AC-FILE-014-06` | planned | — (placed 2026-06-21); placing audited |
-| REQ-FILE-014 | AC-FILE-014-07 | EPIC-015 | 3 | `AC-FILE-014-07` | planned | — (placed 2026-06-21); lifting audited |
-| REQ-FILE-015 | AC-FILE-015-01 | EPIC-015 | 3 | `AC-FILE-015-01` | planned | — (placed 2026-06-21); in-window erasure = access-revocation only |
-| REQ-FILE-015 | AC-FILE-015-02 | EPIC-015 | 3 | `AC-FILE-015-02` | planned | — (placed 2026-06-21); destruction only post-window + no hold + confirmed |
-| REQ-NFR-010 | AC-NFR-010-07 | EPIC-015 | 3 | `AC-NFR-010-07` | planned | — (placed 2026-06-21); audit survives purge (rest of NFR-010 → Phase-4 audit slice) |
+| REQ-FILE-013 | AC-FILE-013-01 | EPIC-015 | 3 | `AC-FILE-013-01` | verified | [H] PR#99 `53b3444`; tier-3 `purge-eligibility.test.ts` — eligible only post-window |
+| REQ-FILE-013 | AC-FILE-013-02 | EPIC-015 | 3 | `AC-FILE-013-02` | verified | [H] PR#99 `53b3444`; tier-3 `purge.rls.test.ts` + `legal-hold.rls.test.ts` (admin-pool only) + tier-6 portal `no-client-purge-hold.spec.ts` (no client affordance, proven both ways) |
+| REQ-FILE-013 | AC-FILE-013-03 | EPIC-015 | 3 | `AC-FILE-013-03` | verified | [H] PR#99 `53b3444`; tier-6 `purge-legal-hold.spec.ts` — explicit confirmation required |
+| REQ-FILE-013 | AC-FILE-013-04 | EPIC-015 | 3 | `AC-FILE-013-04` | verified | [H] PR#99 `53b3444`; tier-3 `purge-eligibility.test.ts` + `purge.integration.test.ts` — never automatic on expiry |
+| REQ-FILE-013 | AC-FILE-013-05 | EPIC-015 | 3 | `AC-FILE-013-05` | verified | [H] PR#99 `53b3444`; tier-3 `purge-eligibility.test.ts` + `purge.integration.test.ts` — eligible-but-unpurged stays retained |
+| REQ-FILE-013 | AC-FILE-013-06 | EPIC-015 | 3 | `AC-FILE-013-06` | verified | [H] PR#99 `53b3444`; tier-3 `purge.integration.test.ts` — purge audited, audit record survives (panel-hardened all-or-nothing rollback test) |
+| REQ-FILE-014 | AC-FILE-014-01 | EPIC-015 | 3 | `AC-FILE-014-01` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` + tier-6 `purge-legal-hold.spec.ts` — hold on engagement |
+| REQ-FILE-014 | AC-FILE-014-02 | EPIC-015 | 3 | `AC-FILE-014-02` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` — hold on client → all engagements |
+| REQ-FILE-014 | AC-FILE-014-03 | EPIC-015 | 3 | `AC-FILE-014-03` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` + `purge.integration.test.ts` — held = no purge even post-expiry |
+| REQ-FILE-014 | AC-FILE-014-04 | EPIC-015 | 3 | `AC-FILE-014-04` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` + `purge-eligibility.test.ts` — indefinite, no auto-expire |
+| REQ-FILE-014 | AC-FILE-014-05 | EPIC-015 | 3 | `AC-FILE-014-05` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` — lift restores eligibility |
+| REQ-FILE-014 | AC-FILE-014-06 | EPIC-015 | 3 | `AC-FILE-014-06` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` + tier-6 `purge-legal-hold.spec.ts` — placing audited |
+| REQ-FILE-014 | AC-FILE-014-07 | EPIC-015 | 3 | `AC-FILE-014-07` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` + tier-6 `purge-legal-hold.spec.ts` — lifting audited |
+| REQ-FILE-015 | AC-FILE-015-01 | EPIC-015 | 3 | `AC-FILE-015-01` | verified | [H] PR#99 `53b3444`; tier-3 `purge.integration.test.ts` — in-window erasure = access-revocation only |
+| REQ-FILE-015 | AC-FILE-015-02 | EPIC-015 | 3 | `AC-FILE-015-02` | verified | [H] PR#99 `53b3444`; tier-3 `purge-eligibility.test.ts` + `purge.integration.test.ts` — destruction only post-window + no hold + confirmed |
+| REQ-NFR-010 | AC-NFR-010-07 | EPIC-015 | 3 | `AC-NFR-010-07` | verified | [H] PR#99 `53b3444`; tier-3 `purge.integration.test.ts` — audit survives purge, proven by panel-hardened all-or-nothing rollback (rest of NFR-010 → Phase-4 audit slice) |
 
 ## Split requirements
 

@@ -63,3 +63,29 @@
 
 EPIC-015 is the last `planned` Phase-3 epic; with it delivered, **Phase 3 (engagement lifecycle & secure file
 exchange) closes.** The Conductor produces the Phase-3 walkthrough video at Report from TASK-015-005's `@video` spec.
+
+## Post-Merge Addendum (Close-finalize — 2026-06-24)
+
+- **Merged:** PR #99 squash-merged to `main` as `53b3444`. Remote branch deleted.
+- **Gate 8 (post-merge CI):** PASS — `main@53b3444` green on `lint-and-typecheck` + `security-scan` + `test-admin` +
+  `test-portal` + CodeQL (Analyze python/javascript-typescript), CI run `28114529547`.
+- **Gate 9 (staging smoke):** N/A (`brief_deploys: no`).
+- **Reviewed-lane finding (the panel earned its keep again):** the 3-lens `/pr-review` panel caught a **blocker the
+  in-slice SDET + Overwatch + IO design-scan all missed** — `purgeEngagement` wrapped its body in
+  `withAuditTransaction(txn)` but ran the physical DELETEs on the **shared admin pool** (`new MssqlRequest(pool)`),
+  not the transaction connection, so the irreversible purge was **not atomic**: an audit-insert failure would have
+  destroyed Document/DocumentVersion rows + storage bytes with **no `engagement.purged` audit row** — inverting the
+  fail-closed audit-survives guarantee the file's own header promised (AC-FILE-013-06 / AC-NFR-010-07 / ADR-019 §3),
+  plus a TOCTOU on the hold re-check. The panel also flagged that `purge.integration.test.ts` proved only the happy
+  path (deleting the `txn` binding failed zero tests). **Fixed in-PR** (`34af53e` + `61aaa5e`, folded into the
+  squash): all purge statements moved onto the transaction connection, storage-byte deletion deferred until **after**
+  the row-delete + audit commit, and a `[fail-closed]` rollback regression test added (proven red→green: it fails
+  against the pre-fix autocommit-bypass, passes against the fix). Mirrors the EPIC-013 version-download-IDOR pattern —
+  a server-side correctness defect the unit/integration gates couldn't see, caught by the independent panel.
+- **Dispositioned non-fix:** the `placeLegalHold` client-scope write path was **kept** (the panel's over-engineering
+  lens flagged it as a possibly-unused branch) — AC-FILE-014-02 (place a hold on a client → all their engagements)
+  requires it and `legal-hold.integration.test.ts` exercises it; thread resolved with that rationale.
+- **Lesson (carried to RETRO observation):** the in-slice tier-3 integration tests asserted the happy-path purge
+  outcome but not the **all-or-nothing rollback** invariant — the atomicity of a destructive transaction is exactly
+  the property a fail-closed test must assert. The panel's "deleting the txn binding fails zero tests" heuristic is
+  the durable catch. Future destructive-path slices should ship a fail-closed/rollback test as a first-class gate.

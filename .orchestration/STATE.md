@@ -14,11 +14,12 @@
 
 ## Current run
 
-- **No active run.** Last completed: **EPIC-014** ✅ DELIVERED 2026-06-24 (PR #97 → `37707ad`, 10/10 AC) — see `## Recent outcomes`. Run report: `.orchestration/runs/RUN-REPORT-EPIC-014.md`.
-- **Next ready slice:** **EPIC-015** (post-retention purge + legal hold + retention-vs-erasure precedence — REQ-FILE-013/014/015; `depends_on` EPIC-014 ✅ / EPIC-010 ✅ — both satisfied). Builds on EPIC-014's soft-delete + retention-clock foundation. **EPIC-015 CLOSES Phase 3** — its Compose phase-completion check must obligate the Phase-3 `@video` walkthrough spec (`DEMO-POLICY.md` § Part B). Re-invoke `/orchestrate` (auto-selects EPIC-015) or `/orchestrate EPIC-015`.
+- **No active run.** Last completed: **EPIC-015** ✅ DELIVERED 2026-06-24 (PR #99 → `53b3444`, 16/16 AC) — **CLOSES PHASE 3** — see `## Recent outcomes`. Run report: `.orchestration/runs/RUN-REPORT-EPIC-015.md`. Phase-3 walkthrough video: `docs/demos/phase-3/`.
+- **Next ready slice:** **none in Phase 3 (COMPLETE — 190/190 AC verified).** **Phase 4 (Messaging, notifications & the accountant dashboard — MSG/DASH/IDNT) is undecomposed** — run `/planning` to slice it before the next `/orchestrate`. Open planning fronts: the dedicated **audit-trail read-surface slice** (REQ-NFR-010-01..06; Phase 3 emitted audit events per ADR-019 but claimed only AC-NFR-010-07) and **Phase 5 — Production Readiness** (real Clerk/Docuseal/scanner/email/host). No epic is currently `ready` for `/orchestrate`.
 
 ## Recent outcomes
 
+- **EPIC-015** ✅ DELIVERED 2026-06-24 · PR #99 → `53b3444` · 16/16 AC · RETRO-015/HANDOFF-015 · post-retention purge & legal hold — CLOSES PHASE 3 (190/190 AC). Legal-hold entity (engagement/client-scoped, accountant-only RLS pol_LegalHold, no auto-expire) + admin-pool accountant-confirmed never-automatic purgeEngagement (eligibility = window-elapsed AND no-hold; removes Document/DocumentVersion+storage bytes; AuditEvent excluded → audit survives); no-client-purge/hold proven both ways; temporal-history purge deferred via OQ-014-01. **/pr-review panel caught a purge-atomicity BLOCKER** the in-slice gates missed (DELETEs ran off the audit txn → audit-insert failure would destroy data with no audit row) — fixed in-PR with an all-or-nothing rollback test (red→green). Standards APPROVE 0 violations. Phase-3 walkthrough video produced (docs/demos/phase-3/).
 - **EPIC-014** ✅ DELIVERED 2026-06-24 · PR #97 → `37707ad` · 10/10 AC verified · RETRO-014/HANDOFF-014 · accountant-only soft-delete + in-window 7yr retention; `Document.deletedAt` tombstone + CLIENT-branch-only RLS filter, UPDATE-only admin-pool seams (no physical DELETE/purge), system-enforced retention clock (`completedAt` + configurable 7yr window + computed deadline); **no-client-delete proven both ways** (server guard + portal absence); standards APPROVE 0 violations; panel APPROVE 0 blocker/major (6 minor + 4 nit, dispositioned); temporal-history (ADR-018 §2) deferred via **OQ-014-01** as cross-cutting.
 - **EPIC-013** ✅ DELIVERED 2026-06-24 · PR #95 → `4aa26d0` · 13/13 AC verified · RETRO-013/HANDOFF-013 · secure file exchange (accountant upload + both-party download + accountant-managed folders + top-level org by engagement & tax year + version history); 7 tasks (incl. ADR-019 download-audit fix), 3 in-slice gate failures fixed-forward; both-party-download trap proven both ways · **reviewed-lane `/pr-review` caught a version-download IDOR** (client-supplied `versionStorageKey` signed after authorizing only the parent doc) — fixed in-PR `e903f51` (thread `versionId` → resolve under RLS → assert `documentId` match → sign server-resolved key; + cross-resource key-substitution negatives both surfaces). Independent oracle earned its keep.
 
@@ -54,17 +55,17 @@
   Fix-route/Report run in-script; agent nodes via exit-10 yields + `--set` record-hints; cold-starts from the
 <!-- conductor-state/v1
 phase=done
-epic=EPIC-014
-brief=/home/ccox/repos/tax-portal/.implementation/briefs/BRIEF-014-file-deletion-soft-delete-retention.md
-pr=97
-std_verdict_file=.orchestration/runs/PR-97-standards-verdict.json
-verdict_file=.orchestration/runs/PR-97-verdict.json
+epic=EPIC-015
+brief=/home/ccox/repos/tax-portal/.implementation/briefs/BRIEF-015-post-retention-purge-legal-hold.md
+pr=99
+std_verdict_file=.orchestration/runs/PR-99-standards-verdict.json
+verdict_file=.orchestration/runs/PR-99-verdict.json
 lane=
-fix_route=skip-fix
-merge_sha=37707ad8d2737819881fc012708cb4c5e8c8a70d
+fix_route=run-fix
+merge_sha=53b3444fbe7bf0d329dd4815f18d242cd2eab35d
 ac_ok=yes
-fix_done=
+fix_done=yes
 validated=yes
 halt_reason=
-updated=2026-06-24T13:13:44Z
+updated=2026-06-24T16:54:06Z
 -->
