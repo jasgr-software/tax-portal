@@ -128,9 +128,23 @@ const ACCOUNTANT_IDENTITY = {
 const ENGAGEMENT_ID = "eng-013-portal-bbbb-cccc-000000000002";
 const DOCUMENT_ID = "doc-013-portal-bbbb-cccc-000000000002";
 const DOWNLOAD_URL = "http://localhost:10000/devstoreaccount1/dl/portal-test?sas=dltoken";
+const VERSION_ID = "ver-013-portal-bbbb-cccc-000000000002";
 const VERSION_STORAGE_KEY = `engagements/${ENGAGEMENT_ID}/documents/${DOCUMENT_ID}/v2/report-v2.pdf`;
 const VERSION_DOWNLOAD_URL = "http://localhost:10000/devstoreaccount1/dl/portal-v2?sas=v2token";
 const EXPIRES_AT = new Date(Date.now() + 300_000);
+
+// ─── Mock version item returned by listDocumentVersions ───────────────────────
+
+const MOCK_VERSION_ITEM = {
+  id: VERSION_ID,
+  documentId: DOCUMENT_ID,
+  version: 2,
+  storageKey: VERSION_STORAGE_KEY,
+  supersededAt: new Date(),
+  uploadedBy: CLIENT_IDENTITY.clerkUserId,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 
 // ─── Tests: requestDownloadUrlAction — ADR-019 audit emission (portal) ─────────
 //
@@ -261,7 +275,7 @@ describe("[ADR-019] [CS-GEN-001] portal: requestDownloadUrlForVersionAction — 
     vi.clearAllMocks();
     mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
     mockRecordAuthEvent.mockResolvedValue(undefined);
-    // withRequestContext calls the callback — pass-through
+    // withRequestContext calls the callback — pass-through so listDocumentVersions + authorizeThenSignDownload fire
     mockWithRequestContext.mockImplementation(
       async (_clerkUserId: string, _role: string, cb: () => unknown) => cb(),
     );
@@ -271,6 +285,8 @@ describe("[ADR-019] [CS-GEN-001] portal: requestDownloadUrlForVersionAction — 
       url: DOWNLOAD_URL,
       expiresAt: EXPIRES_AT,
     });
+    // listDocumentVersions returns the version row (server-resolved storageKey)
+    mockListDocumentVersions.mockResolvedValue([MOCK_VERSION_ITEM]);
     // Version storage key sign
     mockGetSignedDownloadUrl.mockResolvedValue({
       url: VERSION_DOWNLOAD_URL,
@@ -283,7 +299,7 @@ describe("[ADR-019] [CS-GEN-001] portal: requestDownloadUrlForVersionAction — 
     // CS-GEN-001: version storageKey is NOT in the audit payload.
     // CS-TS-003: mirrors admin requestDownloadUrlForVersionAction test.
     const result = await requestDownloadUrlForVersionAction(
-      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY,
+      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID,
     );
 
     expect(result.success).toBe(true);
@@ -304,7 +320,7 @@ describe("[ADR-019] [CS-GEN-001] portal: requestDownloadUrlForVersionAction — 
   it("[CS-GEN-001] portal: version download audit payload — targetId is documentId, NOT storageKey or signed URL", async () => {
     // CS-GEN-001: neither the version storageKey nor the signed URL may appear in the audit payload.
     // CS-TS-003: mirrors admin version-download test for same property.
-    await requestDownloadUrlForVersionAction(DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY);
+    await requestDownloadUrlForVersionAction(DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID);
 
     expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
     const callArg = mockRecordAuthEvent.mock.calls[0]?.[0] as Record<string, unknown>;
@@ -323,7 +339,7 @@ describe("[ADR-019] [CS-GEN-001] portal: requestDownloadUrlForVersionAction — 
     });
 
     const result = await requestDownloadUrlForVersionAction(
-      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY,
+      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID,
     );
 
     expect(result.success).toBe(false);
@@ -335,10 +351,31 @@ describe("[ADR-019] [CS-GEN-001] portal: requestDownloadUrlForVersionAction — 
     mockGetIdentity.mockResolvedValue(null);
 
     const result = await requestDownloadUrlForVersionAction(
-      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY,
+      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID,
     );
 
     expect(result.success).toBe(false);
     expect(mockRecordAuthEvent).not.toHaveBeenCalled();
+  });
+
+  it("[security] IDOR: versionId belonging to a different document → no URL minted, getSignedDownloadUrl not called", async () => {
+    // SECURITY: A participant passes their valid DOCUMENT_ID + ENGAGEMENT_ID but supplies a
+    // VERSION_ID that belongs to a different document. The server must reject this after
+    // resolving the version row under RLS — listDocumentVersions returns NO matching row
+    // (the foreign version is not visible under the caller's SESSION_CONTEXT / RLS FILTER),
+    // so no storageKey is ever signed.
+    // ADR-003 // ADR-009 // sec.pol_DocumentVersion // CS-GEN-001
+    const FOREIGN_VERSION_ID = "ver-013-portal-FOREIGN-000000000099";
+    // listDocumentVersions returns rows scoped to DOCUMENT_ID — the foreign version is absent.
+    mockListDocumentVersions.mockResolvedValue([MOCK_VERSION_ITEM]); // only own versions visible
+
+    const result = await requestDownloadUrlForVersionAction(
+      DOCUMENT_ID, ENGAGEMENT_ID, FOREIGN_VERSION_ID,
+    );
+
+    expect(result.success).toBe(false);
+    // getSignedDownloadUrl must NOT have been called with any foreign storageKey.
+    expect(mockGetSignedDownloadUrl).not.toHaveBeenCalled(); // ADR-009: no URL minted for unresolved version
+    expect(mockRecordAuthEvent).not.toHaveBeenCalled();      // ADR-019: no audit on refusal
   });
 });

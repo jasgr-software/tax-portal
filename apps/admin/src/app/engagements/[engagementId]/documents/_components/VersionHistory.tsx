@@ -82,14 +82,15 @@ export function VersionHistory({ documentId, engagementId }: VersionHistoryProps
     setIsExpanded((prev) => !prev);
   }
 
-  async function handleVersionDownload(versionId: string, storageKey: string) {
+  async function handleVersionDownload(versionId: string) {
     setDownloadErrors((prev) => ({ ...prev, [versionId]: "" }));
     setDownloadPending((prev) => ({ ...prev, [versionId]: true }));
 
     try {
       // ADR-009: authorize-then-sign on the server; signed URL returned and consumed immediately.
+      // SECURITY: pass versionId (DB primary key), NOT storageKey — server resolves the key under RLS.
       // CS-GEN-001: no URL stored or logged.
-      const result = await requestDownloadUrlForVersionAction(documentId, engagementId, storageKey);
+      const result = await requestDownloadUrlForVersionAction(documentId, engagementId, versionId);
       if (!result.success) {
         setDownloadErrors((prev) => ({ ...prev, [versionId]: result.error }));
         return;
@@ -188,7 +189,7 @@ export function VersionHistory({ documentId, engagementId }: VersionHistoryProps
                     <button
                       type="button"
                       disabled={isDownloading}
-                      onClick={() => handleVersionDownload(ver.id, ver.storageKey)}
+                      onClick={() => handleVersionDownload(ver.id)}
                       className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
                       aria-busy={isDownloading}
                       data-testid={`version-download-${ver.id}`}

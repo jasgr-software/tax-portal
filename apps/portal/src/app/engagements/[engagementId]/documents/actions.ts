@@ -84,12 +84,6 @@ export type ListDocumentVersionsResult =
  *   or mock session cookie) — NEVER from any server action argument or form data.
  * CS-TS-004: identity from session cookie only — never from args or form data.
  *
- * NOTE: This allows ACCOUNTANT sessions to be used from portal for the download path
- * (DECISION-013-005-A): the download path authorizes via RLS, which is identity-agnostic.
- * The key check is that the caller HAS a valid session (not null).
- * However, per ADR-010, ACCOUNTANT sessions on portal are redirected — so in practice
- * only CLIENT sessions reach portal document routes.
- *
  * DECISION-013-005-A: portal download requires CLIENT identity only. An unauthenticated
  *   call returns null → 401 refused. An ACCOUNTANT session on portal is an edge case
  *   handled by ADR-010 middleware redirect; we treat it as unauthorized here.
@@ -166,10 +160,10 @@ export async function requestDownloadUrlAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!documentId || typeof documentId !== "string" || !documentId.trim()) {
+  if (!documentId?.trim()) {
     return { success: false, error: "A valid document ID is required." };
   }
-  if (!engagementId || typeof engagementId !== "string" || !engagementId.trim()) {
+  if (!engagementId?.trim()) {
     return { success: false, error: "A valid engagement ID is required." };
   }
 
@@ -251,7 +245,7 @@ export async function requestDownloadUrlAction(
 }
 
 /**
- * Authorize-then-sign a download URL for a specific DocumentVersion (by storageKey).
+ * Authorize-then-sign a download URL for a specific DocumentVersion (by versionId).
  *
  * AC-FILE-009-03: Prior versions are retained and each is individually downloadable.
  *
@@ -262,12 +256,16 @@ export async function requestDownloadUrlAction(
  * ADR-019: version download URL mint is an audited access event; actor from verified session.
  *   targetId = documentId (parent — NOT the version storageKey or signed URL — CS-GEN-001).
  *
+ * SECURITY: versionId is accepted from the client instead of versionStorageKey to prevent
+ *   IDOR. The server resolves the storageKey from the DB row under RLS, asserting
+ *   version.documentId === documentId before signing. The client never supplies the key.
+ *
  * // DECISION: audit records document version ACCESS, keyed by the parent documentId.
  * // The transient signed URL and version storageKey are never persisted or logged (ADR-009 / CS-GEN-001).
  *
  * @param documentId - The parent Document id (for RLS authz check).
  * @param engagementId - The Engagement id (for scope check).
- * @param versionStorageKey - The DocumentVersion's storageKey to sign.
+ * @param versionId - The DocumentVersion.id to download (server resolves storageKey — never client-supplied).
  *
  * // ADR-003 // ADR-008 // ADR-009 // ADR-019 // CS-GEN-001 // CS-TS-003 // CS-TS-004 // CS-GEN-003
  * // AC-FILE-009-03
@@ -275,7 +273,7 @@ export async function requestDownloadUrlAction(
 export async function requestDownloadUrlForVersionAction(
   documentId: string,
   engagementId: string,
-  versionStorageKey: string,
+  versionId: string,
 ): Promise<RequestDownloadUrlResult> {
   // ── 1. Identity guard (CLIENT-only) ──────────────────────────────────────────
   const identity = await getClientIdentity(); // ADR-003 // CS-TS-004
@@ -284,35 +282,56 @@ export async function requestDownloadUrlForVersionAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!documentId || typeof documentId !== "string" || !documentId.trim()) {
+  if (!documentId?.trim()) {
     return { success: false, error: "A valid document ID is required." };
   }
-  if (!engagementId || typeof engagementId !== "string" || !engagementId.trim()) {
+  if (!engagementId?.trim()) {
     return { success: false, error: "A valid engagement ID is required." };
   }
-  if (!versionStorageKey || typeof versionStorageKey !== "string" || !versionStorageKey.trim()) {
-    return { success: false, error: "A valid version storage key is required." };
+  if (!versionId?.trim()) {
+    return { success: false, error: "A valid version ID is required." };
   }
 
-  // ── 3. Authorize via parent document first (ADR-009) ─────────────────────────
+  // ── 3. Authorize via parent document AND resolve the version row under RLS ────
   // ADR-009: authorize BEFORE minting. CS-GEN-001: URL not logged.
-  const authResult = await withRequestContext(
+  // SECURITY: listDocumentVersions runs under withRequestContext (CLIENT SESSION_CONTEXT),
+  //   so sec.pol_DocumentVersion FILTER (TASK-013-001) governs what rows are visible.
+  //   We then assert version.documentId === documentId to prevent cross-document IDOR.
+  //   The storageKey is NEVER client-supplied.
+  const authAndVersionResult = await withRequestContext(
     identity.clerkUserId,
     identity.role,
-    () =>
-      authorizeThenSignDownload({
+    async () => {
+      const authResult = await authorizeThenSignDownload({
         documentId: documentId.trim(),
         engagementId: engagementId.trim(),
-      }),
+      });
+      if (!authResult.authorized) {
+        return { authorized: false as const, reason: authResult.reason };
+      }
+      // Resolve version row under RLS — sec.pol_DocumentVersion FILTER applies.
+      const versions = await listDocumentVersions(documentId.trim());
+      const version = versions.find((v) => v.id === versionId.trim());
+      if (!version) {
+        return { authorized: false as const, reason: "rls-filtered" as const };
+      }
+      // Belt-and-suspenders: assert the resolved row belongs to the claimed document.
+      if (version.documentId !== documentId.trim()) {
+        return { authorized: false as const, reason: "rls-filtered" as const };
+      }
+      return { authorized: true as const, storageKey: version.storageKey };
+    },
   );
 
-  if (!authResult.authorized) {
+  if (!authAndVersionResult.authorized) {
     return { success: false, error: "File not found or access denied." };
   }
 
-  // ── 4. Mint signed URL for the version's storageKey ──────────────────────────
+  // ── 4. Mint signed URL for the version's storageKey (server-resolved) ────────
+  // ADR-008: TTL-capped by the adapter (default 300s, max 3600s).
+  // CS-GEN-001: signed URL NOT logged.
   const storage = getStorage();
-  const signedUrl = await storage.getSignedDownloadUrl(versionStorageKey.trim(), {
+  const signedUrl = await storage.getSignedDownloadUrl(authAndVersionResult.storageKey, {
     responseContentDisposition: "attachment",
   });
 
@@ -383,7 +402,7 @@ export async function listDocumentsForEngagementAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!engagementId || typeof engagementId !== "string" || !engagementId.trim()) {
+  if (!engagementId?.trim()) {
     return { success: false, error: "A valid engagement ID is required." };
   }
 
@@ -421,7 +440,7 @@ export async function listDocumentVersionsAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!documentId || typeof documentId !== "string" || !documentId.trim()) {
+  if (!documentId?.trim()) {
     return { success: false, error: "A valid document ID is required." };
   }
 

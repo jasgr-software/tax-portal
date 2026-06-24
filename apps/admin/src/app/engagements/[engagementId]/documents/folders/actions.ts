@@ -138,10 +138,10 @@ export async function createFolderAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!engagementId || typeof engagementId !== "string" || !engagementId.trim()) {
+  if (!engagementId?.trim()) {
     return { success: false, error: "A valid engagement ID is required" };
   }
-  if (!name || typeof name !== "string" || !name.trim()) {
+  if (!name?.trim()) {
     return { success: false, error: "A valid folder name is required" };
   }
 
@@ -200,13 +200,13 @@ export async function renameFolderAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!engagementId || typeof engagementId !== "string" || !engagementId.trim()) {
+  if (!engagementId?.trim()) {
     return { success: false, error: "A valid engagement ID is required" };
   }
-  if (!folderId || typeof folderId !== "string" || !folderId.trim()) {
+  if (!folderId?.trim()) {
     return { success: false, error: "A valid folder ID is required" };
   }
-  if (!newName || typeof newName !== "string" || !newName.trim()) {
+  if (!newName?.trim()) {
     return { success: false, error: "A valid folder name is required" };
   }
 
@@ -266,10 +266,10 @@ export async function moveFolderAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!engagementId || typeof engagementId !== "string" || !engagementId.trim()) {
+  if (!engagementId?.trim()) {
     return { success: false, error: "A valid engagement ID is required" };
   }
-  if (!folderId || typeof folderId !== "string" || !folderId.trim()) {
+  if (!folderId?.trim()) {
     return { success: false, error: "A valid folder ID is required" };
   }
   // DECISION-013-A: folderId cannot equal newParentFolderId (circular reference guard).
@@ -335,10 +335,10 @@ export async function placeDocumentAction(
   }
 
   // ── 2. Input validation ───────────────────────────────────────────────────────
-  if (!engagementId || typeof engagementId !== "string" || !engagementId.trim()) {
+  if (!engagementId?.trim()) {
     return { success: false, error: "A valid engagement ID is required" };
   }
-  if (!documentId || typeof documentId !== "string" || !documentId.trim()) {
+  if (!documentId?.trim()) {
     return { success: false, error: "A valid document ID is required" };
   }
 

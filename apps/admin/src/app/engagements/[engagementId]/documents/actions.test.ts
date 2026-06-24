@@ -51,6 +51,7 @@ const {
   mockCompleteUpload,
   mockReplaceDocumentWithNewVersion,
   mockListEngagementDocuments,
+  mockListDocumentVersions,
   mockRecordAuthEvent,
   mockWithRequestContext,
   mockGetSignedUploadUrl,
@@ -68,6 +69,7 @@ const {
     mockCompleteUpload: vi.fn(),
     mockReplaceDocumentWithNewVersion: vi.fn(),
     mockListEngagementDocuments: vi.fn(),
+    mockListDocumentVersions: vi.fn(),
     mockRecordAuthEvent: vi.fn(),
     mockWithRequestContext: vi.fn(),
     mockGetSignedUploadUrl: vi.fn(),
@@ -105,6 +107,7 @@ vi.mock("@tax-portal/auth", () => ({
 // Mock @tax-portal/db barrel
 vi.mock("@tax-portal/db", () => ({
   listEngagementDocuments: mockListEngagementDocuments,
+  listDocumentVersions: mockListDocumentVersions,
   recordAuthEvent: mockRecordAuthEvent, // ADR-019
   withRequestContext: mockWithRequestContext,
 }));
@@ -153,6 +156,8 @@ const ENGAGEMENT_ID = "eng-013-aaaa-bbbb-cccc-000000000001";
 const DOCUMENT_ID = "doc-013-aaaa-bbbb-cccc-000000000001";
 const STORAGE_KEY = `engagements/${ENGAGEMENT_ID}/documents/${DOCUMENT_ID}/v1/report.pdf`;
 const UPLOAD_URL = "http://localhost:10000/devstoreaccount1/uploads/test?sas=token";
+const VERSION_ID = "ver-013-aaaa-bbbb-cccc-000000000002";
+const VERSION_STORAGE_KEY = `engagements/${ENGAGEMENT_ID}/documents/${DOCUMENT_ID}/v2/report-v2.pdf`;
 
 const MOCK_ENGAGEMENT = {
   id: ENGAGEMENT_ID,
@@ -726,9 +731,19 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlAction — audit emission on 
 // [CS-GEN-001] targetId = parent documentId (NOT the version storageKey or signed URL).
 
 describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit emission on version download", () => {
-  const VERSION_STORAGE_KEY = `engagements/${ENGAGEMENT_ID}/documents/${DOCUMENT_ID}/v2/report-v2.pdf`;
   const VERSION_DOWNLOAD_URL = "http://localhost:10000/devstoreaccount1/dl/v2test?sas=v2token";
   const EXPIRES_AT = new Date(Date.now() + 300_000);
+
+  const MOCK_VERSION_ITEM = {
+    id: VERSION_ID,
+    documentId: DOCUMENT_ID,
+    version: 2,
+    storageKey: VERSION_STORAGE_KEY,
+    supersededAt: new Date(),
+    uploadedBy: ACCOUNTANT_IDENTITY.clerkUserId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -736,7 +751,7 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit em
     mockGetRateLimiter.mockReturnValue({ consume: mockLimiterConsume });
     mockLimiterConsume.mockReturnValue({ allowed: true });
     mockRecordAuthEvent.mockResolvedValue(undefined);
-    // withRequestContext calls the callback — pass-through
+    // withRequestContext calls the callback — pass-through so authorizeThenSignDownload + listDocumentVersions fire
     mockWithRequestContext.mockImplementation(
       async (_clerkUserId: string, _role: string, cb: () => unknown) => cb(),
     );
@@ -746,6 +761,8 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit em
       url: "http://localhost:10000/devstoreaccount1/dl/parent?sas=parenttoken",
       expiresAt: EXPIRES_AT,
     });
+    // listDocumentVersions returns the version row (server-resolved storageKey)
+    mockListDocumentVersions.mockResolvedValue([MOCK_VERSION_ITEM]);
     // Version storage key sign
     mockGetSignedDownloadUrl.mockResolvedValue({
       url: VERSION_DOWNLOAD_URL,
@@ -757,7 +774,7 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit em
     // ADR-019: version download audit also uses the parent documentId as targetId.
     // CS-GEN-001: version storageKey is NOT in the audit payload.
     const result = await requestDownloadUrlForVersionAction(
-      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY,
+      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID,
     );
 
     expect(result.success).toBe(true);
@@ -777,11 +794,11 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit em
 
   it("[CS-GEN-001] version download audit payload: targetId is documentId, NOT the version storageKey or signed URL", async () => {
     // CS-GEN-001: neither the version storageKey nor the signed URL may appear in the audit payload.
-    await requestDownloadUrlForVersionAction(DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY);
+    await requestDownloadUrlForVersionAction(DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID);
 
     expect(mockRecordAuthEvent).toHaveBeenCalledOnce();
     const callArg = mockRecordAuthEvent.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(callArg["targetId"]).toBe(DOCUMENT_ID);         // CS-GEN-001: parent documentId
+    expect(callArg["targetId"]).toBe(DOCUMENT_ID);            // CS-GEN-001: parent documentId
     expect(callArg["targetId"]).not.toBe(VERSION_STORAGE_KEY); // NOT the version key
     expect(callArg["targetId"]).not.toBe(VERSION_DOWNLOAD_URL); // NOT the signed URL
     expect(callArg).not.toHaveProperty("storageKey");
@@ -796,7 +813,7 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit em
     });
 
     const result = await requestDownloadUrlForVersionAction(
-      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY,
+      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID,
     );
 
     expect(result.success).toBe(false);
@@ -808,10 +825,30 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit em
     mockGetIdentity.mockResolvedValue(null);
 
     const result = await requestDownloadUrlForVersionAction(
-      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_STORAGE_KEY,
+      DOCUMENT_ID, ENGAGEMENT_ID, VERSION_ID,
     );
 
     expect(result.success).toBe(false);
     expect(mockRecordAuthEvent).not.toHaveBeenCalled();
+  });
+
+  it("[security] IDOR: versionId belonging to a different document → no URL minted, getSignedDownloadUrl not called", async () => {
+    // SECURITY: The accountant passes a valid DOCUMENT_ID + ENGAGEMENT_ID but supplies a
+    // VERSION_ID that belongs to a different document/engagement. The server resolves the
+    // version row under RLS — listDocumentVersions returns only rows for DOCUMENT_ID, so
+    // the foreign versionId is absent and no storageKey is ever signed.
+    // ADR-003 // ADR-009 // sec.pol_DocumentVersion // CS-GEN-001
+    const FOREIGN_VERSION_ID = "ver-013-FOREIGN-bbbb-cccc-000000000099";
+    // listDocumentVersions scoped to DOCUMENT_ID — the foreign version is not in the list.
+    mockListDocumentVersions.mockResolvedValue([MOCK_VERSION_ITEM]); // only own versions visible
+
+    const result = await requestDownloadUrlForVersionAction(
+      DOCUMENT_ID, ENGAGEMENT_ID, FOREIGN_VERSION_ID,
+    );
+
+    expect(result.success).toBe(false);
+    // getSignedDownloadUrl must NOT have been called with any foreign storageKey.
+    expect(mockGetSignedDownloadUrl).not.toHaveBeenCalled(); // ADR-009: no URL minted for unresolved version
+    expect(mockRecordAuthEvent).not.toHaveBeenCalled();      // ADR-019: no audit on refusal
   });
 });
