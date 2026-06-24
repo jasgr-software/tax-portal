@@ -51,6 +51,9 @@ const {
   mockCompleteUpload,
   mockReplaceDocumentWithNewVersion,
   mockListEngagementDocuments,
+  mockListDeletedDocuments,
+  mockSoftDeleteDocument,
+  mockRecoverDocument,
   mockListDocumentVersions,
   mockRecordAuthEvent,
   mockWithRequestContext,
@@ -69,6 +72,9 @@ const {
     mockCompleteUpload: vi.fn(),
     mockReplaceDocumentWithNewVersion: vi.fn(),
     mockListEngagementDocuments: vi.fn(),
+    mockListDeletedDocuments: vi.fn(),     // TASK-014-003: archive view
+    mockSoftDeleteDocument: vi.fn(),       // TASK-014-003: soft-delete seam
+    mockRecoverDocument: vi.fn(),          // TASK-014-003: recover seam
     mockListDocumentVersions: vi.fn(),
     mockRecordAuthEvent: vi.fn(),
     mockWithRequestContext: vi.fn(),
@@ -107,6 +113,9 @@ vi.mock("@tax-portal/auth", () => ({
 // Mock @tax-portal/db barrel
 vi.mock("@tax-portal/db", () => ({
   listEngagementDocuments: mockListEngagementDocuments,
+  listDeletedDocuments: mockListDeletedDocuments,   // TASK-014-003: archive view
+  softDeleteDocument: mockSoftDeleteDocument,        // TASK-014-003: soft-delete seam
+  recoverDocument: mockRecoverDocument,              // TASK-014-003: recover seam
   listDocumentVersions: mockListDocumentVersions,
   recordAuthEvent: mockRecordAuthEvent, // ADR-019
   withRequestContext: mockWithRequestContext,
@@ -138,6 +147,10 @@ import {
   listDocumentsAction,
   requestDownloadUrlAction,
   requestDownloadUrlForVersionAction,
+  // TASK-014-003: soft-delete + recover actions (EPIC-014)
+  deleteDocumentAction,
+  recoverDocumentAction,
+  listDeletedDocumentsAction,
 } from "./actions.js";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -850,5 +863,286 @@ describe("[ADR-019] [CS-GEN-001] requestDownloadUrlForVersionAction — audit em
     // getSignedDownloadUrl must NOT have been called with any foreign storageKey.
     expect(mockGetSignedDownloadUrl).not.toHaveBeenCalled(); // ADR-009: no URL minted for unresolved version
     expect(mockRecordAuthEvent).not.toHaveBeenCalled();      // ADR-019: no audit on refusal
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TASK-014-003: deleteDocumentAction — soft-delete (EPIC-014)
+//
+// AC-FILE-004-01: accountant soft-deletes a file (sets deletedAt tombstone, not physical DELETE).
+// AC-FILE-004-02: non-ACCOUNTANT identity is rejected BEFORE any write.
+// AC-FILE-006-01: successful delete revalidates path (file leaves working view).
+//
+// ADR-018: soft-delete only — no physical DELETE issued anywhere in this action.
+// ADR-003: getAccountantIdentity() called BEFORE any DB write.
+// CS-TS-004: identity from session cookie; CLIENT role rejected.
+// CS-GEN-001: no PII in logs; error messages are generic.
+// CS-GEN-003: cite governing authority in comments.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("[AC-FILE-004-02] [security] deleteDocumentAction: non-ACCOUNTANT identity is rejected BEFORE any write", () => {
+  /**
+   * AC-FILE-004-02 (server-side half of the both-ways proof):
+   *   - null identity → rejected, softDeleteDocument NOT called.
+   *   - CLIENT role → rejected, softDeleteDocument NOT called.
+   *
+   * CS-TS-004: identity from session cookie only.
+   * ADR-003: guard fires before any DB write.
+   */
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetRateLimiter.mockReturnValue({ consume: mockLimiterConsume });
+    mockLimiterConsume.mockReturnValue({ allowed: true });
+    // Seam mock should NEVER be called when identity is rejected
+    mockSoftDeleteDocument.mockResolvedValue({ outcome: "deleted" });
+  });
+
+  it("[AC-FILE-004-02][security] deleteDocumentAction: null identity rejected, softDeleteDocument NOT called", async () => {
+    // Given: no valid session (null identity — no cookie or invalid cookie)
+    mockGetIdentity.mockResolvedValue(null); // CS-TS-004: session-based identity
+
+    // When: deleteDocumentAction is invoked (as if called without auth)
+    const result = await deleteDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID); // ADR-003 // CS-TS-004
+
+    // Then: rejected before any write
+    expect(result.success).toBe(false); // AC-FILE-004-02: no deletion occurs
+    if (!result.success) expect(result.error).toMatch(/unauthorized/i);
+    // ADR-003: softDeleteDocument MUST NOT be called before identity is verified
+    expect(mockSoftDeleteDocument).not.toHaveBeenCalled(); // AC-FILE-004-02 // ADR-003
+  });
+
+  it("[AC-FILE-004-02][security] deleteDocumentAction: CLIENT role rejected, softDeleteDocument NOT called", async () => {
+    // Given: a client participant (authenticated but not ACCOUNTANT)
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY); // CS-TS-004: CLIENT role
+
+    // When: deleteDocumentAction is invoked with a CLIENT session
+    const result = await deleteDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID); // ADR-003 // CS-TS-004
+
+    // Then: rejected before any write (AC-FILE-004-02: client cannot delete any file)
+    expect(result.success).toBe(false); // AC-FILE-004-02
+    if (!result.success) expect(result.error).toMatch(/unauthorized/i);
+    // ADR-003: softDeleteDocument MUST NOT be called when CLIENT identity is detected
+    expect(mockSoftDeleteDocument).not.toHaveBeenCalled(); // AC-FILE-004-02 // ADR-018
+  });
+});
+
+describe("[AC-FILE-004-01] deleteDocumentAction: accountant happy path + revalidation", () => {
+  /**
+   * AC-FILE-004-01: accountant deletes a file → deleted outcome.
+   * AC-FILE-006-01: revalidatePath fires so file leaves working view.
+   * ADR-018: softDeleteDocument is called (UPDATE-only, never physical DELETE).
+   * ADR-019: audit actor comes from verified session (CS-TS-004).
+   */
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY); // CS-TS-004: ACCOUNTANT role
+    mockGetRateLimiter.mockReturnValue({ consume: mockLimiterConsume });
+    mockLimiterConsume.mockReturnValue({ allowed: true });
+    mockSoftDeleteDocument.mockResolvedValue({ outcome: "deleted" });
+    mockRevalidatePath.mockReturnValue(undefined);
+  });
+
+  it("[AC-FILE-004-01] deleteDocumentAction: accountant deletes a file → outcome 'deleted', path revalidated", async () => {
+    // Given: accountant identity and an active document
+    // When: deleteDocumentAction is called
+    const result = await deleteDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID);
+
+    // Then: success with 'deleted' outcome (AC-FILE-004-01 — accountant can delete)
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.outcome).toBe("deleted");
+
+    // ADR-018: softDeleteDocument called (UPDATE-only — not physical DELETE)
+    expect(mockSoftDeleteDocument).toHaveBeenCalledOnce();
+    expect(mockSoftDeleteDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: DOCUMENT_ID,
+        engagementId: ENGAGEMENT_ID,
+        actor: expect.objectContaining({ clerkUserId: ACCOUNTANT_IDENTITY.clerkUserId, role: "ACCOUNTANT" }),
+        // ADR-019: actor from verified session
+      }),
+    );
+
+    // AC-FILE-006-01: revalidatePath fires so working view is refreshed (file leaves)
+    expect(mockRevalidatePath).toHaveBeenCalledWith(
+      expect.stringContaining(ENGAGEMENT_ID),
+    );
+  });
+
+  it("[AC-FILE-004-01] deleteDocumentAction: input validation — empty engagementId rejected", async () => {
+    const result = await deleteDocumentAction("", DOCUMENT_ID);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/engagement/i);
+    expect(mockSoftDeleteDocument).not.toHaveBeenCalled();
+  });
+
+  it("[AC-FILE-004-01] deleteDocumentAction: input validation — empty documentId rejected", async () => {
+    const result = await deleteDocumentAction(ENGAGEMENT_ID, "");
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/document/i);
+    expect(mockSoftDeleteDocument).not.toHaveBeenCalled();
+  });
+
+  it("[AC-FILE-004-01] deleteDocumentAction: seam throws → returns { success: false }", async () => {
+    // ADR-018: internal error does not propagate raw to the client.
+    mockSoftDeleteDocument.mockRejectedValue(new Error("DB connection failed"));
+
+    const result = await deleteDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/failed to delete/i);
+  });
+
+  it("[AC-FILE-004-01] deleteDocumentAction: actor is sourced from the verified session — never from args", async () => {
+    // CS-TS-004 / ADR-003: the actor in the audit event MUST equal the verified session identity.
+    // This verifies the trust fence: a caller cannot supply a spoofed clerkUserId via args.
+    await deleteDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID);
+
+    expect(mockSoftDeleteDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: {
+          clerkUserId: ACCOUNTANT_IDENTITY.clerkUserId, // ADR-003 // CS-TS-004: from session
+          role: "ACCOUNTANT",
+        },
+      }),
+    );
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TASK-014-003: recoverDocumentAction — recover soft-deleted document (EPIC-014)
+//
+// AC-FILE-006-03: accountant recovers a soft-deleted document; it is restored to working view.
+// ADR-018 §1: clears deletedAt tombstone (UPDATE — not INSERT/DELETE).
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("[AC-FILE-006-03] recoverDocumentAction: identity guard + happy path", () => {
+  /**
+   * AC-FILE-006-03: a soft-deleted file remains recoverable within the retention window.
+   * ADR-018: recover clears deletedAt (UPDATE-only).
+   * CS-TS-004: identity from session cookie; CLIENT rejected.
+   */
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetRateLimiter.mockReturnValue({ consume: mockLimiterConsume });
+    mockLimiterConsume.mockReturnValue({ allowed: true });
+    mockRecoverDocument.mockResolvedValue({ outcome: "recovered" });
+    mockRevalidatePath.mockReturnValue(undefined);
+  });
+
+  it("[AC-FILE-006-03] recoverDocumentAction: null identity rejected, recoverDocument NOT called", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await recoverDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/unauthorized/i);
+    expect(mockRecoverDocument).not.toHaveBeenCalled();
+  });
+
+  it("[AC-FILE-006-03] recoverDocumentAction: CLIENT role rejected, recoverDocument NOT called", async () => {
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
+
+    const result = await recoverDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/unauthorized/i);
+    expect(mockRecoverDocument).not.toHaveBeenCalled();
+  });
+
+  it("[AC-FILE-006-03] recoverDocumentAction: accountant recovers → outcome 'recovered', path revalidated", async () => {
+    // Given: accountant identity and a soft-deleted document
+    mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY); // CS-TS-004
+
+    // When: recoverDocumentAction is called
+    const result = await recoverDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID); // ADR-018
+
+    // Then: success with 'recovered' outcome (AC-FILE-006-03)
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.outcome).toBe("recovered");
+
+    // ADR-018: recoverDocument called (clears deletedAt — UPDATE-only)
+    expect(mockRecoverDocument).toHaveBeenCalledOnce();
+    expect(mockRecoverDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: DOCUMENT_ID,
+        engagementId: ENGAGEMENT_ID,
+        actor: expect.objectContaining({ clerkUserId: ACCOUNTANT_IDENTITY.clerkUserId, role: "ACCOUNTANT" }),
+      }),
+    );
+
+    // Revalidate path (file restored to working view)
+    expect(mockRevalidatePath).toHaveBeenCalledWith(
+      expect.stringContaining(ENGAGEMENT_ID),
+    );
+  });
+
+  it("[AC-FILE-006-03] recoverDocumentAction: seam throws → returns { success: false }", async () => {
+    mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY);
+    mockRecoverDocument.mockRejectedValue(new Error("DB connection failed"));
+
+    const result = await recoverDocumentAction(ENGAGEMENT_ID, DOCUMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/failed to recover/i);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TASK-014-003: listDeletedDocumentsAction — archive view (EPIC-014)
+//
+// AC-FILE-006-01: deleted docs appear in the archive; not in the working view.
+// AC-FILE-006-03: archive lists recoverable files.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("[AC-FILE-006-01] [AC-FILE-006-03] listDeletedDocumentsAction: identity guard + happy path", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListDeletedDocuments.mockResolvedValue([]);
+    // DECISION-014-003: listDeletedDocumentsAction now wraps listDeletedDocuments in
+    // withRequestContext (the Prisma client enforces SESSION_CONTEXT — ADR-003). Pass-through here.
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => unknown) => cb(),
+    );
+  });
+
+  it("[AC-FILE-006-01] listDeletedDocumentsAction: null identity rejected", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await listDeletedDocumentsAction(ENGAGEMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/unauthorized/i);
+    expect(mockListDeletedDocuments).not.toHaveBeenCalled();
+  });
+
+  it("[AC-FILE-006-01] listDeletedDocumentsAction: CLIENT role rejected", async () => {
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
+
+    const result = await listDeletedDocumentsAction(ENGAGEMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/unauthorized/i);
+    expect(mockListDeletedDocuments).not.toHaveBeenCalled();
+  });
+
+  it("[AC-FILE-006-03] listDeletedDocumentsAction: accountant sees archive (deleted docs)", async () => {
+    // Given: accountant identity and a soft-deleted document in the archive
+    mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY); // CS-TS-004
+    const deletedDoc = { id: DOCUMENT_ID, originalFilename: "deleted.pdf", status: "active" as const, version: 1, contentType: "application/pdf", sizeBytes: 100, createdAt: new Date(), engagementId: ENGAGEMENT_ID, storageKey: "k", uploadedByClerkId: null, folderId: null, deletedAt: new Date(), documentRequestId: null, updatedAt: new Date() };
+    mockListDeletedDocuments.mockResolvedValue([deletedDoc]);
+
+    // When: listDeletedDocumentsAction is called
+    const result = await listDeletedDocumentsAction(ENGAGEMENT_ID);
+
+    // Then: success with the deleted document listed (AC-FILE-006-01: archive contains deleted docs)
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.id).toBe(DOCUMENT_ID);
+    }
+    expect(mockListDeletedDocuments).toHaveBeenCalledWith(ENGAGEMENT_ID); // CS-TS-001
   });
 });

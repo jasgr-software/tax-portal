@@ -178,3 +178,32 @@ resolution is faithful to the "returning client = has prior history" semantics a
 **IO disposition (proceeding):** ship the JOIN-based resolution for the PoC; revisit when real Clerk user
 profiles land in Phase 5. No `.architecture/` ADR authored by the team. Tracked here for the architecture layer
 to absorb when Phase-5 auth wiring is planned.
+
+---
+
+## OQ-014-01 — Schema-wide temporal-history mechanism (ADR-018 §2) is broader than one slice
+
+**Status:** raised-upstream (cross-cutting mechanism; not slice-blocking)
+**Slice:** BRIEF-014 / EPIC-014 · **Raised:** 2026-06-24 · **By:** io
+
+**Context.** ADR-018 §2 decides system-versioned **temporal tables** (`SYSTEM_VERSIONING = ON`) as the history
+mechanism for **every** retainable entity (§1 names `User`, `Engagement`, `Document`, `Folder`, `Thread`,
+`Message`, `OnboardingState`, …). EPIC-014's brief carries that as an adherence constraint over the document
+surface. **No EPIC-014 acceptance criterion requires it**, though: "retained / not permanently destroyed /
+recoverable" (AC-FILE-005/-006, AC-NFR-006) is fully delivered by the soft-delete **tombstone** (`Document.deletedAt`
+— the row and storage bytes survive; no purge path is reachable in-window), the **ADR-019 audit trail** (every
+deletion/recovery is a recorded event), and the immutable **DocumentVersion** chain. Temporal history adds an
+immutable *prior-state-of-edits* record — valuable, but orthogonal to this slice's behavior contract.
+
+**Why it is upstream / cross-cutting.** Enabling `SYSTEM_VERSIONING` is a schema-wide posture (period columns +
+`*_History` side tables on the whole retainable graph, interacting with the RLS policies and the eventual purge job
+that must also sweep history side-rows — ADR-018 Consequences). Implementing it piecemeal on a single table inside a
+feature slice would be a mis-altituded partial mechanism and risks divergent per-table conventions. It belongs in a
+dedicated cross-cutting slice (or a planning epic) that applies the mechanism uniformly and defines the
+history-side purge coordination EPIC-015 will need.
+
+**IO disposition (proceeding):** EPIC-014 delivers the full AC set + all four hard gates via the tombstone +
+retention clock + audit (TASK-014-001/002/003), and does **not** bolt partial temporal DDL onto `Document` here.
+The schema-wide temporal-history mechanism is raised for the planning/architecture layers to schedule as its own
+slice (a natural companion to EPIC-015's purge, which must also govern history side-rows). No `.architecture/` ADR
+authored by the team. Tracked here for absorption.

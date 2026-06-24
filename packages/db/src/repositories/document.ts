@@ -19,6 +19,13 @@
  * AC-FILE-009-02: After replacement, "current" resolves to the newest non-superseded version.
  * AC-FILE-009-03: Every prior version retained + accessible after replacement.
  *
+ * EPIC-014 / TASK-014-002 — Soft-delete + recover seams + working/archive view split (ADR-018 §1):
+ * AC-FILE-004-01: softDeleteDocument sets deletedAt tombstone (accountant-only, admin pool, audited).
+ * AC-FILE-006-01: listEngagementDocuments default (working view) excludes soft-deleted docs;
+ *   includeDeleted:true / listDeletedDocuments (archive view) returns only soft-deleted docs.
+ * AC-FILE-006-02/-03: softDeleteDocument is UPDATE-only — never a physical DELETE; row + bytes survive.
+ *   recoverDocument clears deletedAt — document remains recoverable within the retention window.
+ *
  * Pool strategy:
  *   - authorizeEngagementForUpload: REQUEST POOL (db / SESSION_CONTEXT) — FILTER-governed.
  *     Resolves the engagement through the 0007 FILTER. RLS-filtered miss → null (404 / no URL).
@@ -116,8 +123,67 @@ export interface DocumentItem {
   version: number;
   scanThreat: string | null;
   uploadedBy: string | null;
+  /** Soft-delete tombstone. NULL = active; non-NULL = soft-deleted. ADR-018 §1 / DECISION-014-B. */
+  deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Input for softDeleteDocument — admin-pool, audited, UPDATE-only (ADR-018 §1).
+ * DECISION-014-D: returns { outcome } discriminator — callers handle already-deleted/not-found gracefully.
+ * // ADR-018 // ADR-019 // DECISION-014-D // CS-GEN-001
+ */
+export interface SoftDeleteDocumentInput {
+  documentId: string;
+  engagementId: string;
+  actor: AuditActor;
+}
+
+/**
+ * Result of softDeleteDocument.
+ * 'deleted'       — tombstone set; doc removed from working view.
+ * 'already-deleted' — doc was already soft-deleted (idempotent).
+ * 'not-found'     — no Document row matched (wrong id/engagementId).
+ * // DECISION-014-D
+ */
+export type SoftDeleteDocumentResult =
+  | { outcome: "deleted" }
+  | { outcome: "already-deleted" }
+  | { outcome: "not-found" };
+
+/**
+ * Input for recoverDocument — admin-pool, audited, clears deletedAt (ADR-018 §1).
+ * In-window recovery only; there is no purge path in this slice (EPIC-015).
+ * // ADR-018 // ADR-019 // AC-FILE-006-03 // AC-FILE-005-02
+ */
+export interface RecoverDocumentInput {
+  documentId: string;
+  engagementId: string;
+  actor: AuditActor;
+}
+
+/**
+ * Result of recoverDocument.
+ * 'recovered'   — deletedAt cleared; doc visible again.
+ * 'not-deleted' — doc was not soft-deleted (no-op).
+ * 'not-found'   — no Document row matched.
+ * // DECISION-014-D
+ */
+export type RecoverDocumentResult =
+  | { outcome: "recovered" }
+  | { outcome: "not-deleted" }
+  | { outcome: "not-found" };
+
+/**
+ * Options for listEngagementDocuments — working-view vs archive-view split.
+ * Default (includeDeleted: false) → working view: deletedAt IS NULL.
+ * includeDeleted: true → archive view: all documents including soft-deleted.
+ * // DECISION-014-E // AC-FILE-006-01
+ */
+export interface ListEngagementDocumentsOptions {
+  /** When true, the archive view (all docs including soft-deleted) is returned. Default: false. */
+  includeDeleted?: boolean;
 }
 
 /** Input for inserting a pending Document (ADR-009 step 2d). */
@@ -294,6 +360,8 @@ type DocumentRow = {
   version: number;
   scanThreat: string | null;
   uploadedBy: string | null;
+  /** Soft-delete tombstone — NULL = active; non-NULL = soft-deleted. ADR-018 §1. */
+  deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -322,7 +390,7 @@ function dbAsDocumentClient() {
     document: {
       findUnique: (args: { where: { id: string } }) => Promise<DocumentRow | null>;
       findMany: (args?: {
-        where?: { engagementId?: string };
+        where?: { engagementId?: string; deletedAt?: null | { not: null } };
         orderBy?: { createdAt: "asc" | "desc" };
       }) => Promise<DocumentRow[]>;
     };
@@ -562,28 +630,245 @@ export async function completeUpload(
 // ─── Read: listEngagementDocuments (request pool — FILTER-governed) ───────────
 
 /**
- * Returns all Documents for the given engagement, visible to the current
- * SESSION_CONTEXT identity.
+ * Returns Documents for the given engagement, visible to the current SESSION_CONTEXT identity.
  *
- * Under sec.pol_Document (0007-document-policy.sql):
- *   - CLIENT sees only documents for their own engagement.
- *   - ACCOUNTANT sees all documents for any engagement.
+ * Under sec.pol_Document (0007-document-policy.sql / 0012-document-soft-delete-filter.sql):
+ *   - CLIENT sees only documents for their own engagement with deletedAt IS NULL (RLS).
+ *   - ACCOUNTANT sees all documents for any engagement (RLS-exempt in this context).
  *   - Null SESSION_CONTEXT → ZERO rows (fail-closed, ADR-003 §5).
+ *
+ * Working view vs archive view split (DECISION-014-E):
+ *   - Default (opts.includeDeleted: false | undefined) → working view: only deletedAt IS NULL.
+ *     NOTE: The CLIENT always gets the working view regardless (RLS enforces deletedAt IS NULL).
+ *     The flag governs the ACCOUNTANT-pool listing when used via the request pool.
+ *   - opts.includeDeleted: true → archive view: all documents including soft-deleted.
+ *     The CLIENT never reaches this path (RLS filters soft-deleted docs regardless of the flag).
  *
  * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
  *
  * AC-FILE-001-02: Documents are stored against the engagement.
  * AC-FILE-001-05: Cross-engagement isolation — FILTER predicate enforces it.
+ * AC-FILE-006-01: Working view excludes soft-deleted (default); archive view (includeDeleted:true) shows all.
+ *
+ * // ADR-003 // ADR-005 // ADR-018 // DECISION-014-E // AC-FILE-001-02 // AC-FILE-006-01
+ * // CS-TS-001 // CS-GEN-002 // CS-GEN-003
  */
 export async function listEngagementDocuments(
+  engagementId: string,
+  opts?: ListEngagementDocumentsOptions,
+): Promise<DocumentItem[]> {
+  const client = dbAsDocumentClient();
+
+  // DECISION-014-E: working view (default) vs archive view (includeDeleted: true).
+  // Working view: only active (deletedAt IS NULL) documents — the client-facing / accountant default.
+  // Archive view: all documents including soft-deleted (accountant recover/archive surface).
+  // NOTE: CLIENT always gets working view due to RLS predicate — the flag is for ACCOUNTANT reads.
+  const whereClause = opts?.includeDeleted
+    ? { engagementId }
+    : { engagementId, deletedAt: null };
+
+  const rows = await client.document.findMany({
+    where: whereClause,
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map(mapDocumentRow);
+}
+
+/**
+ * Returns only soft-deleted Documents for the given engagement.
+ * ACCOUNTANT/admin-pool reader — the recover/archive surface (consumed by TASK-014-003).
+ *
+ * Under sec.pol_Document, ACCOUNTANT sessions see soft-deleted docs; CLIENT sessions do NOT
+ * (RLS hides them). This function's `deletedAt IS NOT NULL` filter narrows to deleted-only.
+ *
+ * MUST be called inside withRequestContext() or withClerkIdentity() with ACCOUNTANT identity (ADR-003).
+ *
+ * AC-FILE-006-01: Archive view shows only soft-deleted docs (the recover surface).
+ * AC-FILE-006-03: Soft-deleted docs remain recoverable via this listing.
+ *
+ * // ADR-003 // ADR-005 // ADR-018 // DECISION-014-E // AC-FILE-006-01 // AC-FILE-006-03
+ * // CS-TS-001 // CS-GEN-002 // CS-GEN-003
+ */
+export async function listDeletedDocuments(
   engagementId: string,
 ): Promise<DocumentItem[]> {
   const client = dbAsDocumentClient();
   const rows = await client.document.findMany({
-    where: { engagementId },
+    // DECISION-014-E: archive/recover view — only soft-deleted rows.
+    where: { engagementId, deletedAt: { not: null } },
     orderBy: { createdAt: "asc" },
   });
   return rows.map(mapDocumentRow);
+}
+
+// ─── Write: softDeleteDocument (admin pool — accountant-only, ADR-018 §1) ─────
+
+/**
+ * Soft-deletes a Document by setting the `deletedAt` tombstone (ADMIN POOL write).
+ *
+ * ADR-018 §1: "delete" sets deletedAt — NEVER a physical DELETE, NEVER a storage-object delete.
+ * ADR-019: deletion audit event emitted in the same transaction (withAuditTransaction — fail-closed).
+ * DECISION-014-D: returns { outcome } discriminator — callers handle already-deleted/not-found.
+ *
+ * SQL: UPDATE [dbo].[Document] SET [deletedAt] = SYSDATETIMEOFFSET()
+ *      WHERE [id]=@id AND [engagementId]=@engId AND [deletedAt] IS NULL
+ * @@ROWCOUNT: 0 → either not-found OR already-deleted (distinguished by a second check-exists read).
+ *
+ * CS-GEN-001: audit targetId = documentId only — NO filename or storage key logged.
+ * CS-TS-002: ADMIN POOL only (via getAdminPool / withAuditTransaction — RLS-exempt).
+ *
+ * // ADR-003 // ADR-018 // ADR-019 // DECISION-014-D // CS-TS-001 // CS-TS-002
+ * // CS-GEN-001 // CS-GEN-003 // AC-FILE-004-01 // AC-FILE-006-01 // AC-FILE-006-02
+ */
+export async function softDeleteDocument(
+  input: SoftDeleteDocumentInput,
+): Promise<SoftDeleteDocumentResult> {
+  let outcome: SoftDeleteDocumentResult["outcome"] = "not-found";
+
+  await withAuditTransaction(async (txn) => {
+    const pool = await getAdminPool();
+
+    // Step 1: Attempt the tombstone SET — fire-once guard (AND [deletedAt] IS NULL).
+    // ADR-018 §1: UPDATE-only; never a physical DELETE; never a storage-object delete.
+    const updateReq = new MssqlRequest(pool);
+    updateReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    updateReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(
+      `UPDATE [dbo].[Document]
+       SET [deletedAt]  = SYSDATETIMEOFFSET(),
+           [updatedAt]  = SYSDATETIMEOFFSET()
+       WHERE [id]          = @documentId
+         AND [engagementId] = @engagementId
+         AND [deletedAt]    IS NULL;
+       SELECT @@ROWCOUNT AS rowsAffected;`
+    );
+
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected > 0) {
+      // Tombstone set. Emit audit event in the same transaction (ADR-019 fail-closed).
+      // CS-GEN-001: targetId = documentId only — no filename, no storageKey.
+      await recordAuthEvent({
+        actor: input.actor,
+        action: "document.deleted",
+        targetType: "Document",
+        targetId: input.documentId,
+        sourceSurface: "admin",
+        outcome: "success",
+        transaction: txn,
+      });
+      outcome = "deleted";
+      return;
+    }
+
+    // @@ROWCOUNT = 0 — disambiguate: already-deleted vs not-found (second read via admin pool).
+    const existsReq = new MssqlRequest(pool);
+    existsReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    existsReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const existsResult = await existsReq.query<{ deletedAt: Date | null }>(
+      `SELECT [deletedAt] FROM [dbo].[Document]
+       WHERE [id] = @documentId AND [engagementId] = @engagementId`
+    );
+
+    const row = existsResult.recordset[0];
+    if (row) {
+      // Row exists with deletedAt IS NOT NULL — already soft-deleted (idempotent).
+      outcome = "already-deleted";
+    } else {
+      // Row does not exist (wrong id or engagementId mismatch).
+      outcome = "not-found";
+    }
+    // No audit event for no-op outcomes (already-deleted / not-found).
+  });
+
+  return { outcome };
+}
+
+// ─── Write: recoverDocument (admin pool — accountant-only, ADR-018 §1) ─────────
+
+/**
+ * Recovers a soft-deleted Document by clearing the `deletedAt` tombstone (ADMIN POOL write).
+ *
+ * ADR-018 §1: in-window recovery re-activates the document by clearing deletedAt.
+ * There is no expiry/purge path in this slice (EPIC-015) — recovery is always available here.
+ * ADR-019: recovery audit event emitted in the same transaction (withAuditTransaction).
+ * DECISION-014-D: returns { outcome } discriminator.
+ *
+ * SQL: UPDATE [dbo].[Document] SET [deletedAt] = NULL
+ *      WHERE [id]=@id AND [engagementId]=@engId AND [deletedAt] IS NOT NULL
+ *
+ * CS-GEN-001: audit targetId = documentId only — no filename logged.
+ * CS-TS-002: ADMIN POOL only (via getAdminPool / withAuditTransaction).
+ *
+ * // ADR-003 // ADR-018 // ADR-019 // DECISION-014-D // CS-TS-001 // CS-TS-002
+ * // CS-GEN-001 // CS-GEN-003 // AC-FILE-006-03 // AC-FILE-005-02
+ */
+export async function recoverDocument(
+  input: RecoverDocumentInput,
+): Promise<RecoverDocumentResult> {
+  let outcome: RecoverDocumentResult["outcome"] = "not-found";
+
+  await withAuditTransaction(async (txn) => {
+    const pool = await getAdminPool();
+
+    // Attempt to clear the tombstone — fire-once guard (AND [deletedAt] IS NOT NULL).
+    const updateReq = new MssqlRequest(pool);
+    updateReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    updateReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const updateResult = await updateReq.query<{ rowsAffected: number }>(
+      `UPDATE [dbo].[Document]
+       SET [deletedAt]  = NULL,
+           [updatedAt]  = SYSDATETIMEOFFSET()
+       WHERE [id]          = @documentId
+         AND [engagementId] = @engagementId
+         AND [deletedAt]    IS NOT NULL;
+       SELECT @@ROWCOUNT AS rowsAffected;`
+    );
+
+    const rowsAffected =
+      (updateResult.recordset as Array<{ rowsAffected: number }>)[0]?.rowsAffected ?? 0;
+
+    if (rowsAffected > 0) {
+      // deletedAt cleared. Emit audit event in the same transaction (ADR-019 fail-closed).
+      // CS-GEN-001: targetId = documentId only — no filename logged.
+      await recordAuthEvent({
+        actor: input.actor,
+        action: "document.recovered",
+        targetType: "Document",
+        targetId: input.documentId,
+        sourceSurface: "admin",
+        outcome: "success",
+        transaction: txn,
+      });
+      outcome = "recovered";
+      return;
+    }
+
+    // @@ROWCOUNT = 0 — disambiguate: not-deleted vs not-found.
+    const existsReq = new MssqlRequest(pool);
+    existsReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    existsReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const existsResult = await existsReq.query<{ deletedAt: Date | null }>(
+      `SELECT [deletedAt] FROM [dbo].[Document]
+       WHERE [id] = @documentId AND [engagementId] = @engagementId`
+    );
+
+    const row = existsResult.recordset[0];
+    if (row) {
+      // Row exists with deletedAt IS NULL — not deleted, nothing to recover.
+      outcome = "not-deleted";
+    } else {
+      // Row does not exist.
+      outcome = "not-found";
+    }
+  });
+
+  return { outcome };
 }
 
 // ─── Authorize-then-sign download (ADR-009 step 2a) ───────────────────────────
@@ -997,6 +1282,8 @@ function mapDocumentRow(row: DocumentRow): DocumentItem {
     version: row.version,
     scanThreat: row.scanThreat,
     uploadedBy: row.uploadedBy,
+    // Soft-delete tombstone — ADR-018 §1 / DECISION-014-B.
+    deletedAt: row.deletedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
