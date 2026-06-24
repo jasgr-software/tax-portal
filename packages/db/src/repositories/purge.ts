@@ -440,7 +440,9 @@ export async function purgeEngagement(
   // Inverse is NOT acceptable (bytes gone, rows intact, no audit record).
   // CS-GEN-001: do NOT log storageKey values (contains engagement path information).
   // // ADR-009 // CS-GEN-001
-  if (result.outcome === "purged" && storageKeysToDelete.length > 0) {
+  // storageKeysToDelete is only populated on the eligible path (inside the txn).
+  // Guard on keys length — TypeScript cannot analyze cross-closure mutation of result.
+  if (storageKeysToDelete.length > 0) {
     const storage = getStorage();
     for (const key of storageKeysToDelete) {
       await storage.delete(key);
