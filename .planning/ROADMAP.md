@@ -7,6 +7,33 @@
 
 ## Status / amendment history
 
+- **2026-06-24 (Phase 4 decomposed — the final feature phase is sliced; completing it completes the v1 POC)** —
+  decomposed **Phase 4** (Messaging, notifications & the accountant dashboard) into **8 vertically-sliced epics,
+  EPIC-016..023**, dependency-sequenced: **EPIC-016** in-portal notification feed (the dual-role spine, real-time,
+  badge, read-tracking, 90-day retention — generalizes the EPIC-003 accountant-only `Notification` to clients) →
+  **EPIC-017** per-engagement & general messaging (threads, plain-text, scanned attachments, per-viewer unread,
+  archive-on-close) → **EPIC-018** email digest fallback (content-free, daily cap, suppression/default-on) →
+  **EPIC-019** overdue detection & reminder engine (auto-detect + configurable cadence + reminder notification types;
+  FILE-012 + DASH-008 + MSG-018) → **EPIC-020** dashboard home (metrics + activity feed + needs-action) → **EPIC-021**
+  client/engagement navigation (client list, pipeline view, dashboard notes & flags) → **EPIC-022** admin settings &
+  portal identity (engagement-letter template mgmt, portal names, v1 appearance) → **EPIC-023** accountant audit-trail
+  read surface (closes the deferred REQ-NFR-010 read surface + REQ-NFR-011 integrity — **the last slice; completes the
+  v1 POC**). **~119 AC newly placed** (`planned`): the MSG v1 remainder (REQ-MSG-001..012, -015..018, the MSG-013-02/
+  -03/-05/-06 + MSG-014-01..07 remainders), the DASH v1 remainder (REQ-DASH-001..009, -013), the IDNT v1 verifiable set
+  (REQ-IDNT-002/003/004/006), **REQ-NFR-010-01..06 + REQ-NFR-011** (the audit-trail feature/read surface, the user's
+  explicit ask — landed in EPIC-023 so the POC does not close with an orphaned requirement), and **REQ-FILE-012**
+  (carried in from Phase 3, needs the reminder engine). **Notification types placed at their source event** (not a
+  horizontal "all types" epic): new-message → EPIC-017; document-upload/status-change/deliverable/accept-decline →
+  EPIC-016; overdue/due-date/doc-request-created → EPIC-019. **Three deferrals:** **REQ-IDNT-001** (custom domain) →
+  **Phase 5** (inseparable from the deferred production-hosting decision ADR-007; user-confirmed this run);
+  **REQ-IDNT-005** (permanent client hard-delete) → **Deferred** (retention/legal precedence, unchanged); **REQ-MSG-019**
+  (proactive lifecycle accountability) → **v2/Deferred** (EPIC-019 builds the overdue-document subset it generalizes).
+  **Behavior contract:** reconciled the migrated legacy `flow-message-exchange` (stale "Epic 005" label retired →
+  EPIC-016/017/018); authored `flow-notification-feed` and `flow-accountant-dashboard`; no new persona (jane-accountant +
+  the two client personas already serve these slices). **Architecture flag:** the **real-time notification transport** has
+  no dedicated ADR — consumed behind the ADR-023 mock seam for the POC; the architecture layer should own the transport
+  choice before Phase-5 real-provider enablement. **Totals: 190 verified + ~119 newly `planned`.** **Next:**
+  `/orchestrate EPIC-016` (the notification spine — the first ready Phase-4 slice).
 - **2026-06-24 (EPIC-015 delivered — the destructive end of the document lifecycle lands; EPIC-015 CLOSES Phase 3)** —
   the post-retention-purge & legal-hold slice shipped (PR #99, squash merge `53b3444`). All **16 in-scope AC** signed
   off `verified` in `COVERAGE.md`: AC-FILE-013-01..06 (purge-eligible only after the 7-year window elapses /
@@ -583,11 +610,44 @@ the FILE domain remain for the follow-up pass.
 > the rest of the audit-trail feature (incl. the accountant-only audit *read* surface) is a **dedicated
 > audit-trail slice in Phase 4** — these Phase-3 epics emit audit events (ADR-019) without claiming those AC.
 
-## Phase 4 — Messaging, notifications & the accountant dashboard *(to decompose)*
+## Phase 4 — Messaging, notifications & the accountant dashboard *(decomposed 2026-06-24 — EPIC-016..023, the final feature phase: completes the v1 POC)*
 
 Per-engagement plain-text threads with attachments and unread indicators; the real-time in-portal
-notification system and email digest fallback; the accountant's activity feed / needs-action dashboard
-and admin UI; portal identity & settings. Requirement themes: MSG, DASH, IDNT.
+notification system and email digest fallback; the overdue-reminder engine; the accountant's activity
+feed / needs-action dashboard, client/engagement navigation, and admin settings; portal identity; and the
+deferred audit-trail read surface. Requirement themes: **MSG, DASH, IDNT, + the NFR-010/011 audit
+feature**. This is the **last feature phase** — once delivered, every core v1 capability is functionally
+proven end-to-end against the mocked provider seams (**the v1 POC is complete**); **Phase 5** then swaps
+the mocks for real providers and stands up production.
+
+**Build order (dependency-sequenced):** the notification **spine** first (EPIC-016), then the source slices
+that emit into it (messaging EPIC-017, email EPIC-018, reminders EPIC-019), then the surfaces that aggregate
+them (dashboard EPIC-020, navigation EPIC-021), then settings/identity (EPIC-022), and finally the
+audit-trail read surface (EPIC-023) that **closes the POC**.
+
+| Epic | Slice | Status | Depends on |
+|---|---|---|---|
+| **EPIC-016** | In-portal notification feed — the dual-role spine: real-time feed on both surfaces, persistent unread-count badge, mark-read-on-view, ≥90-day retention; generalizes the EPIC-003 accountant-only `Notification` to a client branch and lights it up with the already-existing events (document upload; status change, deliverable ready, accept/decline) (20 AC: MSG-007/012/015/016/017, MSG-013-03, MSG-014-03..07) | `planned` | EPIC-003 ✅, EPIC-010 ✅, EPIC-013 ✅ |
+| **EPIC-017** | Per-engagement & general messaging threads — one thread per engagement + accountant-initiated general threads, plain-text only, file attachments (malware-scanned, signed-URL), per-viewer unread indicators, indefinite retention + archive-on-close; emits the new-message notification types (24 AC: MSG-001..006, MSG-013-02, MSG-014-01) | `planned` | EPIC-016, EPIC-013 ✅, EPIC-010 ✅ |
+| **EPIC-018** | Email digest fallback — content-free nudge ("new activity — sign in", no detail), ≤1/recipient/day batching, accountant self-suppression, client default-on (12 AC: MSG-008/009/010/011) | `planned` | EPIC-016 |
+| **EPIC-019** | Overdue detection & reminder engine — auto-detect overdue document requests (no manual trigger), configurable cadence (global default + per-engagement override, precedence), and the reminder-driven notification types (14 AC: MSG-018, DASH-008, FILE-012, MSG-013-05/-06, MSG-014-02). Generalized by v2 REQ-MSG-019 (deferred). | `planned` | EPIC-016, EPIC-011 ✅, EPIC-013 ✅ |
+| **EPIC-020** | Accountant dashboard home — live summary metrics (active/overdue engagements, pending requests, upcoming deadlines), unified cross-practice activity feed, distinct needs-action grouping (13 AC: DASH-001/002/003) | `planned` | EPIC-016, EPIC-017, EPIC-019, EPIC-010 ✅, EPIC-012 ✅ |
+| **EPIC-021** | Accountant navigation — searchable/filterable client list (status, service type, tax year), engagement pipeline view (by status, filterable, act-on-any, full visibility), and dashboard surfacing of internal notes + priority/flag markers (16 AC: DASH-004/005/009/006/007) | `planned` | EPIC-010 ✅, EPIC-011 ✅, EPIC-012 ✅ |
+| **EPIC-022** | Admin settings & portal identity — engagement-letter template management (default + edit + used-at-signing), distinct portal names ("Client Portal" / "Tax Portal"), v1 generic appearance, branding & legal-pages recorded-deferred (12 AC: DASH-013, IDNT-002/003/004/006). **IDNT-001 custom domain → Phase 5.** | `planned` | EPIC-005 ✅ |
+| **EPIC-023** | Accountant audit-trail read surface — accountant-only record of document access, status transitions, all admin actions, auth events (actor/action/time/outcome), ≥7-yr retention, tamper-evidence + completeness; closes the deferred REQ-NFR-010 read surface (8 AC: NFR-010-01..06, NFR-011). **Last Phase-4 slice — completes the v1 POC.** | `planned` | EPIC-015 ✅, EPIC-010 ✅, EPIC-013 ✅ |
+
+> **~119 AC placed** across the eight epics (MSG v1 remainder + DASH v1 remainder + IDNT v1 verifiable set +
+> NFR-010-01..06/NFR-011 + FILE-012). **Deferred from this phase:** **REQ-IDNT-001** (custom domain → Phase 5,
+> tied to the deferred production-hosting decision ADR-007); **REQ-IDNT-005** (permanent client hard-delete →
+> Deferred, retention/legal precedence); **REQ-MSG-019** (proactive lifecycle accountability — v2 → Deferred;
+> EPIC-019 builds the overdue-document subset it generalizes). Already-placed DASH/MSG/IDNT AC are unchanged:
+> DASH-010 (EPIC-002), DASH-011 (EPIC-003), DASH-012 (EPIC-006), MSG-013-01 (EPIC-003), MSG-013-04 (EPIC-008),
+> IDNT-007 (EPIC-005).
+>
+> **Architecture note (flag for `.architecture/`):** the **real-time notification transport** (the in-portal
+> feed's live delivery — CLAUDE.md references Supabase Realtime / SSE) has **no dedicated ADR**. EPIC-016
+> consumes it behind the mock-first provider seam (ADR-023) for the POC, but the transport choice is a HOW the
+> architecture layer should own before the real-provider Phase-5 enablement.
 
 ## Phase 5 — Production readiness *(end-of-cycle placeholder)*
 
@@ -606,7 +666,9 @@ Collects (each becomes an epic when this phase is decomposed):
 - **Real third-party providers** — real **Docuseal** e-sign (re-validate EPIC-005 ONBD-002 / IDNT-007), real
   **malware scanner** (re-validate EPIC-007 NFR-009), real **email** delivery (replacing Mailhog).
 - **Production platform (ADR-007)** — choose + stand up the production host; real domains, secrets, object
-  storage (replacing Azurite), and the deploy / CI promotion path.
+  storage (replacing Azurite), and the deploy / CI promotion path. Includes **REQ-IDNT-001** (portal served
+  on the firm's own custom domain — AC-IDNT-001-01/-02), deferred from Phase 4 because its mechanics are
+  inseparable from this hosting decision.
 - **Hardening** — security review, performance / NFR validation against the real stack, and the go-live gate.
 
 > See `COVERAGE.md` § Provider re-validation and § Deferred for the specific AC each real-provider item
