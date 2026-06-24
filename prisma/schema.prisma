@@ -138,6 +138,11 @@ model User {
   // EPIC-012: Reverse relation — a User may participate in many engagements as an additional CLIENT
   // DECISION-D (BRIEF-012): participant link tracked in EngagementParticipant join table (AC-AUTH-007-01/-03)
   engagementParticipations EngagementParticipant[]
+  // EPIC-015 (BRIEF-015 / TASK-015-001): Reverse relation — client-scoped legal holds (ADR-018 §6)
+  // AC-FILE-014-02: accountant can place a hold on a client (covering ALL their engagements).
+  // ACCOUNTANT-ONLY: no client-facing read/write path to this table.
+  // CS-GEN-002: additive — new relation; no existing column removed or altered.
+  legalHolds LegalHold[] @relation("ClientHolds")
 
   @@map("User")
 }
@@ -240,6 +245,11 @@ model Engagement {
   // EPIC-013 (BRIEF-013 / TASK-013-001): Reverse relation — folders organizing documents (AC-FILE-010-01)
   // RLS policy: sec.pol_Folder (Track B: db/policies/0010-folder-policy.sql). // CS-GEN-002
   folders               Folder[]
+  // EPIC-015 (BRIEF-015 / TASK-015-001): Reverse relation — legal holds scoped to this engagement (ADR-018 §6)
+  // RLS policy: sec.pol_LegalHold (Track B: db/policies/0013-legal-hold-policy.sql). ACCOUNTANT-ONLY.
+  // AC-FILE-014-01: accountant can place a hold on an individual engagement.
+  // CS-GEN-002: additive — new relation; no existing column removed or altered.
+  legalHolds            LegalHold[] @relation("EngagementHolds")
 
   @@map("Engagement")
 }
@@ -675,4 +685,72 @@ model Notification {
   createdAt           DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
 
   @@map("Notification")
+}
+
+// ─── LegalHold ────────────────────────────────────────────────────────────────
+// Legal-hold marker — a first-class purge blocker (ADR-018 §6 / REQ-FILE-014).
+// ACCOUNTANT-ONLY — no client-facing read, insert, update, or delete path.
+// RLS (ADR-005 § Tables-in-scope): ACCOUNTANT / admin sees all; CLIENT → ZERO rows (fail-closed).
+//   Security policy: sec.pol_LegalHold (Track B: db/policies/0013-legal-hold-policy.sql).
+//   Predicate: sec.fn_legal_hold_access (accountant-only, NO CLIENT branch — mirrors pol_EngagementNote).
+//
+// DECISION (TASK-015-001 / IO Design — bounded):
+//   One table with a `scope` discriminator ('engagement' | 'client') — the IO Design choice.
+//   Exactly one of {engagementId, clientUserId} is non-null per row (enforced by CHECK in Track B).
+//   Active hold = liftedAt IS NULL (no TTL column; a hold does not auto-expire — AC-FILE-014-04).
+//   Client-scoped hold covers ALL of that client's engagements (AC-FILE-014-02) — resolved by
+//   activeHoldsFor() in the repository (a hold matching either the direct engagementId OR the
+//   engagement's clientUserId is an active hold on that engagement).
+//
+// ADR-002: UNIQUEIDENTIFIER PK NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// ADR-018 §6: engagement-scoped hold (AC-FILE-014-01) + client-scoped hold (AC-FILE-014-02);
+//   active hold suspends purge indefinitely; no auto-expire; lift restores eligibility iff window elapsed.
+// ADR-019: place + lift are audited admin actions ('legal_hold.placed' / 'legal_hold.lifted');
+//   audit records are excluded from the purge job and survive it.
+//
+// CS-SQL-001: this table ships sec.pol_LegalHold + legal-hold.rls.test.ts (HARD GATE). // CS-SQL-001
+// CS-SQL-003: predicate is an inline TVF, shallow, admin/accountant-first, fail-closed. // CS-SQL-003
+// CS-GEN-002: additive — new table; no existing model modified destructively. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// AC-FILE-014-01: hold on an individual engagement.
+// AC-FILE-014-02: hold on a client (covers all engagements).
+// AC-FILE-014-04: no auto-expire — liftedAt IS NULL means active indefinitely.
+// AC-FILE-013-02: no client-facing hold path (accountant-only, proven both ways by CS-SQL-001 test).
+
+model LegalHold {
+  id             String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // Scope discriminator: 'engagement' (hold on a single engagement) | 'client' (hold on all client engagements)
+  // ADR-018 §6: two scopes — engagement-level (AC-FILE-014-01) and client-level (AC-FILE-014-02).
+  // CHECK constraint enforcing 'engagement' | 'client' lives in Track B (0013-legal-hold-policy.sql).
+  scope          String    @db.NVarChar(20)
+  // FK → Engagement — set when scope='engagement'; NULL when scope='client'. ADR-002.
+  // DECISION: exactly one of {engagementId, clientUserId} is non-null (CHECK in Track B).
+  // onDelete: NoAction — never cascade-delete a hold when the engagement is removed.
+  // onUpdate: NoAction — required by Prisma cyclic-cascade validation (multi-path through Engagement → EngagementRequest → User)
+  engagementId   String?   @db.UniqueIdentifier
+  engagement     Engagement? @relation("EngagementHolds", fields: [engagementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // FK → User — set when scope='client'; NULL when scope='engagement'. ADR-002.
+  // DECISION: the User here is the CLIENT whose engagements are all held (not the accountant).
+  // onDelete: NoAction — never cascade-delete a hold when the user is removed.
+  // onUpdate: NoAction — required by Prisma cyclic-cascade validation.
+  clientUserId   String?   @db.UniqueIdentifier
+  clientUser     User?     @relation("ClientHolds", fields: [clientUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Accountant clerkId who placed the hold (server-verified identity — ADR-019 §2, CS-GEN-001).
+  // AC-FILE-014-06: audit requires who placed the hold.
+  placedByClerkId String   @db.NVarChar(128)
+  // Placement timestamp — default SYSDATETIMEOFFSET() (ADR-002). AC-FILE-014-06.
+  placedAt       DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  // Accountant clerkId who lifted the hold (NULL = hold is still active). ADR-019 §2.
+  // AC-FILE-014-07: audit requires who lifted the hold.
+  liftedByClerkId String?  @db.NVarChar(128)
+  // Lifted timestamp — NULL = hold is still active (active hold = liftedAt IS NULL — ADR-018 §6).
+  // AC-FILE-014-04: hold does not auto-expire; liftedAt is only set when the accountant explicitly lifts.
+  liftedAt       DateTime? @db.DateTimeOffset
+  // Optional free-text reason for the hold (e.g. litigation context) — NVarChar(1024).
+  // CS-GEN-001: never log client PII — reason is optional context, not PII.
+  reason         String?   @db.NVarChar(1024)
+  createdAt      DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt      DateTime  @updatedAt @db.DateTimeOffset
+
+  @@map("LegalHold")
 }

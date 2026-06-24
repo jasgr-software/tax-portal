@@ -364,6 +364,51 @@ export type {
 } from "./checklist.js";
 export { resolveChecklist } from "./checklist.js";
 
+// Legal-hold repository (EPIC-015 / TASK-015-001 — ADR-018 §6 / ADR-005)
+// Accountant-only legal-hold place/lift/read seam — the purge blocker (ADR-018 §6).
+//
+// ACCOUNTANT-ONLY: no client-facing read, insert, update, or delete path to LegalHold.
+// RLS policy: sec.pol_LegalHold (Track B: db/policies/0013-legal-hold-policy.sql).
+//   CLIENT → ZERO rows (fail-closed). ACCOUNTANT/admin → all rows.
+//
+// placeLegalHold — ADMIN POOL write; inserts hold (scope='engagement'|'client'); audit 'legal_hold.placed'.
+//   Idempotent: if an active hold already exists for the same scope/target, returns 'already-held'.
+//   AC-FILE-014-01 (engagement-scoped) + AC-FILE-014-02 (client-scoped).
+//   AC-FILE-014-06: placing is audited (who, on what, when).
+//
+// liftLegalHold — ADMIN POOL write; sets liftedAt + liftedByClerkId; audit 'legal_hold.lifted'.
+//   Idempotent: already-lifted hold returns 'already-lifted'.
+//   AC-FILE-014-05: lifting restores purge eligibility iff window elapsed.
+//   AC-FILE-014-07: lifting is audited (who, on what, when).
+//
+// activeHoldsFor(engagementId) — ADMIN POOL read; returns all active holds for an engagement.
+//   Resolves BOTH scopes: direct engagement holds AND client-scoped holds (via engagement.clientUserId).
+//   An empty result means the engagement is not held and may be purge-eligible (if window elapsed).
+//   TASK-015-002 consumes this for purge-eligibility derivation.
+//   AC-FILE-014-02: client-scoped hold covers ALL of that client's engagements.
+//   AC-FILE-014-03: an active hold blocks purge even post-expiry.
+//   AC-FILE-014-04: active hold = liftedAt IS NULL (no auto-expire — no TTL column).
+//
+// CS-TS-001/-002: admin pool via getAdminPool inside withAuditTransaction.
+// CS-GEN-001: no PII in audit rows (targetId = holdId only).
+// CS-GEN-002: additive — new repository; no existing repository modified.
+// CS-SQL-001: the LegalHold table ships sec.pol_LegalHold + legal-hold.rls.test.ts (HARD GATE).
+export type {
+  LegalHoldItem,
+  PlaceLegalHoldInput,
+  PlaceLegalHoldResult,
+  LiftLegalHoldInput,
+  LiftLegalHoldResult,
+} from "./repositories/legal-hold.js";
+export {
+  // AC-FILE-014-01/-02/-06: place engagement-scoped or client-scoped hold (admin pool, audited)
+  placeLegalHold,
+  // AC-FILE-014-05/-07: lift a hold (admin pool, audited); restores eligibility iff window elapsed
+  liftLegalHold,
+  // AC-FILE-014-02/-03/-04: read active holds for eligibility derivation (admin pool read)
+  activeHoldsFor,
+} from "./repositories/legal-hold.js";
+
 // Engagement-creation seams (EPIC-012 / TASK-012-002)
 // createReturningClientRequest          — pending EngagementRequest for a returning (signed-in) client;
 //   contact resolved from on-file User→Engagement→EngagementRequest (AC-DOOR-009-03, DECISION-E).
@@ -403,6 +448,41 @@ export {
 // CS-TS-003: placed in packages/db (shared) so both portal + admin can consume it.
 export type { ClientFacingLabel } from "./engagement-label.js";
 export { clientFacingLabel, CLIENT_FACING_LABELS } from "./engagement-label.js";
+
+// Purge-eligibility derivation + admin-pool confirmed purge (EPIC-015 / TASK-015-002 — ADR-018 §5/§6)
+//
+// purgeEligibility — PURE function: derives eligibility from retentionDeadlineFor + activeHolds.
+//   Precedence: (1) blocked-by-hold → (2) in-window / not-completed → (3) eligible.
+//   Eligibility is computed, never stored; expiry creates eligibility ONLY (never auto-purge).
+//   ADR-018 §5/§6 / AC-FILE-013-01/-04 / AC-FILE-014-03/-05 / AC-FILE-015-02
+//
+// purgeEngagement — ADMIN POOL write; confirmed, never-automatic physical DELETE of
+//   DocumentVersion + Document rows + storage bytes (ADR-009 two-track lifecycle).
+//   Re-resolves eligibility server-side inside the transaction (never trusts caller eligibility).
+//   Emits 'engagement.purged' audit event in the same transaction (ADR-019 §3 fail-closed).
+//   AuditEvent is EXCLUDED from the purge sweep (ADR-019 §5 / AC-NFR-010-07).
+//   TEMPORAL-HISTORY deferral under OQ-014-01: no _History side-rows purged (none exist yet).
+//   NEVER-AUTOMATIC: no cron/scheduled/auto-trigger; confirmed=true required (AC-FILE-013-03/-04).
+//   ADMIN-POOL ONLY: no client request handler or client principal can reach this function.
+//   AC-FILE-013-01/-02/-03/-04/-05/-06 / AC-FILE-014-03 / AC-FILE-015-01/-02 / AC-NFR-010-07
+//
+// CS-TS-001/-002: admin pool only via getAdminPool inside withAuditTransaction.
+// CS-SQL-001: no client principal can reach the physical DELETE path (purge.rls.test.ts).
+// CS-SQL-002: physical DELETE is on the raw-SQL / admin-pool track (Prisma cannot express it).
+// CS-GEN-001: no PII in audit rows (targetId = engagementId only).
+export type {
+  PurgeEligibilityResult,
+  PurgeEngagementInput,
+  PurgeEngagementResult,
+} from "./repositories/purge.js";
+export {
+  // Pure eligibility derivation (ADR-018 §3/§5/§6 — no DB, reuses retentionDeadlineFor + holds input)
+  // AC-FILE-013-01/-04 / AC-FILE-014-03/-05 / AC-FILE-015-02
+  purgeEligibility,
+  // Admin-pool confirmed purge (ADR-018 §5 / ADR-019 / ADR-009)
+  // AC-FILE-013-01/-02/-03/-04/-05/-06 / AC-FILE-014-03 / AC-FILE-015-01/-02 / AC-NFR-010-07
+  purgeEngagement,
+} from "./repositories/purge.js";
 
 // Onboarding completion engine (EPIC-008 / TASK-008-001)
 // isOnboardingComplete           — pure predicate: true iff all three step done flags are true

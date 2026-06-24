@@ -31,10 +31,14 @@
 import { headers } from "next/headers";
 import { getAuthProvider } from "@tax-portal/auth";
 // CS-TS-001: uses @tax-portal/db barrel for all reads (no raw pool import)
-import { listEngagementFolders, withRequestContext } from "@tax-portal/db";
+import { listEngagementFolders, withRequestContext, adminDb, activeHoldsFor, purgeEligibility } from "@tax-portal/db";
 import { DocumentsClientPage } from "./_components/DocumentsClientPage";
 import { FolderTree } from "./_components/FolderTree";
+import { RetentionPanel } from "./_components/RetentionPanel";
 import { listDocumentsAction, listDeletedDocumentsAction } from "./actions";
+// TASK-015-003: EPIC-015 retention / purge / legal-hold panel (ADR-018 §5/§6)
+// ADR-006: RetentionPanel is imported ONLY in apps/admin — no mirror in apps/portal.
+// // ADR-006 // ADR-018 // CS-GEN-003
 
 // TASK-013-004: AC-FILE-010-01/-02/-03/-04 — folder tree is accountant-only, admin surface.
 // ADR-006: FolderTree is imported ONLY in apps/admin — no mirror in apps/portal.
@@ -103,6 +107,31 @@ export default async function DocumentsPage({ params }: DocumentsPageProps) {
     identity.clerkUserId,
     identity.role,
     () => listEngagementFolders(engagementId),
+  );
+
+  // TASK-015-003: Load purge eligibility + active holds for the retention panel.
+  // ADR-018 §3/§5/§6: eligibility = (window elapsed AND no hold).
+  // CS-TS-001: activeHoldsFor from @tax-portal/db barrel (admin pool).
+  // ADR-006: RetentionPanel is rendered ONLY in apps/admin — never in apps/portal.
+  // // ADR-006 // ADR-018 §5/§6 // CS-TS-001 // CS-GEN-003
+  // Use adminDb (admin pool Prisma client) to query completedAt for the engagement.
+  // DECISION: adminDb is the appropriate client for admin-pool reads in apps/admin server components.
+  //   (mirrors the established pattern in apps/admin/src/app/page.tsx and
+  //    apps/admin/src/app/requests/[id]/page.tsx).
+  // CS-TS-002: adminDb is on an allowed admin code path (apps/admin server component).
+  // ADR-003 §1/§6: admin pool is correct for admin-surface reads without SESSION_CONTEXT.
+  // // ADR-003 §1 // CS-TS-002 // CS-GEN-003
+  const engagementRow = await (adminDb as unknown as {
+    engagement: { findUnique: (args: { where: { id: string }; select: { completedAt: boolean } }) => Promise<{ completedAt: Date | null } | null> };
+  }).engagement.findUnique({
+    where: { id: engagementId },
+    select: { completedAt: true },
+  }).catch(() => null);
+  const initialActiveHolds = await activeHoldsFor(engagementId).catch(() => []);
+  const completedAt = engagementRow?.completedAt ?? null;
+  const initialEligibility = purgeEligibility(
+    { id: engagementId, completedAt },
+    initialActiveHolds,
   );
 
   return (
@@ -191,6 +220,17 @@ export default async function DocumentsPage({ params }: DocumentsPageProps) {
             documents={initialDocuments}
           />
         </div>
+
+        {/* Retention panel — purge-confirm + legal-hold place/lift (TASK-015-003 / EPIC-015) */}
+        {/* AC-FILE-013-03: confirm-before-purge. AC-FILE-014-01: place hold. AC-FILE-014-05: lift hold. */}
+        {/* ADR-006: RetentionPanel ONLY in apps/admin — no mirror in apps/portal (CS-TS-003). */}
+        {/* ADR-018 §5/§6: purge is never-automatic; hold suspends indefinitely. */}
+        {/* // ADR-006 // ADR-018 §5/§6 // CS-TS-003 // CS-GEN-003 */}
+        <RetentionPanel
+          engagementId={engagementId}
+          eligibility={initialEligibility}
+          activeHolds={initialActiveHolds}
+        />
       </main>
     </div>
   );
