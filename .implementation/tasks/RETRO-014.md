@@ -41,3 +41,14 @@
 ## Rule-sunset check
 
 No rules flagged for sunset this slice. The Gate Authoring Rules + CS-SQL-001 both triggered (cited and relied upon).
+
+---
+
+## Post-Merge Addendum (Close-finalize)
+
+**Merged:** PR #97 → squash `37707ad` (2026-06-24). **Branch deleted.**
+**Gate 8 (post-merge CI):** ✅ `main` `37707ad` — CI run `28100653224` `success` (lint-and-typecheck, security-scan, test-admin, test-portal all green) + CodeQL `success`.
+**Gate 9 (staging smoke):** N/A (`brief_deploys: no`).
+**Panel:** advisory **APPROVE** (0 blocker / 0 major; 6 minor + 4 nit) — one consolidated review posted; 7 threads dispositioned-with-rationale and resolved (forward-scaffolding for EPIC-015 + harmless minor cleanups). **Standards audit:** APPROVE, 0 violations.
+**Carried follow-ups (advisory, for the next `pol_Document`/EPIC-015 task):** (1) admin-pool seam defense-in-depth — assert `actor.role==='ACCOUNTANT'` inside `softDeleteDocument`/`recoverDocument`; (2) `listEngagementDocuments(includeDeleted)` parse-without-use cleanup; (3) stale `listDeletedDocuments` docstring ("admin-pool" → request-pool); (4) a BLOCK-side RLS isolation test (client raw `UPDATE deletedAt` blocked); (5) `setEngagementCompleted` non-atomic stamp (second txn after the status commit). None slice-blocking.
+**OQ-014-01** (schema-wide temporal history, ADR-018 §2) remains raised-upstream for a dedicated cross-cutting slice.

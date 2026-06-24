@@ -7,6 +7,30 @@
 
 ## Status / amendment history
 
+- **2026-06-24 (EPIC-014 delivered — file-lifecycle governance lands: accountant-only soft-delete + the 7-year retention floor)** —
+  the file-deletion / soft-delete / 7-year-retention slice shipped (PR #97, squash merge `37707ad`). All **10 in-scope
+  AC** signed off `verified` in `COVERAGE.md`: AC-FILE-004-01/-02/-03 (only the accountant can delete; the
+  **no-client-delete boundary proven both ways** — HARD `pol`-isolation RLS denies the client soft-delete write **and**
+  a portal negative e2e proves no client-facing remove path exists), AC-FILE-006-01/-02/-03 (soft-delete leaves the
+  working view / the file is retained-not-destroyed in-window / recoverable until retention elapses),
+  AC-FILE-005-01/-02/-03 (the retention clock runs 7 years from engagement completion / in-window nothing removes a
+  document **including an accountant deletion** / retention governs in-window), and AC-NFR-006-01 (system-enforced
+  retention — the NFR twin of FILE-005). EPIC-014 → `delivered`. **Adherence obligations met/tracked:** ADR-019
+  deletion-audit honored as an adherence obligation; the ADR-002 temporal-history deferral tracked via **OQ-014-01**
+  (not an unmet AC). **Scope held:** the REQ-NFR-010 audit-trail **feature** AC (the accountant-only audit *read*
+  surface) is NOT claimed (→ Phase 4); post-retention purge / legal hold (EPIC-015) correctly NOT built. Sign-off basis
+  [G] (COVERAGE): green required CI (`lint-and-typecheck` + `security-scan` + `test-admin` + `test-portal`) on PR #97
+  + post-merge `main` `37707ad` (CI run `28100653224` `success`; CodeQL `success` on `37707ad`), plus the
+  implementation engine's SDET acceptance-validation at the ADR-012 tiers against the real container stack — RLS
+  isolation 13/13, integration 14/14, retention 10/10, admin e2e 3/3, portal no-delete e2e 2/2; container smoke PASS
+  (tier-3 `document.soft-delete-isolation.rls.test.ts` + `document.soft-delete.integration.test.ts` + `retention.test.ts`;
+  tier-2 admin `documents/actions.test.ts`; tier-6 admin `file-deletion.spec.ts` + portal `no-client-delete.spec.ts`).
+  Each in-scope AC's AC-id tag was re-confirmed by the validate phase via `git grep` against `37707ad` (all 10 ids
+  resolve to one or more `*.test.ts`/`*.spec.ts` files). **EPIC-014 does NOT close Phase 3** — **EPIC-015**
+  (post-retention purge & legal hold) remains the only un-delivered Phase-3 epic. **Phase-3 progress: EPIC-009 +
+  EPIC-010 + EPIC-011 + EPIC-012 + EPIC-013 + EPIC-014 delivered; EPIC-015 `planned`.** **Totals: 190 placed / 174
+  verified / 16 planned.** **Next:** **EPIC-015** is next-ready (`depends_on` EPIC-014 ✅ + EPIC-010 ✅) and **closes
+  Phase 3**. Run `/orchestrate EPIC-015`.
 - **2026-06-23 (EPIC-013 delivered — the two-way document exchange completes on top of EPIC-007's first storage path)** —
   the secure-file-exchange slice shipped (PR #95, squash merge `4aa26d0`). All **13 in-scope AC** signed off
   `verified` in `COVERAGE.md`: AC-FILE-001-01 (accountant upload), AC-FILE-001-03/-04 (both-party download —
@@ -497,8 +521,8 @@ the FILE domain remain for the follow-up pass.
 | **EPIC-011** | Engagement attributes — accountant-set due date, accountant-only internal notes, priority/flag marker (9 AC: LIFE-007/008/009) | `delivered` (PR #89, `9445e36`, 2026-06-23) — 9/9 in-scope AC `verified` · accountant-only `pol_EngagementNote` RLS proven both ways | EPIC-010 ✅ |
 | **EPIC-012** | Engagement creation paths & multi-participant — returning-client request (DOOR-009), accountant-initiated engagement (DOOR-010), duplicate guard per (client, service, tax year) with warn+override (LIFE-011), multiple concurrent engagements (LIFE-010), multi-participant engagements / separate accounts (LIFE-012, AUTH-007); introduces the engagement **tax-year** attribute (20 AC) | `delivered` (PR #93, `5883fed`, 2026-06-23) — 20/20 in-scope AC `verified` · HARD `pol_EngagementParticipant` + extended `pol_Engagement` RLS, participant isolation proven both ways · third Phase-3-proper slice | EPIC-010 ✅, EPIC-002 ✅, EPIC-003 ✅ |
 | **EPIC-013** | Secure file exchange — accountant upload + both-party download + accountant-managed folders + top-level org by engagement & tax year + version history (13 AC: FILE-001 remainder, FILE-009/010/011) | `delivered` (PR #95, `4aa26d0`, 2026-06-23) — 13/13 in-scope AC `verified` · both-party download authz + version history + HARD-isolated folders (accountant-only) + top-level engagement/tax-year org · `/pr-review` caught + fixed a version-download IDOR in-PR · fourth Phase-3-proper slice | EPIC-007 ✅, EPIC-010 ✅, EPIC-012 ✅ |
-| **EPIC-014** | File deletion, soft-delete & 7-year retention — accountant-only delete, soft-delete, the in-window retention floor (10 AC: FILE-004/006/005, NFR-006) | `planned` | EPIC-013 ✅, EPIC-010 ✅ |
-| **EPIC-015** | Post-retention purge & legal hold — accountant-confirmed/never-automatic purge, legal hold, retention-vs-erasure precedence, audit-survives-purge (16 AC: FILE-013/014/015, NFR-010-07) | `planned` | EPIC-014, EPIC-010 ✅ |
+| **EPIC-014** | File deletion, soft-delete & 7-year retention — accountant-only delete, soft-delete, the in-window retention floor (10 AC: FILE-004/006/005, NFR-006) | `delivered` (PR #97, `37707ad`, 2026-06-24) — 10/10 in-scope AC `verified` · accountant-only delete with no-client-delete proven both ways (HARD `pol` RLS + portal no-delete e2e) · soft-delete leaves view, bytes survive · 7-yr-from-completion retention floor, in-window nothing removes incl. accountant deletion · fifth Phase-3-proper slice | EPIC-013 ✅, EPIC-010 ✅ |
+| **EPIC-015** | Post-retention purge & legal hold — accountant-confirmed/never-automatic purge, legal hold, retention-vs-erasure precedence, audit-survives-purge (16 AC: FILE-013/014/015, NFR-010-07) | `planned` | EPIC-014 ✅, EPIC-010 ✅ |
 
 > **EPIC-009 realizes the sign-in/sign-out capability** (REQ-AUTH-013) + the consolidated role-based landing
 > (REQ-AUTH-010), placed in Phase 3 per user direction but with **no dependency on the LIFE/FILE work** — it
@@ -511,11 +535,11 @@ the FILE domain remain for the follow-up pass.
 > **Build order:** **EPIC-010, EPIC-011, EPIC-012, and EPIC-013 are delivered** (EPIC-010 PR #87 `7afd312`
 > 25/25 AC; EPIC-011 PR #89 `9445e36` 9/9 AC; EPIC-012 PR #93 `5883fed` 20/20 AC; EPIC-013 PR #95 `4aa26d0`
 > 13/13 AC). The lifecycle core (010) + attributes (011) + creation-paths & multi-participant (012) + secure
-> file exchange (013) are complete. The **FILE chain** is linear and continues from EPIC-013: **EPIC-013** ✅ →
-> **EPIC-014** (needs EPIC-013 ✅ + EPIC-010 ✅ — **next-ready**) → **EPIC-015** (needs EPIC-014). **EPIC-009 is
-> delivered** (PR #71, `169b09e`, 2026-06-21 — the PoC sign-in lane, 5/5 AC verified vs the mock provider); it
-> was independent of the LIFE/FILE chain and did **not** advance Phase 3 proper.
-> **Phase-3 progress (2026-06-23): EPIC-009 + EPIC-010 + EPIC-011 + EPIC-012 + EPIC-013 delivered; EPIC-014 + EPIC-015 `planned`. Next-ready: EPIC-014.**
+> file exchange (013) + file-lifecycle governance (014) are complete. The **FILE chain** is linear: **EPIC-013** ✅ →
+> **EPIC-014** ✅ → **EPIC-015** (needs EPIC-014 ✅ + EPIC-010 ✅ — **next-ready; the only un-delivered Phase-3 epic**).
+> **EPIC-009 is delivered** (PR #71, `169b09e`, 2026-06-21 — the PoC sign-in lane, 5/5 AC verified vs the mock
+> provider); it was independent of the LIFE/FILE chain and did **not** advance Phase 3 proper.
+> **Phase-3 progress (2026-06-24): EPIC-009 + EPIC-010 + EPIC-011 + EPIC-012 + EPIC-013 + EPIC-014 delivered; EPIC-015 `planned`. Next-ready: EPIC-015 (closes Phase 3).**
 >
 > **Scope split (recorded 2026-06-21):** **REQ-FILE-012** (overdue document-request flagging + configurable
 > reminder cadence) is routed to **Phase 4**, not the Phase-3 FILE epics — it depends on the

@@ -2,7 +2,7 @@
 id: EPIC-014
 title: File deletion, soft-delete & 7-year retention
 phase: 3
-status: planned
+status: delivered
 slice: Only the accountant can delete a file; deletion is soft (the file leaves the working view but is preserved); and every document belonging to a completed engagement is retained by the system for at least 7 years — within the window nothing, not even an accountant deletion, permanently removes it.
 requirements:
   - REQ-FILE-004: [AC-FILE-004-01, AC-FILE-004-02, AC-FILE-004-03]
