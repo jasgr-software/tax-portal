@@ -31,3 +31,4 @@ phase across both surfaces (for human sign-off). Produced by the `@video`-tagged
 |---|---|---|
 | Phase 1 — MVP front-door spine | EPIC-001 · EPIC-004 · EPIC-002 · EPIC-003 | [phase-1/README.md](phase-1/README.md) |
 | Phase 2 — Onboarding gate | EPIC-005 · EPIC-006 · EPIC-007 · EPIC-008 | [phase-2/README.md](phase-2/README.md) |
+| Phase 3 — Engagement lifecycle & secure file exchange | EPIC-009 · EPIC-010 · EPIC-011 · EPIC-012 · EPIC-013 · EPIC-014 · EPIC-015 | [phase-3/README.md](phase-3/README.md) |

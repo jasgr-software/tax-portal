@@ -2,7 +2,7 @@
 id: EPIC-015
 title: Post-retention purge & legal hold
 phase: 3
-status: planned
+status: delivered
 slice: After an engagement's 7-year retention window elapses, its data becomes purge-eligible; the accountant — and only the accountant, with an explicit confirmation, never automatically — may permanently purge it, unless a legal hold (on the engagement or the client) suspends eligibility indefinitely; the purge audit record survives the purge.
 requirements:
   - REQ-FILE-013: [AC-FILE-013-01, AC-FILE-013-02, AC-FILE-013-03, AC-FILE-013-04, AC-FILE-013-05, AC-FILE-013-06]
