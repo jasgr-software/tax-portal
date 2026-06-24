@@ -75,4 +75,51 @@ as open action items (all resolved in-slice).
 
 ## Post-Merge Addendum
 
-_(written at Close-finalize)_
+**PR #95 merged 2026-06-24** — squash SHA `4aa26d0`. Post-merge CI on `4aa26d0`: **CI workflow success +
+CodeQL success** (gate 8 PASS). Gate 9 N/A (`brief_deploys: no`). Zero active `BUG-013-POST-*`. `awaitingMerge`
+cleared.
+
+### The reviewed lane caught a real IDOR blocker the in-slice gates missed (the headline learning)
+
+The `/pr-review` panel posted **request-changes** with one blocker: a **version-download IDOR on both surfaces**.
+`requestDownloadUrlForVersionAction` signed a **client-supplied `versionStorageKey`** after authorizing only the
+*parent* document — so a caller authorized for document X could supply a storageKey belonging to a different
+document's version and have it signed. The authorize-then-sign gate (ADR-009) was honored at the *parent* level
+but the *version* path trusted a client-supplied key.
+
+- **Fix (`e903f51`, in-PR):** thread a `versionId` (not a storageKey) → resolve the `DocumentVersion` row under
+  the request pool / RLS → assert its `documentId` matches the authorized parent → sign only the
+  **server-resolved** key. Added IDOR negative tests on both surfaces.
+- **Why the in-slice gates missed it:** the tier-3 + e2e tests proved the *positive* version-download path
+  (AC-FILE-009-03 accessible) and the parent-doc both-party authz, but **no test fed a cross-document
+  storageKey to the version-download action** — the IDOR vector wasn't in the test matrix. The participant /
+  cross-engagement isolation was tested at the *document* grain, not the *version-key* grain.
+- **Classification: `gated-path-fix` (resolved in-PR by the reviewed lane).** Trend/process note for future
+  file/signed-URL slices: **any action that signs a storage key must resolve that key server-side from an
+  RLS-scoped row — never sign a client-supplied key**, and the test matrix must include a *cross-resource
+  key-substitution* negative, not only a cross-owner row-visibility negative. This is the authorize-then-sign
+  invariant at the *key* grain. The `/pr-review` panel (an independent oracle) earned its keep here — it caught
+  a class of defect (client-supplied-key IDOR) that the AC-driven test design did not target. Candidate
+  ENGINE/SDET checklist item: "signed-URL actions sign only server-resolved keys; a cross-resource
+  key-substitution negative exists."
+
+### Deferred advisory-minor follow-ups (panel minors, dispositioned-with-rationale + resolved at merge)
+
+Carried as observations (no gate failure); each rides a future task, not this slice:
+1. **Unused test const** (`originalV1StorageKey` in `document-version.replace.integration.test.ts`) → ride the
+   next `packages/db` task (also noted in the main retro observations).
+2. **`pol_DocumentVersion` defense-in-depth** → EPIC-014 follow-up (EPIC-014 builds directly on the
+   Document/DocumentVersion/Folder shapes; the natural home to harden the version policy further).
+3. **Blob-rewrite duplication** (the `BLOB_PUBLIC_ENDPOINT` URL-rewrite repeated across surfaces) →
+   helper-extraction follow-up (DRY the shared signed-URL host rewrite).
+
+### Carried bugs (unchanged — stay active)
+
+- **BUG-007-001** (mock-scanner env, low) — still active; out of scope; re-confirmed unchanged at Smoke.
+- **BUG-013-002** (YAML-oracle corpus-growth timeout, low) — still active; `scripts/` follow-up.
+
+### Slice closed
+
+BRIEF-013 (EPIC-013 secure file exchange) is **delivered and merged**. All 13 AC delivered; ready for the
+planning-layer COVERAGE.md write-back (`/planning validate EPIC-013`). EPIC-014 (file deletion / soft-delete /
+7-year retention) builds directly on this slice's Document + DocumentVersion + Folder shapes.

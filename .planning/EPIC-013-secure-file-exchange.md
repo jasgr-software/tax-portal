@@ -2,7 +2,7 @@
 id: EPIC-013
 title: Secure file exchange — accountant upload, both-party download, folders, tax-year organization, versioning
 phase: 3
-status: planned
+status: delivered
 slice: Both parties exchange documents within an engagement — the accountant uploads (e.g. deliverables) and both the accountant and the client download; files are organized into accountant-managed folders, grouped at the top level by engagement and tax year, and a replaced file keeps its full version history.
 requirements:
   - REQ-FILE-001: [AC-FILE-001-01, AC-FILE-001-03, AC-FILE-001-04]

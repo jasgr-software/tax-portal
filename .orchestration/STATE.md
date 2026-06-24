@@ -14,10 +14,12 @@
 
 ## Current run
 
-- **No active run.** Last completed: **EPIC-012** ✅ DELIVERED 2026-06-23 (PR #93 → `5883fed`) — see `## Recent outcomes`.
-- **Next ready slice:** **EPIC-013** (secure file exchange — accountant upload + both-party download + folders + top-level org by engagement & **tax year** (the attribute EPIC-012 introduced) + version history; 13 AC; `depends_on` EPIC-007 ✅ / EPIC-010 ✅ / EPIC-012 ✅ — all satisfied). Re-invoke `/orchestrate` (auto-selects EPIC-013) or `/orchestrate EPIC-013`. The FILE chain EPIC-013 → 014 → 015 finishes Phase 3.
+- **No active run.** Last completed: **EPIC-013** ✅ DELIVERED 2026-06-24 (PR #95 → `4aa26d0`, 13/13 AC) — see `## Recent outcomes`.
+- **Next ready slice:** **EPIC-014** (file deletion, soft-delete & 7-year retention — accountant-only delete, soft-delete, the in-window retention floor; 10 AC: FILE-004/006/005 + NFR-006; `depends_on` EPIC-013 ✅ / EPIC-010 ✅ — both satisfied). Builds directly on EPIC-013's `Document`/`DocumentVersion`/`Folder` shapes; also the natural home for the deferred `pol_DocumentVersion` defense-in-depth hardening. Re-invoke `/orchestrate` (auto-selects EPIC-014) or `/orchestrate EPIC-014`. The FILE chain finishes Phase 3 with EPIC-015.
 
 ## Recent outcomes
+
+- **EPIC-013** ✅ DELIVERED 2026-06-24 · PR #95 → `4aa26d0` · 13/13 AC verified · RETRO-013/HANDOFF-013 · secure file exchange (accountant upload + both-party download + accountant-managed folders + top-level org by engagement & tax year + version history); 7 tasks (incl. ADR-019 download-audit fix), 3 in-slice gate failures fixed-forward; both-party-download trap proven both ways · **reviewed-lane `/pr-review` caught a version-download IDOR** (client-supplied `versionStorageKey` signed after authorizing only the parent doc) — fixed in-PR `e903f51` (thread `versionId` → resolve under RLS → assert `documentId` match → sign server-resolved key; + cross-resource key-substitution negatives both surfaces). Independent oracle earned its keep.
 
 - EPIC-012 ✅ DELIVERED 2026-06-23 · PR #93 → `5883fed` · 20/20 AC verified · RETRO-012/HANDOFF-012 · panel request-changes (3 major) → `/pr-fix` green · the deterministic sequencer drove the full DAG end-to-end · **prereq fix:** Compose-validator `v_brief()` glob-collision (matched the already-delivered `BRIEF-LOE-012`) fixed + merged first (PR #92 → `4b3f3f0`).
 - EPIC-011 ✅ DELIVERED 2026-06-23 · PR #89 → `9445e36` · 9/9 AC verified · accountant-only `pol_EngagementNote` RLS proven both ways.
@@ -26,6 +28,7 @@
 
 > Non-blocking; do not gate the next slice. Tracked here so they are not lost when the run collapsed.
 
+- **[EPIC-013 carried items — non-blocking]** From the secure-file-exchange slice: (1) **`pol_DocumentVersion` defense-in-depth** — the BLOCK predicate reuses the read predicate (owner+participant) rather than an accountant/admin-only write predicate; no live exploit today (version writes are admin-pool-only) — fold into **EPIC-014** (a dedicated `fn_document_version_write_access`, mirroring Folder/DocumentRequest). (2) **`BLOB_PUBLIC_ENDPOINT` rewrite-block duplication** (6 sites) — extract one `rewriteBlobUrlForBrowser()` helper in `@tax-portal/storage`. (3) **Unused `originalV1StorageKey` const** in `document-version.replace.integration.test.ts` — cleanup on the next `packages/db` task. (4) **BUG-013-002** (YAML-oracle corpus-growth timeout, low) — `scripts/migrate-task-frontmatter.test.ts` flake; bump timeout / batch the python3 calls. (5) **BUG-007-001** (mock-scanner env, low) — re-confirmed unchanged at Smoke; out of FILE-chain scope. (6) **ENGINE/SDET checklist candidate (RETRO-013):** signed-URL actions must sign only **server-resolved** keys; a cross-resource key-substitution negative test must exist (the panel-caught IDOR's root cause — the AC matrix tested cross-*owner* visibility but not cross-*resource* key substitution).
 - **[Phase-2 walkthrough video — DEFERRED, needs two follow-ups]** The Phase-2 closeout video
   (`DEMO-POLICY.md` § Part B; `docs/demos/phase-2/`) was **not produced** this run. Blockers: (1) the
   `apps/admin/e2e/demo/phase-2-walkthrough.demo.spec.ts` **`@video` spec was never authored** — it is
@@ -49,18 +52,18 @@
   `/orchestrate` (`.claude/commands/orchestrate.md`) now **drives via `bin/sequence.sh`** (code nodes Select/Gate/
   Fix-route/Report run in-script; agent nodes via exit-10 yields + `--set` record-hints; cold-starts from the
 <!-- conductor-state/v1
-phase=select
-epic=
-brief=
-pr=
-std_verdict_file=
-verdict_file=
+phase=done
+epic=EPIC-013
+brief=/home/ccox/repos/tax-portal/.implementation/briefs/BRIEF-013-secure-file-exchange.md
+pr=95
+std_verdict_file=.orchestration/runs/PR-95-standards-verdict.json
+verdict_file=.orchestration/runs/PR-95-verdict.json
 lane=
-fix_route=
-merge_sha=
-ac_ok=
-fix_done=
-validated=
+fix_route=run-fix
+merge_sha=4aa26d0f800f3ed679ddda8e6a7a949a5fcef984
+ac_ok=yes
+fix_done=yes
+validated=yes
 halt_reason=
-updated=2026-06-23T19:05:08Z
+updated=2026-06-24T01:09:33Z
 -->
