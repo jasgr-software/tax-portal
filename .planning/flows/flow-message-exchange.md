@@ -3,7 +3,7 @@
 **Flow ID:** `flow-message-exchange`  
 **One-line summary:** A client and accountant exchange plain-text messages within an engagement thread (or a general thread); both parties receive in-portal notifications; email digest provides fallback nudge.
 
-**Status:** Phase 4 stub — covers Epic 005 (Messaging & Notifications) scope. Authored here for flow-gate completeness; to be refined during Epic 005 pre-planning.
+**Status:** Reconciled 2026-06-24 to the Phase-4 decomposition. This migrated legacy flow is the product-wide messaging journey; it is **realized by EPIC-016** (in-portal notification feed + badge + real-time + read-tracking), **EPIC-017** (per-engagement & general threads, plain-text, attachments, unread indicators, archive-on-close — the new-message notification types), and **EPIC-018** (the email-digest fallback nudge). The targeted per-slice flow for the feed/email spine is `flow-notification-feed.md`. (Legacy label "Epic 005 (Messaging & Notifications)" retired — that pre-restructuring numbering no longer exists.)
 
 ---
 

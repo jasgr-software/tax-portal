@@ -15,7 +15,17 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 
 | Measure | Count |
 |---|---|
-| AC placed in an epic (Phase 1 + Phase 2 + Phase 3) | 190 |
+| AC placed in an epic (Phase 1 + Phase 2 + Phase 3 + Phase 4) | 309 |
+| — Phases 1–3 (verified) | 190 |
+| — Phase 4 (EPIC-016..023) — *placed 2026-06-24; all `planned`* | 119 |
+| &nbsp;&nbsp;— EPIC-016 (in-portal notification feed spine) | 20 |
+| &nbsp;&nbsp;— EPIC-017 (per-engagement & general messaging) | 24 |
+| &nbsp;&nbsp;— EPIC-018 (email digest fallback) | 12 |
+| &nbsp;&nbsp;— EPIC-019 (overdue detection & reminder engine) | 14 |
+| &nbsp;&nbsp;— EPIC-020 (accountant dashboard home) | 13 |
+| &nbsp;&nbsp;— EPIC-021 (client/engagement navigation) | 16 |
+| &nbsp;&nbsp;— EPIC-022 (admin settings & portal identity) | 12 |
+| &nbsp;&nbsp;— EPIC-023 (audit-trail read surface) — *closes the v1 POC* | 8 |
 | — Phase 1 (EPIC-001/004/002/003) | 48 |
 | &nbsp;&nbsp;— EPIC-001 (public front door) | 13 |
 | &nbsp;&nbsp;— EPIC-004 (auth & two-role model) | 8 |
@@ -35,9 +45,9 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-014 (file deletion, soft-delete & retention) | 10 (all `verified` — PR#97 `37707ad`) |
 | &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 (all `verified` — PR#99 `53b3444`) |
 | AC `verified` (signed off) | **190** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**) **+ all 25 EPIC-010 lifecycle-core AC** (LIFE-001/002/003/004/005/006, AUTH-002/003/008 — the four-stage pipeline, client-facing labels, two-confirmation completion gate, accountant reopen, full visibility + client own-data isolation + indefinite post-completion access; PR#87 `7afd312` 2026-06-22; AUTH-003-* are the **feature** AC over the Phase-2-built isolation mechanism — not double-counted) **+ all 9 EPIC-011 engagement-attributes AC** (LIFE-007/008/009 — per-engagement due date set/update, accountant-only internal notes behind the HARD `pol_EngagementNote` RLS, priority flag set/clear, each per-engagement; PR#89 `9445e36` 2026-06-23) **+ all 20 EPIC-012 creation-paths & multi-participant AC** (DOOR-009/010 returning-client + accountant-initiated creation, LIFE-010 concurrent engagements, LIFE-011 duplicate warn+override, LIFE-012/AUTH-007 multi-participant separate-accounts behind the HARD `pol_EngagementParticipant`/extended `pol_Engagement` RLS — participant isolation proven both ways; PR#93 `5883fed` 2026-06-23) **+ all 13 EPIC-013 secure-file-exchange AC** (FILE-001-01/-03/-04 accountant upload + both-party download, FILE-009-01/-02/-03 replace → newest current → prior versions retained AND accessible, FILE-010-01/-02/-03/-04 organize/create-rename-arrange/place-in-folder/accountant-only-behind-HARD-`pol`-isolated folders, FILE-011-01/-02/-03 top-level group by engagement + tax year + navigate engagement→tax-year→folder; the reviewed-lane `/pr-review` panel caught a **version-download IDOR** (blocker) the in-slice gates missed — fixed in-PR so `requestDownloadUrlForVersionAction` threads `versionId`, resolves the version under the request-pool/RLS, asserts `documentId` match, and signs only the server-resolved key, with cross-resource key-substitution negative tests on both surfaces; PR#95 `4aa26d0` 2026-06-23) **+ all 10 EPIC-014 file-deletion / soft-delete / 7-year-retention AC** (FILE-004-01/-02/-03 accountant-only delete with the no-client-delete boundary proven **both ways** — HARD `pol`-isolation RLS + a portal no-delete-path negative e2e; FILE-006-01/-02/-03 soft-delete leaves the working view / file retained-not-destroyed in-window / recoverable until retention elapses; FILE-005-01/-02/-03 retention clock 7 years from completion / in-window nothing removes incl. an accountant deletion / retention governs in-window; AC-NFR-006-01 system-enforced retention — the NFR twin of FILE-005; PR#97 `37707ad` 2026-06-24) **+ all 16 EPIC-015 post-retention-purge & legal-hold AC** (FILE-013-01..06 purge eligible only post-window / accountant-admin-only proven both ways / explicit-confirmation / never-automatic-on-expiry / eligible-but-unpurged stays retained / purge audited + record survives; FILE-014-01..07 hold on engagement / hold on client → all engagements / held = no purge even post-expiry / indefinite no-auto-expire / lift restores eligibility / place + lift each audited; FILE-015-01/-02 in-window erasure = access-revocation-only / physical destruction only post-window + no-hold + confirmed; AC-NFR-010-07 audit survives purge; the reviewed-lane `/pr-review` panel caught a **purge-atomicity blocker** the in-slice gates missed — purge statements ran off-transaction, so a mid-purge failure could destroy data while leaving no audit record; fixed in-PR so the whole purge runs inside the `withAuditTransaction` envelope and rolls back all-or-nothing, with audit-survives-purge now proven by a dedicated rollback regression test; PR#99 `53b3444` 2026-06-24). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization); EPIC-010/011/012/013/014/015 delivered — EPIC-015 CLOSES Phase 3 (it was the last un-delivered Phase-3 epic). NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
-| AC still `planned` (placed, not yet verified) | **0** — every placed Phase-1 + Phase-2 + Phase-3 AC is now `verified`; Phase 3 is closed. *(EPIC-015's 16 AC flipped `planned`→`verified` 2026-06-24 via PR#99 `53b3444`; EPIC-014's 10 AC flipped 2026-06-24 via PR#97 `37707ad`; EPIC-013's 13 AC flipped 2026-06-23 via PR#95 `4aa26d0`; EPIC-012's 20 AC flipped 2026-06-23 via PR#93; EPIC-011's 9 AC flipped 2026-06-23 via PR#89; EPIC-010's 25 AC flipped 2026-06-22 via PR#87; EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped 2026-06-21 via PR#71 — see Verified row.)* |
-| AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
-| AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
+| AC still `planned` (placed, not yet verified) | **119** — all Phase-4 AC (EPIC-016..023), placed 2026-06-24, awaiting build + CI sign-off. *(Every Phase-1 + Phase-2 + Phase-3 AC is `verified`; Phase 3 is closed — EPIC-015's 16 AC flipped 2026-06-24 via PR#99 `53b3444`; EPIC-014's 10 via PR#97 `37707ad`; EPIC-013's 13 via PR#95 `4aa26d0`; EPIC-012's 20 via PR#93; EPIC-011's 9 via PR#89; EPIC-010's 25 via PR#87; EPIC-009's 2 via PR#71.)* |
+| AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (REQ-IDNT-005, v1) + **REQ-IDNT-001 (custom domain → Phase 5)** + **REQ-MSG-019 (v2)** + the v2 requirement set — see Deferred |
+| AC orphaned (source AC not yet decomposed into any epic) | **0 v1 AC remain orphaned** — Phase 4 placed the MSG/DASH/IDNT/NFR-010/FILE-012 remainders; only deferred (Phase-5/v2) items remain unplaced — see Orphans + Deferred |
 
 > **EPIC-001 (13 AC) signed off 2026-06-15** — the public front-door slice shipped (PR #35, merge `f7f6c9d`).
 > **EPIC-004 (originally 11 AC) signed off 2026-06-16** — the auth & two-role-model identity spine shipped
@@ -727,7 +737,126 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-FILE-014 | AC-FILE-014-07 | EPIC-015 | 3 | `AC-FILE-014-07` | verified | [H] PR#99 `53b3444`; tier-3 `legal-hold.integration.test.ts` + tier-6 `purge-legal-hold.spec.ts` — lifting audited |
 | REQ-FILE-015 | AC-FILE-015-01 | EPIC-015 | 3 | `AC-FILE-015-01` | verified | [H] PR#99 `53b3444`; tier-3 `purge.integration.test.ts` — in-window erasure = access-revocation only |
 | REQ-FILE-015 | AC-FILE-015-02 | EPIC-015 | 3 | `AC-FILE-015-02` | verified | [H] PR#99 `53b3444`; tier-3 `purge-eligibility.test.ts` + `purge.integration.test.ts` — destruction only post-window + no hold + confirmed |
-| REQ-NFR-010 | AC-NFR-010-07 | EPIC-015 | 3 | `AC-NFR-010-07` | verified | [H] PR#99 `53b3444`; tier-3 `purge.integration.test.ts` — audit survives purge, proven by panel-hardened all-or-nothing rollback (rest of NFR-010 → Phase-4 audit slice) |
+| REQ-NFR-010 | AC-NFR-010-07 | EPIC-015 | 3 | `AC-NFR-010-07` | verified | [H] PR#99 `53b3444`; tier-3 `purge.integration.test.ts` — audit survives purge, proven by panel-hardened all-or-nothing rollback (rest of NFR-010 → EPIC-023) |
+| REQ-MSG-007 | AC-MSG-007-01 | EPIC-016 | 4 | `AC-MSG-007-01` | planned | placed 2026-06-24; every entitled notification appears in the feed |
+| REQ-MSG-007 | AC-MSG-007-02 | EPIC-016 | 4 | `AC-MSG-007-02` | planned | placed 2026-06-24; feed is the authoritative/complete record |
+| REQ-MSG-007 | AC-MSG-007-03 | EPIC-016 | 4 | `AC-MSG-007-03` | planned | placed 2026-06-24; other channels supplementary to the feed |
+| REQ-MSG-012 | AC-MSG-012-01 | EPIC-016 | 4 | `AC-MSG-012-01` | planned | placed 2026-06-24; surfaces promptly, no manual refresh |
+| REQ-MSG-012 | AC-MSG-012-02 | EPIC-016 | 4 | `AC-MSG-012-02` | planned | placed 2026-06-24; new notifications appear in real time |
+| REQ-MSG-012 | AC-MSG-012-03 | EPIC-016 | 4 | `AC-MSG-012-03` | planned | placed 2026-06-24; badge reflects real-time arrival |
+| REQ-MSG-015 | AC-MSG-015-01 | EPIC-016 | 4 | `AC-MSG-015-01` | planned | placed 2026-06-24; notification references its triggering item |
+| REQ-MSG-015 | AC-MSG-015-02 | EPIC-016 | 4 | `AC-MSG-015-02` | planned | placed 2026-06-24; viewing linked item auto-marks read |
+| REQ-MSG-015 | AC-MSG-015-03 | EPIC-016 | 4 | `AC-MSG-015-03` | planned | placed 2026-06-24; read reflects in feed + count, no dismiss step |
+| REQ-MSG-016 | AC-MSG-016-01 | EPIC-016 | 4 | `AC-MSG-016-01` | planned | placed 2026-06-24; history retained/viewable ≥90 days |
+| REQ-MSG-016 | AC-MSG-016-02 | EPIC-016 | 4 | `AC-MSG-016-02` | planned | placed 2026-06-24; read + unread both retained in window |
+| REQ-MSG-017 | AC-MSG-017-01 | EPIC-016 | 4 | `AC-MSG-017-01` | planned | placed 2026-06-24; badge present in nav from any area |
+| REQ-MSG-017 | AC-MSG-017-02 | EPIC-016 | 4 | `AC-MSG-017-02` | planned | placed 2026-06-24; badge shows unread count |
+| REQ-MSG-017 | AC-MSG-017-03 | EPIC-016 | 4 | `AC-MSG-017-03` | planned | placed 2026-06-24; badge updates on read / arrival |
+| REQ-MSG-013 | AC-MSG-013-03 | EPIC-016 | 4 | `AC-MSG-013-03` | planned | placed 2026-06-24; accountant notified on document upload (source EPIC-013) |
+| REQ-MSG-014 | AC-MSG-014-03 | EPIC-016 | 4 | `AC-MSG-014-03` | planned | placed 2026-06-24; client notified on engagement status change (source EPIC-010) |
+| REQ-MSG-014 | AC-MSG-014-04 | EPIC-016 | 4 | `AC-MSG-014-04` | planned | placed 2026-06-24; client notified when a deliverable is ready |
+| REQ-MSG-014 | AC-MSG-014-05 | EPIC-016 | 4 | `AC-MSG-014-05` | planned | placed 2026-06-24; client (account-holding) notified request accepted; account-less prospect by email (EPIC-003) |
+| REQ-MSG-014 | AC-MSG-014-06 | EPIC-016 | 4 | `AC-MSG-014-06` | planned | placed 2026-06-24; client (account-holding) notified request declined; account-less prospect by email (EPIC-003) |
+| REQ-MSG-014 | AC-MSG-014-07 | EPIC-016 | 4 | `AC-MSG-014-07` | planned | placed 2026-06-24; **hard** tier-3 per-viewer RLS — client sees only own events |
+| REQ-MSG-001 | AC-MSG-001-01 | EPIC-017 | 4 | `AC-MSG-001-01` | planned | placed 2026-06-24; exactly one thread per engagement |
+| REQ-MSG-001 | AC-MSG-001-02 | EPIC-017 | 4 | `AC-MSG-001-02` | planned | placed 2026-06-24; message recorded + visible to participants (tier-3 isolation) |
+| REQ-MSG-001 | AC-MSG-001-03 | EPIC-017 | 4 | `AC-MSG-001-03` | planned | placed 2026-06-24; full ordered history persists across sessions |
+| REQ-MSG-001 | AC-MSG-001-04 | EPIC-017 | 4 | `AC-MSG-001-04` | planned | placed 2026-06-24; both accountant + client(s) read/contribute |
+| REQ-MSG-002 | AC-MSG-002-01 | EPIC-017 | 4 | `AC-MSG-002-01` | planned | placed 2026-06-24; accountant starts a general (non-engagement) thread |
+| REQ-MSG-002 | AC-MSG-002-02 | EPIC-017 | 4 | `AC-MSG-002-02` | planned | placed 2026-06-24; general thread associated with + visible to the client |
+| REQ-MSG-002 | AC-MSG-002-03 | EPIC-017 | 4 | `AC-MSG-002-03` | planned | placed 2026-06-24; general-thread messages retained as ordered history |
+| REQ-MSG-003 | AC-MSG-003-01 | EPIC-017 | 4 | `AC-MSG-003-01` | planned | placed 2026-06-24; body treated/displayed as plain text |
+| REQ-MSG-003 | AC-MSG-003-02 | EPIC-017 | 4 | `AC-MSG-003-02` | planned | placed 2026-06-24; markup shown verbatim, not rendered |
+| REQ-MSG-003 | AC-MSG-003-03 | EPIC-017 | 4 | `AC-MSG-003-03` | planned | placed 2026-06-24; no inline images in body |
+| REQ-MSG-004 | AC-MSG-004-01 | EPIC-017 | 4 | `AC-MSG-004-01` | planned | placed 2026-06-24; sender attaches one or more files |
+| REQ-MSG-004 | AC-MSG-004-02 | EPIC-017 | 4 | `AC-MSG-004-02` | planned | placed 2026-06-24; attachments visible to participants |
+| REQ-MSG-004 | AC-MSG-004-03 | EPIC-017 | 4 | `AC-MSG-004-03` | planned | placed 2026-06-24; participant retrieves an attachment (signed URL) |
+| REQ-MSG-004 | AC-MSG-004-04 | EPIC-017 | 4 | `AC-MSG-004-04` | planned | placed 2026-06-24; attachment available while message retained |
+| REQ-MSG-004 | AC-MSG-004-05 | EPIC-017 | 4 | `AC-MSG-004-05` | planned | placed 2026-06-24; **hard** tier-3 — scanned (NFR-009) + upload rules before available |
+| REQ-MSG-005 | AC-MSG-005-01 | EPIC-017 | 4 | `AC-MSG-005-01` | planned | placed 2026-06-24; unread indicator on thread with new messages |
+| REQ-MSG-005 | AC-MSG-005-02 | EPIC-017 | 4 | `AC-MSG-005-02` | planned | placed 2026-06-24; indicator on engagement + general threads |
+| REQ-MSG-005 | AC-MSG-005-03 | EPIC-017 | 4 | `AC-MSG-005-03` | planned | placed 2026-06-24; unread state is per-viewer |
+| REQ-MSG-005 | AC-MSG-005-04 | EPIC-017 | 4 | `AC-MSG-005-04` | planned | placed 2026-06-24; indicator clears once seen |
+| REQ-MSG-006 | AC-MSG-006-01 | EPIC-017 | 4 | `AC-MSG-006-01` | planned | placed 2026-06-24; threads retained indefinitely (close ≠ delete) |
+| REQ-MSG-006 | AC-MSG-006-02 | EPIC-017 | 4 | `AC-MSG-006-02` | planned | placed 2026-06-24; archived not deleted on close |
+| REQ-MSG-006 | AC-MSG-006-03 | EPIC-017 | 4 | `AC-MSG-006-03` | planned | placed 2026-06-24; archived thread stays readable |
+| REQ-MSG-013 | AC-MSG-013-02 | EPIC-017 | 4 | `AC-MSG-013-02` | planned | placed 2026-06-24; accountant notified of new message (message is source) |
+| REQ-MSG-014 | AC-MSG-014-01 | EPIC-017 | 4 | `AC-MSG-014-01` | planned | placed 2026-06-24; client notified of new message (message is source) |
+| REQ-MSG-008 | AC-MSG-008-01 | EPIC-018 | 4 | `AC-MSG-008-01` | planned | placed 2026-06-24; nudge conveys only "new activity" + sign-in |
+| REQ-MSG-008 | AC-MSG-008-02 | EPIC-018 | 4 | `AC-MSG-008-02` | planned | placed 2026-06-24; **hard** tier-3 — content-free body (no PII/detail) |
+| REQ-MSG-008 | AC-MSG-008-03 | EPIC-018 | 4 | `AC-MSG-008-03` | planned | placed 2026-06-24; acting on email → sign in to portal |
+| REQ-MSG-009 | AC-MSG-009-01 | EPIC-018 | 4 | `AC-MSG-009-01` | planned | placed 2026-06-24; ≤1 email per recipient per day |
+| REQ-MSG-009 | AC-MSG-009-02 | EPIC-018 | 4 | `AC-MSG-009-02` | planned | placed 2026-06-24; no per-event emails |
+| REQ-MSG-009 | AC-MSG-009-03 | EPIC-018 | 4 | `AC-MSG-009-03` | planned | placed 2026-06-24; multiple events → one daily nudge |
+| REQ-MSG-010 | AC-MSG-010-01 | EPIC-018 | 4 | `AC-MSG-010-01` | planned | placed 2026-06-24; accountant turns off her own email |
+| REQ-MSG-010 | AC-MSG-010-02 | EPIC-018 | 4 | `AC-MSG-010-02` | planned | placed 2026-06-24; suppressed → no emails of any kind |
+| REQ-MSG-010 | AC-MSG-010-03 | EPIC-018 | 4 | `AC-MSG-010-03` | planned | placed 2026-06-24; suppression leaves the in-portal feed intact |
+| REQ-MSG-010 | AC-MSG-010-04 | EPIC-018 | 4 | `AC-MSG-010-04` | planned | placed 2026-06-24; her suppression doesn't change client emails |
+| REQ-MSG-011 | AC-MSG-011-01 | EPIC-018 | 4 | `AC-MSG-011-01` | planned | placed 2026-06-24; new client account email-on by default |
+| REQ-MSG-011 | AC-MSG-011-02 | EPIC-018 | 4 | `AC-MSG-011-02` | planned | placed 2026-06-24; client emailed with no opt-in step |
+| REQ-FILE-012 | AC-FILE-012-01 | EPIC-019 | 4 | `AC-FILE-012-01` | planned | placed 2026-06-24; overdue document requests identified (carried from Phase 3) |
+| REQ-FILE-012 | AC-FILE-012-02 | EPIC-019 | 4 | `AC-FILE-012-02` | planned | placed 2026-06-24; overdue request flagged/surfaced |
+| REQ-FILE-012 | AC-FILE-012-03 | EPIC-019 | 4 | `AC-FILE-012-03` | planned | placed 2026-06-24; detection without accountant trigger |
+| REQ-FILE-012 | AC-FILE-012-04 | EPIC-019 | 4 | `AC-FILE-012-04` | planned | placed 2026-06-24; overdue determined by due date |
+| REQ-MSG-018 | AC-MSG-018-01 | EPIC-019 | 4 | `AC-MSG-018-01` | planned | placed 2026-06-24; auto-identify overdue (no manual check) |
+| REQ-MSG-018 | AC-MSG-018-02 | EPIC-019 | 4 | `AC-MSG-018-02` | planned | placed 2026-06-24; overdue request raises a reminder |
+| REQ-MSG-018 | AC-MSG-018-03 | EPIC-019 | 4 | `AC-MSG-018-03` | planned | placed 2026-06-24; global default reminder frequency |
+| REQ-MSG-018 | AC-MSG-018-04 | EPIC-019 | 4 | `AC-MSG-018-04` | planned | placed 2026-06-24; per-engagement override takes precedence |
+| REQ-DASH-008 | AC-DASH-008-01 | EPIC-019 | 4 | `AC-DASH-008-01` | planned | placed 2026-06-24; set global default cadence |
+| REQ-DASH-008 | AC-DASH-008-02 | EPIC-019 | 4 | `AC-DASH-008-02` | planned | placed 2026-06-24; set per-engagement cadence |
+| REQ-DASH-008 | AC-DASH-008-03 | EPIC-019 | 4 | `AC-DASH-008-03` | planned | placed 2026-06-24; per-engagement cadence wins (precedence, tier-3) |
+| REQ-MSG-013 | AC-MSG-013-05 | EPIC-019 | 4 | `AC-MSG-013-05` | planned | placed 2026-06-24; accountant notified request overdue |
+| REQ-MSG-013 | AC-MSG-013-06 | EPIC-019 | 4 | `AC-MSG-013-06` | planned | placed 2026-06-24; accountant notified due date approaching |
+| REQ-MSG-014 | AC-MSG-014-02 | EPIC-019 | 4 | `AC-MSG-014-02` | planned | placed 2026-06-24; client notified a document request was created |
+| REQ-DASH-001 | AC-DASH-001-01 | EPIC-020 | 4 | `AC-DASH-001-01` | planned | placed 2026-06-24; active-engagement count |
+| REQ-DASH-001 | AC-DASH-001-02 | EPIC-020 | 4 | `AC-DASH-001-02` | planned | placed 2026-06-24; overdue-engagement count |
+| REQ-DASH-001 | AC-DASH-001-03 | EPIC-020 | 4 | `AC-DASH-001-03` | planned | placed 2026-06-24; pending-request count |
+| REQ-DASH-001 | AC-DASH-001-04 | EPIC-020 | 4 | `AC-DASH-001-04` | planned | placed 2026-06-24; upcoming deadlines |
+| REQ-DASH-001 | AC-DASH-001-05 | EPIC-020 | 4 | `AC-DASH-001-05` | planned | placed 2026-06-24; metrics reflect current state at view time |
+| REQ-DASH-002 | AC-DASH-002-01 | EPIC-020 | 4 | `AC-DASH-002-01` | planned | placed 2026-06-24; unified cross-practice activity feed |
+| REQ-DASH-002 | AC-DASH-002-02 | EPIC-020 | 4 | `AC-DASH-002-02` | planned | placed 2026-06-24; feed includes all event kinds |
+| REQ-DASH-002 | AC-DASH-002-03 | EPIC-020 | 4 | `AC-DASH-002-03` | planned | placed 2026-06-24; entry names what + which client/engagement |
+| REQ-DASH-002 | AC-DASH-002-04 | EPIC-020 | 4 | `AC-DASH-002-04` | planned | placed 2026-06-24; most-recent identifiable (ordering) |
+| REQ-DASH-003 | AC-DASH-003-01 | EPIC-020 | 4 | `AC-DASH-003-01` | planned | placed 2026-06-24; distinct needs-action grouping |
+| REQ-DASH-003 | AC-DASH-003-02 | EPIC-020 | 4 | `AC-DASH-003-02` | planned | placed 2026-06-24; includes blocked engagements |
+| REQ-DASH-003 | AC-DASH-003-03 | EPIC-020 | 4 | `AC-DASH-003-03` | planned | placed 2026-06-24; includes overdue document requests (source EPIC-019) |
+| REQ-DASH-003 | AC-DASH-003-04 | EPIC-020 | 4 | `AC-DASH-003-04` | planned | placed 2026-06-24; includes pending new-client requests |
+| REQ-DASH-004 | AC-DASH-004-01 | EPIC-021 | 4 | `AC-DASH-004-01` | planned | placed 2026-06-24; dedicated client list screen |
+| REQ-DASH-004 | AC-DASH-004-02 | EPIC-021 | 4 | `AC-DASH-004-02` | planned | placed 2026-06-24; client list searchable |
+| REQ-DASH-004 | AC-DASH-004-03 | EPIC-021 | 4 | `AC-DASH-004-03` | planned | placed 2026-06-24; per-client status indicator |
+| REQ-DASH-004 | AC-DASH-004-04 | EPIC-021 | 4 | `AC-DASH-004-04` | planned | placed 2026-06-24; filter by service type |
+| REQ-DASH-004 | AC-DASH-004-05 | EPIC-021 | 4 | `AC-DASH-004-05` | planned | placed 2026-06-24; filter by tax year |
+| REQ-DASH-005 | AC-DASH-005-01 | EPIC-021 | 4 | `AC-DASH-005-01` | planned | placed 2026-06-24; dedicated engagement list screen |
+| REQ-DASH-005 | AC-DASH-005-02 | EPIC-021 | 4 | `AC-DASH-005-02` | planned | placed 2026-06-24; pipeline organized by status |
+| REQ-DASH-005 | AC-DASH-005-03 | EPIC-021 | 4 | `AC-DASH-005-03` | planned | placed 2026-06-24; engagement list filterable |
+| REQ-DASH-009 | AC-DASH-009-01 | EPIC-021 | 4 | `AC-DASH-009-01` | planned | placed 2026-06-24; view all engagements |
+| REQ-DASH-009 | AC-DASH-009-02 | EPIC-021 | 4 | `AC-DASH-009-02` | planned | placed 2026-06-24; every engagement regardless of client (full visibility, tier-3) |
+| REQ-DASH-009 | AC-DASH-009-03 | EPIC-021 | 4 | `AC-DASH-009-03` | planned | placed 2026-06-24; act on an engagement from the pipeline |
+| REQ-DASH-006 | AC-DASH-006-01 | EPIC-021 | 4 | `AC-DASH-006-01` | planned | placed 2026-06-24; internal notes on the dashboard (reuses EPIC-011 mechanism) |
+| REQ-DASH-006 | AC-DASH-006-02 | EPIC-021 | 4 | `AC-DASH-006-02` | planned | placed 2026-06-24; **hard** tier-3 — notes never shown to client (pol_EngagementNote) |
+| REQ-DASH-007 | AC-DASH-007-01 | EPIC-021 | 4 | `AC-DASH-007-01` | planned | placed 2026-06-24; apply priority/flag from dashboard (reuses EPIC-011) |
+| REQ-DASH-007 | AC-DASH-007-02 | EPIC-021 | 4 | `AC-DASH-007-02` | planned | placed 2026-06-24; remove priority/flag |
+| REQ-DASH-007 | AC-DASH-007-03 | EPIC-021 | 4 | `AC-DASH-007-03` | planned | placed 2026-06-24; marker reflected where she views engagements |
+| REQ-DASH-013 | AC-DASH-013-01 | EPIC-022 | 4 | `AC-DASH-013-01` | planned | placed 2026-06-24; default engagement-letter template exists |
+| REQ-DASH-013 | AC-DASH-013-02 | EPIC-022 | 4 | `AC-DASH-013-02` | planned | placed 2026-06-24; accountant edits template from admin UI |
+| REQ-DASH-013 | AC-DASH-013-03 | EPIC-022 | 4 | `AC-DASH-013-03` | planned | placed 2026-06-24; current template used at onboarding signing (tier-3; reuses EPIC-005) |
+| REQ-IDNT-002 | AC-IDNT-002-01 | EPIC-022 | 4 | `AC-IDNT-002-01` | planned | placed 2026-06-24; usable in v1 with no firm branding |
+| REQ-IDNT-002 | AC-IDNT-002-02 | EPIC-022 | 4 | `AC-IDNT-002-02` | planned | placed 2026-06-24; no branding doesn't degrade capability |
+| REQ-IDNT-003 | AC-IDNT-003-01 | EPIC-022 | 4 | `AC-IDNT-003-01` | planned | placed 2026-06-24; firm branding not delivered in v1 (documented-constraint) |
+| REQ-IDNT-003 | AC-IDNT-003-02 | EPIC-022 | 4 | `AC-IDNT-003-02` | planned | placed 2026-06-24; branding recorded as future capability |
+| REQ-IDNT-004 | AC-IDNT-004-01 | EPIC-022 | 4 | `AC-IDNT-004-01` | planned | placed 2026-06-24; no standalone TOS/privacy page in v1 (documented-constraint) |
+| REQ-IDNT-004 | AC-IDNT-004-02 | EPIC-022 | 4 | `AC-IDNT-004-02` | planned | placed 2026-06-24; legal pages recorded as future capability |
+| REQ-IDNT-006 | AC-IDNT-006-01 | EPIC-022 | 4 | `AC-IDNT-006-01` | planned | placed 2026-06-24; client surface reads "Client Portal" (incl. email subjects) |
+| REQ-IDNT-006 | AC-IDNT-006-02 | EPIC-022 | 4 | `AC-IDNT-006-02` | planned | placed 2026-06-24; accountant surface reads "Tax Portal" |
+| REQ-IDNT-006 | AC-IDNT-006-03 | EPIC-022 | 4 | `AC-IDNT-006-03` | planned | placed 2026-06-24; names applied consistently, never swapped |
+| REQ-NFR-010 | AC-NFR-010-01 | EPIC-023 | 4 | `AC-NFR-010-01` | planned | placed 2026-06-24; records document access/download (actor/doc/time/outcome) |
+| REQ-NFR-010 | AC-NFR-010-02 | EPIC-023 | 4 | `AC-NFR-010-02` | planned | placed 2026-06-24; records status transitions (who/from/to/time) |
+| REQ-NFR-010 | AC-NFR-010-03 | EPIC-023 | 4 | `AC-NFR-010-03` | planned | placed 2026-06-24; records all admin actions (actor/action/resource/time) |
+| REQ-NFR-010 | AC-NFR-010-04 | EPIC-023 | 4 | `AC-NFR-010-04` | planned | placed 2026-06-24; records auth events (login/logout/failed) |
+| REQ-NFR-010 | AC-NFR-010-05 | EPIC-023 | 4 | `AC-NFR-010-05` | planned | placed 2026-06-24; **hard** tier-3 — audit trail accountant-only, client reads zero |
+| REQ-NFR-010 | AC-NFR-010-06 | EPIC-023 | 4 | `AC-NFR-010-06` | planned | placed 2026-06-24; audit retained ≥7 years (≥ document window) |
+| REQ-NFR-011 | AC-NFR-011-01 | EPIC-023 | 4 | `AC-NFR-011-01` | planned | placed 2026-06-24; tamper-evidence (alteration detectable) — property asserted |
+| REQ-NFR-011 | AC-NFR-011-02 | EPIC-023 | 4 | `AC-NFR-011-02` | planned | placed 2026-06-24; completeness — audit-or-the-action-fails (extends EPIC-015 withAuditTransaction) |
 
 ## Split requirements
 
@@ -738,28 +867,34 @@ Requirements whose AC span more than one epic (or one epic + orphans/deferred) �
     or request form) — testable from the public front door.
   - **EPIC-002** owns **AC-DOOR-002-01, -02, -03, -05** (accountant add/edit/deactivate + "only the
     accountant may change the catalog") — these need the authenticated accountant admin surface.
-- **REQ-MSG-013 (accountant notification types)** — split across two phases plus a Phase-4 remainder:
+- **REQ-MSG-013 (accountant notification types)** — **fully placed** (2026-06-24), at each type's source event:
   - **EPIC-003** (Phase 1) owns **AC-MSG-013-01** (new service-request notification).
-  - **EPIC-008** (Phase 2) owns **AC-MSG-013-04** (onboarding completed) — the ONBD-007 notification is the
-    MSG-013-04 event; pulled forward from Phase 4 because onboarding completion is built in Phase 2 (same
-    pattern as EPIC-003 owning -01).
-  - **AC-MSG-013-02/-03/-05/-06** (new message, document uploaded, document-request overdue, due-date
-    approaching) → **Orphans**, targeted at **Phase 4** (the notification feed), since those source events
-    are not built until later phases.
+  - **EPIC-008** (Phase 2) owns **AC-MSG-013-04** (onboarding completed) — pulled forward because onboarding
+    completion is built in Phase 2 (same pattern as EPIC-003 owning -01).
+  - **EPIC-016** (Phase 4) owns **AC-MSG-013-03** (document uploaded — source already exists in EPIC-013).
+  - **EPIC-017** (Phase 4) owns **AC-MSG-013-02** (new message — the message is the source event).
+  - **EPIC-019** (Phase 4) owns **AC-MSG-013-05/-06** (document-request overdue, due-date approaching — the
+    reminder engine detects them).
+- **REQ-MSG-014 (client notification types)** — **fully placed** (2026-06-24), at each type's source event:
+  - **EPIC-016** (Phase 4) owns **AC-MSG-014-03/-04/-05/-06/-07** (status change, deliverable ready,
+    request accepted/declined, only-own-events — sources already exist; -05/-06 cover the account-holding
+    client, the account-less prospect being reached by email in EPIC-003).
+  - **EPIC-017** (Phase 4) owns **AC-MSG-014-01** (new message).
+  - **EPIC-019** (Phase 4) owns **AC-MSG-014-02** (document request created for the client).
 - **REQ-FILE-001 (file exchange within an engagement)** — split between Phase 2 (onboarding upload) and
   Phase 3 (full exchange):
   - **EPIC-007** (Phase 2) owns **AC-FILE-001-02** (client uploads to their engagement) and
     **AC-FILE-001-05** (engagement isolation) — the client-upload path the onboarding document step needs.
   - **EPIC-013** (Phase 3) owns **AC-FILE-001-01** (accountant upload) and **AC-FILE-001-03/-04** (both-party
     download) — the broader exchange surface (placed 2026-06-21). **REQ-FILE-001 is now fully placed.**
-- **REQ-NFR-010 (audit trail)** — split between Phase 3 and a Phase-4 audit-trail slice:
+- **REQ-NFR-010 (audit trail)** — **fully placed** (2026-06-24), split between Phase 3 and the Phase-4 audit slice:
   - **EPIC-015** (Phase 3) owns **AC-NFR-010-07** (the audit record survives a purge) — exclusively
     demonstrable at the purge path (placed 2026-06-21).
-  - **AC-NFR-010-01/-02/-03/-04/-05/-06** (document-access logging, transition logging, admin-action logging,
-    auth-event logging, the **accountant-only audit read surface**, audit ≥7yr retention) → **Orphans**,
-    targeted at a **dedicated audit-trail slice (Phase 4)**. The audit *mechanism* (ADR-019) already exists
-    and every relevant slice (incl. EPIC-013/014/015) **emits** these events as an adherence obligation; the
-    *feature* AC — chiefly the accountant-only audit **read** surface (-05) — want their own slice.
+  - **EPIC-023** (Phase 4) owns **AC-NFR-010-01/-02/-03/-04/-05/-06** (document-access logging, transition
+    logging, admin-action logging, auth-event logging, the **accountant-only audit read surface**, audit
+    ≥7yr retention). The audit *mechanism* (ADR-019) already exists and every relevant slice (incl.
+    EPIC-013/014/015) **emits** these events; EPIC-023 delivers the **read surface** + the minimum-set
+    completeness. **EPIC-023 is the last Phase-4 slice and closes the v1 POC.**
 
 ## Provider re-validation (mock → real enablement slices)
 
@@ -798,9 +933,10 @@ Planning Agent run places it in an epic. (v2 AC are tracked separately under Def
   (Phase 3)** 2026-06-21.
 - ✅ **REQ-AUTH-008** (indefinite access after completion) — AC-AUTH-008-01..02 → **placed in EPIC-010
   (Phase 3)** 2026-06-21.
-- **REQ-MSG-013** remainder — AC-MSG-013-02..06 → **Phase 4**.
-- **REQ-MSG-014** (all client notification types) — AC-MSG-014-01..07 → **Phase 4** (the client notification
-  feed; in the MVP accept/decline reach the account-less prospect by email, not a feed).
+- ✅ **REQ-MSG-013** remainder — AC-MSG-013-02/-03/-05/-06 → **placed in Phase 4** 2026-06-24 (EPIC-017 -02,
+  EPIC-016 -03, EPIC-019 -05/-06; -01 EPIC-003, -04 EPIC-008). REQ-MSG-013 fully placed.
+- ✅ **REQ-MSG-014** (client notification types) — AC-MSG-014-01..07 → **placed in Phase 4** 2026-06-24
+  (EPIC-017 -01, EPIC-019 -02, EPIC-016 -03/-04/-05/-06/-07; account-less prospect reached by email in EPIC-003).
 
 **Whole domains pending decomposition** (each `AC-*` orphaned until a future run slices it into a phase —
 see `ROADMAP.md` Phases 3–4):
@@ -816,22 +952,25 @@ see `ROADMAP.md` Phases 3–4):
     isolation subset.
   - **Phase 3 (EPIC-013/014/015):** FILE-001 remainder, FILE-009/010/011 (EPIC-013); FILE-004/006/005
     (EPIC-014); FILE-013/014/015 (EPIC-015). **No FILE orphans remain** except —
-  - **REQ-FILE-012** (overdue document-request flagging + configurable reminder cadence, AC-FILE-012-01..04)
-    → **Phase 4** (needs the reminder/notification engine REQ-MSG-018 / REQ-DASH-008). *(REQ-FILE-016 is v2 →
-    Deferred.)*
-- **MSG** (Phase 4) — REQ-MSG-001..012, -015..018 (v1), plus the MSG-013 remainder (**-02/-03/-05/-06** —
-  -01 in EPIC-003, **-04 in EPIC-008**) and the MSG-014 remainder above. *(REQ-MSG-019 is v2 → Deferred.)*
-- **DASH** (Phase 4) — REQ-DASH-001..009, -013 (DASH-010 in EPIC-002, DASH-011 in EPIC-003, **DASH-012 in
-  EPIC-006**).
-- **IDNT** (Phase 4) — REQ-IDNT-001..004, -006 (**IDNT-007 in EPIC-005**; IDNT-005 → Deferred).
-- **NFR** (cross-cutting) — REQ-NFR-001..005, -007, -008, -011 mapped onto the epic(s) whose slice must
+  - ✅ **REQ-FILE-012** (overdue document-request flagging + configurable reminder cadence, AC-FILE-012-01..04)
+    → **placed in EPIC-019 (Phase 4)** 2026-06-24 (the reminder engine). **No FILE orphans remain.**
+    *(REQ-FILE-016 is v2 → Deferred.)*
+- **MSG** (Phase 4) — ✅ **fully placed** 2026-06-24: REQ-MSG-001..006 (EPIC-017), -007/-012/-015/-016/-017
+  (EPIC-016), -008/-009/-010/-011 (EPIC-018), -018 (EPIC-019), plus the MSG-013/-014 remainders above. **No
+  MSG v1 orphans remain.** *(REQ-MSG-019 is v2 → Deferred.)*
+- **DASH** (Phase 4) — ✅ **fully placed** 2026-06-24: REQ-DASH-001/002/003 (EPIC-020),
+  -004/-005/-006/-007/-009 (EPIC-021), -008 (EPIC-019), -013 (EPIC-022); DASH-010 in EPIC-002, DASH-011 in
+  EPIC-003, DASH-012 in EPIC-006. **No DASH orphans remain.**
+- **IDNT** (Phase 4) — ✅ **placed** 2026-06-24: REQ-IDNT-002/003/004/006 (EPIC-022); IDNT-007 in EPIC-005.
+  **REQ-IDNT-001 (custom domain) → Phase 5** (deferred — see Deferred); **IDNT-005 → Deferred**. No v1 IDNT
+  orphans remain for Phase 4.
+- **NFR** (cross-cutting) — REQ-NFR-001..005, -007, -008 mapped onto the epic(s) whose slice must
   demonstrate each (e.g. RLS isolation on the first client-scoped read slice; malware scanning on the first
-  upload slice). **Placed so far:** AC-NFR-009 (malware scan) → Phase 2 (EPIC-007); **AC-NFR-006-01
+  upload slice). **Placed:** AC-NFR-009 (malware scan) → Phase 2 (EPIC-007); **AC-NFR-006-01
   (system-enforced 7-year retention) → Phase 3 (EPIC-014)**; **AC-NFR-010-07 (audit survives purge) →
-  Phase 3 (EPIC-015)**. **AC-NFR-010-01..06** (the audit-trail feature — incl. the accountant-only audit read
-  surface) → a **dedicated audit-trail slice in Phase 4** (see Split requirements); the audit *mechanism*
-  (ADR-019) is emitted by many slices already. The remaining NFR AC are attached to epics as those slices are
-  authored.
+  Phase 3 (EPIC-015)**; ✅ **AC-NFR-010-01..06 + REQ-NFR-011 (audit-trail read surface + integrity) → EPIC-023
+  (Phase 4)** 2026-06-24 — closes the audit feature and the v1 POC. The remaining NFR AC (001..005/007/008,
+  cross-cutting adherence) are attached to epics as those slices are authored / re-confirmed at Phase-5 hardening.
 
 ## Deferred
 
@@ -847,10 +986,17 @@ decision, not pending v1 work.
   (AC-AUTH-005-02) in EPIC-004, with the enrollment path (AC-AUTH-005-01) deferred to Phase 5. The
   requirements (`.requirements/REQ-AUTH-004/005.md`) are unchanged — a planning-level deferral of the AC, not
   a requirement deletion.
-- **REQ-IDNT-005 (permanent client hard-delete)** — descoped from v1 per requirements `OQ-004` (hard-delete
-  vs. 7-year retention precedence; the wholesale-erasure deferral was **not** reversed by the 2026-06-14
-  purge decision). To be carried as `deferred` when the IDNT domain is decomposed; recorded now so the
-  decision is not lost.
+- **REQ-IDNT-001 (portal on the firm's own custom domain, AC-IDNT-001-01/-02)** — **deferred from Phase 4 to
+  Phase 5 (Production Readiness) 2026-06-24, user-confirmed.** It is a v1 requirement, but its mechanics
+  (acquiring/configuring/certificating the domain) are inseparable from the production-hosting decision that
+  **ADR-007 defers**; the POC runs on localhost, so the AC is not meaningfully verifiable until Phase 5
+  stands up the host. Deferring it does **not** undermine the v1 POC — the custom-domain address is a hosting
+  concern, not a feature gap. Placed in the Phase-5 collect list (ROADMAP § Phase 5 → Production platform).
+- **REQ-IDNT-005 (permanent client hard-delete, AC-IDNT-005-01/-02/-03)** — descoped from v1 per requirements
+  `OQ-004` (hard-delete vs. 7-year retention precedence; the wholesale-erasure deferral was **not** reversed
+  by the 2026-06-14 purge decision). IDNT is now decomposed (Phase 4, EPIC-022) and this requirement is
+  **carried `deferred`** — EPIC-022 explicitly excludes it. A later version designs it once the
+  retention/legal precedence policy is settled (interacts with REQ-FILE-013/014/015).
 - **v2 requirement set (above v1 acceptance — added 2026-06-14, not yet phased):**
   - **REQ-ONBD-008** — dynamic, conditional intake organizer.
   - **REQ-FILE-016** — prior-year-based expected-document detection.
