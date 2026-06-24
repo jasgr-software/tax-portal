@@ -9,6 +9,14 @@
 -- This is the THIRD client-owned-rows policy in the system (first: 0005-engagement-policy.sql,
 -- second: 0006-questionnaire-policy.sql).
 --
+-- EPIC-013 / BRIEF-013 / TASK-013-001 update (DECISION-013-A, AC-FILE-001-04):
+--   fn_document_access CLIENT branch EXTENDED (additive, CS-GEN-002) to allow participant access.
+--   New form: owner EXISTS OR participant EXISTS (mirror of 0005 EPIC-012 extension).
+--   Owner branch is BYTE-IDENTICAL to the EPIC-007 original — no regression (AC-FILE-001-03/AC-FILE-001-05).
+--   An unrelated CLIENT (neither owner nor participant) still sees ZERO documents.
+--   pol_Document is DROPPED and RECREATED (same pattern as 0005 preamble / 0009) to allow
+--   CREATE OR ALTER of fn_document_access which is referenced by the live policy.
+--
 -- ADR-005 § Decision:
 --   "Every table containing client-scoped data is covered by a SQL Server SECURITY POLICY
 --    keyed off SESSION_CONTEXT(N'clerk_user_id')."
@@ -18,7 +26,9 @@
 --   Isolation column: Document.engagementId → the FILTER predicate keys on this.
 --   Ownership join: Document.engagementId → Engagement.clientUserId → User.clerkId
 --   → SESSION_CONTEXT('clerk_user_id').
---   Mirrors the 0005 engagement-policy.sql and 0006 answer-policy.sql ownership join pattern.
+--   Participant join (new — TASK-013-001): Document.engagementId → EngagementParticipant.engagementId
+--   → User.clerkId → SESSION_CONTEXT('clerk_user_id').
+--   Mirrors the 0005 engagement-policy.sql EPIC-012 extension pattern exactly.
 --
 -- DocumentRequest design (TASK-007-003):
 --   The request rows are ACCOUNTANT-AUTHORED but CLIENT-READABLE (clients can read their own
@@ -35,16 +45,19 @@
 -- ADR-005 §2 predicate shape:
 --   Branch 1: IS_MEMBER('app_admin_role') = 1 → always passes (admin pool).
 --   Branch 2: CAST(SESSION_CONTEXT(N'role') AS NVARCHAR(16)) = N'ACCOUNTANT' → passes.
---   Branch 3 (FILTER predicates only): CLIENT EXISTS — ownership via User.clerkId + Engagement.
+--   Branch 3a (owner — ORIGINAL EPIC-007): CLIENT EXISTS — ownership via User.clerkId + Engagement.
+--   Branch 3b (participant — NEW EPIC-013/TASK-013-001): CLIENT EXISTS — via EngagementParticipant.
 --
 -- ADR-003 §5: Null SESSION_CONTEXT → all branches fail → empty result → ZERO rows (fail-closed).
 -- DECISION-A (carried from 0005): NULL Engagement.clientUserId → EXISTS returns false → 0 rows.
 --   An unassigned engagement's documents/requests are invisible to all CLIENTs until back-fill.
+--   When clientUserId IS NULL, the owner EXISTS returns false → participant path checked (3b).
+--   If no participant row exists either → 0 rows (correct: unassigned engagement invisible).
 --
 -- ADR-005 §5 Performance rules:
 --   - ITVF (RETURNS TABLE WITH SCHEMABINDING) — optimizer inlines (Mitigation B).
---   - Predicate is shallow: two JOINs (Engagement + User) to reach the ownership boundary.
---     Matches 0005 (fn_engagement_access) and 0006 (fn_questionnaire_answer_access) precedent.
+--   - Predicate is shallow: two parallel EXISTS branches; each touches ≤2 JOINs.
+--     Matches 0005 (fn_engagement_access EPIC-012 form) parallel-EXISTS precedent.
 --
 -- ADR-003 Amendment 1: sp_set_session_context SET must NOT use @read_only = 1 anywhere.
 --   This policy file does not call sp_set_session_context — caller responsibility.
@@ -76,6 +89,36 @@ END
 GO
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- PART 0B (preamble): Drop live policies before altering predicate functions
+-- ─────────────────────────────────────────────────────────────────────────────
+-- SQL Server prevents CREATE OR ALTER of a function that is referenced by a live
+-- SECURITY POLICY (even when the function body is changing). Drop the policies first,
+-- alter the functions, then recreate the policies in later batches. The drop+recreate is
+-- still idempotent — this batch handles both the first-apply and re-apply cases.
+-- EPIC-013 / TASK-013-001 (DECISION-013-A / BRIEF-013): required because fn_document_access is
+-- being extended to add the participant EXISTS branch (AC-FILE-001-04).
+-- Pattern mirrors 0005 preamble (EPIC-012 extension of fn_engagement_access)
+-- and 0009 preamble (DROP before function alter).
+-- // CS-GEN-002 (additive extension — owner branch byte-preserved)
+--
+-- Drop pol_Document (references fn_document_access — being extended in PART 1 below):
+IF EXISTS (
+    SELECT 1 FROM sys.security_policies
+    WHERE name = 'pol_Document' AND schema_id = SCHEMA_ID('sec')
+)
+    DROP SECURITY POLICY [sec].[pol_Document];
+GO
+
+-- Drop pol_DocumentRequest (references fn_document_request_access and fn_document_request_write_access
+-- — these functions are also in this file and must be dropped before CREATE OR ALTER in PART 2):
+IF EXISTS (
+    SELECT 1 FROM sys.security_policies
+    WHERE name = 'pol_DocumentRequest' AND schema_id = SCHEMA_ID('sec')
+)
+    DROP SECURITY POLICY [sec].[pol_DocumentRequest];
+GO
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- PART 1: Document — CLIENT-owned rows (FILTER + BLOCK)
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -85,27 +128,47 @@ GO
 --   The isolation boundary is the owning Engagement (not a self-join on the document id).
 --   This is the column value that the FILTER predicate passes when evaluating each row.
 --
--- Three branches (ADR-005 §2 skeleton):
+-- EPIC-013 / TASK-013-001 (DECISION-013-A / AC-FILE-001-04):
+--   CLIENT branch EXTENDED (additive, CS-GEN-002) to allow participant access.
+--   New form: owner EXISTS (3a, ORIGINAL — BYTE-IDENTICAL) OR participant EXISTS (3b, NEW).
+--   An unrelated CLIENT (neither owner nor participant) still sees ZERO documents.
+--   Owner access is unchanged (3a still passes — no regression to AC-FILE-001-03/AC-FILE-001-05).
+--
+-- Four branches (ADR-005 §2 skeleton + EPIC-013/TASK-013-001 participant extension):
 --   1. Admin principal (IS_MEMBER('app_admin_role') = 1) → always passes.
 --   2. ACCOUNTANT role (SESSION_CONTEXT 'role' = 'ACCOUNTANT') → always passes.
---      Accountant-readable for file review (AC out-of-scope here but read boundary
---      required by ADR-005 — all client-owned rows must be accountant-readable).
---   3. CLIENT ownership branch: EXISTS join via User.clerkId → Engagement.clientUserId.
+--      Accountant-readable for file review (required by ADR-005 — all client-owned rows must be
+--      accountant-readable).
+--   3a. CLIENT owner branch (ORIGINAL — EPIC-007, byte-identical, AC-FILE-001-05 preserved):
 --      SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id = Engagement.clientUserId
 --      AND Engagement.id = @documentEngagementId.
 --      NULL SESSION_CONTEXT → CAST(NULL...) matches no clerkId → EXISTS empty → 0 rows.
---      NULL Engagement.clientUserId → JOIN returns false → EXISTS empty → 0 rows (DECISION-A).
+--      DECISION-A: NULL Engagement.clientUserId → JOIN returns false → EXISTS empty → 0 rows.
+--   3b. CLIENT participant branch (NEW — EPIC-013/TASK-013-001 / DECISION-013-A / AC-FILE-001-04):
+--      SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id → EngagementParticipant.userId
+--      WHERE ep.engagementId = @documentEngagementId (scoped to THIS engagement only).
+--      Mirrors 0005 fn_engagement_access 3b participant branch BYTE-IDENTICAL.
+--      ADR-003 §5: null SESSION_CONTEXT → EXISTS empty → 0 rows (fail-closed).
 --
 -- Named code path for Gate Authoring evidence (ENGINE.md § Gate Authoring Rules):
---   The CLIENT-ownership EXISTS branch:
+--   3a. CLIENT-owner EXISTS branch (ORIGINAL — EPIC-007):
 --     OR EXISTS (
 --         SELECT 1 FROM [dbo].[User] u
 --         JOIN [dbo].[Engagement] e ON e.[clientUserId] = u.[id]
 --         WHERE u.[clerkId] = CAST(SESSION_CONTEXT(N'clerk_user_id') AS NVARCHAR(64))
 --           AND e.[id] = @documentEngagementId
 --     )
---   Removing this branch reds the positive test (CLIENT-A reads own documents → 0 rows instead of 1).
---   Removing the FILTER predicate reds the isolation test (CLIENT-B sees CLIENT-A's documents).
+--   3b. CLIENT-participant EXISTS branch (NEW — EPIC-013 / TASK-013-001):
+--     OR EXISTS (
+--         SELECT 1 FROM [dbo].[User] u
+--         JOIN [dbo].[EngagementParticipant] ep ON ep.[userId] = u.[id]
+--         WHERE u.[clerkId] = CAST(SESSION_CONTEXT(N'clerk_user_id') AS NVARCHAR(64))
+--           AND ep.[engagementId] = @documentEngagementId
+--     )
+--   Removing 3a reds the positive owner test (owner reads ZERO instead of 1).
+--   Removing 3b reds the positive participant test (AC-FILE-001-04: participant reads ZERO instead of 1).
+--   Removing the FILTER reds the isolation test (CLIENT-B sees CLIENT-A's documents).
+-- // CS-SQL-001 // CS-SQL-003 // ADR-005 // ADR-003 // DECISION-013-A // CS-GEN-002
 CREATE OR ALTER FUNCTION [sec].[fn_document_access](
     @documentEngagementId UNIQUEIDENTIFIER
 )
@@ -115,51 +178,66 @@ AS RETURN (
     SELECT 1 AS [allowed]
     WHERE
         -- 1. Admin principal always passes (migrations, webhooks, cron — RLS-exempt)
+        --    IS_MEMBER('app_admin_role') = 1 — ADR-005 §2. // CS-SQL-003
         IS_MEMBER('app_admin_role') = 1
 
         -- 2. ACCOUNTANT role (from SESSION_CONTEXT) always passes — full document visibility
         --    Required by ADR-005 for all client-owned-row families.
+        --    CAST to NVARCHAR(16) matches the role column width (ADR-003 §2). // CS-SQL-003
         OR CAST(SESSION_CONTEXT(N'role') AS NVARCHAR(16)) = N'ACCOUNTANT'
 
-        -- 3. CLIENT ownership branch — THIRD LIVE CLIENT-OWNERSHIP BRANCH IN THE SYSTEM (EPIC-007)
-        --    SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id = Engagement.clientUserId
-        --    → Engagement.id = @documentEngagementId (the engagementId of the document row)
-        --    ADR-005 §2: CLIENT branch joins via User.clerkId (stable Clerk user ID string).
-        --    ADR-005 §5 Mitigation C: two JOINs (Engagement + User) — matches 0005/0006 pattern.
-        --    DECISION-A: when clientUserId IS NULL, EXISTS returns false → 0 rows (correct:
-        --    unassigned engagement's documents are invisible to all CLIENTs until back-fill).
-        --    ADR-003 §5: null SESSION_CONTEXT('clerk_user_id') → CAST(NULL...) matches no
-        --    clerkId → no match → EXISTS empty → 0 rows (fail-closed).
+        -- 3a. CLIENT owner branch (ORIGINAL — EPIC-007, byte-identical, AC-FILE-001-05 preserved)
+        --     SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id = Engagement.clientUserId
+        --     → Engagement.id = @documentEngagementId (the engagementId of the document row)
+        --     ADR-005 §2: CLIENT branch joins via User.clerkId (stable Clerk user ID string).
+        --     ADR-005 §5 Mitigation C: two JOINs (Engagement + User) — matches 0005/0006 pattern.
+        --     DECISION-A: when clientUserId IS NULL, EXISTS returns false → checked against 3b.
+        --     ADR-003 §5: null SESSION_CONTEXT('clerk_user_id') → CAST(NULL...) matches no
+        --     clerkId → no match → EXISTS empty → falls through to 3b (also empty) → 0 rows.
+        --     // CS-SQL-003 // ADR-005 // ADR-003
         OR EXISTS (
             SELECT 1 FROM [dbo].[User] u
             JOIN [dbo].[Engagement] e ON e.[clientUserId] = u.[id]
             WHERE u.[clerkId] = CAST(SESSION_CONTEXT(N'clerk_user_id') AS NVARCHAR(64))
               AND e.[id] = @documentEngagementId
         )
+
+        -- 3b. CLIENT participant branch (NEW — EPIC-013 / TASK-013-001 / DECISION-013-A / AC-FILE-001-04)
+        --     SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id → EngagementParticipant.userId
+        --     WHERE ep.engagementId = @documentEngagementId (scoped to THIS engagement only).
+        --     Mirrors 0005 fn_engagement_access 3b participant branch BYTE-IDENTICAL EXISTS shape.
+        --     CS-GEN-002: purely additive OR — no existing branch removed or altered.
+        --     Owner access is unchanged (3a still passes — no regression to AC-FILE-001-03/AC-FILE-001-05).
+        --     An unrelated CLIENT (neither owner nor participant) sees ZERO (both EXISTS empty).
+        --     ADR-003 §5: null SESSION_CONTEXT → no match → EXISTS empty → 0 rows (fail-closed).
+        --     // CS-SQL-003 // ADR-005 // ADR-003 // DECISION-013-A // CS-GEN-002 // AC-FILE-001-04
+        OR EXISTS (
+            SELECT 1 FROM [dbo].[User] u
+            JOIN [dbo].[EngagementParticipant] ep ON ep.[userId] = u.[id]
+            WHERE u.[clerkId] = CAST(SESSION_CONTEXT(N'clerk_user_id') AS NVARCHAR(64))
+              AND ep.[engagementId] = @documentEngagementId
+        )
 );
 GO
 
 -- ─── Security policy: pol_Document (FILTER + BLOCK) ──────────────────────────
+-- Policy was already dropped in the preamble batch (Part 0B — required to allow fn alter).
+-- This batch simply recreates it against the updated predicate function.
 -- FILTER PREDICATE: read paths via request pool (app_user_role) are filtered per-row.
---   CLIENT sees only their own engagement's documents; ACCOUNTANT sees all; admin sees all.
+--   CLIENT sees only their own engagement's documents (owner + participant); ACCOUNTANT sees all; admin sees all.
 -- BLOCK predicates (AFTER INSERT / BEFORE UPDATE / AFTER UPDATE / BEFORE DELETE):
 --   Defence-in-depth for any request-pool write attempts outside the predicate's scope.
 --   TASK-007-004 wires upload to use SESSION_CONTEXT; the BLOCK predicate allows
---   the owning client to insert/update their own documents.
+--   the owning client (and now participant — AC-FILE-001-04) to insert/update their own documents.
 --
 -- STATE=ON, SCHEMABINDING=ON per ADR-005 §3.
-IF EXISTS (
-    SELECT 1 FROM sys.security_policies
-    WHERE name = 'pol_Document' AND schema_id = SCHEMA_ID('sec')
-)
-    DROP SECURITY POLICY [sec].[pol_Document];
-
+-- // CS-SQL-001 // CS-SQL-003 // ADR-005 // AC-FILE-001-04 // DECISION-013-A
 CREATE SECURITY POLICY [sec].[pol_Document]
     -- FILTER predicate: controls SELECT visibility (fail-closed for null SESSION_CONTEXT)
     ADD FILTER PREDICATE [sec].[fn_document_access]([engagementId])
         ON [dbo].[Document]
     -- BLOCK predicates: defence-in-depth — request pool cannot insert/update/delete
-    -- document rows outside the predicate's scope.
+    -- document rows outside the predicate's scope (owner + participant + accountant + admin).
     , ADD BLOCK PREDICATE [sec].[fn_document_access]([engagementId])
         ON [dbo].[Document] AFTER INSERT
     , ADD BLOCK PREDICATE [sec].[fn_document_access]([engagementId])

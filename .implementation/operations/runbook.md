@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-007-001 (storage adapter bring-up + STORAGE_* env vars; Azurite `--skipApiVersionCheck`; portal/admin depend on `azurite: service_healthy`)
+**Last updated:** TASK-013-003 (admin service storage env vars: BLOB_PUBLIC_ENDPOINT, FILE_SCANNER, ALLOW_MOCK_SCANNER + azurite service_healthy depends_on on admin; BUG-013-001 remediation)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -75,6 +75,10 @@ as `ALLOW_MOCK_AUTH`. The compose file defaults both to `mock`/`true` for the po
 Note: `ESIGN_PROVIDER` and `ALLOW_MOCK_ESIGN` are wired only on the **portal** service (the
 client-facing onboarding surface). The **admin** service does not invoke e-sign directly and does
 not carry these vars yet. Add them to admin when admin-surface e-sign is introduced.
+
+**Mock file scanner opt-in (TASK-013-003 — `ALLOW_MOCK_SCANNER`):** Both `portal` and `admin` compose services require `ALLOW_MOCK_SCANNER=true` when `FILE_SCANNER=mock` (the local/e2e default). The fail-closed guard in `packages/scanner` (ADR-021) keys on this flag — same pattern as `ALLOW_MOCK_AUTH`. The compose file defaults both to `mock`/`true` for both services. **NEVER set `ALLOW_MOCK_SCANNER=true` in a real production deployment.**
+
+**`BLOB_PUBLIC_ENDPOINT` (TASK-013-003 — BUG-008-001 admin fix):** Both the `portal` and `admin` compose services set `BLOB_PUBLIC_ENDPOINT` to `http://localhost:10000` so the client browser can PUT bytes directly to Azurite using the host-accessible URL (the server generates SAS URLs with the Docker-internal `azurite:10000` hostname; the browser cannot resolve `azurite`). Leave unset in production.
 
 **Seed/migrate principal:** `pnpm db:migrate` and `pnpm db:seed` run under `DATABASE_URL_ADMIN`
 (`taxportal_admin` login, `app_admin_role` member). Do NOT use `sa` — the Service table has an RLS

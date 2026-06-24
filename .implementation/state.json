@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-23T18:58:31.711Z",
-  "currentBrief": null,
-  "currentPhase": null,
-  "currentSliceDescription": null,
-  "currentBranch": null,
+  "lastUpdated": "2026-06-24T00:24:46.942Z",
+  "currentBrief": "BRIEF-013",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "Secure file exchange — accountant upload, both-party download, accountant-managed folders, top-level org by engagement & tax year, version history (EPIC-013, Phase 3)",
+  "currentBranch": "brief-013-secure-file-exchange",
   "awaitingMerge": [],
   "openRetroItems": [
     {

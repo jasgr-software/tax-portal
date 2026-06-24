@@ -244,13 +244,31 @@ services:
       # Override via .env.local if needed; "100" safely covers the worst-case sequential test load.
       RATE_LIMIT_MAX_ATTEMPTS: "${RATE_LIMIT_MAX_ATTEMPTS:-100}"
       RATE_LIMIT_WINDOW_MS: "${RATE_LIMIT_WINDOW_MS:-60000}"
-      # Note: STORAGE_* env vars and the azurite dependency are intentionally omitted from
-      # the admin service — apps/admin has no @tax-portal/storage dependency (m4 fix).
-      # Storage env + azurite depends_on live only on the portal service.
+      # Object storage (packages/storage — FileStorage port — ADR-008).
+      # Added in TASK-013-003: apps/admin now has @tax-portal/storage dependency for the
+      # accountant upload + version-replace surface (ADR-006 — upload is admin-only).
+      # "azurite" adapter connects to the Azurite container at internal hostname "azurite":10000.
+      STORAGE_ADAPTER: "${STORAGE_ADAPTER:-azurite}"
+      STORAGE_CONNECTION_STRING: "${ADMIN_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1}"
+      STORAGE_CONTAINER: "${STORAGE_CONTAINER:-tax-portal-documents}"
+      # BLOB_PUBLIC_ENDPOINT — rewrites the Azurite signed upload URL's origin before
+      # returning it to the client browser. The admin server generates SAS URLs using the
+      # Docker-internal hostname "azurite:10000". The browser (running on the host machine)
+      # cannot resolve "azurite" — it must use localhost with the mapped port.
+      # Set to the host-accessible Azurite base URL. Leave unset in production (real Azure
+      # has a single public URL; no rewrite needed).
+      BLOB_PUBLIC_ENDPOINT: "${BLOB_PUBLIC_ENDPOINT:-http://localhost:10000}"
+      # File scanner binding — "mock" for e2e/local dev (no real AV engine needed).
+      # Same as portal service — admin upload path also passes through the scan-promote gate
+      # (ADR-021). ALLOW_MOCK_SCANNER=true opts into the mock binding.
+      FILE_SCANNER: "${FILE_SCANNER:-mock}"
+      ALLOW_MOCK_SCANNER: "${ALLOW_MOCK_SCANNER:-true}"
     ports:
       - "${ADMIN_PORT:-3001}:3001"
     depends_on:
       sqlserver:
+        condition: service_healthy
+      azurite:
         condition: service_healthy
     healthcheck:
       test:

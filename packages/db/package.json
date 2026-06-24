@@ -18,6 +18,10 @@
     "./src/repositories/document.js": {
       "types": "./dist/repositories/document.d.ts",
       "default": "./dist/repositories/document.js"
+    },
+    "./src/repositories/folder.js": {
+      "types": "./dist/repositories/folder.d.ts",
+      "default": "./dist/repositories/folder.js"
     }
   },
   "scripts": {

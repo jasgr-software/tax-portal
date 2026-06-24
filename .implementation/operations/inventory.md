@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-011-001 (EngagementNote Prisma model + dueDate/isPriority Engagement columns; 0008-engagement-note-policy.sql Track B — ACCOUNTANT-ONLY accountant-notes policy: sec.pol_EngagementNote FILTER+BLOCK, no CLIENT branch — AC-LIFE-008-02/-03)
+**Last updated:** TASK-013-003 (added BLOB_PUBLIC_ENDPOINT, FILE_SCANNER, ALLOW_MOCK_SCANNER to admin service in docker-compose.yml + azurite service_healthy depends_on — accountant upload + version-replace surface; BUG-013-001 remediation)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -87,6 +87,9 @@ Both `portal` and `admin` compose services now depend on `azurite: service_healt
 | `STORAGE_CONTAINER` | Optional | Blob container name. The adapter calls `createIfNotExists()` — no manual creation needed. | `tax-portal-documents` |
 | `PORTAL_STORAGE_CONNECTION_STRING` | host env → portal container | Container-side connection string for the portal service. Uses the compose service name `azurite` on port `10000`. Set in `.env.local` (added TASK-007-001). | falls back to compose inline default |
 | `ADMIN_STORAGE_CONNECTION_STRING` | host env → admin container | Container-side connection string for the admin service. Uses the compose service name `azurite` on port `10000`. Set in `.env.local` (added TASK-007-001). | falls back to compose inline default |
+| `BLOB_PUBLIC_ENDPOINT` | Optional | Rewrites the Docker-internal Azurite SAS URL origin to a host-accessible URL before returning it to the client browser. In docker-compose, both portal and admin generate SAS URLs using the internal `azurite:10000` hostname; the browser must use `localhost:10000` (BUG-008-001 root-cause fix, added TASK-013-003 for admin). Leave unset in production (real Azure has a single public URL). | `http://localhost:10000` (via compose default) |
+| `FILE_SCANNER` | Optional | File scanner adapter selector (ADR-021): `mock` (local/e2e default) or `cloud` (Phase-5 slot — deferred). Set in compose for both portal and admin services. | `mock` (via compose) |
+| `ALLOW_MOCK_SCANNER` | Optional | Mock file scanner opt-in. Must be `"true"` for the prod-built container to serve the mock scanner. Same fail-closed pattern as `ALLOW_MOCK_AUTH` (BUG-002-001). Defaults to `"true"` in compose. **NEVER set to `"true"` in a real production deploy.** Added TASK-013-003 (admin now carries these — previously only portal). | `true` (via compose) |
 
 ### App services (portal + admin active as of TASK-004-001)
 

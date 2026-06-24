@@ -231,15 +231,27 @@ export {
   listDocumentRequestsForEngagement,
 } from "./repositories/document-request.js";
 
-// Document repository (EPIC-007 / TASK-007-004) — two-phase authorize-then-sign pipeline
-// authorizeEngagementForUpload  — request pool authz (FILTER-governed; 404 on RLS miss)
-// listEngagementDocuments       — request pool read (FILTER-governed; client sees own docs only)
-// authorizeThenSignDownload     — request pool authz → active-only → signed download URL (ADR-009)
+// Document repository (EPIC-007 / TASK-007-004 + EPIC-013 / TASK-013-002)
+//   Two-phase authorize-then-sign upload/download pipeline (ADR-009).
+//
+// On this barrel (request-pool reads + actions-layer operations):
+//   authorizeEngagementForUpload  — request pool authz (FILTER-governed; 404 on RLS miss)
+//   listEngagementDocuments       — request pool read (FILTER-governed; client sees own docs only)
+//   authorizeThenSignDownload     — request pool authz → active-only → signed download URL (ADR-009)
+//     Both owner + participant reach it via participant-extended fn_document_access (TASK-013-001).
+//     AC-FILE-001-03 (owner) + AC-FILE-001-04 (participant) — both-party download gate.
+//   listDocumentVersions          — request pool read (sec.pol_DocumentVersion FILTER-governed)
+//     AC-FILE-009-02 (current = supersededAt IS NULL) + AC-FILE-009-03 (prior rows retained).
 //
 // NOT on this barrel (import directly from source module in server actions):
 //   insertPendingDocument           — admin pool INSERT (ADR-009 step 2d)
 //   completeUpload                  — admin pool promote (scan-before-available gate, ADR-021)
 //   getDocumentForOwnershipCheck    — request pool read (FILTER-governed; M1 ownership guard)
+//   authorizeAccountantUpload       — admin pool authz (accountant-principal; AC-FILE-001-01)
+//   replaceDocumentWithNewVersion   — admin pool write (new DocumentVersion + supersede; DECISION-013-C)
+//
+// CS-TS-001/-002: request-pool reads go through the db wrapper with SESSION_CONTEXT;
+//   admin-pool writes via getAdminPool() inside withAuditTransaction (ADR-019).
 export type {
   DocumentItem,
   InsertPendingDocumentInput,
@@ -248,12 +260,60 @@ export type {
   CompleteUploadResult,
   AuthorizeThenSignDownloadInput,
   AuthorizeThenSignDownloadResult,
+  // EPIC-013 / TASK-013-002 types
+  AuthorizeAccountantUploadInput,
+  ReplaceDocumentInput,
+  ReplaceDocumentResult,
+  DocumentVersionItem,
 } from "./repositories/document.js";
 export {
   authorizeEngagementForUpload,
   listEngagementDocuments,
   authorizeThenSignDownload,
+  // EPIC-013 / TASK-013-002 exports
+  // AC-FILE-009-02/-03: version history read (request pool, RLS-scoped)
+  listDocumentVersions,
 } from "./repositories/document.js";
+
+// Folder repository (EPIC-013 / TASK-013-002) — folder ops + list
+//   createFolder / renameFolder / moveFolder / placeDocumentInFolder: admin pool writes.
+//   AC-FILE-010-02: accountant can create/rename/arrange folders.
+//   AC-FILE-010-03: document placement in folders.
+//   AC-FILE-010-04: folder management is accountant-only (BLOCK on request pool).
+//   listEngagementFolders: request pool read (sec.pol_Folder FILTER-governed).
+//
+// NOT on this barrel (admin-only writes — import directly from source module):
+//   createFolder / renameFolder / moveFolder / placeDocumentInFolder
+//
+// CS-TS-001/-002: listEngagementFolders is the only request-pool read; all writes are admin.
+export type {
+  FolderItem,
+  CreateFolderInput,
+  CreateFolderResult,
+  RenameFolderInput,
+  MoveFolderInput,
+  PlaceDocumentInFolderInput,
+} from "./repositories/folder.js";
+export {
+  // AC-FILE-010-01: read folders for the engagement (request pool, RLS-scoped)
+  listEngagementFolders,
+} from "./repositories/folder.js";
+
+// Document-organization read model (EPIC-013 / TASK-013-002)
+//   getTopLevelOrganization: request pool, RLS-scoped.
+//   AC-FILE-011-01: Files grouped by engagement.
+//   AC-FILE-011-02: Engagements grouped by taxYear.
+//   DECISION-013-D: null taxYear → explicit "unspecified" bucket.
+//
+// CS-TS-001: request pool read via db wrapper with SESSION_CONTEXT.
+export type {
+  OrgEngagementEntry,
+  OrgYearBucket,
+  TopLevelOrganization,
+} from "./repositories/document-organization.js";
+export {
+  getTopLevelOrganization,
+} from "./repositories/document-organization.js";
 
 // Checklist read model (EPIC-007 / TASK-007-004)
 // resolveChecklist — request pool/FILTER-scoped read model; derives outstanding/fulfilled

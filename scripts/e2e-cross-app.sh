@@ -20,6 +20,7 @@
 #   apps/portal/e2e/specs/document-upload-cross-app.spec.ts             (EPIC-007 admin authors request → client fulfills)
 #   apps/portal/e2e/specs/onboarding-completion-cross-app.spec.ts       (EPIC-008 client completes → admin In Progress + notification)
 #   apps/portal/e2e/specs/returning-client-request.spec.ts              (EPIC-012 AC-DOOR-009-04 returning-client request → admin inbox)
+#   apps/portal/e2e/specs/both-party-download-cross-app.spec.ts         (EPIC-013 AC-FILE-001-03/-04 both-party download round-trip)
 #   apps/admin/e2e/specs/cross-app-redirect.spec.ts                     (AC-AUTH-010-01 admin cross-app redirect matrix)
 
 set -euo pipefail
@@ -53,7 +54,8 @@ pnpm --filter portal exec playwright test \
   e2e/specs/questionnaire-cross-app.spec.ts \
   e2e/specs/document-upload-cross-app.spec.ts \
   e2e/specs/onboarding-completion-cross-app.spec.ts \
-  e2e/specs/returning-client-request.spec.ts
+  e2e/specs/returning-client-request.spec.ts \
+  e2e/specs/both-party-download-cross-app.spec.ts
 
 # ─── Run admin cross-app specs ────────────────────────────────────────────────
 

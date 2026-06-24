@@ -225,6 +225,9 @@ model Engagement {
   // DECISION-D (BRIEF-012): the join table approach keeps clientUserId for back-compat (AC-AUTH-003).
   // RLS policy: sec.pol_EngagementParticipant (Track B: db/policies/0009-engagement-participant-policy.sql).
   participants          EngagementParticipant[]
+  // EPIC-013 (BRIEF-013 / TASK-013-001): Reverse relation — folders organizing documents (AC-FILE-010-01)
+  // RLS policy: sec.pol_Folder (Track B: db/policies/0010-folder-policy.sql). // CS-GEN-002
+  folders               Folder[]
 
   @@map("Engagement")
 }
@@ -396,15 +399,67 @@ model DocumentRequest {
   @@map("DocumentRequest")
 }
 
+// ─── Folder ───────────────────────────────────────────────────────────────────
+// Engagement-scoped folder for organizing documents (EPIC-013 / BRIEF-013 / TASK-013-001).
+// CLIENT-SCOPED AND CLIENT-ISOLATED — the client can read only their own engagement's folders.
+// RLS (ADR-005): FILTER + BLOCK via sec.pol_Folder (Track B: db/policies/0010-folder-policy.sql).
+//   Read predicate: engagement-scoped (owner + participants can read).
+//   Write predicate: accountant-only (NO CLIENT write branch — AC-FILE-010-04).
+//
+// ADR-002: UNIQUEIDENTIFIER PK NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+//
+// parentFolderId: nullable self-reference for nesting (AC-FILE-010-02, DECISION-013-A).
+//   NULL = root-level folder for the engagement. Non-null = nested under parent folder.
+//   Re-parenting stays within the same engagement (enforced by application-layer + RLS).
+//   onDelete: NoAction — never cascade-delete child folders.
+//
+// createdBy: accountant clerkId at creation (audit trail).
+//
+// AC-FILE-010-01: Files organize into folders.
+// AC-FILE-010-02: Accountant can arrange (nest/re-parent) folders.
+// AC-FILE-010-04: Folder management (create/rename/arrange) is accountant-only.
+//
+// CS-SQL-001: this table ships sec.pol_Folder + folder.client-isolation.rls.test.ts (HARD GATE).
+// CS-SQL-003: predicate is an inline TVF, shallow, admin/accountant-first, fail-closed.
+// CS-GEN-002: additive — new table; no existing model modified destructively. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// DECISION-013-A: nullable parentFolderId self-ref for nesting per AC-FILE-010-02.
+
+model Folder {
+  id           String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Engagement — the isolation column the FILTER predicate keys on (AC-FILE-010-01)
+  // onUpdate: NoAction required by Prisma cyclic-cascade validation (multi-path through Engagement → EngagementRequest → User)
+  engagementId String    @db.UniqueIdentifier
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Display name of the folder (AC-FILE-010-01)
+  name         String    @db.NVarChar(255)
+  // Nullable self-reference for folder nesting (AC-FILE-010-02 / DECISION-013-A)
+  // onDelete: NoAction — never cascade-delete when a parent folder is removed
+  parentFolderId String? @db.UniqueIdentifier
+  parentFolder   Folder? @relation("FolderParent", fields: [parentFolderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  childFolders   Folder[] @relation("FolderParent")
+  // Accountant clerkId at creation (audit trail — mirrors DocumentRequest.createdBy)
+  createdBy    String?   @db.NVarChar(64)
+  createdAt    DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt    DateTime  @updatedAt @db.DateTimeOffset
+
+  // Reverse relation — documents placed in this folder (AC-FILE-010-03)
+  documents    Document[]
+
+  @@map("Folder")
+}
+
 // ─── Document ─────────────────────────────────────────────────────────────────
 // Stored-file metadata row — the THIRD client-owned-row family (after Engagement + QuestionnaireAnswer).
 // CLIENT-OWNED AND CLIENT-ISOLATED — the client can read only their own engagement's documents.
 // RLS (ADR-005): FILTER + BLOCK via sec.pol_Document (Track B: db/policies/0007-document-policy.sql).
-//   Ownership: engagementId → Engagement.clientUserId → User.clerkId = SESSION_CONTEXT('clerk_user_id').
-//   Mirrors 0005 (Engagement) and 0006 (QuestionnaireAnswer) ownership join pattern.
+//   Ownership: engagementId → Engagement.clientUserId/EngagementParticipant → User.clerkId.
+//   Mirrors 0005 (Engagement) ownership join pattern (EPIC-007 owner + EPIC-012/BRIEF-013 participant extension).
 //
 // ADR-002: UNIQUEIDENTIFIER PK NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
-// ADR-009 storage-key shape: engagements/{engagementId}/documents/{id}/v1/{urlencoded-filename}.
+// ADR-009 storage-key shape: engagements/{engagementId}/documents/{id}/v{version}/{urlencoded-filename}.
+//   NOTE: No folder segment in the storage key — folder membership is the DB Document.folderId
+//   relationship, not a path prefix (ADR-009). // DECISION-013-A
 //
 // status column: 'pending' | 'active' | 'infected' (ADR-009).
 //   Default 'pending' — set after AV scan passes (TASK-007-004 wires upload + scan).
@@ -417,8 +472,14 @@ model DocumentRequest {
 //   non-NULL = uploaded in fulfillment of the request (DECISION-TASK-007-003 — FK over join table).
 //   Satisfaction (fulfilled/outstanding) is DERIVED in the read model (TASK-007-004).
 //
+// folderId (BRIEF-013 / TASK-013-001 additive): nullable FK → Folder (onDelete: NoAction).
+//   NULL = document sits at engagement root (no folder). // CS-GEN-002 (additive column)
+//   non-NULL = document placed in a folder (AC-FILE-010-03).
+//
 // AC-FILE-001-05: A file in engagement A is NOT exposed to other engagements — proven by the
 //   FILTER predicate keying on engagementId → Engagement.clientUserId → User.clerkId.
+// AC-FILE-001-04: A participant (not just the owner) can access the engagement's files —
+//   fn_document_access is extended with the EPIC-012 participant EXISTS branch (TASK-013-001).
 // AC-FILE-003-02: Retrieval requires an authorization check — the FILTER predicate is that gate.
 
 model Document {
@@ -432,7 +493,13 @@ model Document {
   // onUpdate: NoAction required by Prisma cyclic-cascade validation (DocumentRequest → Engagement)
   documentRequestId String?   @db.UniqueIdentifier
   documentRequest   DocumentRequest? @relation(fields: [documentRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  // ADR-009 storage key: engagements/{engagementId}/documents/{id}/v1/{urlencoded-filename}
+  // Nullable FK → Folder — folder placement (AC-FILE-010-03 / BRIEF-013 / TASK-013-001) // CS-GEN-002
+  // NULL = document sits at engagement root (not in any folder).
+  // non-NULL = placed in the referenced folder (DECISION-013-A: no folder segment in storage key).
+  // onDelete: NoAction — never cascade-delete a document when its folder is removed.
+  folderId          String?   @db.UniqueIdentifier
+  folder            Folder?   @relation(fields: [folderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // ADR-009 storage key: engagements/{engagementId}/documents/{id}/v{version}/{urlencoded-filename}
   storageKey        String    @db.NVarChar(1024)
   // Authoritative original filename as uploaded (ADR-009)
   originalFilename  String    @db.NVarChar(500)
@@ -443,7 +510,7 @@ model Document {
   // ADR-009 status: 'pending' | 'active' | 'infected' — CHECK constraint in Track B
   // Default 'pending'; transitions via AV scan result in TASK-007-004
   status            String    @default("pending") @db.NVarChar(16)
-  // Version counter — v1 only (no replace/history in this slice per brief Out-of-scope)
+  // Version counter — current version number (updated by TASK-013-002 on replacement)
   version           Int       @default(1)
   // Optional threat label when status='infected' (AV scan result — TASK-007-004)
   scanThreat        String?   @db.NVarChar(500)
@@ -452,7 +519,69 @@ model Document {
   createdAt         DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt         DateTime  @updatedAt @db.DateTimeOffset
 
+  // Reverse relation — version history rows (BRIEF-013 / DECISION-013-B)
+  // All prior and current DocumentVersion rows for this document.
+  versions          DocumentVersion[]
+
   @@map("Document")
+}
+
+// ─── DocumentVersion ──────────────────────────────────────────────────────────
+// Version history for a Document (EPIC-013 / BRIEF-013 / TASK-013-001 / DECISION-013-B).
+// CHILD TABLE of Document — each row represents one version of a file in an engagement.
+// CLIENT-SCOPED AND CLIENT-ISOLATED via parent Document → Engagement.
+// RLS (ADR-005): FILTER + BLOCK via sec.pol_DocumentVersion (Track B: db/policies/0011-document-version-policy.sql).
+//   Engagement-scoped via parent Document.engagementId → Engagement owner+participant chain.
+//
+// ADR-002: UNIQUEIDENTIFIER PK NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// ADR-009: Replacement = new DocumentVersion row + new storage key; prior rows retained (supersededAt set).
+//   Storage key per version: engagements/{engagementId}/documents/{documentId}/v{version}/...
+//   No folder segment in the key — folder membership is the DB Document.folderId relationship (ADR-009).
+//   The parent Document carries the current version pointer (Document.version column).
+//   This task lands the table + policy + isolation — the replacement operation is TASK-013-002.
+//
+// version: monotonically increasing integer per parent document (e.g. 1, 2, 3).
+// storageKey: the versioned storage key (ADR-009 shape above).
+// supersededAt: NULL = this is the current version; non-NULL = superseded by a newer version row.
+//   Set when a replacement upload creates a new DocumentVersion row (TASK-013-002).
+//   Prior rows remain SELECT-able by the owner/participant (AC-FILE-009-03 substrate).
+// uploadedBy: clerkId of the uploader (audit trail — client or accountant).
+//
+// FK → Document onDelete: NoAction — version rows must not be cascade-deleted.
+// @@unique([documentId, version]): each document has exactly one row per version number.
+//
+// AC-FILE-009-03: every prior version retained + accessible after replacement.
+//   The retained-row substrate: a superseded DocumentVersion row remains SELECT-able.
+//   The replacement operation itself is TASK-013-002.
+//
+// CS-SQL-001: this table ships sec.pol_DocumentVersion + document-version.client-isolation.rls.test.ts (HARD GATE).
+// CS-SQL-003: predicate is an inline TVF, shallow, admin/accountant-first, fail-closed.
+// CS-GEN-002: additive — new table; no existing model modified destructively. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// DECISION-013-B: versions are a distinct DocumentVersion child table (ADR-009 permits child table).
+
+model DocumentVersion {
+  id           String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Document — the parent document this version belongs to
+  // onDelete: NoAction — version rows must not be cascade-deleted when the document is removed
+  // onUpdate: NoAction required by Prisma cyclic-cascade validation
+  documentId   String    @db.UniqueIdentifier
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Monotonically increasing version number per document (AC-FILE-009-03 substrate)
+  version      Int
+  // ADR-009 versioned storage key: engagements/{engagementId}/documents/{documentId}/v{version}/...
+  // No folder segment — folder membership is the Document.folderId DB relationship.
+  storageKey   String    @db.NVarChar(1024)
+  // NULL = current version; non-NULL = superseded at this timestamp (AC-FILE-009-03 substrate)
+  supersededAt DateTime? @db.DateTimeOffset
+  // Uploader clerkId (audit trail — mirrors Document.uploadedBy)
+  uploadedBy   String?   @db.NVarChar(64)
+  createdAt    DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt    DateTime  @updatedAt @db.DateTimeOffset
+
+  // Each document has exactly one row per version number
+  @@unique([documentId, version])
+  @@map("DocumentVersion")
 }
 
 // ─── EngagementNote ───────────────────────────────────────────────────────────

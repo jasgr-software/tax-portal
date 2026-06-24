@@ -3,7 +3,11 @@
  *
  * Two-phase authorize-then-sign upload/download pipeline for Documents.
  *
+ * AC-FILE-001-01: Accountant upload primitive (two-phase, accountant principal, signed upload URL).
  * AC-FILE-001-02: Client upload stored in the engagement's set.
+ * AC-FILE-001-03: Owner (primary client) can download their engagement's files.
+ * AC-FILE-001-04: A client participant (not just the owner) can access the engagement's files —
+ *   participant-extended fn_document_access (TASK-013-001). Both parties download.
  * AC-FILE-001-05: A file in engagement A is NOT exposed to other engagements.
  * AC-FILE-003-01: Encrypted at rest (adapter contract — proven through this pipeline vs Azurite).
  * AC-FILE-003-02: Retrieval requires an authorization check.
@@ -11,11 +15,17 @@
  * AC-FILE-003-04: Grant time-limited, expires.
  * AC-NFR-009-01:  Scanned before available (indeterminate → stays pending fail-closed).
  * AC-NFR-009-02:  Infected → withheld + uploader informed.
+ * AC-FILE-009-01: Accountant can upload a new version of an existing document.
+ * AC-FILE-009-02: After replacement, "current" resolves to the newest non-superseded version.
+ * AC-FILE-009-03: Every prior version retained + accessible after replacement.
  *
  * Pool strategy:
  *   - authorizeEngagementForUpload: REQUEST POOL (db / SESSION_CONTEXT) — FILTER-governed.
  *     Resolves the engagement through the 0007 FILTER. RLS-filtered miss → null (404 / no URL).
  *     ADR-009 step 2a: "authorize on the request pool" before minting any URL.
+ *   - authorizeAccountantUpload: ADMIN POOL authz read for the accountant-principal path.
+ *     Accountant has full visibility → direct admin pool query (no SESSION_CONTEXT needed).
+ *     ADR-009: authorize BEFORE minting any URL — same two-phase discipline.
  *   - insertPendingDocument: ADMIN POOL (getAdminPool) — ADR-009 step 2d.
  *     Inserts the Document row with status='pending', computes the storage key.
  *     Runs AFTER authorization; the pending INSERT never bypasses the authz gate.
@@ -25,8 +35,13 @@
  *   - listEngagementDocuments: REQUEST POOL — FILTER-governed; client sees own engagement only.
  *   - authorizeThenSignDownload: REQUEST POOL authz → active-only → getStorage().getSignedDownloadUrl.
  *     ADR-009 step 2a: authorization BEFORE URL minting. pending/infected never signable.
+ *     Both owner and participant reach it via the participant-extended fn_document_access (TASK-013-001).
+ *   - replaceDocumentWithNewVersion: ADMIN POOL — INSERT new DocumentVersion + UPDATE parent Document.
+ *     DECISION-013-C: parent Document row = current pointer; prior DocumentVersion row gets supersededAt.
+ *   - listDocumentVersions: REQUEST POOL — FILTER-governed (sec.pol_DocumentVersion, TASK-013-001).
  *
  * ADR-009: Two-phase upload (authorize→pending insert→sign URL→complete→promote).
+ *   Replacement: new DocumentVersion row + new storage key; prior rows retained (DECISION-013-C).
  * ADR-021: Scan-before-available gate (pending→active only on clean+valid).
  * ADR-003: SESSION_CONTEXT for authorize; admin pool for pending insert / promotion.
  * ADR-003 Amendment 1: no @read_only on sp_set_session_context.
@@ -40,6 +55,9 @@
  *     Callers import them directly from this source module.
  *   - authorizeEngagementForUpload / listEngagementDocuments / authorizeThenSignDownload
  *     ARE exported on the barrel (request-pool reads that callers consume).
+ *   - authorizeAccountantUpload / replaceDocumentWithNewVersion are NOT exported from the barrel.
+ *     Import directly from this source module in server actions / tests.
+ *   - listDocumentVersions IS exported on the barrel.
  *
  * DECISION (TASK-007-004): The rate-limit check and audit event are the CALLER's
  *   responsibility (server action in apps/portal / TASK-007-006). This repository
@@ -55,6 +73,14 @@
  * DECISION (TASK-007-004): authorizeEngagementForUpload returns the EngagementItem so the
  *   caller can also run checkStepAccessibility (letter gate) without an extra DB round-trip.
  *   The caller MUST check checkStepAccessibility before calling insertPendingDocument.
+ *
+ * DECISION-013-C (TASK-013-002, current-version pointer):
+ *   The parent Document row remains the "current" pointer. replaceDocumentWithNewVersion:
+ *     1. INSERTs a new DocumentVersion row (new version number, new storageKey).
+ *     2. SUPERSEDEs the prior DocumentVersion row (supersededAt = now).
+ *     3. UPDATEs the parent Document row (storageKey, version, sizeBytes → current state).
+ *   Prior DocumentVersion rows are never mutated beyond the one-time supersededAt stamp.
+ *   Callers supply the engagementId from the server-resolved scope (defence-in-depth).
  */
 
 import mssqlPkg from "mssql";
@@ -62,6 +88,8 @@ import { getAdminPool } from "../admin-connection.js";
 import { db } from "../client.js";
 import { getStorage } from "@tax-portal/storage";
 import { getFileScanner, validateUploadedBytes } from "@tax-portal/storage";
+import { withAuditTransaction, recordAuthEvent } from "../audit.js";
+import type { AuditActor } from "../audit.js";
 import type { EngagementItem } from "./engagement.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
@@ -157,7 +185,84 @@ export type AuthorizeThenSignDownloadResult =
   | { authorized: true; url: string; expiresAt: Date }
   | { authorized: false; reason: "not-found" | "not-active" | "rls-filtered" };
 
+// ─── New types for EPIC-013 / TASK-013-002 ───────────────────────────────────
+
+/**
+ * Input for authorizeAccountantUpload.
+ *
+ * AC-FILE-001-01: Accountant upload primitive — two-phase, accountant principal.
+ */
+export interface AuthorizeAccountantUploadInput {
+  /** The Engagement id to authorize against. Admin-pool read (full visibility). */
+  engagementId: string;
+}
+
+/**
+ * Result of replaceDocumentWithNewVersion.
+ *
+ * AC-FILE-009-01: Accountant can upload a new version of an existing document.
+ * AC-FILE-009-02: After replacement, the new version is current.
+ * AC-FILE-009-03: Prior version is retained (supersededAt set on old DocumentVersion row).
+ */
+export interface ReplaceDocumentResult {
+  /** The newly created DocumentVersion id. */
+  newVersionId: string;
+  /** The new version number (prior version + 1). */
+  newVersion: number;
+  /** The new storage key for the replacement document (ADR-009 versioned key shape). */
+  newStorageKey: string;
+}
+
+/**
+ * Input for replaceDocumentWithNewVersion.
+ */
+export interface ReplaceDocumentInput {
+  /** The Document id to replace. */
+  documentId: string;
+  /** The engagement the document belongs to (server-resolved — defence-in-depth scope). */
+  engagementId: string;
+  /** Original filename of the replacement (ADR-009). */
+  originalFilename: string;
+  /** Declared content-type of the replacement. */
+  contentType: string;
+  /** Declared content-length (0 if unknown; authoritative size comes from completeUpload stat()). */
+  sizeBytes: number;
+  /** Uploader clerkId from the verified session (audit trail — never client-supplied). CS-GEN-001. */
+  uploadedByClerkId: string;
+  /** Source surface for audit (CS-GEN-003). */
+  sourceSurface: "admin";
+}
+
+/**
+ * A single DocumentVersion as returned to callers.
+ *
+ * AC-FILE-009-02: Current version = the one with supersededAt IS NULL.
+ * AC-FILE-009-03: All version rows retained and readable.
+ */
+export interface DocumentVersionItem {
+  id: string;
+  documentId: string;
+  version: number;
+  storageKey: string;
+  /** Null = current; non-null = superseded at this timestamp. */
+  supersededAt: Date | null;
+  uploadedBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // ─── Internal cast helpers ─────────────────────────────────────────────────────
+
+type DocumentVersionRow = {
+  id: string;
+  documentId: string;
+  version: number;
+  storageKey: string;
+  supersededAt: Date | null;
+  uploadedBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 type EngagementRow = {
   id: string;
@@ -171,6 +276,8 @@ type EngagementRow = {
   // DECISION-010-A (EPIC-010): lifecycle confirmation timestamps (optional — may not be selected)
   deliveryConfirmedAt?: Date | null;
   filingConfirmedAt?: Date | null;
+  // DECISION-B (BRIEF-012 / EPIC-012): taxYear is part of the engagement identity tuple (optional)
+  taxYear?: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -190,6 +297,17 @@ type DocumentRow = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+function dbAsDocumentVersionClient() {
+  return db as unknown as {
+    documentVersion: {
+      findMany: (args?: {
+        where?: { documentId?: string };
+        orderBy?: { version: "asc" | "desc" };
+      }) => Promise<DocumentVersionRow[]>;
+    };
+  };
+}
 
 function dbAsEngagementClient() {
   return db as unknown as {
@@ -539,6 +657,237 @@ export async function authorizeThenSignDownload(
   };
 }
 
+// ─── Accountant upload authorize (admin pool — AC-FILE-001-01) ───────────────
+
+/**
+ * Authorize the accountant's access to an engagement for upload via the ADMIN POOL.
+ *
+ * AC-FILE-001-01: Accountant upload — two-phase authorize-then-sign discipline (ADR-009).
+ *   The authorize step runs BEFORE any URL is minted (ADR-009 step 2a).
+ *
+ * DIFFERENCE from authorizeEngagementForUpload (client path):
+ *   The client path uses the REQUEST POOL (FILTER-governed, SESSION_CONTEXT identity).
+ *   The accountant path uses the ADMIN POOL — accountants have full visibility
+ *   (IS_MEMBER('app_admin_role')=1 → RLS-exempt). No SESSION_CONTEXT needed.
+ *   Both paths honor the ADR-009 two-phase discipline: authz first, then sign.
+ *
+ * Returns the EngagementItem if the engagement exists (admin pool always sees it).
+ * Returns null when the engagement does not exist.
+ *
+ * The caller (action layer) MUST verify accountant identity from the verified session
+ * before invoking this function. The admin pool does NOT enforce identity — authorization
+ * is caller's responsibility at the action-layer boundary.
+ *
+ * After authorization, the caller proceeds with insertPendingDocument + getSignedUploadUrl
+ * (the same pipeline primitives as the client upload path — reused not re-implemented).
+ *
+ * ADR-009: authorize → pending insert → sign URL → complete → promote (same pipeline).
+ * ADR-003 §7: admin pool for the accountant-principal authorize.
+ * CS-GEN-001: never log full signed URLs or filenames — key + operation only.
+ *
+ * // ADR-003 // ADR-009 // CS-TS-001 // CS-GEN-001 // AC-FILE-001-01
+ */
+export async function authorizeAccountantUpload(
+  input: AuthorizeAccountantUploadInput,
+): Promise<EngagementItem | null> {
+  // Admin pool query — accountant has full visibility (RLS-exempt).
+  // ADR-009: authorize BEFORE minting any URL.
+  const pool = await getAdminPool();
+  const req = new MssqlRequest(pool);
+  req.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+
+  const result = await req.query<EngagementRow>(
+    `SELECT
+       [id], [engagementRequestId], [clientUserId], [status],
+       [letterSignedAt], [letterSignatureEvidence], [letterTemplateSnapshot],
+       [questionnaireSubmittedAt], [deliveryConfirmedAt], [filingConfirmedAt],
+       [taxYear],
+       [createdAt], [updatedAt]
+     FROM [dbo].[Engagement]
+     WHERE [id] = @engagementId`
+  );
+
+  const row = result.recordset[0];
+  if (!row) return null;
+  return mapEngagementRow(row);
+}
+
+// ─── Version replacement (DECISION-013-C) ─────────────────────────────────────
+
+/**
+ * Replaces an existing Document with a new version (admin pool write).
+ *
+ * AC-FILE-009-01: Accountant can upload a new version of an existing document.
+ * AC-FILE-009-02: After replacement, "current" = the newest non-superseded version.
+ * AC-FILE-009-03: Every prior version retained — supersededAt set, never deleted.
+ *
+ * DECISION-013-C (current-version pointer):
+ *   1. INSERTs a new DocumentVersion row with version = prior version + 1 and a NEW storageKey.
+ *      ADR-009: storage key = engagements/{engId}/documents/{docId}/v{N}/{filename}.
+ *   2. SUPERSEDEs the prior DocumentVersion row (supersededAt = SYSDATETIMEOFFSET()).
+ *      The prior row is never deleted — AC-FILE-009-03 retained-version substrate.
+ *   3. UPDATEs the parent Document row: storageKey, version, sizeBytes → current state.
+ *      The parent Document row is the "current" pointer (DECISION-013-C).
+ *
+ * ADR-009: Replacement = new DocumentVersion row + NEW storage key. Never an overwrite.
+ *   The prior version's storage object must NOT be deleted (AC-FILE-009-03).
+ *
+ * Returns { newVersionId, newVersion, newStorageKey } so the caller can mint the
+ * signed upload URL for the replacement object (same pipeline as insertPendingDocument).
+ * The caller runs completeUpload after the client PUTs to the signed URL.
+ *
+ * Emits audit event: 'document.version_replaced' (ADR-019).
+ * CS-GEN-001: audit row contains documentId only — no filename or PII logged.
+ *
+ * NOT exported from the package barrel. Import directly from this module in server actions.
+ *
+ * // ADR-003 // ADR-009 // ADR-019 // DECISION-013-C // CS-TS-001 // CS-GEN-001 // CS-GEN-003
+ */
+export async function replaceDocumentWithNewVersion(
+  input: ReplaceDocumentInput,
+): Promise<ReplaceDocumentResult> {
+  const actor: AuditActor = { clerkUserId: input.uploadedByClerkId, role: "ACCOUNTANT" };
+
+  let newVersionId = "";
+  let newVersion = 0;
+  let newStorageKey = "";
+
+  await withAuditTransaction(async (txn) => {
+    const pool = await getAdminPool();
+
+    // Step 1: Read the current Document row to get the current version number.
+    //   Scoped to engagementId for defence-in-depth (DECISION-013-C).
+    const readReq = new MssqlRequest(pool);
+    readReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    readReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+
+    const docResult = await readReq.query<{ version: number }>(
+      `SELECT [version] FROM [dbo].[Document]
+       WHERE [id] = @documentId AND [engagementId] = @engagementId`
+    );
+
+    const docRow = docResult.recordset[0];
+    if (!docRow) {
+      throw new Error(
+        `replaceDocumentWithNewVersion: Document ${input.documentId} not found in engagement ${input.engagementId}`,
+      );
+    }
+
+    const priorVersion = docRow.version;
+    newVersion = priorVersion + 1;
+
+    // ADR-009: storage key for the new version.
+    // engagements/{engagementId}/documents/{documentId}/v{N}/{urlencoded-filename}
+    // CS-GEN-001: key is logged (not the filename itself — it is URL-encoded in the key).
+    newStorageKey = `engagements/${input.engagementId}/documents/${input.documentId}/v${newVersion}/${encodeURIComponent(input.originalFilename)}`;
+
+    // Step 2: INSERT the new DocumentVersion row (current: supersededAt IS NULL).
+    //   ADR-009: new row + new storage key. DECISION-013-C.
+    const insertReq = new MssqlRequest(pool);
+    insertReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    insertReq.input("version", mssqlPkg.Int(), newVersion);
+    insertReq.input("storageKey", mssqlPkg.NVarChar(1024), newStorageKey);
+    insertReq.input("uploadedBy", mssqlPkg.NVarChar(64), input.uploadedByClerkId);
+
+    const insertResult = await insertReq.query<{ id: string }>(
+      `INSERT INTO [dbo].[DocumentVersion]
+         ([documentId], [version], [storageKey], [supersededAt], [uploadedBy], [updatedAt])
+       OUTPUT INSERTED.[id]
+       VALUES (@documentId, @version, @storageKey, NULL, @uploadedBy, SYSDATETIMEOFFSET())`
+    );
+
+    const insertRow = insertResult.recordset[0];
+    if (!insertRow) {
+      throw new Error("replaceDocumentWithNewVersion INSERT did not return a row");
+    }
+    newVersionId = insertRow.id;
+
+    // Step 3: SUPERSEDE the prior DocumentVersion row (AC-FILE-009-03 — never delete).
+    //   Set supersededAt on the prior version (WHERE version = priorVersion AND documentId = @documentId).
+    //   DECISION-013-C: only the prior row gets the stamp; older rows already have it.
+    const supersedeReq = new MssqlRequest(pool);
+    supersedeReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    supersedeReq.input("priorVersion", mssqlPkg.Int(), priorVersion);
+
+    await supersedeReq.query(
+      `UPDATE [dbo].[DocumentVersion]
+       SET [supersededAt] = SYSDATETIMEOFFSET(),
+           [updatedAt] = SYSDATETIMEOFFSET()
+       WHERE [documentId] = @documentId
+         AND [version] = @priorVersion
+         AND [supersededAt] IS NULL`
+    );
+
+    // Step 4: UPDATE the parent Document row (current pointer — DECISION-013-C).
+    //   storageKey, version, sizeBytes update to the new version's state.
+    //   sizeBytes is set to the declared value here; completeUpload will update
+    //   with the authoritative stat() value after the PUT completes (same as insertPendingDocument).
+    const updateReq = new MssqlRequest(pool);
+    updateReq.input("documentId", mssqlPkg.NVarChar(50), input.documentId);
+    updateReq.input("engagementId", mssqlPkg.NVarChar(50), input.engagementId);
+    updateReq.input("newStorageKey", mssqlPkg.NVarChar(1024), newStorageKey);
+    updateReq.input("newVersion", mssqlPkg.Int(), newVersion);
+    updateReq.input("originalFilename", mssqlPkg.NVarChar(500), input.originalFilename);
+    updateReq.input("contentType", mssqlPkg.NVarChar(255), input.contentType);
+    updateReq.input("sizeBytes", mssqlPkg.BigInt(), input.sizeBytes);
+    updateReq.input("uploadedBy", mssqlPkg.NVarChar(64), input.uploadedByClerkId);
+
+    await updateReq.query(
+      `UPDATE [dbo].[Document]
+       SET [storageKey] = @newStorageKey,
+           [version] = @newVersion,
+           [originalFilename] = @originalFilename,
+           [contentType] = @contentType,
+           [sizeBytes] = @sizeBytes,
+           [status] = N'pending',
+           [uploadedBy] = @uploadedBy,
+           [updatedAt] = SYSDATETIMEOFFSET()
+       WHERE [id] = @documentId AND [engagementId] = @engagementId`
+    );
+
+    // ADR-019: emit audit event in the same transaction (fail-closed).
+    // CS-GEN-001: targetId = documentId only — no filename or PII logged.
+    await recordAuthEvent({
+      actor,
+      action: "document.version_replaced",
+      targetType: "Document",
+      targetId: input.documentId,
+      sourceSurface: input.sourceSurface,
+      transaction: txn,
+    });
+  });
+
+  return { newVersionId, newVersion, newStorageKey };
+}
+
+// ─── Read: listDocumentVersions (request pool — FILTER-governed) ─────────────
+
+/**
+ * Returns all DocumentVersion rows for the given Document, ordered by version ASC.
+ *
+ * Under sec.pol_DocumentVersion (db/policies/0011-document-version-policy.sql):
+ *   - CLIENT (owner + participant) sees only version rows for their engagement's documents.
+ *   - ACCOUNTANT sees all version rows.
+ *   - Null SESSION_CONTEXT → ZERO rows (fail-closed, ADR-003 §5).
+ *
+ * AC-FILE-009-02: The current version has supersededAt IS NULL; caller identifies it by filtering.
+ * AC-FILE-009-03: Prior version rows (supersededAt IS NOT NULL) are retained and returned here.
+ *
+ * MUST be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+ *
+ * // ADR-003 // ADR-005 // AC-FILE-009-02 // AC-FILE-009-03 // CS-TS-001 // CS-GEN-003
+ */
+export async function listDocumentVersions(
+  documentId: string,
+): Promise<DocumentVersionItem[]> {
+  const client = dbAsDocumentVersionClient();
+  const rows = await client.documentVersion.findMany({
+    where: { documentId },
+    orderBy: { version: "asc" },
+  });
+  return rows.map(mapDocumentVersionRow);
+}
+
 // ─── Internal: admin pool promotion helpers ────────────────────────────────────
 
 async function promotePendingToActive(
@@ -615,6 +964,21 @@ function mapEngagementRow(row: EngagementRow): EngagementItem {
     // DECISION-010-A (EPIC-010): lifecycle confirmation timestamps
     deliveryConfirmedAt: row.deliveryConfirmedAt ?? null,
     filingConfirmedAt: row.filingConfirmedAt ?? null,
+    // DECISION-B (BRIEF-012 / EPIC-012): taxYear is part of the engagement identity tuple
+    taxYear: row.taxYear ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function mapDocumentVersionRow(row: DocumentVersionRow): DocumentVersionItem {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    version: row.version,
+    storageKey: row.storageKey,
+    supersededAt: row.supersededAt,
+    uploadedBy: row.uploadedBy,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
