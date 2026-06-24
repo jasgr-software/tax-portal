@@ -31,11 +31,11 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | &nbsp;&nbsp;— EPIC-010 (lifecycle pipeline & visibility) | 25 |
 | &nbsp;&nbsp;— EPIC-011 (engagement attributes) | 9 |
 | &nbsp;&nbsp;— EPIC-012 (creation paths & multi-participant) | 20 (all `verified` — PR#93 `5883fed`) |
-| &nbsp;&nbsp;— EPIC-013 (secure file exchange) | 13 |
+| &nbsp;&nbsp;— EPIC-013 (secure file exchange) | 13 (all `verified` — PR#95 `4aa26d0`) |
 | &nbsp;&nbsp;— EPIC-014 (file deletion, soft-delete & retention) | 10 |
 | &nbsp;&nbsp;— EPIC-015 (post-retention purge & legal hold) | 16 |
-| AC `verified` (signed off) | **151** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**) **+ all 25 EPIC-010 lifecycle-core AC** (LIFE-001/002/003/004/005/006, AUTH-002/003/008 — the four-stage pipeline, client-facing labels, two-confirmation completion gate, accountant reopen, full visibility + client own-data isolation + indefinite post-completion access; PR#87 `7afd312` 2026-06-22; AUTH-003-* are the **feature** AC over the Phase-2-built isolation mechanism — not double-counted) **+ all 9 EPIC-011 engagement-attributes AC** (LIFE-007/008/009 — per-engagement due date set/update, accountant-only internal notes behind the HARD `pol_EngagementNote` RLS, priority flag set/clear, each per-engagement; PR#89 `9445e36` 2026-06-23) **+ all 20 EPIC-012 creation-paths & multi-participant AC** (DOOR-009/010 returning-client + accountant-initiated creation, LIFE-010 concurrent engagements, LIFE-011 duplicate warn+override, LIFE-012/AUTH-007 multi-participant separate-accounts behind the HARD `pol_EngagementParticipant`/extended `pol_Engagement` RLS — participant isolation proven both ways; PR#93 `5883fed` 2026-06-23). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization); EPIC-010/011/012 delivered — Phase 3 proper advancing. NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
-| AC still `planned` (placed, not yet verified) | **39** — the remaining Phase-3 FILE-chain AC (EPIC-013 13, EPIC-014 10, EPIC-015 16, placed 2026-06-21), awaiting build + CI sign-off. *(EPIC-012's 20 AC flipped `planned`→`verified` 2026-06-23 via PR#93; EPIC-011's 9 AC flipped 2026-06-23 via PR#89; EPIC-010's 25 AC flipped 2026-06-22 via PR#87; EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped 2026-06-21 via PR#71 — see Verified row.)* |
+| AC `verified` (signed off) | **164** — all 48 remaining Phase-1 placed AC (EPIC-001 13 · EPIC-004 8 · EPIC-002 7 · EPIC-003 20; **Phase 1 / MVP complete**) **+ all 44 Phase-2 onboarding-gate AC** (EPIC-005 10 · EPIC-006 7 · EPIC-007 19 · **EPIC-008 8** — the capstone) **+ all 5 EPIC-009 sign-in-lane AC** (AC-AUTH-010-01/-02/-03 — the redirect mechanism delivered by EPIC-004 PR#38, ownership consolidated into the sign-in epic 2026-06-21, tests still pass; **+ AC-AUTH-013-01/-02 — the sign-in/sign-out capability, verified vs the MOCK provider via PR#71 `169b09e` 2026-06-21**) **+ all 25 EPIC-010 lifecycle-core AC** (LIFE-001/002/003/004/005/006, AUTH-002/003/008 — the four-stage pipeline, client-facing labels, two-confirmation completion gate, accountant reopen, full visibility + client own-data isolation + indefinite post-completion access; PR#87 `7afd312` 2026-06-22; AUTH-003-* are the **feature** AC over the Phase-2-built isolation mechanism — not double-counted) **+ all 9 EPIC-011 engagement-attributes AC** (LIFE-007/008/009 — per-engagement due date set/update, accountant-only internal notes behind the HARD `pol_EngagementNote` RLS, priority flag set/clear, each per-engagement; PR#89 `9445e36` 2026-06-23) **+ all 20 EPIC-012 creation-paths & multi-participant AC** (DOOR-009/010 returning-client + accountant-initiated creation, LIFE-010 concurrent engagements, LIFE-011 duplicate warn+override, LIFE-012/AUTH-007 multi-participant separate-accounts behind the HARD `pol_EngagementParticipant`/extended `pol_Engagement` RLS — participant isolation proven both ways; PR#93 `5883fed` 2026-06-23) **+ all 13 EPIC-013 secure-file-exchange AC** (FILE-001-01/-03/-04 accountant upload + both-party download, FILE-009-01/-02/-03 replace → newest current → prior versions retained AND accessible, FILE-010-01/-02/-03/-04 organize/create-rename-arrange/place-in-folder/accountant-only-behind-HARD-`pol`-isolated folders, FILE-011-01/-02/-03 top-level group by engagement + tax year + navigate engagement→tax-year→folder; the reviewed-lane `/pr-review` panel caught a **version-download IDOR** (blocker) the in-slice gates missed — fixed in-PR so `requestDownloadUrlForVersionAction` threads `versionId`, resolves the version under the request-pool/RLS, asserts `documentId` match, and signs only the server-resolved key, with cross-resource key-substitution negative tests on both surfaces; PR#95 `4aa26d0` 2026-06-23). **Phase 1 + Phase 2 complete; EPIC-009 delivered (PoC mock realization); EPIC-010/011/012/013 delivered — Phase 3 proper advancing. NOTE:** AC-AUTH-013-01/-02 (and the AUTH-010 redirect trio) are verified **against the mock auth provider** for the proof of concept — their real-provider (Clerk) re-validation is still outstanding at Phase 5 (see § Provider re-validation). |
+| AC still `planned` (placed, not yet verified) | **26** — the remaining Phase-3 FILE-chain AC (EPIC-014 10, EPIC-015 16, placed 2026-06-21), awaiting build + CI sign-off. *(EPIC-013's 13 AC flipped `planned`→`verified` 2026-06-23 via PR#95 `4aa26d0`; EPIC-012's 20 AC flipped `planned`→`verified` 2026-06-23 via PR#93; EPIC-011's 9 AC flipped 2026-06-23 via PR#89; EPIC-010's 25 AC flipped 2026-06-22 via PR#87; EPIC-009's 2 new sign-in AC AC-AUTH-013-01/-02 flipped 2026-06-21 via PR#71 — see Verified row.)* |
 | AC `deferred` | the 2FA set (AC-AUTH-004-01/-02/-03 + AC-AUTH-005-01) + IDNT hard-delete (v1) + the v2 requirement set — see Deferred |
 | AC orphaned (source AC not yet decomposed into any epic) | remainder of the v1 corpus — see Orphans |
 
@@ -320,6 +320,58 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 > sign-in-lane port-remap infra) are confirmed outside the BRIEF-012 changeset. The same per-PR-CI-tier follow-up
 > tracked for EPIC-001 applies here.
 >
+> **EPIC-013 (13 AC) signed off 2026-06-23 — the two-way document exchange completes on top of EPIC-007's
+> first storage path.** The secure-file-exchange slice (the **accountant uploads** deliverables into an
+> engagement; **both** the accountant and the engagement's **client participant(s) download** over the same
+> authorized, time-limited, never-public path; the accountant **organizes** files into folders she creates,
+> renames, and arranges; files are grouped at the **top level by engagement and tax year**; and replacing a
+> file keeps a **version history** — newest current, every prior version retained AND accessible) shipped
+> (PR #95, squash merge `4aa26d0`); see basis note [F]. **Fourth Phase-3-proper slice delivered.** All 13
+> in-scope AC verified: AC-FILE-001-01 (accountant upload), AC-FILE-001-03/-04 (both-party download — the
+> accountant downloads any engagement file, a client participant downloads only their engagement's),
+> AC-FILE-009-01/-02/-03 (replace → newest is current → every prior version retained and accessible),
+> AC-FILE-010-01/-02/-03/-04 (organize into folders / create-rename-arrange / place a file in a folder /
+> folder management accountant-only), AC-FILE-011-01/-02/-03 (top-level grouping by engagement / by tax year /
+> navigate engagement→tax-year→folder). Net-new platform capabilities: the accountant-upload + both-party
+> signed-URL **download authz** (tier-3 obligation over the EPIC-007 storage path, ADR-009), a **version
+> history** model (new row + new key per version, never an overwrite — ADR-009, so prior versions survive),
+> an accountant-managed **folder structure** behind a HARD-isolated `pol`-policy (folder management is
+> accountant-only — proven both ways: tier-3 RLS `folder.client-isolation.rls.test.ts` + a portal negative
+> e2e), and **top-level engagement + tax-year organization** keyed on EPIC-012's `Engagement.taxYear`
+> attribute. **Reviewed-lane finding (now hardened in the delivered build):** the `/pr-review` 3-lens panel
+> caught a **version-download IDOR** (blocker) that the in-slice gates missed — a client could request a
+> signed URL for an arbitrary `versionId`. **Fixed in-PR** (`e903f51`, folded into the squash): the
+> `requestDownloadUrlForVersionAction` now threads `versionId`, resolves the version row under the
+> request-pool/RLS, asserts the `documentId` matches, and signs **only the server-resolved key** — with
+> cross-resource key-substitution negative tests on both surfaces (`apps/admin` + `apps/portal`
+> `documents/actions.test.ts`). EPIC-013 → `delivered`. **Exchange-surface scope held:** file lifecycle
+> governance — accountant-only delete / soft-delete / 7-year retention (**EPIC-014**) and post-retention
+> purge / legal hold (**EPIC-015**) — was correctly NOT built; and the **audit-trail feature AC**
+> (REQ-NFR-010 read surface → Phase 4) is NOT claimed — this slice **emits** download/access audit events
+> (ADR-019, added in TASK-013-007) as an adherence obligation only. **EPIC-013 does NOT close Phase 3** —
+> EPIC-014 + EPIC-015 remain `planned`; EPIC-014 (file deletion, soft-delete & retention) is **next-ready**
+> (`depends_on` EPIC-013 ✅ + EPIC-010 ✅). **Phase-3 progress: EPIC-009 + EPIC-010 + EPIC-011 + EPIC-012 +
+> EPIC-013 delivered; EPIC-014 + EPIC-015 `planned`.**
+>
+> **[F] Evidence basis for the EPIC-013 sign-off (2026-06-23).** Same user-accepted CI-as-the-gate basis as
+> [A]/[B]/[C]/[D]/[E] — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging gate
+> does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on PR #95 and on
+> the post-merge `main` squash `4aa26d0` — **CI** workflow `success` (`lint-and-typecheck` ✅ / `security-scan`
+> ✅; advisory `test-portal` ✅ / `test-admin` ✅, polled to completion) + **CodeQL** `success`. Each of the 13
+> in-scope AC has automated test(s) **tagged with its AC id** on the merge commit (verified by the validate
+> phase via `git grep` against `4aa26d0` — all 13 ids resolve to one or more test files), validated by the
+> implementation engine's SDET acceptance-validation gate at the prescribed ADR-012 tiers, exercised against
+> the real container stack: **tier-3** `packages/db` — `document.both-party-download.rls.test.ts` (both-party
+> download authz + engagement isolation), `folder.client-isolation.rls.test.ts` (the **HARD folder-management
+> accountant-only** policy matrix) + `folder.integration.test.ts`, `document-version.replace.integration.test.ts`
+> (replace → newest current → prior versions retained + the IDOR-hardened server-resolved version-download path),
+> `document-organization.integration.test.ts` (top-level grouping by engagement + tax year); **tier-6** e2e on
+> the full docker-compose stack — `apps/portal/e2e/specs/both-party-download-cross-app.spec.ts` and
+> `apps/admin/e2e/specs/document-organization.spec.ts` (navigate engagement→tax-year→folder) plus admin
+> upload/folder specs. The version-download IDOR fix carries cross-resource key-substitution negative tests in
+> both surfaces' `documents/actions.test.ts`. The same per-PR-CI-tier follow-up tracked for EPIC-001 applies
+> here.
+>
 > **[A] applied to the EPIC-006 sign-off (2026-06-18).** Same user-accepted CI-as-the-gate basis as
 > EPIC-001/002/003/004/005 — per-PR CI tiers do not run the full AC test tiers by design (the ADR-007 staging
 > gate does not exist). The required checks `lint-and-typecheck` ✅ + `security-scan` ✅ are green on the
@@ -542,19 +594,19 @@ that tag. **Evidence** = the CI run / result the validate phase recorded.
 | REQ-AUTH-007 | AC-AUTH-007-01 | EPIC-012 | 3 | `AC-AUTH-007-01` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
 | REQ-AUTH-007 | AC-AUTH-007-02 | EPIC-012 | 3 | `AC-AUTH-007-02` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E] |
 | REQ-AUTH-007 | AC-AUTH-007-03 | EPIC-012 | 3 | `AC-AUTH-007-03` | verified | PR#93 `5883fed` (2026-06-23) · SDET+CI [E]; each participant sees the shared engagement, unrelated client ZERO (HARD RLS both ways) |
-| REQ-FILE-001 | AC-FILE-001-01 | EPIC-013 | 3 | `AC-FILE-001-01` | planned | — (placed 2026-06-21); accountant upload (client-upload -02/-05 were EPIC-007) |
-| REQ-FILE-001 | AC-FILE-001-03 | EPIC-013 | 3 | `AC-FILE-001-03` | planned | — (placed 2026-06-21); accountant download |
-| REQ-FILE-001 | AC-FILE-001-04 | EPIC-013 | 3 | `AC-FILE-001-04` | planned | — (placed 2026-06-21); client download |
-| REQ-FILE-009 | AC-FILE-009-01 | EPIC-013 | 3 | `AC-FILE-009-01` | planned | — (placed 2026-06-21) |
-| REQ-FILE-009 | AC-FILE-009-02 | EPIC-013 | 3 | `AC-FILE-009-02` | planned | — (placed 2026-06-21) |
-| REQ-FILE-009 | AC-FILE-009-03 | EPIC-013 | 3 | `AC-FILE-009-03` | planned | — (placed 2026-06-21); prior versions retained |
-| REQ-FILE-010 | AC-FILE-010-01 | EPIC-013 | 3 | `AC-FILE-010-01` | planned | — (placed 2026-06-21) |
-| REQ-FILE-010 | AC-FILE-010-02 | EPIC-013 | 3 | `AC-FILE-010-02` | planned | — (placed 2026-06-21) |
-| REQ-FILE-010 | AC-FILE-010-03 | EPIC-013 | 3 | `AC-FILE-010-03` | planned | — (placed 2026-06-21) |
-| REQ-FILE-010 | AC-FILE-010-04 | EPIC-013 | 3 | `AC-FILE-010-04` | planned | — (placed 2026-06-21); folder mgmt accountant-only |
-| REQ-FILE-011 | AC-FILE-011-01 | EPIC-013 | 3 | `AC-FILE-011-01` | planned | — (placed 2026-06-21); top-level by engagement |
-| REQ-FILE-011 | AC-FILE-011-02 | EPIC-013 | 3 | `AC-FILE-011-02` | planned | — (placed 2026-06-21); top-level by tax year (EPIC-012 tax-year attr) |
-| REQ-FILE-011 | AC-FILE-011-03 | EPIC-013 | 3 | `AC-FILE-011-03` | planned | — (placed 2026-06-21) |
+| REQ-FILE-001 | AC-FILE-001-01 | EPIC-013 | 3 | `AC-FILE-001-01` | verified | PR#95 `4aa26d0`; accountant upload (client-upload -02/-05 were EPIC-007) — tier-6 admin upload e2e |
+| REQ-FILE-001 | AC-FILE-001-03 | EPIC-013 | 3 | `AC-FILE-001-03` | verified | PR#95 `4aa26d0`; accountant download — tier-3 `document.both-party-download.rls.test.ts` + e2e |
+| REQ-FILE-001 | AC-FILE-001-04 | EPIC-013 | 3 | `AC-FILE-001-04` | verified | PR#95 `4aa26d0`; client download — tier-3 both-party RLS + `both-party-download-cross-app.spec.ts` |
+| REQ-FILE-009 | AC-FILE-009-01 | EPIC-013 | 3 | `AC-FILE-009-01` | verified | PR#95 `4aa26d0`; replace → new version — `document-version.replace.integration.test.ts` + e2e |
+| REQ-FILE-009 | AC-FILE-009-02 | EPIC-013 | 3 | `AC-FILE-009-02` | verified | PR#95 `4aa26d0`; newest = current — replace integration + e2e |
+| REQ-FILE-009 | AC-FILE-009-03 | EPIC-013 | 3 | `AC-FILE-009-03` | verified | PR#95 `4aa26d0`; prior versions retained AND accessible — tier-3 retention + IDOR-hardened version-download negative tests (both surfaces) |
+| REQ-FILE-010 | AC-FILE-010-01 | EPIC-013 | 3 | `AC-FILE-010-01` | verified | PR#95 `4aa26d0`; organize into folders — `folder.integration.test.ts` + `document-organization.spec.ts` |
+| REQ-FILE-010 | AC-FILE-010-02 | EPIC-013 | 3 | `AC-FILE-010-02` | verified | PR#95 `4aa26d0`; create/rename/arrange folders — folder integration + admin e2e |
+| REQ-FILE-010 | AC-FILE-010-03 | EPIC-013 | 3 | `AC-FILE-010-03` | verified | PR#95 `4aa26d0`; place file in folder — folder integration + e2e |
+| REQ-FILE-010 | AC-FILE-010-04 | EPIC-013 | 3 | `AC-FILE-010-04` | verified | PR#95 `4aa26d0`; folder mgmt accountant-only — HARD `folder.client-isolation.rls.test.ts` + portal negative e2e |
+| REQ-FILE-011 | AC-FILE-011-01 | EPIC-013 | 3 | `AC-FILE-011-01` | verified | PR#95 `4aa26d0`; top-level by engagement — `document-organization.integration.test.ts` |
+| REQ-FILE-011 | AC-FILE-011-02 | EPIC-013 | 3 | `AC-FILE-011-02` | verified | PR#95 `4aa26d0`; top-level by tax year (EPIC-012 tax-year attr) — organization integration |
+| REQ-FILE-011 | AC-FILE-011-03 | EPIC-013 | 3 | `AC-FILE-011-03` | verified | PR#95 `4aa26d0`; navigate engagement→tax-year→folder — `document-organization.spec.ts` (tier-6) |
 | REQ-FILE-004 | AC-FILE-004-01 | EPIC-014 | 3 | `AC-FILE-004-01` | planned | — (placed 2026-06-21) |
 | REQ-FILE-004 | AC-FILE-004-02 | EPIC-014 | 3 | `AC-FILE-004-02` | planned | — (placed 2026-06-21); hard no-client-delete |
 | REQ-FILE-004 | AC-FILE-004-03 | EPIC-014 | 3 | `AC-FILE-004-03` | planned | — (placed 2026-06-21); no client-facing remove path |
