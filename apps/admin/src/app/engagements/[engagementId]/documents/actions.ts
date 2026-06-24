@@ -1,23 +1,30 @@
 /**
  * apps/admin/src/app/engagements/[engagementId]/documents/actions.ts
  *
- * Server actions for the accountant upload + version-replace surface.
+ * Server actions for the accountant upload + version-replace + soft-delete + recover surface.
  *
  * TASK-013-003: Accountant upload + version-replace UI & server actions.
+ * TASK-014-003: Accountant soft-delete + recover server actions (EPIC-014).
  *
  * Acceptance criteria:
  *   AC-FILE-001-01 — the accountant can upload a file to an engagement
  *   AC-FILE-009-01 — an existing file can be replaced with a new version
  *   AC-FILE-009-02 — after replacement, the newest version is presented as current
+ *   AC-FILE-004-01 — the accountant can delete a file within an engagement (soft-delete)
+ *   AC-FILE-004-02 — a client cannot delete any file (deleteDocumentAction rejects non-ACCOUNTANT)
+ *   AC-FILE-006-01 — deleting marks it deleted and removes from working view
+ *   AC-FILE-006-03 — a soft-deleted file remains recoverable; recoverDocumentAction restores it
  *
  * ADR-003: Every action verifies getAccountantIdentity() BEFORE any DB write.
  *   The actor for the ADR-019 audit event comes ONLY from the verified session — never
  *   from action args, form data, or client-supplied role.
  * ADR-006: These actions exist ONLY in apps/admin — no mirror in apps/portal.
- *   (Download is the mirrored path — TASK-013-005.)
+ *   (Download is the mirrored path — TASK-013-005. Delete is admin-only — TASK-014-003.)
  * ADR-009: Two-phase upload pipeline (authorize → pending insert → sign URL → complete → promote).
  *   Replacement: new DocumentVersion row + new storage key; prior rows retained (DECISION-013-C).
- * ADR-019: Upload + replace are audited events; actor = verified session.
+ * ADR-018: Soft-delete-first — deleteDocumentAction sets a tombstone (deletedAt), never issues
+ *   a physical DELETE. Row + bytes are retained within the 7-year window. Recoverable in-window.
+ * ADR-019: Upload + replace + delete + recover are all audited events; actor = verified session.
  * ADR-022: Upload path rate-limited (RateLimiter seam consumed here before URL mint).
  *
  * Pool strategy:
@@ -28,15 +35,20 @@
  *   requestDownloadUrlAction: withRequestContext (ACCOUNTANT) → authorizeThenSignDownload (request pool) → recordAuthEvent (ADR-019).
  *   requestDownloadUrlForVersionAction: withRequestContext (ACCOUNTANT) → authorizeThenSignDownload with version storageKey → recordAuthEvent (ADR-019).
  *   listDocumentVersionsAction: withRequestContext (ACCOUNTANT) → listDocumentVersions (request pool).
+ *   deleteDocumentAction: softDeleteDocument (admin pool, ADR-018 §1) + recordAuthEvent (ADR-019). // TASK-014-003
+ *   recoverDocumentAction: recoverDocument (admin pool, ADR-018 §1) + recordAuthEvent (ADR-019). // TASK-014-003
+ *   listDeletedDocumentsAction: listDeletedDocuments (admin pool, archive view). // TASK-014-003
  *
  * // ADR-003: server-side authority — getAccountantIdentity() before every DB write
- * // ADR-006: admin surface only (apps/admin) — no mirror in apps/portal
+ * // ADR-006: admin surface only (apps/admin) — no mirror in apps/portal; delete is admin-only
  * // ADR-009: two-phase upload pipeline
- * // ADR-019: audit actor comes from verified session only; download access events are audited
+ * // ADR-018: soft-delete-first; row + bytes retained; no physical DELETE; in-window recoverable
+ * // ADR-019: audit actor comes from verified session only; download + delete + recover events audited
  * // ADR-022: rate-limit before minting upload URL
  * // CS-TS-001: all DB reads use admin-pool or @tax-portal/db barrel
  * // CS-TS-002: no direct adminDb/pool import — seam calls via @tax-portal/db barrel or direct source
- * // CS-TS-004: identity from session cookie, never from args/form data
+ * // CS-TS-003: delete is admin-only; portal absence is verified by TASK-014-003 portal e2e
+ * // CS-TS-004: identity from session cookie, never from args/form data; deleteDocumentAction rejects non-ACCOUNTANT
  * // CS-GEN-001: no PII logged; targetId = documentId only — signed URL NEVER persisted or logged (ADR-009)
  * // CS-GEN-003: cite governing authority in comments
  */
@@ -52,11 +64,20 @@ import {
 } from "@tax-portal/auth";
 import {
   listEngagementDocuments,
+  listDeletedDocuments,
   listDocumentVersions,
+  softDeleteDocument,
+  recoverDocument,
   recordAuthEvent,
   withRequestContext,
 } from "@tax-portal/db";
-import type { AuditActor, DocumentItem, DocumentVersionItem } from "@tax-portal/db";
+import type {
+  AuditActor,
+  DocumentItem,
+  DocumentVersionItem,
+  SoftDeleteDocumentResult,
+  RecoverDocumentResult,
+} from "@tax-portal/db";
 import { getStorage } from "@tax-portal/storage";
 // NOT on the barrel — import directly from the source module (TASK-013-002 / document.ts note)
 import {
@@ -92,6 +113,18 @@ export type ListDocumentsResult =
 
 export type RequestDownloadUrlResult =
   | { success: true; data: { url: string; expiresAt: Date } }
+  | { success: false; error: string };
+
+export type DeleteDocumentResult =
+  | { success: true; data: SoftDeleteDocumentResult }
+  | { success: false; error: string };
+
+export type RecoverDocumentActionResult =
+  | { success: true; data: RecoverDocumentResult }
+  | { success: false; error: string };
+
+export type ListDeletedDocumentsResult =
+  | { success: true; data: DocumentItem[] }
   | { success: false; error: string };
 
 export type ListDocumentVersionsResult =
@@ -871,4 +904,211 @@ export async function listDocumentVersionsAction(
   );
 
   return { success: true, data: versions };
+}
+
+// ─── Soft-delete actions (TASK-014-003 / EPIC-014) ────────────────────────────
+
+/**
+ * Soft-delete a document (accountant-only).
+ *
+ * AC-FILE-004-01: The accountant can delete a file within an engagement.
+ * AC-FILE-004-02: A client cannot delete — this action rejects non-ACCOUNTANT (CS-TS-004).
+ * AC-FILE-006-01: Deleting marks the file deleted and removes it from the working view.
+ * AC-FILE-006-02/-03: Soft-delete is UPDATE-only (ADR-018 §1) — row + bytes are retained;
+ *   the document remains recoverable in-window (see recoverDocumentAction).
+ *
+ * Flow:
+ *   1. getAccountantIdentity() — ACCOUNTANT-only (CS-TS-004). Rejects non-accountant.
+ *   2. Input validation.
+ *   3. softDeleteDocument (admin pool, ADR-018 §1 — UPDATE-only, audit event inside).
+ *   4. revalidatePath — removes the file from the working view (AC-FILE-006-01).
+ *
+ * ADR-003: identity guard before any write (CS-TS-004).
+ * ADR-006: apps/admin ONLY — no delete action/route in apps/portal (AC-FILE-004-03).
+ * ADR-018: soft-delete-first — deletedAt tombstone, never physical DELETE.
+ *   Row + bytes survive; no purge path in this slice (EPIC-015).
+ * ADR-019: 'document.deleted' audit event recorded inside softDeleteDocument.
+ * CS-TS-001: softDeleteDocument from @tax-portal/db barrel (admin pool).
+ * CS-TS-003: mirror check — portal exposes NO delete affordance; verified by TASK-014-003 portal e2e.
+ * CS-TS-004: identity from session cookie only; rejects CLIENT role (AC-FILE-004-02).
+ * CS-GEN-001: no PII logged; targetId = documentId (never filename or storageKey).
+ *
+ * @param engagementId - The Engagement.id (server-resolved route param).
+ * @param documentId - The Document.id to soft-delete.
+ *
+ * // ADR-003 // ADR-006 // ADR-018 // ADR-019 // CS-TS-001 // CS-TS-003 // CS-TS-004 // CS-GEN-001 // CS-GEN-003
+ * // AC-FILE-004-01 // AC-FILE-004-02 // AC-FILE-006-01
+ */
+export async function deleteDocumentAction(
+  engagementId: string,
+  documentId: string,
+): Promise<DeleteDocumentResult> {
+  // ── 1. Identity guard (ACCOUNTANT-only, ADR-003, CS-TS-004) ──────────────────
+  // CS-TS-004: identity from verified session only — rejects null and CLIENT role.
+  // AC-FILE-004-02: non-ACCOUNTANT identity → reject BEFORE any write.
+  const identity = await getAccountantIdentity(); // ADR-003 // CS-TS-004
+  if (!identity) {
+    // CS-GEN-001: do not expose internals; generic Unauthorized message only.
+    return { success: false, error: "Unauthorized: ACCOUNTANT identity required" }; // AC-FILE-004-02
+  }
+
+  // ── 2. Input validation ───────────────────────────────────────────────────────
+  if (!engagementId?.trim()) {
+    return { success: false, error: "A valid engagement ID is required" };
+  }
+  if (!documentId?.trim()) {
+    return { success: false, error: "A valid document ID is required" };
+  }
+
+  // ── 3. Soft-delete (admin pool, ADR-018 §1 — UPDATE-only) ────────────────────
+  // softDeleteDocument:
+  //   - Sets deletedAt tombstone on the Document row (UPDATE, NOT DELETE).
+  //   - Emits 'document.deleted' audit event inside (ADR-019).
+  //   - actor from the verified session (CS-TS-004 / ADR-019).
+  //   - Row + bytes are preserved (AC-FILE-006-02).
+  // CS-TS-001: softDeleteDocument from @tax-portal/db barrel (admin pool).
+  // CS-GEN-001: no PII in logs; targetId = documentId only in audit row.
+  const actor: AuditActor = {
+    clerkUserId: identity.clerkUserId, // ADR-019 // CS-TS-004: from verified session
+    role: identity.role,
+  };
+
+  let deleteResult: SoftDeleteDocumentResult;
+  try {
+    deleteResult = await softDeleteDocument({ // ADR-018 §1 // CS-TS-001
+      documentId: documentId.trim(),
+      engagementId: engagementId.trim(),
+      actor, // ADR-019: actor from verified session
+    });
+  } catch (err: unknown) {
+    // CS-GEN-001: server-level log only — do not surface internals to the client.
+    console.error("[deleteDocumentAction] softDeleteDocument failed:", err);
+    return { success: false, error: "Failed to delete document. Please try again." };
+  }
+
+  // ── 4. Revalidate documents page (AC-FILE-006-01 — remove from working view) ─
+  // The deleted file leaves the working-view list on next render (deletedAt IS NOT NULL
+  // filtered out by the RLS FILTER branch for ACCOUNTANT working view, per DECISION-014-E).
+  revalidatePath(`/engagements/${engagementId.trim()}/documents`); // AC-FILE-006-01
+
+  return { success: true, data: deleteResult };
+}
+
+/**
+ * Recover a soft-deleted document (accountant-only).
+ *
+ * AC-FILE-006-03: A soft-deleted file remains recoverable until its retention period elapses.
+ * AC-FILE-005-02: Within the 7-year window, a document remains recoverable.
+ *
+ * Flow:
+ *   1. getAccountantIdentity() — ACCOUNTANT-only (CS-TS-004).
+ *   2. Input validation.
+ *   3. recoverDocument (admin pool, ADR-018 §1 — clears deletedAt, audit event inside).
+ *   4. revalidatePath — restores the file to the working view.
+ *
+ * ADR-003: identity guard before any write (CS-TS-004).
+ * ADR-006: apps/admin ONLY.
+ * ADR-018: clears deletedAt tombstone; no purge in this slice (EPIC-015).
+ * ADR-019: 'document.recovered' audit event recorded inside recoverDocument.
+ * CS-TS-001: recoverDocument from @tax-portal/db barrel (admin pool).
+ * CS-TS-004: identity from session cookie only; rejects CLIENT role.
+ * CS-GEN-001: no PII logged; targetId = documentId in audit row.
+ *
+ * @param engagementId - The Engagement.id (server-resolved route param).
+ * @param documentId - The Document.id to recover.
+ *
+ * // ADR-003 // ADR-006 // ADR-018 // ADR-019 // CS-TS-001 // CS-TS-004 // CS-GEN-001 // CS-GEN-003
+ * // AC-FILE-006-03 // AC-FILE-005-02
+ */
+export async function recoverDocumentAction(
+  engagementId: string,
+  documentId: string,
+): Promise<RecoverDocumentActionResult> {
+  // ── 1. Identity guard (ACCOUNTANT-only, ADR-003, CS-TS-004) ──────────────────
+  const identity = await getAccountantIdentity(); // ADR-003 // CS-TS-004
+  if (!identity) {
+    return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
+  }
+
+  // ── 2. Input validation ───────────────────────────────────────────────────────
+  if (!engagementId?.trim()) {
+    return { success: false, error: "A valid engagement ID is required" };
+  }
+  if (!documentId?.trim()) {
+    return { success: false, error: "A valid document ID is required" };
+  }
+
+  // ── 3. Recover (admin pool, ADR-018 §1 — clears deletedAt tombstone) ─────────
+  // recoverDocument:
+  //   - Clears deletedAt on the Document row (UPDATE, NOT DELETE or INSERT).
+  //   - Emits 'document.recovered' audit event inside (ADR-019).
+  //   - actor from the verified session (CS-TS-004 / ADR-019).
+  // CS-TS-001: recoverDocument from @tax-portal/db barrel (admin pool).
+  // CS-GEN-001: no PII in logs; actor from verified session only.
+  const actor: AuditActor = {
+    clerkUserId: identity.clerkUserId, // ADR-019 // CS-TS-004: from verified session
+    role: identity.role,
+  };
+
+  let recoverResult: RecoverDocumentResult;
+  try {
+    recoverResult = await recoverDocument({ // ADR-018 §1 // CS-TS-001
+      documentId: documentId.trim(),
+      engagementId: engagementId.trim(),
+      actor, // ADR-019: actor from verified session
+    });
+  } catch (err: unknown) {
+    // CS-GEN-001: server-level log only — do not surface internals to the client.
+    console.error("[recoverDocumentAction] recoverDocument failed:", err);
+    return { success: false, error: "Failed to recover document. Please try again." };
+  }
+
+  // ── 4. Revalidate documents page (restore to working view) ───────────────────
+  revalidatePath(`/engagements/${engagementId.trim()}/documents`); // AC-FILE-006-03
+
+  return { success: true, data: recoverResult };
+}
+
+/**
+ * List soft-deleted documents for an engagement (accountant archive view).
+ *
+ * AC-FILE-006-01: Deleted documents leave the working view → they appear in this archive view.
+ * AC-FILE-006-03: Deleted documents remain in the archive (recoverable) until retention elapses.
+ *
+ * ADR-003: identity guard before read.
+ * ADR-006: apps/admin ONLY (archive view is accountant-only).
+ * CS-TS-001: listDeletedDocuments from @tax-portal/db barrel (admin pool).
+ *
+ * @param engagementId - The Engagement.id (server-resolved route param).
+ *
+ * // ADR-003 // ADR-006 // CS-TS-001 // CS-GEN-003
+ * // AC-FILE-006-01 // AC-FILE-006-03
+ */
+export async function listDeletedDocumentsAction(
+  engagementId: string,
+): Promise<ListDeletedDocumentsResult> {
+  // ── 1. Identity guard (ACCOUNTANT-only, ADR-003) ──────────────────────────────
+  const identity = await getAccountantIdentity(); // ADR-003
+  if (!identity) {
+    return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
+  }
+
+  // ── 2. Input validation ───────────────────────────────────────────────────────
+  if (!engagementId?.trim()) {
+    return { success: false, error: "A valid engagement ID is required" };
+  }
+
+  // ── 3. List deleted documents (request pool, ACCOUNTANT SESSION_CONTEXT) ────────
+  // DECISION-014-003: listDeletedDocuments uses db (request-pool Prisma client) with the
+  // ADR-003 middleware that enforces SESSION_CONTEXT. Must be wrapped in withRequestContext
+  // so the middleware validates the caller's identity before the query executes.
+  // The ACCOUNTANT FILTER in fn_document_access returns all documents (incl. deleted) for this role.
+  // CS-TS-001: listDeletedDocuments from @tax-portal/db barrel (via withRequestContext).
+  const deletedDocuments = await withRequestContext(
+    identity.clerkUserId,
+    identity.role,
+    () => listDeletedDocuments(engagementId.trim()),
+  ); // ADR-003 // CS-TS-001
+
+  return { success: true, data: deletedDocuments };
 }

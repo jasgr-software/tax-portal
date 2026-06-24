@@ -24,6 +24,13 @@
  *   AC-LIFE-006-02: CLIENT cannot reopen (BLOCK on request pool).
  *   ADR-003, ADR-005, ADR-019, CS-TS-001, CS-TS-002, CS-SQL-001, CS-SQL-003.
  *
+ * EPIC-014 (TASK-014-002): Wire retention-clock completion stamp additively into transitionEngagementStatus.
+ *   - When toStatus='Complete' and the transition succeeds, call setEngagementCompleted to stamp
+ *     completedAt = SYSDATETIMEOFFSET() (idempotent — only when completedAt IS NULL).
+ *   - ADR-018 §3: completedAt is the anchor for the 7-year retention clock.
+ *   - CS-GEN-002: additive — does not fork the status machine; existing tests unaffected.
+ *   - DECISION-014-F: completedAt is set additively inside the same withAuditTransaction context.
+ *
  * EPIC-011 (TASK-011-002): Added engagement-attribute seams + notes read seam.
  *   - setEngagementDueDate     — accountant-only guarded UPDATE (ADR-003, ADR-019, DECISION-011-D)
  *   - setEngagementPriority    — accountant-only flag/unflag (ADR-003, ADR-019, DECISION-011-D)
@@ -78,6 +85,10 @@ import { db } from "../client.js";
 // ADR-019: audit writes; ADR-003 §7: admin pool inside withAuditTransaction for privileged writes
 import { withAuditTransaction, recordAuthEvent } from "../audit.js";
 import type { AuditActor } from "../audit.js";
+// EPIC-014 / TASK-014-002: retention-clock completion stamp (ADR-018 §3 / DECISION-014-F).
+// Additive import — setEngagementCompleted stamps completedAt when engagement transitions to Complete.
+// CS-GEN-002: additive import; does not fork the status machine.
+import { setEngagementCompleted } from "./retention.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
 
@@ -780,7 +791,9 @@ export async function transitionEngagementStatus(
     return { transitioned: false };
   }
 
-  return withAuditTransaction(async (txn) => {
+  // EPIC-014 / TASK-014-002: capture the transition result so we can stamp completedAt afterward.
+  // CS-GEN-002: additive refactor — captures the result but does not change behavior for callers.
+  const transitionResult = await withAuditTransaction(async (txn) => {
     const updateReq = new MssqlRequest(txn);
     updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
     updateReq.input("fromStatus", mssqlPkg.NVarChar(20), input.fromStatus);
@@ -836,6 +849,22 @@ export async function transitionEngagementStatus(
 
     return { transitioned: true };
   });
+
+  // EPIC-014 / TASK-014-002: Wire the retention-clock completion stamp (ADR-018 §3 / DECISION-014-F).
+  // Additive: runs AFTER the status transition commits, in its own audit transaction.
+  // Idempotent guard inside setEngagementCompleted (completedAt IS NULL) — safe to call always.
+  // CS-GEN-002: additive extension; does not fork or replace the status machine above.
+  // Only stamp when transitioning TO Complete AND the transition succeeded.
+  // // ADR-018 // DECISION-014-F // CS-GEN-002 // AC-FILE-005-01 // AC-NFR-006-01
+  if (transitionResult.transitioned && input.toStatus === "Complete") {
+    await setEngagementCompleted({
+      engagementId: input.engagementId,
+      actor: input.actor,
+      sourceSurface: input.sourceSurface,
+    });
+  }
+
+  return transitionResult;
 }
 
 // ─── Write: confirmDelivery (admin pool — accountant-only) ────────────────────

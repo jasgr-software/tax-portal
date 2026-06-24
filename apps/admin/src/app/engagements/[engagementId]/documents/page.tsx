@@ -34,7 +34,7 @@ import { getAuthProvider } from "@tax-portal/auth";
 import { listEngagementFolders, withRequestContext } from "@tax-portal/db";
 import { DocumentsClientPage } from "./_components/DocumentsClientPage";
 import { FolderTree } from "./_components/FolderTree";
-import { listDocumentsAction } from "./actions";
+import { listDocumentsAction, listDeletedDocumentsAction } from "./actions";
 
 // TASK-013-004: AC-FILE-010-01/-02/-03/-04 — folder tree is accountant-only, admin surface.
 // ADR-006: FolderTree is imported ONLY in apps/admin — no mirror in apps/portal.
@@ -81,11 +81,18 @@ export default async function DocumentsPage({ params }: DocumentsPageProps) {
     );
   }
 
-  // Load document list for the engagement.
+  // Load document list for the engagement (working view — deletedAt IS NULL).
   // ADR-003: listDocumentsAction uses withRequestContext for ACCOUNTANT identity.
   // CS-TS-001: request pool read via @tax-portal/db barrel.
+  // TASK-014-003: also load the archive (deleted) list for the Archive/Recover section.
   const documentsResult = await listDocumentsAction(engagementId);
   const initialDocuments = documentsResult.success ? documentsResult.data : [];
+
+  // Load soft-deleted (archive) list (AC-FILE-006-01 / AC-FILE-006-03).
+  // ADR-018: deleted docs are retained; accountant can recover in-window.
+  // CS-TS-001: listDeletedDocumentsAction uses admin pool via @tax-portal/db barrel.
+  const deletedDocumentsResult = await listDeletedDocumentsAction(engagementId);
+  const initialDeletedDocuments = deletedDocumentsResult.success ? deletedDocumentsResult.data : [];
 
   // Load folder list for the engagement (AC-FILE-010-01 — folder tree for the accountant).
   // ADR-003: listEngagementFolders must run inside withRequestContext (request pool, FILTER-governed).
@@ -165,11 +172,13 @@ export default async function DocumentsPage({ params }: DocumentsPageProps) {
           </div>
         )}
 
-        {/* Client component handles upload + replace interactions */}
+        {/* Client component handles upload + replace + delete + recover interactions */}
         {/* AC-FILE-001-01 / AC-FILE-009-01 / AC-FILE-009-02 */}
+        {/* AC-FILE-004-01 / AC-FILE-006-01 / AC-FILE-006-03 (TASK-014-003) */}
         <DocumentsClientPage
           engagementId={engagementId}
           initialDocuments={initialDocuments}
+          initialDeletedDocuments={initialDeletedDocuments}
         />
 
         {/* Folder tree — accountant-managed folder structure (TASK-013-004) */}

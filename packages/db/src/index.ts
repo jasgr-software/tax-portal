@@ -231,17 +231,26 @@ export {
   listDocumentRequestsForEngagement,
 } from "./repositories/document-request.js";
 
-// Document repository (EPIC-007 / TASK-007-004 + EPIC-013 / TASK-013-002)
+// Document repository (EPIC-007 / TASK-007-004 + EPIC-013 / TASK-013-002 + EPIC-014 / TASK-014-002)
 //   Two-phase authorize-then-sign upload/download pipeline (ADR-009).
 //
 // On this barrel (request-pool reads + actions-layer operations):
 //   authorizeEngagementForUpload  — request pool authz (FILTER-governed; 404 on RLS miss)
 //   listEngagementDocuments       — request pool read (FILTER-governed; client sees own docs only)
+//     EPIC-014: opts.includeDeleted — working view (default) vs archive view split (DECISION-014-E)
+//   listDeletedDocuments          — ACCOUNTANT/admin-pool reader: only deletedAt IS NOT NULL rows
+//     (the recover/archive surface consumed by TASK-014-003). // AC-FILE-006-01 // AC-FILE-006-03
 //   authorizeThenSignDownload     — request pool authz → active-only → signed download URL (ADR-009)
 //     Both owner + participant reach it via participant-extended fn_document_access (TASK-013-001).
 //     AC-FILE-001-03 (owner) + AC-FILE-001-04 (participant) — both-party download gate.
 //   listDocumentVersions          — request pool read (sec.pol_DocumentVersion FILTER-governed)
 //     AC-FILE-009-02 (current = supersededAt IS NULL) + AC-FILE-009-03 (prior rows retained).
+//   softDeleteDocument            — ADMIN POOL write; sets deletedAt tombstone; UPDATE-only (ADR-018 §1)
+//     audit event 'document.deleted' in-txn (ADR-019). // DECISION-014-D // AC-FILE-004-01
+//   recoverDocument               — ADMIN POOL write; clears deletedAt; audit 'document.recovered'.
+//     // DECISION-014-D // AC-FILE-006-03 // AC-FILE-005-02
+//   retentionDeadlineFor          — pure function: completedAt + RETENTION_WINDOW_YEARS
+//     // ADR-018 §3 // DECISION-014-F // AC-FILE-005-01 // AC-NFR-006-01
 //
 // NOT on this barrel (import directly from source module in server actions):
 //   insertPendingDocument           — admin pool INSERT (ADR-009 step 2d)
@@ -265,14 +274,26 @@ export type {
   ReplaceDocumentInput,
   ReplaceDocumentResult,
   DocumentVersionItem,
+  // EPIC-014 / TASK-014-002 types
+  SoftDeleteDocumentInput,
+  SoftDeleteDocumentResult,
+  RecoverDocumentInput,
+  RecoverDocumentResult,
+  ListEngagementDocumentsOptions,
 } from "./repositories/document.js";
 export {
   authorizeEngagementForUpload,
   listEngagementDocuments,
+  // EPIC-014 / TASK-014-002: archive-view read (only soft-deleted docs; accountant recover surface)
+  listDeletedDocuments,
   authorizeThenSignDownload,
   // EPIC-013 / TASK-013-002 exports
   // AC-FILE-009-02/-03: version history read (request pool, RLS-scoped)
   listDocumentVersions,
+  // EPIC-014 / TASK-014-002: soft-delete + recover seams (admin pool, audited, UPDATE-only)
+  // AC-FILE-004-01: accountant can soft-delete; AC-FILE-006-02/-03: row+bytes survive; recoverable.
+  softDeleteDocument,
+  recoverDocument,
 } from "./repositories/document.js";
 
 // Folder repository (EPIC-013 / TASK-013-002) — folder ops + list
@@ -314,6 +335,23 @@ export type {
 export {
   getTopLevelOrganization,
 } from "./repositories/document-organization.js";
+
+// Retention clock (EPIC-014 / TASK-014-002 — ADR-018 §3, DECISION-014-F)
+//   RETENTION_WINDOW_YEARS   — configurable constant (default 7; env-overridable via RETENTION_WINDOW_YEARS)
+//   retentionDeadlineFor     — pure function: completedAt + RETENTION_WINDOW_YEARS years; null if no completedAt.
+//     AC-FILE-005-01: retained ≥7 years from completion. AC-NFR-006-01: system-enforced, not manual.
+//   setEngagementCompleted   — idempotent stamp: completedAt = SYSDATETIMEOFFSET() when IS NULL.
+//     Wired into transitionEngagementStatus (Review → Complete path). ADR-018 §3 / DECISION-014-F.
+//     NOT on this barrel for action callers — import from the source module if needed outside packages/db.
+export type {
+  RetentionEngagementInput,
+  SetEngagementCompletedInput,
+  SetEngagementCompletedResult,
+} from "./repositories/retention.js";
+export {
+  RETENTION_WINDOW_YEARS,
+  retentionDeadlineFor,
+} from "./repositories/retention.js";
 
 // Checklist read model (EPIC-007 / TASK-007-004)
 // resolveChecklist — request pool/FILTER-scoped read model; derives outstanding/fulfilled

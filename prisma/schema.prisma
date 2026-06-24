@@ -211,6 +211,18 @@ model Engagement {
   //   NOT a UNIQUE DB constraint — duplicate guard is application-level (TASK-012-002 DECISION-C).
   // CS-GEN-002: additive column.
   taxYear               Int?
+  // ─── EPIC-014 retention anchor (DECISION-014-A / BRIEF-014 / ADR-018 §3) ──────────
+  // DECISION-014-A: completedAt is the retention-clock anchor — the timestamp of engagement
+  //   completion from which the 7-year (configurable) retention floor is measured.
+  //   NULL = not yet complete (open engagement); non-NULL = the completion moment.
+  //   The *write on the completion transition* and the *retention-deadline accessor* are
+  //   TASK-014-002. This column is additive; existing rows remain NULL (no back-fill needed
+  //   here — Track B migration backfills from filingConfirmedAt / updatedAt for existing Complete rows).
+  //   ADR-002: DATETIMEOFFSET timestamp convention. CS-GEN-002: additive column.
+  // ADR-018 §3: retention clock anchored at engagement completion.
+  // CS-GEN-002: additive — no existing column removed or altered. // CS-GEN-002
+  // CS-GEN-003: governing ADR-018/ADR-002/DECISION-014-A cited above. // CS-GEN-003
+  completedAt           DateTime? @db.DateTimeOffset
   // ─── Reverse relations ────────────────────────────────────────────────────────
   // EPIC-006: Reverse relation — at most one QuestionnaireAnswer per Engagement (AC-ONBD-003-04)
   questionnaireAnswer   QuestionnaireAnswer?
@@ -516,6 +528,20 @@ model Document {
   scanThreat        String?   @db.NVarChar(500)
   // Uploader clerkId (audit trail — client or accountant)
   uploadedBy        String?   @db.NVarChar(64)
+  // ─── EPIC-014 soft-delete tombstone (DECISION-014-B / BRIEF-014 / ADR-018 §1 / ADR-009) ───
+  // DECISION-014-B: deletedAt is the soft-delete tombstone. NULL = active; non-NULL = soft-deleted.
+  //   State: active (NULL) ↔ soft-deleted (non-NULL). Transitions: active→soft-deleted (accountant
+  //   delete, TASK-014-003); soft-deleted→active (recover, TASK-014-003 in-window only).
+  //   No physical DELETE ever sets this — it is an UPDATE (TASK-014-003 owns the write seam).
+  //   RLS: CLIENT branches in fn_document_access require AND @documentDeletedAt IS NULL (pol_Document
+  //   FILTER gains the second param); fn_document_version_access CLIENT branches gain AND d.deletedAt IS NULL.
+  //   ADR-018 §1: soft-delete-first — "delete" sets tombstone, never a request-path physical DELETE.
+  //   ADR-009: Document.deletedAt per the signed-URL doc soft-delete definition.
+  //   ADR-002: DATETIMEOFFSET timestamp convention.
+  //   CS-GEN-002: additive — no existing column removed or altered. // CS-GEN-002
+  //   CS-GEN-003: governing ADR-018/ADR-009/ADR-002/DECISION-014-B cited above. // CS-GEN-003
+  //   CS-SQL-002: the RLS predicate change that uses this column is Track B only. // CS-SQL-002
+  deletedAt         DateTime? @db.DateTimeOffset
   createdAt         DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt         DateTime  @updatedAt @db.DateTimeOffset
 
