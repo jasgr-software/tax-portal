@@ -2,7 +2,7 @@
 id: EPIC-016
 title: In-portal notification feed — the dual-role spine, real-time, unread badge
 phase: 4
-status: planned
+status: delivered   # all 20 in-scope AC verified — PR#102 `345328e` (2026-06-25). NOTE: AC-MSG-012-01/-02/-03 verified vs the ADR-023 mock seam → real-provider re-validation in Phase 5 (see § Mock-seam verification note).
 slice: Both the accountant and clients get a real-time in-portal notification feed — the authoritative place every notification appears — with a persistent unread-count badge, auto-mark-read when the linked item is viewed, and 90-day history; the EPIC-003 accountant-only notification model is generalized to clients and lit up with every already-existing event.
 requirements:
   - REQ-MSG-007: [AC-MSG-007-01, AC-MSG-007-02, AC-MSG-007-03]
@@ -259,6 +259,20 @@ Then each client's feed contains only notifications for their own engagements an
     AC-MSG-015-01/-02, AC-MSG-016-01/-02 (retention floor).
   - **e2e (tier 6)** — AC-MSG-007-01/-02, AC-MSG-012-01/-02/-03 (real-time arrival, both surfaces),
     AC-MSG-015-03, AC-MSG-017-01/-02/-03 (badge), AC-MSG-013-03, AC-MSG-014-03/-04/-05/-06.
+
+## Mock-seam verification note (AC-MSG-012 — real-time)
+**AC-MSG-012-01/-02/-03 are `verified` against the ADR-023 mock seam, not a real real-time provider.**
+PR#102 `345328e` (2026-06-25) verifies real-time arrival via the **SSE-backed browser-reachable mock**
+(push-without-navigation badge increment) on both surfaces. Two honest caveats are recorded so they are not
+lost:
+- **No transport ADR yet.** The real-time *transport choice* (the eventual real provider — e.g. Supabase
+  Realtime per the product vision) has **no dedicated ADR** — a **planning-flagged architecture gap**. These
+  AC must be **re-validated against the real provider in Phase 5** (tracked in `COVERAGE.md` § Provider
+  re-validation). This is a mock-seam-phase verification, not a silent full sign-off.
+- **Badge-increment proxy for "surfaces in the feed."** AC-MSG-012-01/-02's "surfaces in the feed" semantics
+  are verified via the **badge-increment proxy**: the feed list itself is server-rendered (SSR), so the
+  **badge is the live element** that proves real-time push without a navigation/refresh. Recorded honestly
+  as a proxy.
 
 ## Out of scope
 - **New-message notifications** — AC-MSG-013-02 (accountant) and AC-MSG-014-01 (client) → **EPIC-017** (the

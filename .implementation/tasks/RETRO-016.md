@@ -122,3 +122,71 @@ is present and **non-gating** (the e2e gate is the gate; see `.orchestration/DEM
 - **CLAUDE.md § Platform-frontend scope cross-surface-parity rule** — **load-bearing this slice** (genuine dual-role feed;
   the parity default caught nothing because the developer honored it, but the rule scoped both-surface e2e correctly). The
   3-consecutive-zero-finding sunset counter does **not** advance — this slice exercised the rule.
+
+## Post-Merge Addendum
+
+**Merged:** 2026-06-25 · **PR:** #102 · **Merge SHA:** `345328e1e03a7bdd81fefe3952de24918ce4d66e` (squash) ·
+**Branch:** `brief-016-in-portal-notification-feed` (deleted, local + remote) · **Lane:** application-code reviewed lane
+(per `.orchestration/MERGE-POLICY.md`) · **Merge:** plain `gh pr merge 102 --squash --delete-branch` — no `--admin`, no
+branch-protection / `enforce_admins` toggle.
+
+### Post-merge gate verification (gates 8 + 9)
+
+| Gate | Result |
+| ---- | ------ |
+| 8. Post-merge CI on `main` @ `345328e` | **PASS** — CI run `28143721698` success: `lint-and-typecheck` ✅, `test-portal` ✅, `test-admin` ✅, `security-scan` ✅; CodeQL run `28143721275` success (`Analyze javascript-typescript` + `python`). `report-failure` skipped (expected on green). |
+| 9. Staging smoke | **N/A** — BRIEF-016 does not deploy (`brief_deploys: false`); no staging pipeline rides this slice. |
+
+No `BUG-016-POST-*` filed — post-merge verification clean.
+
+### Headline: the 3-lens panel (independent oracle) caught a cross-recipient RLS blocker every in-slice gate missed
+
+The reviewed lane earned its keep on this slice. **In-slice gates all passed green** — Submission, SDET Review (8/8),
+Overwatch Audit, IO Design scan, Container Smoke, SDET Acceptance-validation (20/20 AC), CI gate, Quality audit — yet the
+**`/pr-review` 3-lens panel** (the independent oracle, run on the opened PR after Close-prep) surfaced a **blocker** none
+of them caught:
+
+- **Defect:** the **unconditional ACCOUNTANT branch** in `db/policies/0004-notification-policy.sql` was not row-aware. It
+  **(a)** leaked **ALL** client notifications into the accountant feed + unread badge, and **(b)** let the accountant's
+  **mark-read-on-view** silently flip **CLIENT-owned** `Notification` rows to read — a **cross-recipient breach of
+  AC-MSG-014-07** (recipient isolation). The FILTER (read) predicate proven bidirectionally for the CLIENT branch did not
+  constrain the ACCOUNTANT branch, and the `updateMany` mark-read path was unscoped by recipient.
+- **Why every in-slice gate missed it:** the slice's RLS suite proved the **CLIENT↔CLIENT** isolation thoroughly
+  (tier-3 negatives both ways) but had **no ACCOUNTANT-isolation negative** — so the unconditional ACCOUNTANT branch was
+  never exercised against a cross-recipient assertion. Smoke and Validate ran the happy-path dual-role feed (which looked
+  correct because the accountant is *supposed* to see a broad feed), so the over-broad branch presented as intended
+  behavior, not a leak. This is exactly the false-green class the independent oracle exists to catch — a missing-negative
+  blind spot that every code-tracing-and-running gate shares because they all trust the same incomplete test set.
+- **Fix (`/pr-fix`, commits `f445d81` + `ee4bcf6`, proven red→green):** made the ACCOUNTANT FILTER branch **row-aware**;
+  **scoped the mark-read `updateMany` by recipient** so the accountant can never flip a CLIENT row; and **added the
+  missing tier-3 ACCOUNTANT-isolation negatives** (the proof: **before** the fix the new negative asserted
+  `expected 1 to be 0` — the leak reproduced red; **after**, **11/11** pass). Same fix-forward pass also cleared 2 majors
+  (a dead `notification.read` branch) and 3 minors; F7 nit deferred. CI green post-fix; all 7 panel threads resolved;
+  Standards-review APPROVE (0 required violations).
+
+### Independent-oracle tally for BRIEF-016 (the slice's defining theme)
+
+This addendum's panel catch joins the in-slice independent-oracle catches already recorded above, making BRIEF-016 a
+four-catch slice where the **independent re-run/oracle held the line every time** the trusting gates did not:
+
+1. **[panel, post-Close-prep — HEADLINE]** cross-recipient ACCOUNTANT RLS leak + mark-read cross-flip (this addendum) —
+   missed by all 8 in-slice gates; caught by the 3-lens panel; the missing ACCOUNTANT-isolation negative was the blind spot.
+2. **[SDET re-verify]** the **false-approval recovery** on TASK-016-001 (re-opened + re-verified).
+3. **[clean-stack re-run]** TASK-016-005b developer false-green (claimed 75/19 test-56 passing; real 71/20 test-56 FAILING → BUG-016-002).
+4. **[clean-stack re-run]** TASK-016-007 developer "pre-existing failure" mislabel (actually a dirty-DB artifact; 11/11 clean).
+
+**Reinforces** the carried [validation-oracle-independent-of-code] memory: validate against a **genuinely independent**
+oracle, not a lenient re-impl of the same (incomplete) check. The remedy for the in-slice misses is the same two
+ungated-fix SDET workflow obligations already tracked in `state.json` openRetroItems (on-disk/clean-run verification +
+isolation-proof obligation). **New addendum-level follow-up:** the RLS test-completeness obligation should require a
+**negative isolation test for *every* policy branch** (CLIENT *and* ACCOUNTANT), not just the recipient-vs-recipient pair —
+the missing ACCOUNTANT-branch negative is precisely what let the leak through every code-running gate. Carried as a Phase-4
+RLS-suite-completeness advisory (rides a future `.implementation/agents/sdet.md` / RLS-test-convention change; does not ride
+this slice).
+
+### State reconciliation
+
+`pnpm task post-merge --pr 102 --sha 345328e1e03a7bdd81fefe3952de24918ce4d66e --role io` run — `awaitingMerge[]` cleared,
+delivery recorded in `state.json` + `events.jsonl`. Task/bug files already in `tasks/done/`; RETRO-016 + HANDOFF-016 retained
+in `tasks/` per the established slice convention. No POST-* bugs. Engine responsibility for BRIEF-016 is complete; the
+Conductor now does Validate (coverage write-back) + Report.
