@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-25T21:29:37.389Z",
-  "currentBrief": "BRIEF-017",
-  "currentPhase": "Close-prep",
-  "currentSliceDescription": "Per-engagement & general messaging threads — plain-text messages, scanned signed-URL attachments, per-viewer unread, indefinite retention + archive-on-close, new-message notifications onto the EPIC-016 spine (apps/portal + apps/admin)",
-  "currentBranch": "brief-017-per-engagement-general-messaging",
+  "lastUpdated": "2026-06-25T22:37:12.059Z",
+  "currentBrief": null,
+  "currentPhase": null,
+  "currentSliceDescription": null,
+  "currentBranch": null,
   "awaitingMerge": [],
   "openRetroItems": [
     {
