@@ -29,6 +29,11 @@ import { withRequestContext, getEngagementRequest, adminDb } from "@tax-portal/d
 import type { EngagementRequestItem } from "@tax-portal/db";
 import { RequestDetail } from "../_components/RequestDetail";
 import { DecisionActions } from "../_components/DecisionActions";
+// EPIC-016 / TASK-016-006: mark-read-on-view for request-linked notifications.
+// CS-GEN-002: additive import — existing page logic unchanged. // CS-GEN-002
+// AC-MSG-015-02: viewing the linked item marks the notification read automatically.
+// CS-TS-004: markNotificationOnViewAction resolves identity from cookie + guards ACCOUNTANT. // CS-TS-004
+import { markNotificationOnViewAction } from "@/app/notifications/actions";
 
 // ─── Route params ─────────────────────────────────────────────────────────────
 
@@ -87,6 +92,22 @@ export default async function RequestDetailPage({ params }: RequestDetailPagePro
     request = await fetchRequest(identity.clerkUserId, identity.role, id);
   } catch {
     dbError = "Unable to load request — database temporarily unavailable.";
+  }
+
+  // EPIC-016 / TASK-016-006 / AC-MSG-015-02: mark-read-on-view for request-linked notifications.
+  // Fire markNotificationOnViewAction as soon as the request detail page loads (server-side).
+  // Non-blocking: failures are swallowed — a mark-read failure must not break the page render.
+  // AC-MSG-015-03: no dismiss button — mark-read fires automatically on view (not on user action).
+  // CS-TS-004: markNotificationOnViewAction resolves identity from cookie + guards ACCOUNTANT. // CS-TS-004
+  // CS-GEN-001: id not logged (it may carry an engagement request key). // CS-GEN-001
+  if (request) {
+    // Non-blocking fire-and-forget: await but suppress errors.
+    await markNotificationOnViewAction({
+      linkedItemType: "request",
+      linkedItemId: id,
+    }).catch(() => {
+      // Mark-read failure must not break the page render. // CS-GEN-001: no error logged.
+    });
   }
 
   // 404 when request not found (or RLS hides it — same UX as not found)

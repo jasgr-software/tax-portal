@@ -89,6 +89,10 @@ import type { AuditActor } from "../audit.js";
 // Additive import — setEngagementCompleted stamps completedAt when engagement transitions to Complete.
 // CS-GEN-002: additive import; does not fork the status machine.
 import { setEngagementCompleted } from "./retention.js";
+// EPIC-016 / TASK-016-004: source-event wiring — emit notification + publish via real-time transport.
+// CS-GEN-002: additive import; no existing export removed or narrowed. // CS-GEN-002
+// ADR-023: real-time publish via getNotificationTransport() selector inside emitAndPublishNotification. // ADR-023
+import { emitAndPublishNotification } from "./notification.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
 
@@ -758,6 +762,33 @@ export interface ConfirmResult {
   confirmed: boolean;
 }
 
+// ─── Internal helper: resolve clientUserId for a given engagementId ──────────
+
+/**
+ * Resolves the clientUserId for an Engagement via the admin pool.
+ *
+ * Returns null when:
+ *   - The Engagement is not found.
+ *   - The Engagement has no associated client (clientUserId IS NULL — new-prospect path,
+ *     DECISION-A: clientUserId nullable at accept-time).
+ *
+ * DECISION (TASK-016-004): Only emit a CLIENT notification when clientUserId is non-null
+ * (returning-client / EPIC-012 path). New-prospect engagements (clientUserId=NULL)
+ * have no User row to notify — no feed notification is emitted for them. // DECISION-TASK-016-004
+ *
+ * CS-TS-002: admin pool via getAdminPool() — internal to packages/db. // CS-TS-002
+ * ADR-003 §7: admin pool write; no SESSION_CONTEXT needed for this lookup. // ADR-003
+ */
+async function resolveEngagementClientUserId(engagementId: string): Promise<string | null> {
+  const pool = await getAdminPool();
+  const req = new MssqlRequest(pool);
+  req.input("engagementId", mssqlPkg.NVarChar(50), engagementId);
+  const result = await req.query<{ clientUserId: string | null }>(
+    `SELECT [clientUserId] FROM [dbo].[Engagement] WHERE [id] = @engagementId`,
+  );
+  return result.recordset[0]?.clientUserId ?? null;
+}
+
 // ─── Write: transitionEngagementStatus (admin pool — accountant-only) ─────────
 
 /**
@@ -864,6 +895,28 @@ export async function transitionEngagementStatus(
     });
   }
 
+  // EPIC-016 / TASK-016-004: AC-MSG-014-03 — emit a CLIENT notification on status change.
+  // Post-commit (additive): runs after the withAuditTransaction block commits.
+  // Only when the transition succeeded AND a client user exists (clientUserId non-null).
+  // DECISION (TASK-016-004): new-prospect engagements (clientUserId=NULL) → no feed notification.
+  // CS-GEN-001: no PII in notification title. // CS-GEN-001
+  // CS-GEN-002: additive — does not fork or alter the transition logic above. // CS-GEN-002
+  // ADR-003: resolveEngagementClientUserId uses admin pool (no SESSION_CONTEXT needed). // ADR-003
+  // ADR-023: publish rides the getNotificationTransport() selector. // ADR-023
+  if (transitionResult.transitioned) {
+    const clientUserId = await resolveEngagementClientUserId(input.engagementId);
+    if (clientUserId) {
+      await emitAndPublishNotification({
+        recipientType: "CLIENT",
+        recipientUserId: clientUserId,
+        type: "engagement_status_changed",
+        title: "Your engagement status has been updated",
+        linkedItemType: "engagement",
+        linkedItemId: input.engagementId,
+      });
+    }
+  }
+
   return transitionResult;
 }
 
@@ -880,7 +933,8 @@ export async function transitionEngagementStatus(
  * DECISION-010-G: audit action 'engagement.confirm_delivery'.
  */
 export async function confirmDelivery(input: ConfirmEngagementInput): Promise<ConfirmResult> {
-  return withAuditTransaction(async (txn) => {
+  // Capture result to check .confirmed before emitting notification (post-commit). // TASK-016-004
+  const result = await withAuditTransaction(async (txn) => {
     const updateReq = new MssqlRequest(txn);
     updateReq.input("id", mssqlPkg.NVarChar(50), input.engagementId);
 
@@ -912,6 +966,29 @@ export async function confirmDelivery(input: ConfirmEngagementInput): Promise<Co
 
     return { confirmed: true };
   });
+
+  // EPIC-016 / TASK-016-004: AC-MSG-014-04 — emit a CLIENT deliverable-ready notification.
+  // Post-commit: runs after the withAuditTransaction block commits.
+  // Only when confirmation succeeded AND a client user exists (clientUserId non-null).
+  // DECISION (TASK-016-004): new-prospect engagements (clientUserId=NULL) → no feed notification.
+  // CS-GEN-001: no PII in notification title. // CS-GEN-001
+  // CS-GEN-002: additive — does not alter the confirmation logic above. // CS-GEN-002
+  // ADR-023: publish via getNotificationTransport() selector. // ADR-023
+  if (result.confirmed) {
+    const clientUserId = await resolveEngagementClientUserId(input.engagementId);
+    if (clientUserId) {
+      await emitAndPublishNotification({
+        recipientType: "CLIENT",
+        recipientUserId: clientUserId,
+        type: "deliverable_ready",
+        title: "Your deliverable is ready for review",
+        linkedItemType: "engagement",
+        linkedItemId: input.engagementId,
+      });
+    }
+  }
+
+  return result;
 }
 
 // ─── Write: confirmFiling (admin pool — accountant-only) ─────────────────────

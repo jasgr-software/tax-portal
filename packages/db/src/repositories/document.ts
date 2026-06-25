@@ -98,6 +98,10 @@ import { getFileScanner, validateUploadedBytes } from "@tax-portal/storage";
 import { withAuditTransaction, recordAuthEvent } from "../audit.js";
 import type { AuditActor } from "../audit.js";
 import type { EngagementItem } from "./engagement.js";
+// EPIC-016 / TASK-016-004: emit accountant notification after document upload completion.
+// CS-GEN-002: additive import — no existing export changed. // CS-GEN-002
+// ADR-023: publish via getNotificationTransport() selector inside emitAndPublishNotification. // ADR-023
+import { emitAndPublishNotification } from "./notification.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
 
@@ -596,6 +600,24 @@ export async function completeUpload(
   if (scanVerdict.verdict === "clean" && validationResult === "pass") {
     // PROMOTE: pending → active (ADR-021 — scan passed, MIME/size valid)
     await promotePendingToActive(input.documentId, input.engagementId, stat.sizeBytes);
+
+    // EPIC-016 / TASK-016-004: AC-MSG-013-03 — emit ACCOUNTANT notification on upload completion.
+    // Post-promote (after promotePendingToActive succeeds). Only on the 'active' promotion path;
+    // infected and pending paths do NOT emit this notification (separate concern per AC-NFR-009-02).
+    // DECISION: emit only when promotion to 'active' succeeds. // DECISION-TASK-016-004
+    // CS-GEN-001: no PII in notification title or payload. // CS-GEN-001
+    // CS-GEN-002: additive — does not alter the promotion or gate logic. // CS-GEN-002
+    // ADR-003: emitAndPublishNotification uses admin pool (no SESSION_CONTEXT). // ADR-003
+    // ADR-023: publish via getNotificationTransport() selector. // ADR-023
+    await emitAndPublishNotification({
+      recipientType: "ACCOUNTANT",
+      recipientUserId: null,
+      type: "document_uploaded",
+      title: "Document upload completed",
+      linkedItemType: "document",
+      linkedItemId: input.documentId,
+    });
+
     return { outcome: "active", documentId: input.documentId };
   }
 

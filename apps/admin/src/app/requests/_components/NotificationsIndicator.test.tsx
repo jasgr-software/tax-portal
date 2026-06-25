@@ -29,6 +29,9 @@ import { NotificationsIndicator } from "./NotificationsIndicator.js";
 
 const MOCK_ENGAGEMENT_REQUEST_ID = "req-001-aaaa-bbbb-cccc-000000000001";
 
+// EPIC-016 / TASK-016-002: NotificationItem now includes recipientType, recipientUserId,
+// linkedItemType, linkedItemId. Existing test fixtures updated with ACCOUNTANT defaults.
+// CS-GEN-002: additive — no existing assertion changed. // CS-GEN-002
 const MOCK_NEW_REQUEST_NOTIF: NotificationItem = {
   id: "notif-new-req-001",
   type: "new_engagement_request",
@@ -37,6 +40,10 @@ const MOCK_NEW_REQUEST_NOTIF: NotificationItem = {
   readAt: null,
   engagementRequestId: MOCK_ENGAGEMENT_REQUEST_ID,
   createdAt: new Date("2026-06-17T10:00:00Z"),
+  recipientType: "ACCOUNTANT",
+  recipientUserId: null,
+  linkedItemType: "request",
+  linkedItemId: MOCK_ENGAGEMENT_REQUEST_ID,
 };
 
 const MOCK_ONBOARDING_COMPLETE_NOTIF: NotificationItem = {
@@ -47,6 +54,10 @@ const MOCK_ONBOARDING_COMPLETE_NOTIF: NotificationItem = {
   readAt: null,
   engagementRequestId: MOCK_ENGAGEMENT_REQUEST_ID,
   createdAt: new Date("2026-06-18T14:30:00Z"),
+  recipientType: "ACCOUNTANT",
+  recipientUserId: null,
+  linkedItemType: null,
+  linkedItemId: null,
 };
 
 const MOCK_READ_NEW_REQUEST_NOTIF: NotificationItem = {
@@ -69,6 +80,10 @@ const MOCK_UNKNOWN_TYPE_NOTIF: NotificationItem = {
   readAt: null,
   engagementRequestId: null,
   createdAt: new Date("2026-06-19T08:00:00Z"),
+  recipientType: "ACCOUNTANT",
+  recipientUserId: null,
+  linkedItemType: null,
+  linkedItemId: null,
 };
 
 // ─── Tests: onboarding_completed notification rendering ───────────────────────

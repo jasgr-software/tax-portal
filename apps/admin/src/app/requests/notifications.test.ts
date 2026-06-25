@@ -73,7 +73,11 @@ import {
 const MOCK_REQUEST_ID = "req-id-001-aaaa-bbbb-cccc-000000000001";
 const MOCK_NOTIFICATION_ID = "notif-id-001-aaaa-bbbb-cccc-000000000001";
 
-/** A new-request notification as returned by listNotifications() */
+/** A new-request notification as returned by listNotifications()
+ *
+ * EPIC-016 / TASK-016-002: NotificationItem now includes recipientType, recipientUserId,
+ * linkedItemType, linkedItemId. Updated with ACCOUNTANT defaults (CS-GEN-002 additive). // CS-GEN-002
+ */
 const MOCK_NEW_REQUEST_NOTIFICATION: NotificationItem = {
   id: MOCK_NOTIFICATION_ID,
   type: "new_engagement_request",            // AC-MSG-013-01
@@ -82,6 +86,11 @@ const MOCK_NEW_REQUEST_NOTIFICATION: NotificationItem = {
   readAt: null,                               // unread
   engagementRequestId: MOCK_REQUEST_ID,       // AC-DOOR-005-02 — links to the request
   createdAt: new Date("2026-06-17T10:00:00Z"),
+  // EPIC-016 additive fields
+  recipientType: "ACCOUNTANT",
+  recipientUserId: null,
+  linkedItemType: "request",
+  linkedItemId: MOCK_REQUEST_ID,
 };
 
 const ACCOUNTANT_IDENTITY = {

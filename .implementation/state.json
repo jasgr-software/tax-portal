@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-24T16:48:13.829Z",
-  "currentBrief": null,
+  "lastUpdated": "2026-06-25T02:09:54.882Z",
+  "currentBrief": "BRIEF-016",
   "currentPhase": "Close-prep",
-  "currentSliceDescription": null,
-  "currentBranch": null,
+  "currentSliceDescription": "In-portal notification feed + persistent unread badge (dual-role, real-time, mark-read-on-view) across apps/portal + apps/admin",
+  "currentBranch": "brief-016-in-portal-notification-feed",
   "awaitingMerge": [],
   "openRetroItems": [
     {

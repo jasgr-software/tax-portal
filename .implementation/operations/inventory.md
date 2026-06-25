@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-013-003 (added BLOB_PUBLIC_ENDPOINT, FILE_SCANNER, ALLOW_MOCK_SCANNER to admin service in docker-compose.yml + azurite service_healthy depends_on — accountant upload + version-replace surface; BUG-013-001 remediation)
+**Last updated:** TASK-016-005b (added NEXT_PUBLIC_REALTIME_PROVIDER, NEXT_PUBLIC_ALLOW_MOCK_REALTIME to portal + admin services in docker-compose.yml; new SSE route /api/notifications/stream on portal; emit-test route /api/notifications/emit-test on portal — DECISION-016-005b-RT / BUG-016-001 fix)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -120,6 +120,10 @@ Both `portal` and `admin` compose services now depend on `azurite: service_healt
 | `RATE_LIMIT_WINDOW_MS` | Both | `InMemoryRateLimiter` sliding window duration in milliseconds. Default: `60000` (60 seconds). Set in docker-compose.yml for both portal and admin services. Added BUG-003-001. |
 | `ESIGN_PROVIDER` | portal | E-sign provider selector: `mock` (local/e2e) or `docuseal` (production, deferred). **Default: `docuseal` (real — DECISION-E).** The mock requires `ALLOW_MOCK_ESIGN=true` (fail-closed guard). docker-compose.yml defaults to `mock` via `${ESIGN_PROVIDER:-mock}` for local/e2e containers. **NEVER set `mock` in a real production deploy** — a real deploy uses `docuseal` and leaves `ALLOW_MOCK_ESIGN` unset. Added TASK-005-002. |
 | `ALLOW_MOCK_ESIGN` | portal | **Mock e-sign opt-in** (ADR-023 §4 / DECISION-E). Must be `"true"` for the portal container to serve the mock e-sign binding. Keys on this flag (not `NODE_ENV`) — same pattern as `ALLOW_MOCK_AUTH` (BUG-002-001). Defaults to `"true"` in compose (`${ALLOW_MOCK_ESIGN:-true}`) for e2e/local containers. **NEVER set to `"true"` in a real production deploy** — a real deploy sets `ESIGN_PROVIDER=docuseal` and leaves `ALLOW_MOCK_ESIGN` unset → fail closed. Setting `ESIGN_PROVIDER=docuseal` + `ALLOW_MOCK_ESIGN=true` is a contradiction → throws. Added TASK-005-002. |
+| `REALTIME_PROVIDER` | Both | Real-time transport selector: `mock` (local/e2e) or `supabase-realtime` (production, deferred stub). Default `mock` in compose. The mock binding requires `ALLOW_MOCK_REALTIME=true`. Server-side var (not inlined into browser bundle). Added TASK-016-003. |
+| `ALLOW_MOCK_REALTIME` | Both | **Mock real-time opt-in** (ADR-023 §4). Must be `"true"` for the mock transport to be active. Keys on this flag (not `NODE_ENV`) — same pattern as `ALLOW_MOCK_AUTH`. Defaults to `"true"` in compose. **NEVER set to `"true"` in a real production deploy.** Server-side var (not inlined into browser bundle). Added TASK-016-003. |
+| `NEXT_PUBLIC_REALTIME_PROVIDER` | Both | **Browser-bundle variant of REALTIME_PROVIDER** (DECISION-016-005b-RT / TASK-016-005b). Next.js inlines `NEXT_PUBLIC_*` vars into the browser bundle at build time. The selector (`packages/realtime/src/select.ts`) reads this as a fallback when `REALTIME_PROVIDER` is absent (browser context). Set to the same value as `REALTIME_PROVIDER` in compose. **Not a secret — transport selector value only.** NEVER set to `mock` without also setting `NEXT_PUBLIC_ALLOW_MOCK_REALTIME=true` (fail-closed guard applies in browser too). Added TASK-016-005b. |
+| `NEXT_PUBLIC_ALLOW_MOCK_REALTIME` | Both | **Browser-bundle variant of ALLOW_MOCK_REALTIME** (DECISION-016-005b-RT / TASK-016-005b). Inlined into the browser bundle by Next.js. Fallback when `ALLOW_MOCK_REALTIME` is absent (browser context). Set to `"true"` in compose for e2e/local dev. **NEVER set to `"true"` in a real production deployment.** Added TASK-016-005b. |
 | `STORAGE_ADAPTER` | Both | FileStorage adapter selector (ADR-008): `azurite` (local dev/CI default), `memory` (test-only), `cloud` (Phase-5 slot — throws at startup). Defaults to `azurite` via compose. Added TASK-007-001. |
 | `STORAGE_CONNECTION_STRING` | Both | Azure Blob connection string for the AzuriteAdapter. In compose containers, resolves via `PORTAL_STORAGE_CONNECTION_STRING` / `ADMIN_STORAGE_CONNECTION_STRING` (compose internal `azurite:10000` hostname). Added TASK-007-001. |
 | `STORAGE_CONTAINER` | Both | Blob container name for the FileStorage adapter. Default `tax-portal-documents`. Added TASK-007-001. |
@@ -282,6 +286,19 @@ pnpm db:policies:apply    # Re-apply policies only (idempotent; use after policy
 |-------|------|---------|
 | `auth.account_created` | `apps/portal/src/app/(public)/sign-up/actions.ts` (`signUpWithInvitation`) | Same mssql Transaction as account-creation mutation — fail-closed (ADR-019 §3) |
 | `auth.signin` | `apps/admin/src/app/api/mock-session/route.ts` (POST handler) | Standalone insert — no admin-credential-login mutation yet; transactional bind deferred to real-Clerk/admin-login slice (DECISION in route.ts) |
+
+---
+
+## SSE Routes (TASK-016-005b — Real-time notification bridge)
+
+Added TASK-016-005b (DECISION-016-005b-RT / BUG-016-001 fix). These routes are the server side of the browser-reachable mock real-time transport (ADR-023 / EPIC-016).
+
+| Route | App | Description |
+|-------|-----|-------------|
+| `GET /api/notifications/stream` | `apps/portal` | SSE bridge route. Resolves CLIENT identity from cookie (CS-TS-004), looks up DB User.id, subscribes to the in-process MockNotificationTransport on channel `user:<User.id>`, and streams events to the browser. Active when `REALTIME_PROVIDER=mock + ALLOW_MOCK_REALTIME=true`. Channel is server-derived only — never from query params (AC-MSG-014-07 entitlement boundary). Added TASK-016-005b. |
+| `POST /api/notifications/emit-test` | `apps/portal` | **Test-only endpoint.** Calls `transport.publish()` in the server process to drive push-without-navigation tests. Only active when `ALLOW_MOCK_REALTIME=true`. Returns 404 in production. Used by the push-without-navigation regression test (AC-MSG-012-03). Do NOT call from production code. Added TASK-016-005b. |
+
+> **Note:** The equivalent SSE route for the ACCOUNTANT surface (`GET /api/notifications/stream` on `apps/admin`) is TASK-016-006 scope and is not yet present.
 
 ---
 

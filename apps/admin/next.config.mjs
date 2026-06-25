@@ -62,7 +62,28 @@ const nextConfig = {
   },
 
   // Transpile workspace packages that use ESM
-  transpilePackages: ["@tax-portal/ui"],
+  // @tax-portal/realtime is imported by the admin notification badge (TASK-016-006) — must
+  // transpile so webpack can bundle it for the browser. Added TASK-016-005b (parity with portal).
+  transpilePackages: ["@tax-portal/ui", "@tax-portal/realtime"],
+
+  // DECISION-016-005b-RT (TASK-016-005b / ADR-023):
+  // Expose the real-time transport selector vars to the browser bundle via the NEXT_PUBLIC_ prefix.
+  //
+  // Mirrors apps/portal/next.config.mjs — TASK-016-006 (admin badge) will consume the same
+  // SSE-backed browser transport on the accountant channel ("accountant:notifications").
+  // Both apps expose the same NEXT_PUBLIC_ vars; the admin SSE route (TASK-016-006) handles
+  // the accountant-channel subscription.
+  //
+  // ADR-006 / CS-TS-003: both surfaces expose the same vars for cross-surface parity. // ADR-006
+  // ADR-023 // DECISION-016-005b-RT // CS-GEN-003
+  // IMPORTANT: Do NOT use `?? ""` fallback here — same rationale as apps/portal/next.config.mjs.
+  // An empty string would be treated as an unknown provider value and cause a throw in the browser.
+  // Vars are set as Docker build ARGs (apps/admin/Dockerfile) and passed via docker-compose.yml.
+  // See apps/portal/next.config.mjs for the full DECISION-016-005b-RT comment. // ADR-023
+  env: {
+    NEXT_PUBLIC_REALTIME_PROVIDER: process.env["NEXT_PUBLIC_REALTIME_PROVIDER"],
+    NEXT_PUBLIC_ALLOW_MOCK_REALTIME: process.env["NEXT_PUBLIC_ALLOW_MOCK_REALTIME"],
+  },
 
   // Standalone output for Docker (apps/admin/Dockerfile copies server.js and static assets)
   // ADR-007: Per-app container image

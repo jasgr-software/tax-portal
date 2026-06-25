@@ -105,7 +105,46 @@ const nextConfig = {
   },
 
   // Transpile workspace packages that use ESM
-  transpilePackages: ["@tax-portal/ui"],
+  // @tax-portal/realtime is imported by NotificationBadgeClient ("use client") — must transpile
+  // so webpack can bundle it for the browser. Without this, ESM imports fail in the browser bundle
+  // (EPIC-016 / TASK-016-005: NotificationBadgeClient.tsx).
+  transpilePackages: ["@tax-portal/ui", "@tax-portal/realtime"],
+
+  // DECISION-016-005b-RT (TASK-016-005b / ADR-023):
+  // Expose the real-time transport selector vars to the browser bundle via the NEXT_PUBLIC_ prefix.
+  //
+  // Next.js only inlines env vars with the NEXT_PUBLIC_ prefix into the browser bundle at build time.
+  // The server-side vars (REALTIME_PROVIDER, ALLOW_MOCK_REALTIME) are NOT available in the browser;
+  // without NEXT_PUBLIC_ variants, the browser always sees undefined for these vars and the selector
+  // defaults to the SupabaseRealtimeTransport stub (which throws at subscribe() time — BUG-016-001).
+  //
+  // The selector (packages/realtime/src/select.ts) reads NEXT_PUBLIC_* as a fallback when the
+  // server-side var is absent — i.e. in the browser context. The server path continues reading the
+  // non-prefixed vars. This is the minimal exposure needed for the browser to reach the mock transport.
+  //
+  // SECURITY (ADR-023 §4):
+  //   - These are NOT secrets — they are transport selector values.
+  //   - The mock binding is only reachable when ALLOW_MOCK_REALTIME=true is also set.
+  //   - A real production deployment sets REALTIME_PROVIDER=supabase-realtime and leaves
+  //     ALLOW_MOCK_REALTIME unset (never sets NEXT_PUBLIC_ALLOW_MOCK_REALTIME=true in production).
+  //   - The fail-closed guard in select.ts remains: REALTIME_PROVIDER=mock without ALLOW_MOCK_REALTIME
+  //     throws. The browser variant inherits the same guard via the NEXT_PUBLIC_ vars.
+  //
+  // Both NEXT_PUBLIC_REALTIME_PROVIDER and NEXT_PUBLIC_ALLOW_MOCK_REALTIME must be set as Docker
+  // build ARGs in apps/portal/Dockerfile and passed via docker-compose.yml build.args so they are
+  // available to `next build` and inlined into the browser bundle.
+  //
+  // IMPORTANT: Do NOT use `?? ""` fallback here. An empty string would be treated as a valid
+  // provider value and cause the "Unknown REALTIME_PROVIDER" throw in the browser. If the vars
+  // are not set at build time, let them be undefined — the selector then defaults to
+  // SupabaseRealtimeTransport (stub), which throws RealtimeBindingNotAvailableError at
+  // subscribe() time and is caught gracefully in NotificationBadgeClient.tsx. // ADR-023
+  //
+  // ADR-023 // DECISION-016-005b-RT // CS-GEN-003
+  env: {
+    NEXT_PUBLIC_REALTIME_PROVIDER: process.env["NEXT_PUBLIC_REALTIME_PROVIDER"],
+    NEXT_PUBLIC_ALLOW_MOCK_REALTIME: process.env["NEXT_PUBLIC_ALLOW_MOCK_REALTIME"],
+  },
 
   // Standalone output for Docker (apps/portal/Dockerfile copies server.js and static assets)
   // ADR-007: Per-app container image
