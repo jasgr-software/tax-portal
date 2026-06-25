@@ -49,7 +49,9 @@ import { parseSqlServerUrl } from "./sql-server-url.js";
 import { withClerkIdentity } from "./context.js";
 import { listNotifications } from "./repositories/notification.js";
 import { transitionEngagementStatus, confirmDelivery } from "./repositories/engagement.js";
-import { completeUpload } from "./repositories/document.js";
+// Note: completeUpload is referenced in test comments (the production path being simulated)
+// but the test drives emitAndPublishNotification directly — so the import is unused at runtime.
+// Removed to satisfy the static analysis finding from the review panel.
 import {
   resetNotificationTransportForTesting,
   getNotificationTransport,
