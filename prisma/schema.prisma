@@ -143,6 +143,9 @@ model User {
   // ACCOUNTANT-ONLY: no client-facing read/write path to this table.
   // CS-GEN-002: additive — new relation; no existing column removed or altered.
   legalHolds LegalHold[] @relation("ClientHolds")
+  // EPIC-016 / TASK-016-001: Reverse relation — notifications addressed to this User as CLIENT.
+  // CS-GEN-002: additive — new relation; no existing column removed or altered.
+  receivedNotifications Notification[] @relation("NotificationRecipient")
 
   @@map("User")
 }
@@ -671,18 +674,44 @@ model EngagementNote {
 // Only the first EPIC-003 type (new_engagement_request) is in scope (AC-MSG-013-01).
 // Phase-4 notification types share this entity with different `type` values.
 
+// ─── Notification ─────────────────────────────────────────────────────────────
+// EPIC-003: accountant-only notification feed (new_engagement_request, etc.)
+// EPIC-016 (TASK-016-001): generalized for dual-role (client + accountant) receipt.
+//   - recipientType: 'ACCOUNTANT' | 'CLIENT' discriminator (CS-GEN-002: additive default 'ACCOUNTANT')
+//   - recipientUserId: FK → User.id — non-null only when recipientType='CLIENT'
+//   - linkedItemType / linkedItemId: optional linked-item reference (AC-MSG-015-01)
+//   Existing EPIC-003 rows default to recipientType='ACCOUNTANT', recipientUserId=NULL.
+// RLS (ADR-005): sec.pol_Notification (Track B: db/policies/0004-notification-policy.sql).
+//   CLIENT branch: SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id = recipientUserId.
+//   ACCOUNTANT branch: recipientType='ACCOUNTANT'.
+//   Null SESSION_CONTEXT → ZERO rows (fail-closed — ADR-003 §5).
+// Retention: ≥90-day floor (ADR-018) — read + unread notifications are NEVER auto-purged.
+// CS-GEN-002: additive generalization — new columns only; no existing column removed or altered.
+// CS-GEN-003: // ADR-002 // ADR-003 // ADR-005 // ADR-018 // TASK-016-001
 model Notification {
-  id                  String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  id                  String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
   // Notification type discriminator (e.g. 'new_engagement_request') — AC-MSG-013-01
-  type                String   @db.NVarChar(50)
-  title               String   @db.NVarChar(200)
-  body                String?  @db.NVarChar(Max)
-  // readAt: null = unread; non-null = read timestamp. Accountant marks read via markNotificationRead.
+  type                String    @db.NVarChar(50)
+  title               String    @db.NVarChar(200)
+  body                String?   @db.NVarChar(Max)
+  // readAt: null = unread; non-null = read timestamp.
   readAt              DateTime? @db.DateTimeOffset
-  // FK → EngagementRequest (nullable for future non-request notification types)
-  engagementRequestId String?  @db.UniqueIdentifier
+  // FK → EngagementRequest (nullable for non-request notification types)
+  engagementRequestId String?   @db.UniqueIdentifier
   engagementRequest   EngagementRequest? @relation(fields: [engagementRequestId], references: [id], onDelete: SetNull)
-  createdAt           DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  createdAt           DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+
+  // EPIC-016 / TASK-016-001: additive columns for dual-role recipient model
+  // CS-GEN-002: additive — existing rows default to ACCOUNTANT / NULL.
+  // recipientType: 'ACCOUNTANT' | 'CLIENT' — discriminator (AC-MSG-007-01/-02)
+  recipientType       String    @default("ACCOUNTANT") @db.NVarChar(16)
+  // recipientUserId: FK → User.id — non-null only when recipientType='CLIENT' (ADR-003, ADR-005)
+  recipientUserId     String?   @db.UniqueIdentifier
+  recipientUser       User?     @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
+  // linkedItemType: 'document' | 'engagement' | 'request' | … — AC-MSG-015-01
+  linkedItemType      String?   @db.NVarChar(50)
+  // linkedItemId: UNIQUEIDENTIFIER of the linked item — AC-MSG-015-01
+  linkedItemId        String?   @db.UniqueIdentifier
 
   @@map("Notification")
 }

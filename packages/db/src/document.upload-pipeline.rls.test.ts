@@ -44,6 +44,11 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import mssqlPkg from "mssql";
 import { parseSqlServerUrl } from "./sql-server-url.js";
 import { withClerkIdentity } from "./context.js";
+// EPIC-016 / TASK-016-004: completeUpload now calls emitAndPublishNotification on the clean path.
+// The real-time transport must be mocked in this test to avoid RealtimeBindingNotAvailableError.
+// CS-GEN-002: additive import — no existing import removed. // CS-GEN-002
+// ADR-023: mock transport requires REALTIME_PROVIDER=mock + ALLOW_MOCK_REALTIME=true. // ADR-023
+import { resetNotificationTransportForTesting } from "@tax-portal/realtime";
 import {
   authorizeEngagementForUpload,
   listEngagementDocuments,
@@ -94,6 +99,14 @@ beforeAll(async () => {
   // The mock scanner is safe for integration tests; resetScannerForTesting() cleans up.
   process.env["FILE_SCANNER"] = "mock";
   process.env["ALLOW_MOCK_SCANNER"] = "true";
+
+  // EPIC-016 / TASK-016-004: completeUpload now calls emitAndPublishNotification on the clean path.
+  // Activate the mock real-time transport so the emit path doesn't throw RealtimeBindingNotAvailableError.
+  // ADR-023: mock requires REALTIME_PROVIDER=mock + ALLOW_MOCK_REALTIME=true. // ADR-023
+  // CS-GEN-002: additive setup — does not alter the existing test logic. // CS-GEN-002
+  process.env["REALTIME_PROVIDER"] = "mock";
+  process.env["ALLOW_MOCK_REALTIME"] = "true";
+  resetNotificationTransportForTesting();
 
   // DECISION (TASK-007-004): Set STORAGE_ADAPTER to "azurite" explicitly here so this test
   // doesn't depend on .env.local having the correct value — the Azurite emulator is the
@@ -215,6 +228,10 @@ afterAll(async () => {
   // Reset singletons for subsequent tests
   resetStorageForTesting();
   resetScannerForTesting();
+  // EPIC-016 / TASK-016-004: reset the real-time transport singleton and env vars. // TASK-016-004
+  resetNotificationTransportForTesting();
+  delete process.env["REALTIME_PROVIDER"];
+  delete process.env["ALLOW_MOCK_REALTIME"];
 
   await adminPool.close().catch(() => { /* ignore */ });
 }, 40000);

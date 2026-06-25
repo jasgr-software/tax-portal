@@ -91,6 +91,13 @@ services:
     build:
       context: .
       dockerfile: apps/portal/Dockerfile
+      # DECISION-016-005b-RT: NEXT_PUBLIC_* vars must be baked into the browser bundle at
+      # `next build` time. Docker runtime `environment:` vars arrive too late — the bundle
+      # is already compiled. Pass them as build ARGs so `next build` sees them.
+      # The Dockerfile builder stage accepts these via ARG + ENV. // ADR-023
+      args:
+        NEXT_PUBLIC_REALTIME_PROVIDER: "${NEXT_PUBLIC_REALTIME_PROVIDER:-mock}"
+        NEXT_PUBLIC_ALLOW_MOCK_REALTIME: "${NEXT_PUBLIC_ALLOW_MOCK_REALTIME:-true}"
     container_name: tax-portal-portal
     environment:
       NODE_ENV: production
@@ -169,6 +176,25 @@ services:
       # ADR-021 §4: fail-closed default is cloud (deferred stub); mock requires explicit opt-in.
       FILE_SCANNER: "${FILE_SCANNER:-mock}"
       ALLOW_MOCK_SCANNER: "${ALLOW_MOCK_SCANNER:-true}"
+      # Real-time notification transport (packages/realtime — ADR-023).
+      # EPIC-016 / TASK-016-003: "mock" for e2e/local dev (in-process fan-out; no real provider).
+      # ALLOW_MOCK_REALTIME=true opts into the mock binding (fail-closed — throws if unset with mock).
+      # Set to "supabase-realtime" (or the final real provider) in production.
+      # NEVER set ALLOW_MOCK_REALTIME=true in a real production deploy.
+      REALTIME_PROVIDER: "${REALTIME_PROVIDER:-mock}"
+      ALLOW_MOCK_REALTIME: "${ALLOW_MOCK_REALTIME:-true}"
+      # NEXT_PUBLIC_ variants — DECISION-016-005b-RT (TASK-016-005b / ADR-023):
+      # Next.js only inlines NEXT_PUBLIC_* env vars into the browser bundle at build time.
+      # The browser process cannot read server-only env vars (REALTIME_PROVIDER, ALLOW_MOCK_REALTIME).
+      # Without NEXT_PUBLIC_ variants, the browser defaults to SupabaseRealtimeTransport (stub), which
+      # throws at subscribe() time — BUG-016-001 root cause.
+      # The selector (packages/realtime/src/select.ts) reads NEXT_PUBLIC_* as a fallback when the
+      # server-side var is absent (browser context). Set to the same values as the server vars here.
+      # SECURITY: these are selector values, not secrets. The mock is only reachable when
+      # ALLOW_MOCK_REALTIME=true. NEVER set NEXT_PUBLIC_ALLOW_MOCK_REALTIME=true in a real production
+      # deploy (a real deploy leaves ALLOW_MOCK_REALTIME unset → fail closed). // ADR-023 §4
+      NEXT_PUBLIC_REALTIME_PROVIDER: "${NEXT_PUBLIC_REALTIME_PROVIDER:-mock}"
+      NEXT_PUBLIC_ALLOW_MOCK_REALTIME: "${NEXT_PUBLIC_ALLOW_MOCK_REALTIME:-true}"
     ports:
       - "${PORTAL_PORT:-3000}:3000"
     depends_on:
@@ -200,6 +226,11 @@ services:
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
+      # DECISION-016-005b-RT: Same build-time baking for the admin surface (TASK-016-006).
+      # See portal service comment above for full rationale. // ADR-023
+      args:
+        NEXT_PUBLIC_REALTIME_PROVIDER: "${NEXT_PUBLIC_REALTIME_PROVIDER:-mock}"
+        NEXT_PUBLIC_ALLOW_MOCK_REALTIME: "${NEXT_PUBLIC_ALLOW_MOCK_REALTIME:-true}"
     container_name: tax-portal-admin
     environment:
       NODE_ENV: production
@@ -263,6 +294,19 @@ services:
       # (ADR-021). ALLOW_MOCK_SCANNER=true opts into the mock binding.
       FILE_SCANNER: "${FILE_SCANNER:-mock}"
       ALLOW_MOCK_SCANNER: "${ALLOW_MOCK_SCANNER:-true}"
+      # Real-time notification transport (packages/realtime — ADR-023).
+      # EPIC-016 / TASK-016-003: "mock" for e2e/local dev (in-process fan-out; no real provider).
+      # ALLOW_MOCK_REALTIME=true opts into the mock binding (fail-closed — throws if unset with mock).
+      # Set to "supabase-realtime" (or the final real provider) in production.
+      # NEVER set ALLOW_MOCK_REALTIME=true in a real production deploy.
+      REALTIME_PROVIDER: "${REALTIME_PROVIDER:-mock}"
+      ALLOW_MOCK_REALTIME: "${ALLOW_MOCK_REALTIME:-true}"
+      # NEXT_PUBLIC_ variants — DECISION-016-005b-RT (TASK-016-005b / ADR-023):
+      # Mirrors portal service above. TASK-016-006 (admin badge) consumes the same SSE-backed
+      # browser transport for the ACCOUNTANT channel ("accountant:notifications").
+      # See portal service comment above for the full rationale. // ADR-023 // ADR-006
+      NEXT_PUBLIC_REALTIME_PROVIDER: "${NEXT_PUBLIC_REALTIME_PROVIDER:-mock}"
+      NEXT_PUBLIC_ALLOW_MOCK_REALTIME: "${NEXT_PUBLIC_ALLOW_MOCK_REALTIME:-true}"
     ports:
       - "${ADMIN_PORT:-3001}:3001"
     depends_on:

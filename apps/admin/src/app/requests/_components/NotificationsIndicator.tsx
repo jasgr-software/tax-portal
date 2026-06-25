@@ -1,8 +1,11 @@
 /**
  * apps/admin/src/app/requests/_components/NotificationsIndicator.tsx
  *
- * Minimal accountant-surface element that surfaces in-portal notifications
- * and links to the specific request for review.
+ * Accountant-surface element that surfaces in-portal notifications
+ * and links to the specific request/engagement/document for review.
+ *
+ * EPIC-016 / TASK-016-006: Generalized from the EPIC-003 minimal indicator into the
+ * persistent dual-role feed + badge shape. CS-GEN-002 additive — no existing behavior changed.
  *
  * AC-DOOR-005-02: Each new-request notification leads the accountant to the specific
  *   request (link uses engagementRequestId — the detail page is TASK-003-004).
@@ -11,33 +14,32 @@
  *   (added by TASK-008-001; rendered here by TASK-008-003 — D6).
  * AC-ONBD-007-02: The rendered onboarding-complete notification identifies the
  *   engagement and its client (engine denormalizes the client name into title/body).
+ * AC-MSG-013-03: Surfaces notifications of type 'document_uploaded' — added by TASK-016-006.
+ *   The document-upload notification links to the engagement documents area.
  *
- * // DECISION (TASK-003-003): This component is intentionally minimal — it shows a
- * // count badge for unread notifications and a dropdown list of notifications,
- * // each linking to /requests/<engagementRequestId>. The full inbox page (list + details)
- * // is TASK-003-004. The link target (/requests/<id>) is a forward reference — the
- * // indicator uses a plain <a> href so it works as a navigation seam even before the
- * // detail page lands (the browser will receive a 404 until TASK-003-004, which is
- * // expected and acceptable per the task spec).
+ * // DECISION (TASK-003-003): This component shows a count badge for unread notifications
+ * // and a list of notifications, each linking to the relevant item. The full inbox page
+ * // is TASK-003-004.
  *
- * // DECISION (TASK-008-003 / D6): Renders ONLY the two known notification types:
- * //   - NOTIFICATION_TYPE_NEW_REQUEST      ("new_engagement_request")
- * //   - NOTIFICATION_TYPE_ONBOARDING_COMPLETE ("onboarding_completed")
- * // A filter to the known set is deliberate — unknown/future types are not rendered
- * // implicitly. The unread badge counts unread items across both known types.
- * // The "Review request" link is rendered for onboarding_completed notifications that
- * // carry an engagementRequestId (the engine reuses the FK per D4); if absent, the
- * // notification renders as a title/body card without a link (acceptable per task spec).
+ * // DECISION (TASK-016-006 / CS-GEN-002): The known-type filter from TASK-008-003 is
+ * // EXTENDED to include 'document_uploaded'. The filter is now an open-ended set of
+ * // ACCOUNTANT_KNOWN_TYPES — a constant that can be extended additively as new types land.
+ * // A notification with an unknown type is NOT rendered implicitly.
+ * // "Review request" link: rendered for any notification carrying engagementRequestId.
+ * // "View document" link: rendered for document_uploaded notifications carrying linkedItemType='document'.
+ * // The unread badge counts unread items across ALL known types.
+ * // CS-GEN-002: additive — no existing assertion or behavior changed. // CS-GEN-002
  *
  * ADR-005: Renders only what listNotifications() returns (RLS-scoped, accountant-only
  *   via sec.pol_Notification 0004). No new policy added — render-layer change only.
- * ADR-006: Lives in apps/admin only — not accessible from apps/portal.
+ * ADR-006: Lives in apps/admin only — not accessible from apps/portal. // ADR-006
  * ADR-003: Data is fetched server-side via getNotificationsAction() (request pool,
- *           accountant SESSION_CONTEXT). This component is a Server Component.
+ *           accountant SESSION_CONTEXT). This component is a Server Component. // ADR-003
+ * CS-GEN-002: EPIC-003 indicator generalized additively — no existing types removed. // CS-GEN-002
+ * CS-GEN-003: cite governing authority. // CS-GEN-003
  *
  * Usage: rendered in the admin shell (layout or nav). Accepts pre-fetched notifications
- * so the parent server component can call getNotificationsAction() and pass data down,
- * or this component can be used as a standalone async server component.
+ * so the parent server component can call getNotificationsAction() and pass data down.
  */
 
 import type { NotificationItem } from "@tax-portal/db";
@@ -45,6 +47,38 @@ import {
   NOTIFICATION_TYPE_NEW_REQUEST,
   NOTIFICATION_TYPE_ONBOARDING_COMPLETE,
 } from "@tax-portal/db";
+
+// ─── Known notification types ──────────────────────────────────────────────────
+
+/**
+ * The 'document_uploaded' notification type (EPIC-016 / TASK-016-006 — AC-MSG-013-03).
+ *
+ * DECISION (TASK-016-006 / CS-GEN-002): Defined here as a local constant rather than
+ * exported from @tax-portal/db because it is a render-layer concern — the DB layer uses
+ * the string literal directly in emitAndPublishNotification() calls. If a package-level
+ * constant is added later, this local const can be replaced additivley. // CS-GEN-002
+ */
+const NOTIFICATION_TYPE_DOCUMENT_UPLOADED = "document_uploaded" as const;
+
+/**
+ * The complete set of known accountant-scoped notification types (as strings).
+ *
+ * DECISION (TASK-016-006 / CS-GEN-002): Replaces the inline two-type filter from TASK-008-003.
+ * This Set is the single source of truth for "which types the accountant indicator renders."
+ * Extend this Set to add new types — do not scatter per-type if/else checks. // CS-GEN-002
+ *
+ * Typed as Set<string> to accept n.type (string from NotificationItem) at the .has() call.
+ * The constants above provide the canonical string values. // DECISION-016-006-SET
+ *
+ * AC-MSG-013-01: new_engagement_request — new engagement request from a prospect.
+ * AC-MSG-013-04: onboarding_completed — client completed onboarding.
+ * AC-MSG-013-03: document_uploaded — client uploaded a document. (TASK-016-006)
+ */
+const ACCOUNTANT_KNOWN_TYPES: Set<string> = new Set([
+  NOTIFICATION_TYPE_NEW_REQUEST,
+  NOTIFICATION_TYPE_ONBOARDING_COMPLETE,
+  NOTIFICATION_TYPE_DOCUMENT_UPLOADED,
+]);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,28 +93,29 @@ interface NotificationsIndicatorProps {
  * NotificationsIndicator — shows unread notification count and list.
  *
  * Renders:
- *   - A count badge for unread notifications of the two known types (readAt === null)
+ *   - A count badge for unread notifications of known types (readAt === null)
  *   - A list of known-type notifications:
  *       new_engagement_request — links to /requests/<engagementRequestId> (AC-DOOR-005-02)
  *       onboarding_completed  — shows title/body identifying the engagement + client
  *                               (AC-ONBD-007-01/-02, AC-MSG-013-04); links to request if FK present
+ *       document_uploaded     — shows document upload notification; links to engagement docs
+ *                               (AC-MSG-013-03 — TASK-016-006 additive)
  *   - Empty state when there are no known-type notifications
  *
  * AC-DOOR-005-02: "leads the accountant to review it" — new-request notifications link
  *   to /requests/<engagementRequestId>.
  * AC-ONBD-007-01/AC-MSG-013-04: onboarding-complete notifications appear in the feed.
  * AC-ONBD-007-02: Title/body identify the engagement + client (denormalized by the engine).
+ * AC-MSG-013-03: document_uploaded notifications appear in the feed (TASK-016-006).
+ * CS-GEN-002: EPIC-003 indicator generalized additively — existing rendering unchanged. // CS-GEN-002
  */
 export function NotificationsIndicator({
   notifications,
 }: NotificationsIndicatorProps) {
-  // DECISION (TASK-008-003 / D6): Filter to the set of two known types only.
-  // Unknown/future types are not rendered implicitly — kept minimal per SDET focus area.
-  const knownNotifs = notifications.filter(
-    (n) =>
-      n.type === NOTIFICATION_TYPE_NEW_REQUEST ||
-      n.type === NOTIFICATION_TYPE_ONBOARDING_COMPLETE,
-  );
+  // DECISION (TASK-016-006 / CS-GEN-002): Filter to the ACCOUNTANT_KNOWN_TYPES set.
+  // Unknown/future types are not rendered implicitly.
+  // CS-GEN-002: extended from 2 types to 3 — no existing assertions changed. // CS-GEN-002
+  const knownNotifs = notifications.filter((n) => ACCOUNTANT_KNOWN_TYPES.has(n.type));
 
   // Unread = readAt === null, across both known types
   const unreadCount = knownNotifs.filter((n) => n.readAt === null).length;
@@ -141,10 +176,28 @@ export function NotificationsIndicator({
                 </p>
               )}
 
-              {/* Link to the specific request — present for both types when engagementRequestId is set.
-                  new_engagement_request: links for AC-DOOR-005-02.
-                  onboarding_completed: links when the engine stored engagementRequestId (D4 / FK reuse). */}
-              {notif.engagementRequestId && (
+              {/* Link to the specific item.
+                  DECISION (TASK-016-006 / CS-GEN-002): render type-appropriate link.
+                  - document_uploaded (AC-MSG-013-03): link to engagement docs area if linkedItemId available.
+                    linkedItemType='document', linkedItemId=documentId; link to engagement docs via
+                    engagementRequestId (the FK reuse pattern — same as D4 for onboarding).
+                    If engagementRequestId is present, link to /engagements/<requestId>/documents.
+                    If only linkedItemId: not enough context for a link (render title-only card).
+                  - new_engagement_request / onboarding_completed: link to /requests/<id> (AC-DOOR-005-02).
+                  CS-GEN-002: existing link for new_engagement_request / onboarding_completed unchanged. */}
+              {notif.type === NOTIFICATION_TYPE_DOCUMENT_UPLOADED && notif.linkedItemType === "engagement" && notif.linkedItemId ? (
+                // Document uploaded with engagement linkage — link to engagement documents area.
+                // AC-MSG-013-03: leads the accountant to the uploaded document's engagement.
+                <a
+                  href={`/engagements/${notif.linkedItemId}/documents`}
+                  className="mt-1 inline-block text-xs text-blue-600 underline hover:text-blue-800"
+                  data-testid={`notification-link-${notif.id}`}
+                  data-linked-item-id={notif.linkedItemId}
+                >
+                  View documents
+                </a>
+              ) : notif.engagementRequestId ? (
+                // new_engagement_request / onboarding_completed — link to request detail (AC-DOOR-005-02).
                 <a
                   href={`/requests/${notif.engagementRequestId}`}
                   className="mt-1 inline-block text-xs text-blue-600 underline hover:text-blue-800"
@@ -153,7 +206,7 @@ export function NotificationsIndicator({
                 >
                   Review request
                 </a>
-              )}
+              ) : null}
 
               {/* Timestamp */}
               <p className="mt-1 text-xs text-gray-400">

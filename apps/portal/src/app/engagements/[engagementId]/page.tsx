@@ -53,7 +53,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEngagementByIdAction } from "@/app/dashboard/actions";
 import { EngagementStatusBadge } from "@/components/EngagementStatusBadge";
+import { markNotificationOnViewAction } from "@/app/notifications/actions";
 // CS-TS-001: getEngagementByIdAction uses packages/db via withRequestContext
+// CS-TS-004: markNotificationOnViewAction resolves identity from cookie + guards CLIENT role
 
 // ─── Route params ─────────────────────────────────────────────────────────────
 
@@ -74,6 +76,13 @@ export default async function EngagementDetailPage({
   params,
 }: EngagementDetailPageProps) {
   const { engagementId } = await params;
+
+  // Mark any unread notifications for this engagement as read — AC-MSG-015-02/-03.
+  // Fire before the engagement result check: idempotent + best-effort (DECISION-016-005-E).
+  // CS-TS-004: markNotificationOnViewAction resolves identity from cookie + guards CLIENT role.
+  // ADR-003: DB write under CLIENT SESSION_CONTEXT via withRequestContext.
+  // No dismiss button — this is the automatic mark-read-on-view (AC-MSG-015-03).
+  void markNotificationOnViewAction({ linkedItemType: "engagement", linkedItemId: engagementId });
 
   // Resolve the engagement by id under the CLIENT's SESSION_CONTEXT.
   // ADR-003: request-scoped DB read — SESSION_CONTEXT set by withRequestContext.

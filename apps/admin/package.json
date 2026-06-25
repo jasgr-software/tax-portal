@@ -20,6 +20,7 @@
     "@tax-portal/auth": "workspace:*",
     "@tax-portal/db": "workspace:*",
     "@tax-portal/email": "workspace:*",
+    "@tax-portal/realtime": "workspace:*",
     "@tax-portal/storage": "workspace:*",
     "@tax-portal/ui": "workspace:*",
     "next": "15.5.19",

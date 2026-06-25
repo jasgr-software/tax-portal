@@ -10,11 +10,18 @@
  * TASK-009-002: DevBanner (dev-only role/user switcher + sign-out) is injected here.
  *   CS-TS-003: present on BOTH apps/portal (here) and apps/admin (mirrored).
  *   ADR-001: banner is inert under AUTH_PROVIDER=clerk — zero production impact.
+ *
+ * EPIC-016 / TASK-016-005: NotificationBadgeServer mounted in nav.
+ *   AC-MSG-017-01: badge visible from any area — persistent in the navigation shell.
+ *   CS-TS-004: badge server component resolves CLIENT identity from cookie.
+ *   ADR-003: initial count fetched under CLIENT SESSION_CONTEXT.
+ *   DECISION-016-005-D: badge returns null for non-CLIENT sessions (guests, ACCOUNTANT).
  */
 
 import type { Metadata } from "next";
 import "@/styles/globals.css";
 import { DevBanner } from "@/app/(dev)/_components/DevBanner";
+import { NotificationBadgeServer } from "@/app/notifications/_components/NotificationBadgeServer";
 
 export const metadata: Metadata = {
   title: {
@@ -41,12 +48,38 @@ export default function RootLayout({
             >
               Tax Accountant Portal
             </a>
-            <nav>
+            {/*
+             * Navigation shell — visible from every page (AC-MSG-017-01).
+             * NotificationBadgeServer gates the badge on CLIENT identity:
+             *   - Authenticated CLIENT → badge + unread count (server-fetched).
+             *   - Guest / ACCOUNTANT → null (badge absent).
+             * DECISION-016-005-D: badge is CLIENT-only on apps/portal.
+             * CS-TS-004: identity resolved from cookie inside NotificationBadgeServer.
+             */}
+            <nav
+              className="flex items-center gap-4"
+              data-testid="portal-nav"
+            >
               <a
                 href="/services"
                 className="text-sm text-gray-600 hover:text-blue-600 font-medium"
               >
                 Services
+              </a>
+              {/*
+               * Notifications nav link + badge.
+               * AC-MSG-017-01: badge persistent in nav — visible from any area.
+               * The link text is "Notifications"; NotificationBadgeServer renders the count badge.
+               * ADR-003: badge count fetched server-side under CLIENT SESSION_CONTEXT.
+               */}
+              <a
+                href="/notifications"
+                className="relative flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 font-medium"
+                data-testid="nav-notifications-link"
+              >
+                Notifications
+                {/* CS-TS-004: identity guard inside NotificationBadgeServer. */}
+                <NotificationBadgeServer />
               </a>
             </nav>
           </div>

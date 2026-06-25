@@ -36,6 +36,16 @@ RUN pnpm install --frozen-lockfile
 
 # ─── builder ───────────────────────────────────────────────────────────────────
 FROM deps AS builder
+# DECISION-016-005b-RT (TASK-016-005b / ADR-023): NEXT_PUBLIC_* browser-bundle vars.
+# These must be available at `next build` time so Next.js inlines them into the static
+# browser bundle. They cannot be injected at container-start time (runtime `environment:`
+# vars arrive after the bundle is compiled). Passed as docker-compose build args.
+# Values default to "mock"/"true" for local/e2e builds; leave unset in production to
+# preserve the fail-closed posture (browser defaults to SupabaseRealtimeTransport stub). // ADR-023
+ARG NEXT_PUBLIC_REALTIME_PROVIDER
+ARG NEXT_PUBLIC_ALLOW_MOCK_REALTIME
+ENV NEXT_PUBLIC_REALTIME_PROVIDER=${NEXT_PUBLIC_REALTIME_PROVIDER}
+ENV NEXT_PUBLIC_ALLOW_MOCK_REALTIME=${NEXT_PUBLIC_ALLOW_MOCK_REALTIME}
 # Copy all source needed for the build
 COPY packages/ ./packages/
 COPY apps/admin/ ./apps/admin/
@@ -50,7 +60,7 @@ RUN pnpm --filter @tax-portal/db build
 RUN pnpm --filter @tax-portal/auth build
 # Build packages/email (transactional email seam — TASK-003-002/REQ-NFR-008)
 RUN pnpm --filter @tax-portal/email build
-# Build the admin app
+# Build the admin app (NEXT_PUBLIC_* ENV vars set above are inlined into the browser bundle)
 RUN pnpm --filter admin build
 
 # ─── runner ────────────────────────────────────────────────────────────────────

@@ -78,8 +78,14 @@ import {
   recordAuthEvent,
   withAuditTransaction,
   createEngagement,
+  getAdminPool,
+  // EPIC-016 / TASK-016-004: emit feed notification after accept/decline for account-holding requesters.
+  // CS-GEN-002: additive import — no existing export changed. // CS-GEN-002
+  // ADR-023: publish via getNotificationTransport() selector inside emitAndPublishNotification. // ADR-023
+  emitAndPublishNotification,
 } from "@tax-portal/db";
 import type { NotificationItem } from "@tax-portal/db";
+import mssqlPkg from "mssql";
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 
@@ -138,6 +144,38 @@ async function getAccountantIdentity(): Promise<{
   }
 
   return { clerkUserId: identity.clerkUserId, role: identity.role };
+}
+
+// ─── Internal helper: resolve clientUserId from EngagementRequest ────────────
+
+/**
+ * Resolves the clientUserId from the Engagement linked to the given EngagementRequest.
+ *
+ * Returns null when:
+ *   - No Engagement is linked to this EngagementRequest (unexpected; guard for safety).
+ *   - The Engagement's clientUserId IS NULL — new-prospect path, DECISION-A (clientUserId nullable
+ *     at accept-time; back-filled at sign-up).
+ *
+ * DECISION (TASK-016-004): Only emit a CLIENT feed notification when clientUserId is non-null.
+ * Account-less prospect accept/decline (clientUserId=NULL Engagement) stays email-only.
+ * This is not a product limitation — the prospect has no portal account to receive a feed item.
+ * When the prospect signs up and the back-fill runs (EPIC-012 path), future actions will find
+ * a non-null clientUserId and will emit the feed notification correctly.
+ * // DECISION-TASK-016-004 // DECISION-A // AC-DOOR-008-03
+ *
+ * CS-TS-002: admin pool via getAdminPool() — correct boundary for a system lookup. // CS-TS-002
+ * ADR-003 §7: admin pool write; no SESSION_CONTEXT needed for this lookup. // ADR-003
+ */
+async function resolveClientUserIdFromRequest(requestId: string): Promise<string | null> {
+  const { Request: MssqlRequest } = mssqlPkg;
+  const pool = await getAdminPool();
+  const req = new MssqlRequest(pool);
+  req.input("requestId", mssqlPkg.NVarChar(50), requestId);
+  const result = await req.query<{ clientUserId: string | null }>(
+    `SELECT [clientUserId] FROM [dbo].[Engagement]
+     WHERE [engagementRequestId] = @requestId`,
+  );
+  return result.recordset[0]?.clientUserId ?? null;
 }
 
 // ─── Server Actions ───────────────────────────────────────────────────────────
@@ -324,7 +362,29 @@ export async function acceptRequest(requestId: string): Promise<DecisionResult> 
     throw err;
   }
 
-  // ── 5. Revalidate + rate-limit + send invitation email ──────────────────────
+  // ── 5. EPIC-016 / TASK-016-004: AC-MSG-014-05 — emit CLIENT notification if account holder ─
+  // Post-commit: runs after the withAuditTransaction block commits.
+  // DECISION (TASK-016-004): Only emit for returning-client (EPIC-012) path — clientUserId non-null.
+  // New-prospect accepts (Engagement.clientUserId=NULL) stay email-only (AC-DOOR-008-03).
+  // CS-GEN-001: no PII in notification title. // CS-GEN-001
+  // CS-GEN-002: additive — does not alter the accept/invitation logic above. // CS-GEN-002
+  // ADR-023: publish via getNotificationTransport() selector. // ADR-023
+  {
+    const clientUserId = await resolveClientUserIdFromRequest(requestId);
+    if (clientUserId) {
+      await emitAndPublishNotification({
+        recipientType: "CLIENT",
+        recipientUserId: clientUserId,
+        type: "request_accepted",
+        title: "Your engagement request has been accepted",
+        linkedItemType: "request",
+        linkedItemId: requestId,
+        engagementRequestId: requestId,
+      });
+    }
+  }
+
+  // ── 6. Revalidate + rate-limit + send invitation email ──────────────────────
   // DECISION (TASK-003-005): Email sent AFTER transaction commit. If email fails,
   // the decision is already committed (cannot be lost). Return partial success.
   // DECISION (TASK-003-006 fix): revalidatePath is called FIRST, unconditionally,
@@ -467,7 +527,29 @@ export async function declineRequest(
     throw err;
   }
 
-  // ── 5. Revalidate + rate-limit + send decline email ──────────────────────────
+  // ── 5. EPIC-016 / TASK-016-004: AC-MSG-014-06 — emit CLIENT notification if account holder ─
+  // Post-commit: runs after the withAuditTransaction block commits.
+  // DECISION (TASK-016-004): Only emit for returning-client (EPIC-012) path — clientUserId non-null.
+  // New-prospect declines (Engagement.clientUserId=NULL OR no Engagement) stay email-only (AC-DOOR-008-03).
+  // CS-GEN-001: no PII in notification title. // CS-GEN-001
+  // CS-GEN-002: additive — does not alter the decline/email logic. // CS-GEN-002
+  // ADR-023: publish via getNotificationTransport() selector. // ADR-023
+  {
+    const clientUserId = await resolveClientUserIdFromRequest(requestId);
+    if (clientUserId) {
+      await emitAndPublishNotification({
+        recipientType: "CLIENT",
+        recipientUserId: clientUserId,
+        type: "request_declined",
+        title: "Your engagement request was not accepted",
+        linkedItemType: "request",
+        linkedItemId: requestId,
+        engagementRequestId: requestId,
+      });
+    }
+  }
+
+  // ── 6. Revalidate + rate-limit + send decline email ──────────────────────────
   // DECISION (TASK-003-005): See acceptRequest — same email-after-transaction pattern.
   // AC-DOOR-008-03: the prospect has no portal account; plain email delivery only.
   // DECISION (TASK-003-006 fix): revalidatePath called FIRST so the UI always reflects

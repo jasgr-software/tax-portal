@@ -57,6 +57,8 @@ const {
   mockHeaders,
   mockWithRequestContext,
   mockWithAuditTransaction,
+  mockGetAdminPool,
+  mockEmitAndPublishNotification,
 } = vi.hoisted(() => ({
   mockGetIdentity: vi.fn(),
   mockCreateInvitation: vi.fn(),
@@ -78,6 +80,18 @@ const {
   mockWithRequestContext: vi.fn(),
   /** Pass-through withAuditTransaction: calls fn(null) directly (no real transaction) */
   mockWithAuditTransaction: vi.fn(),
+  /**
+   * EPIC-016 / TASK-016-004: getAdminPool mock — resolves client user id from request.
+   * Returns a stub pool whose .request().query() resolves with no clientUserId (new-prospect path).
+   * Tests that assert the notification path can override this. // TASK-016-004 // CS-GEN-002
+   */
+  mockGetAdminPool: vi.fn(),
+  /**
+   * EPIC-016 / TASK-016-004: emitAndPublishNotification mock — no-op in unit tests.
+   * The real function hits the DB (admin pool) + real-time transport — both are mocked here.
+   * Resolves with a stub { id: 'mock-notif-id' }. // TASK-016-004
+   */
+  mockEmitAndPublishNotification: vi.fn(),
 }));
 
 // ─── AlreadyDecidedError mock class ──────────────────────────────────────────
@@ -143,7 +157,39 @@ vi.mock("@tax-portal/db", () => ({
   recordAuthEvent: mockRecordAuthEvent,
   createEngagement: mockCreateEngagement,
   AlreadyDecidedError: MockAlreadyDecidedError,
+  // EPIC-016 / TASK-016-004: mock admin pool + notification emit for unit tests.
+  // The real getAdminPool() opens a DB connection; emitAndPublishNotification hits the DB + transport.
+  // Unit tests isolate from these — the integration test (source-event-wiring.integration.test.ts)
+  // exercises the real path against the actual SQL Server. // TASK-016-004 // CS-GEN-002
+  getAdminPool: mockGetAdminPool,
+  emitAndPublishNotification: mockEmitAndPublishNotification,
 }));
+
+// mock mssql — resolveClientUserIdFromRequest destructures { Request } from the default mssql export
+// and calls mssqlPkg.NVarChar(50). We mock the entire module to provide a stub Request constructor.
+// When used with `new MssqlRequest(pool)`, the constructor sets input/query on `this`.
+// The stub's query() resolves with { clientUserId: null } (new-prospect path — no portal account).
+// EPIC-016 / TASK-016-004 // CS-GEN-002 // ADR-003
+vi.mock("mssql", () => {
+  // When `new StubRequest(pool)` is called, 'this' is the new object.
+  // Setting input/query on 'this' makes them available on the instance.
+  function StubRequest(this: {
+    input: ReturnType<typeof vi.fn>;
+    query: ReturnType<typeof vi.fn>;
+  }, _pool: unknown) {
+    this.input = vi.fn().mockReturnThis();
+    this.query = vi.fn().mockResolvedValue({ recordset: [{ clientUserId: null }] });
+  }
+  const mssqlDefault = {
+    NVarChar: (_size: number) => `NVARCHAR(${_size})`,
+    UniqueIdentifier: "UNIQUEIDENTIFIER",
+    MAX: 65535,
+    Request: StubRequest,
+  };
+  return {
+    default: mssqlDefault,
+  };
+});
 
 // ─── Import AFTER mocks ───────────────────────────────────────────────────────
 
@@ -234,6 +280,13 @@ beforeEach(() => {
 
   // Default: rate limiter allows (not exhausted)
   mockRateLimiterConsume.mockReturnValue({ allowed: true });
+
+  // EPIC-016 / TASK-016-004: getAdminPool and emitAndPublishNotification defaults.
+  // Default: resolveClientUserIdFromRequest sees no clientUserId (new-prospect path).
+  // emitAndPublishNotification is a no-op stub — real behavior tested in integration tests.
+  // CS-GEN-002: additive setup — no existing default changed. // CS-GEN-002
+  mockGetAdminPool.mockResolvedValue({});
+  mockEmitAndPublishNotification.mockResolvedValue({ id: "mock-notif-id-accept-decline" });
 });
 
 afterEach(() => {

@@ -65,12 +65,35 @@ export {
   deactivateService,
 } from "./repositories/service.js";
 
-// Notification repository (EPIC-003 — accountant inbox, AC-DOOR-005-03, AC-MSG-013-01)
-// listNotifications  — request pool read (ACCOUNTANT-only via sec.pol_Notification)
-// markNotificationRead — request pool update (marks a notification as read)
+// Notification repository (EPIC-003 + EPIC-016 — accountant + client feed)
+// EPIC-003 (AC-DOOR-005-03, AC-MSG-013-01):
+//   listNotifications   — request pool read (SESSION_CONTEXT gated, RLS enforced)
+//   markNotificationRead — request pool update (marks a notification as read by id)
+// EPIC-016 / TASK-016-002 (additive — CS-GEN-002):
+//   countUnreadNotifications              — derived unread count (readAt IS NULL) via request pool (AC-MSG-017-02)
+//   markNotificationsReadByLinkedItem     — per-principal mark-read keyed on linked-item pair (AC-MSG-015-02/-03)
+//   emitNotification                      — admin pool INSERT; server-side emit helper used by TASK-016-004
+//   EmitNotificationInput/Result          — input/result types for emitNotification
+// EPIC-016 / TASK-016-004 (additive — CS-GEN-002):
+//   emitAndPublishNotification            — convenience wrapper: emit + real-time publish (ADR-023)
 // NOTE: createNotification removed — TASK-003-003 inlined the INSERT into createEngagementRequest.
-export type { NotificationItem } from "./repositories/notification.js";
-export { listNotifications, markNotificationRead } from "./repositories/notification.js";
+// CS-GEN-003: governing keys cited in source and here. // CS-GEN-003
+export type {
+  NotificationItem,
+  EmitNotificationInput,
+  EmitNotificationResult,
+  MarkReadByLinkedItemInput,
+} from "./repositories/notification.js";
+export {
+  listNotifications,
+  markNotificationRead,
+  countUnreadNotifications,
+  markNotificationsReadByLinkedItem,
+  emitNotification,
+  // EPIC-016 / TASK-016-004: convenience wrapper — emit + real-time publish in one call.
+  // CS-GEN-002: additive export; existing exports unchanged. // CS-GEN-002
+  emitAndPublishNotification,
+} from "./repositories/notification.js";
 
 // Audit-event write helper (ADR-019)
 // recordAuthEvent INSERTs a tamper-evident audit row into the AuditEvent ledger table.
