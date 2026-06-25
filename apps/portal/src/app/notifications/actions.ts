@@ -213,6 +213,10 @@ export async function markNotificationOnViewAction(input: {
       markNotificationsReadByLinkedItem({
         linkedItemType: input.linkedItemType,
         linkedItemId: input.linkedItemId,
+        // SECURITY FIX (F2): scope the updateMany to CLIENT-scoped rows only.
+        // Prevents a CLIENT mark-read from touching ACCOUNTANT-scoped rows on shared linkedItemIds.
+        // AC-MSG-014-07 // ADR-005
+        recipientType: "CLIENT",
       }),
   );
 

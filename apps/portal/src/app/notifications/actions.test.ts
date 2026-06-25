@@ -311,9 +311,11 @@ describe("markNotificationOnViewAction", () => {
     );
 
     // markNotificationsReadByLinkedItem called with the correct input.
+    // recipientType: 'CLIENT' is the F2 defense-in-depth scope guard.
     expect(mockMarkNotificationsReadByLinkedItem).toHaveBeenCalledWith({
       linkedItemType: "engagement",
       linkedItemId: "eng-001-aaaa-bbbb-cccc-000000000001",
+      recipientType: "CLIENT",
     });
   });
 

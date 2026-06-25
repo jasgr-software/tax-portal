@@ -48,10 +48,11 @@
  * CS-GEN-003: cite governing authority in comments. // CS-GEN-003
  */
 
-import { headers } from "next/headers";
-import { getAuthProvider } from "@tax-portal/auth";
 import { getNotificationTransport } from "@tax-portal/realtime";
 import type { NotificationEvent } from "@tax-portal/realtime";
+// F5: identity helper extracted to shared _lib to eliminate verbatim duplication
+// between stream/route.ts and emit-test/route.ts. // CS-TS-004 // ADR-010
+import { resolveAccountantIdentity } from "../_lib/notification-identity.js";
 
 // ─── Channel constant ─────────────────────────────────────────────────────────
 
@@ -68,45 +69,6 @@ import type { NotificationEvent } from "@tax-portal/realtime";
  *   The channel is derived entirely server-side from the role guard — no client input.
  */
 const ACCOUNTANT_NOTIFICATIONS_CHANNEL = "accountant:notifications";
-
-// ─── Identity resolution ──────────────────────────────────────────────────────
-
-/**
- * Resolve the ACCOUNTANT identity from the request cookie.
- *
- * CS-TS-004: reads cookie header → synthetic Request → provider.getIdentity() → role guard.
- *   Identity is NEVER derived from URL params or client headers. // CS-TS-004
- *
- * ADR-003: identity resolution is the first step before any subscription. // ADR-003
- * ADR-010: ACCOUNTANT role guard — 401 for non-ACCOUNTANT sessions. // ADR-010
- * Returns null if no valid ACCOUNTANT session exists.
- */
-async function resolveAccountantIdentity(): Promise<{
-  clerkUserId: string;
-  role: "ACCOUNTANT";
-} | null> {
-  // CS-TS-004 step 1: read the cookie header from the incoming request.
-  const headerStore = await headers();
-  const cookieHeader = headerStore.get("cookie") ?? "";
-
-  // CS-TS-004 step 2: construct a synthetic Request (the auth provider reads cookies from it).
-  const syntheticRequest = new Request("http://localhost/", {
-    headers: { cookie: cookieHeader },
-  });
-
-  // CS-TS-004 step 3: call provider.getIdentity() — this is the trust fence.
-  const provider = getAuthProvider();
-  const identity = await provider.getIdentity(syntheticRequest);
-
-  // CS-TS-004 step 4: guard the ACCOUNTANT role — bail if absent or wrong role.
-  // SECURITY: if the caller is not an ACCOUNTANT (e.g. CLIENT or unauthenticated),
-  // this route returns 401. // CS-TS-004 // ADR-010
-  if (!identity || identity.role !== "ACCOUNTANT") {
-    return null;
-  }
-
-  return { clerkUserId: identity.clerkUserId, role: "ACCOUNTANT" };
-}
 
 // ─── SSE Route handler ────────────────────────────────────────────────────────
 

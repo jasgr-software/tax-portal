@@ -299,10 +299,14 @@ describe("[AC-MSG-017-01/-02] badge present in admin nav with unread count", () 
   });
 
   /**
-   * Badge decrements on 'notification.read' events (mark-read reflected without refresh).
-   * AC-MSG-017-03: badge reflects the current read state.
+   * 'notification.read' event is a no-op — badge does NOT decrement on it.
+   * DECISION-F3: the 'notification.read' event is never published by the server
+   * (no transport.publish() call for 'notification.read' exists in the codebase).
+   * The decrement branch was dead code and has been removed. Badge corrects on the
+   * next server fetch (re-navigation/revalidation), not via a real-time event.
+   * AC-MSG-017-03 updated: badge corrects on next server fetch, not on a read event.
    */
-  it("[AC-MSG-017-03] badge decrements on notification.read event (mark-read reflected)", async () => {
+  it("[DECISION-F3] notification.read event is a no-op — badge count unchanged (decrement branch removed)", async () => {
     render(
       <AccountantNotificationBadgeClient initialUnreadCount={3} />,
     );
@@ -310,26 +314,29 @@ describe("[AC-MSG-017-01/-02] badge present in admin nav with unread count", () 
     expect(screen.getByTestId("nav-unread-badge")).toHaveTextContent("3");
 
     await act(async () => {
+      // Fire the event that the dead decrement branch used to handle.
+      // After the F3 fix, this must be a no-op — count stays at 3.
       subscriberFn?.({ type: "notification.read", payload: {} });
     });
 
-    expect(screen.getByTestId("nav-unread-badge")).toHaveTextContent("2");
+    // Count must remain 3 — 'notification.read' is not handled. // DECISION-F3
+    expect(screen.getByTestId("nav-unread-badge")).toHaveTextContent("3");
   });
 
   /**
-   * Badge does not go below 0 on decrement (floor at 0, badge absent).
+   * Unknown events are ignored — badge count is unchanged.
+   * This verifies the "ignore other event types" path in the event handler.
    */
-  it("badge does not go below 0 (floor at 0 — badge absent when count reaches 0)", async () => {
+  it("unknown event types are ignored — badge count unchanged", async () => {
     render(
-      <AccountantNotificationBadgeClient initialUnreadCount={1} />,
+      <AccountantNotificationBadgeClient initialUnreadCount={2} />,
     );
 
     await act(async () => {
-      subscriberFn?.({ type: "notification.read", payload: {} });
+      subscriberFn?.({ type: "notification.unknown", payload: {} });
     });
 
-    // Count = 0 — badge is absent (component returns null when count ≤ 0)
-    expect(screen.queryByTestId("nav-unread-badge")).not.toBeInTheDocument();
+    expect(screen.getByTestId("nav-unread-badge")).toHaveTextContent("2");
   });
 
   /**

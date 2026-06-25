@@ -28,10 +28,11 @@
  * CS-GEN-003: Governing keys cited. // CS-GEN-003
  */
 
-import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
-import { getAuthProvider } from "@tax-portal/auth";
 import { getNotificationTransport } from "@tax-portal/realtime";
+// F5: identity helper extracted to shared _lib to eliminate verbatim duplication
+// between stream/route.ts and emit-test/route.ts. // CS-TS-004 // ADR-010
+import { resolveAccountantIdentity } from "../_lib/notification-identity.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,36 +41,24 @@ const ACCOUNTANT_NOTIFICATIONS_CHANNEL = "accountant:notifications";
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
-/** Only active when ALLOW_MOCK_REALTIME=true — mirrors the transport selector guard. */
+/**
+ * Only active when ALLOW_MOCK_REALTIME=true AND NODE_ENV !== 'production'.
+ *
+ * Belt-and-suspenders guard (F6 fix): the ALLOW_MOCK_REALTIME env var is the primary gate,
+ * but a misconfigured deployment with that var set in production would still be blocked by
+ * the NODE_ENV check. Both conditions must hold: explicit mock opt-in AND non-production env.
+ *
+ * ADR-023 §4: fail-closed — only the explicit opt-in activates this endpoint. // ADR-023
+ */
 function isMockRealtimeActive(): boolean {
-  // ADR-023 §4: fail-closed — only the explicit opt-in activates this endpoint. // ADR-023
+  // F6: non-production guard — belt-and-suspenders on top of the ALLOW_MOCK_REALTIME flag.
+  if (process.env["NODE_ENV"] === "production") {
+    return false;
+  }
   return (
     (process.env["ALLOW_MOCK_REALTIME"] ?? "").toLowerCase() === "true" ||
     (process.env["NEXT_PUBLIC_ALLOW_MOCK_REALTIME"] ?? "").toLowerCase() === "true"
   );
-}
-
-// ─── Identity resolution ──────────────────────────────────────────────────────
-
-/**
- * Resolve the ACCOUNTANT identity from the request cookie.
- * CS-TS-004: cookie-identity pattern, ACCOUNTANT role guard. // CS-TS-004
- */
-async function resolveAccountantIdentity(): Promise<{
-  clerkUserId: string;
-  role: "ACCOUNTANT";
-} | null> {
-  const headerStore = await headers();
-  const cookieHeader = headerStore.get("cookie") ?? "";
-  const syntheticRequest = new Request("http://localhost/", {
-    headers: { cookie: cookieHeader },
-  });
-  const provider = getAuthProvider();
-  const identity = await provider.getIdentity(syntheticRequest);
-  if (!identity || identity.role !== "ACCOUNTANT") {
-    return null;
-  }
-  return { clerkUserId: identity.clerkUserId, role: "ACCOUNTANT" };
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────

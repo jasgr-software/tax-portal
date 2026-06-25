@@ -262,36 +262,54 @@ export async function countUnreadNotifications(): Promise<number> {
  *
  * DECISION-016-002-B: mark-read is keyed on the linked-item pair (linkedItemType + linkedItemId),
  * not on a notification id, so a single UI view event marks all unread notifications for that item.
+ *
+ * SECURITY FIX (pr-fixer / F2): recipientType is now required — the updateMany WHERE clause is
+ * scoped to the caller's recipient type so an ACCOUNTANT mark-read on a shared linkedItemId
+ * cannot flip CLIENT-scoped rows' readAt. Defense-in-depth alongside the F1 RLS policy fix.
+ * AC-MSG-014-07 // ADR-005
  */
 export interface MarkReadByLinkedItemInput {
   /** Linked-item type (e.g. 'document', 'engagement', 'request') — AC-MSG-015-01 */
   linkedItemType: string;
   /** Linked-item id (UNIQUEIDENTIFIER string) — AC-MSG-015-01 */
   linkedItemId: string;
+  /**
+   * Recipient type discriminator — scopes the updateMany to only the caller's notification type.
+   * SECURITY FIX (F2): prevents cross-recipient write when ACCOUNTANT and CLIENT share a linkedItemId.
+   * 'ACCOUNTANT' | 'CLIENT' — must match the caller's SESSION_CONTEXT role.
+   * AC-MSG-014-07 // ADR-005
+   */
+  recipientType: "ACCOUNTANT" | "CLIENT";
 }
 
 /**
  * Marks all unread notifications for the given linked item as read (readAt = now).
  *
- * Scoped by SESSION_CONTEXT identity — each principal marks only their own notifications
- * (the BLOCK predicate on the request pool enforces this per ADR-005).
+ * Scoped by SESSION_CONTEXT identity AND recipientType — each principal marks only their
+ * own notifications (the BLOCK predicate on the request pool enforces this per ADR-005).
+ * The recipientType WHERE clause is defense-in-depth: even if the BLOCK predicate were
+ * somehow bypassed, only the caller's type of notifications can be marked read.
  *
  * Idempotent: already-read notifications are overwritten with the latest readAt timestamp
  * (effectively a no-op for the unread state, consistent across calls).
  *
  * DECISION-016-002-B: keyed on linked-item pair so a single view marks all related notifs.
- * // CS-TS-001 // ADR-003 // ADR-005 // AC-MSG-015-02 // AC-MSG-015-03
+ * SECURITY FIX (F2): recipientType added to WHERE clause — defense-in-depth against
+ *   cross-recipient writes on shared linkedItemId keys.
+ * // CS-TS-001 // ADR-003 // ADR-005 // AC-MSG-015-02 // AC-MSG-015-03 // AC-MSG-014-07
  */
 export async function markNotificationsReadByLinkedItem(
   input: MarkReadByLinkedItemInput,
 ): Promise<{ markedCount: number }> {
   // CS-TS-001: request pool via db wrapper (SESSION_CONTEXT enforces RLS). // CS-TS-001
+  // SECURITY FIX (F2): recipientType scopes the updateMany — ACCOUNTANT cannot mark CLIENT rows.
   const result = await (db as unknown as {
     notification: {
       updateMany: (args: {
         where: {
           linkedItemType: string;
           linkedItemId: string;
+          recipientType: string;
           readAt: null;
         };
         data: { readAt: Date };
@@ -301,6 +319,7 @@ export async function markNotificationsReadByLinkedItem(
     where: {
       linkedItemType: input.linkedItemType,
       linkedItemId: input.linkedItemId,
+      recipientType: input.recipientType,
       readAt: null,
     },
     data: { readAt: new Date() },

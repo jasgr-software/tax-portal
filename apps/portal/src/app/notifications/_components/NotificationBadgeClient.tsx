@@ -14,13 +14,20 @@
  *   - The layout (server component) calls getMyUnreadCountAction() and passes initialCount.
  *   - This component hydrates with that count and subscribes to real-time events.
  *   - On 'notification.created' events, it increments the count without a page refresh.
- *   - On 'notification.read' events, it decrements the count.
+ *   - On mark-read, the badge corrects on the next server fetch (no 'notification.read' event
+ *     is published — the decrement branch was removed in the F3 fix; see DECISION-F3 below).
  *
  * AC-MSG-012-03: unread-count badge reflects real-time arrival — this component is the
  *   mechanism that makes the badge increment without a manual refresh.
  * AC-MSG-017-01: badge is in navigation (mounted by layout) — visible from any area.
  * AC-MSG-017-02: badge shows the CLIENT's unread count.
- * AC-MSG-017-03: badge updates on read (real-time event) AND on arrival (real-time event).
+ * AC-MSG-017-03: badge updates on arrival (real-time) and corrects on next server fetch (re-nav).
+ *
+ * DECISION-F3: 'notification.read' event was defined but never published (no transport.publish()
+ *   call for 'notification.read' exists anywhere in the codebase). The dead EVENT_NOTIFICATION_READ
+ *   constant + decrement branch + misleading AC-MSG-017-03 comment claiming "badge decrements on
+ *   notification.read" have been removed. The badge story is: increment on arrival (real-time),
+ *   correct on the next server render/refetch. This holds without a read event.
  *
  * ADR-023: transport consumed via getNotificationTransport() (the port — never a binding).
  *   REALTIME_PROVIDER=mock + ALLOW_MOCK_REALTIME=true is active in e2e. // ADR-023
@@ -45,12 +52,10 @@ import type { NotificationEvent } from "@tax-portal/realtime";
  */
 const EVENT_NOTIFICATION_CREATED = "notification.created";
 
-/**
- * Real-time event type published when a notification is marked read.
- * Published by the server action (markNotificationOnViewAction) after the DB write.
- * The badge decrements on this event — AC-MSG-017-03.
- */
-const EVENT_NOTIFICATION_READ = "notification.read";
+// NOTE (DECISION-F3): EVENT_NOTIFICATION_READ ('notification.read') was removed.
+// No transport.publish() for 'notification.read' exists anywhere in the codebase —
+// the constant and the decrement branch were dead code. Badge correction happens on
+// the next server fetch/navigation. // DECISION-F3
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -116,7 +121,7 @@ export function NotificationBadgeClient({
      * Real-time event handler — updates the badge count on notification events.
      *
      * AC-MSG-012-03: badge increments on 'notification.created' (real-time arrival).
-     * AC-MSG-017-03: badge decrements on 'notification.read' (mark-read on view).
+     * AC-MSG-017-03: badge corrects on next server fetch after mark-read.
      *
      * CS-GEN-001: do NOT log event.payload — it may carry user-context data. // CS-GEN-001
      */
@@ -125,10 +130,9 @@ export function NotificationBadgeClient({
       if (event.type === EVENT_NOTIFICATION_CREATED) {
         // AC-MSG-012-03: new notification arrived — increment badge without refresh.
         setUnreadCount((prev) => prev + 1);
-      } else if (event.type === EVENT_NOTIFICATION_READ) {
-        // AC-MSG-017-03: notification marked read — decrement badge (floor at 0).
-        setUnreadCount((prev) => Math.max(0, prev - 1));
       }
+      // DECISION-F3: 'notification.read' decrement branch removed — event is never published.
+      // Badge corrects on the next server fetch (re-navigation or revalidation).
       // Other event types: ignore (no-op).
     }
 

@@ -171,9 +171,11 @@ describe("markNotificationOnViewAction", () => {
     if (result.success) {
       expect(result.markedCount).toBe(1); // [AC-MSG-015-02]
     }
+    // recipientType: 'ACCOUNTANT' is the F2 defense-in-depth scope guard.
     expect(mockMarkNotificationsReadByLinkedItem).toHaveBeenCalledWith({
       linkedItemType: "engagement",
       linkedItemId: MOCK_ENGAGEMENT_ID,
+      recipientType: "ACCOUNTANT",
     });
   });
 

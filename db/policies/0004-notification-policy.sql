@@ -20,7 +20,10 @@
 --
 -- Predicate shape (three branches, matching ADR-005 §2 skeleton):
 --   1. Admin principal (IS_MEMBER('app_admin_role') = 1) → always passes.
---   2. ACCOUNTANT role (SESSION_CONTEXT 'role' = 'ACCOUNTANT') → always passes.
+--   2. ACCOUNTANT role (SESSION_CONTEXT 'role' = 'ACCOUNTANT') → row-aware: passes ONLY
+--      for rows where recipientType='ACCOUNTANT'. SECURITY FIX (pr-fixer / F1): the original
+--      EPIC-003 unconditional ACCOUNTANT branch leaked CLIENT-scoped rows once EPIC-016
+--      introduced CLIENT rows. Now guarded by EXISTS on recipientType='ACCOUNTANT'.
 --   3. CLIENT-ownership branch (NEW — EPIC-016 / TASK-016-001, additive):
 --      SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id = Notification.recipientUserId
 --      If recipientUserId IS NULL (accountant-scoped row) → EXISTS is false → 0 rows (correct).
@@ -67,8 +70,11 @@ GO
 -- @notificationId: the id of the Notification row being evaluated by the FILTER predicate.
 --
 -- EPIC-016 / TASK-016-001: CLIENT branch added (CS-GEN-002 additive).
--- Admin + ACCOUNTANT branches are BYTE-IDENTICAL to the EPIC-003 original (no regression).
--- The CLIENT branch is a purely-additive OR EXISTS(…) below the ACCOUNTANT branch.
+-- SECURITY FIX (pr-fixer / F1): ACCOUNTANT branch made row-aware (recipientType='ACCOUNTANT')
+--   to prevent the ACCOUNTANT session from leaking CLIENT-scoped rows.
+--   The unconditional ACCOUNTANT branch was byte-identical to EPIC-003, but EPIC-016 introduced
+--   CLIENT rows that turned it into a live cross-recipient read leak (F1) and a cross-recipient
+--   write hazard (F2). CS-GEN-002 byte-identity yields to the security fix.
 CREATE OR ALTER FUNCTION [sec].[fn_notification_access](
     @notificationId UNIQUEIDENTIFIER
 )
@@ -80,8 +86,21 @@ AS RETURN (
         -- 1. Admin principal always passes (migrations, webhooks, cron, notification inserts via adminDb)
         IS_MEMBER('app_admin_role') = 1
 
-        -- 2. ACCOUNTANT role (from SESSION_CONTEXT) always passes — full notification visibility
-        OR CAST(SESSION_CONTEXT(N'role') AS NVARCHAR(16)) = N'ACCOUNTANT'
+        -- 2. ACCOUNTANT role (from SESSION_CONTEXT) — row-aware: passes ONLY for rows where
+        --    recipientType = 'ACCOUNTANT'. This prevents an ACCOUNTANT session from reading
+        --    CLIENT-scoped rows (recipientType='CLIENT') through the FILTER predicate.
+        --    SECURITY FIX (F1): made row-aware via EXISTS with recipientType guard.
+        --    ADR-003 §5: null SESSION_CONTEXT → CAST(NULL…)!= N'ACCOUNTANT' → EXISTS empty → 0 rows.
+        --    CS-SQL-003: row-aware EXISTS mirrors the CLIENT branch shape (ITVF/SCHEMABINDING). // CS-SQL-003
+        --    ADR-005 // ADR-003 // AC-MSG-014-07
+        OR (
+            CAST(SESSION_CONTEXT(N'role') AS NVARCHAR(16)) = N'ACCOUNTANT'
+            AND EXISTS (
+                SELECT 1 FROM [dbo].[Notification] n
+                WHERE n.[id] = @notificationId
+                  AND n.[recipientType] = N'ACCOUNTANT'
+            )
+        )
 
         -- 3. CLIENT-ownership branch (NEW — EPIC-016 / TASK-016-001, additive, CS-GEN-002)
         --    SESSION_CONTEXT('clerk_user_id') → User.clerkId → User.id = Notification.recipientUserId

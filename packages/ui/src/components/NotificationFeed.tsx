@@ -1,11 +1,13 @@
 /**
  * packages/ui/src/components/NotificationFeed.tsx — Shared notification feed + unread badge
  *
- * CS-TS-003: ONE shared implementation for both apps/portal (CLIENT feed) and
- *   apps/admin (ACCOUNTANT feed — TASK-016-006). Do NOT fork; both surfaces import this.
+ * CS-TS-003: Shared platform component designed for both apps/portal (CLIENT feed) and
+ *   apps/admin (ACCOUNTANT feed). Current consumer: apps/portal only — apps/admin uses
+ *   NotificationsIndicator directly. Wiring admin to this component is deferred (out of scope
+ *   for EPIC-016). Do NOT fork; use this when the admin surface imports the feed. // F4 fix
  *
  * DECISION (TASK-016-005): The feed + badge live in packages/ui as the shared platform
- *   component. Both apps pass NotificationItem[] props (server-fetched under their own
+ *   component. Apps pass NotificationItem[] props (server-fetched under their own
  *   SESSION_CONTEXT) and the same component renders the feed. The only per-surface
  *   difference is how the items are fetched and how linked-item links are routed — those
  *   are caller-level concerns, not component-level. // CS-TS-003 // ADR-006

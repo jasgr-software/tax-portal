@@ -155,7 +155,8 @@ describe("[AC-MSG-017-02] badge shows the CLIENT's unread notification count", (
 describe("[AC-MSG-017-03] badge updates on mark-read and real-time arrival", () => {
   /**
    * [AC-MSG-017-03] Badge decrements when unreadCount prop is reduced (simulates mark-read).
-   * In production: NotificationBadgeClient updates the count on 'notification.read' event.
+   * The NotificationFeed renders whatever unreadCount prop it receives — the badge corrects
+   * on the next server fetch/revalidation after mark-read (DECISION-F3: no real-time read event).
    */
   it("[AC-MSG-017-03] badge reflects decremented count when notification is marked read", () => {
     const { rerender } = render(
