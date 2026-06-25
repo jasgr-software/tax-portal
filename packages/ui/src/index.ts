@@ -24,3 +24,10 @@ export { cn } from "./lib/utils.js";
 // ADR-006: both surfaces import from packages/ui (not forked per app).
 export { NotificationFeed } from "./components/NotificationFeed.js";
 export type { NotificationFeedProps, NotificationFeedItem } from "./components/NotificationFeed.js";
+
+// EPIC-017 / TASK-017-006 — shared plain-text message body renderer
+// AC-MSG-003-01/-02/-03: body rendered as React text nodes ONLY — never dangerouslySetInnerHTML.
+// CS-TS-003: ONE implementation consumed by both apps/portal (CLIENT) and apps/admin (ACCOUNTANT).
+// ADR-006: both surfaces import from packages/ui (not forked per app).
+export { MessageBody } from "./components/MessageBody.js";
+export type { MessageBodyProps } from "./components/MessageBody.js";

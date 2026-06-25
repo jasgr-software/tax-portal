@@ -14,6 +14,15 @@
  *   [AC-MSG-015-03] no dismiss button — read state reflects without dismiss
  *   [AC-MSG-007-03] feed presence verified — notifications appear in the feed list
  *
+ * BUG-017-002 AC coverage (root test-validity defect — portal link resolver gap):
+ *   [AC-MSG-014-01 / BUG-017-002] resolvePortalHref mirrors the portal page.tsx resolver.
+ *     new_message + linkedItemType='engagement' → /engagements/<id>/messages (not root)
+ *     new_message + linkedItemType='thread'     → /messages/<threadId>
+ *   These are the REAL linkedItemType values appendMessage() produces after the fix.
+ *   CS-TS-003: cross-surface parity — portal resolver matches admin routing. // CS-TS-003
+ *   CS-GEN-002: additive — no existing assertions changed. // CS-GEN-002
+ *   BUG-017-002 // AC-MSG-013-02 // AC-MSG-014-01 // ADR-006 // EPIC-016 // CS-GEN-003
+ *
  * Strategy:
  *   - Render NotificationFeed directly with fixture NotificationFeedItem arrays.
  *   - No DB connection, no server actions — pure component behavior under @testing-library/react.
@@ -36,6 +45,7 @@ import type { NotificationFeedItem } from "@tax-portal/ui";
 
 const MOCK_ENGAGEMENT_ID = "eng-001-aaaa-bbbb-cccc-000000000001";
 const MOCK_REQUEST_ID = "req-001-aaaa-bbbb-cccc-000000000001";
+const MOCK_THREAD_ID = "thr-001-aaaa-bbbb-cccc-000000000001";
 
 /** Unread engagement notification — CLIENT received this when status changed */
 const MOCK_ENGAGEMENT_NOTIF: NotificationFeedItem = {
@@ -83,7 +93,80 @@ const MOCK_REQUEST_ACCEPTED_NOTIF: NotificationFeedItem = {
   linkedItemId: MOCK_REQUEST_ID,
 };
 
-/** Simple href resolver for portal engagement links */
+/**
+ * new_message notification — CLIENT received this when accountant sent (engagement thread).
+ * BUG-017-002: uses the REAL linkedItemType='engagement' that appendMessage emits for engagement
+ * threads after the fix. linkedItemId=engagementId. resolvePortalHref routes to /engagements/<id>/messages.
+ * AC-MSG-014-01: accountant sends → client notified "through the EPIC-016 feed".
+ * CS-TS-003: mirrors admin NotificationsIndicator fixture. // CS-TS-003
+ * BUG-017-002 // AC-MSG-014-01 // CS-GEN-003
+ */
+const MOCK_NEW_MESSAGE_ENGAGEMENT_NOTIF: NotificationFeedItem = {
+  id: "notif-new-msg-eng-001",
+  type: "new_message",
+  title: "New message from your accountant",
+  body: "Your accountant sent you a message in your engagement.",
+  readAt: null, // unread
+  engagementRequestId: null,
+  createdAt: new Date("2026-06-25T10:00:00Z"),
+  linkedItemType: "engagement", // BUG-017-002: REAL value emitted by appendMessage for engagement threads
+  linkedItemId: MOCK_ENGAGEMENT_ID, // BUG-017-002: the engagementId (not threadId)
+};
+
+/**
+ * new_message notification — CLIENT received this when accountant sent (general thread).
+ * BUG-017-002: uses the REAL linkedItemType='thread' that appendMessage emits for general
+ * threads after the fix. linkedItemId=threadId. resolvePortalHref routes to /messages/<threadId>.
+ * AC-MSG-013-02 / AC-MSG-014-01: general thread; both parties can message.
+ * CS-TS-003: mirrors admin NotificationsIndicator fixture for general threads. // CS-TS-003
+ * BUG-017-002 // AC-MSG-014-01 // CS-GEN-003
+ */
+const MOCK_NEW_MESSAGE_GENERAL_NOTIF: NotificationFeedItem = {
+  id: "notif-new-msg-gen-001",
+  type: "new_message",
+  title: "New message from your accountant",
+  body: "Your accountant sent you a message in the general thread.",
+  readAt: null, // unread
+  engagementRequestId: null,
+  createdAt: new Date("2026-06-25T11:00:00Z"),
+  linkedItemType: "thread", // BUG-017-002: REAL value emitted by appendMessage for general threads
+  linkedItemId: MOCK_THREAD_ID, // BUG-017-002: the threadId
+};
+
+/**
+ * Portal-side href resolver — mirrors the resolvePortalHref function in
+ * apps/portal/src/app/notifications/page.tsx (BUG-017-002 fix).
+ *
+ * BUG-017-002: new_message routing is type-aware:
+ *   new_message + linkedItemType='engagement' → /engagements/<id>/messages (not root)
+ *   new_message + linkedItemType='thread'     → /messages/<threadId>
+ * Non-new_message types use the original routing:
+ *   engagement → /engagements/<id>  (status change notifications etc.)
+ * CS-GEN-002: additive — existing routing unchanged for non-new_message types. // CS-GEN-002
+ * CS-TS-003: matches admin NotificationsIndicator link routing (cross-surface parity). // CS-TS-003
+ * BUG-017-002 // AC-MSG-013-02 // AC-MSG-014-01 // CS-GEN-003
+ */
+function portalResolveHref(item: NotificationFeedItem): string | null {
+  if (!item.linkedItemId) return null;
+
+  // BUG-017-002: new_message routes to messages sub-area, not engagement root
+  if (item.type === "new_message") {
+    if (item.linkedItemType === "engagement") {
+      return `/engagements/${item.linkedItemId}/messages`;
+    }
+    if (item.linkedItemType === "thread") {
+      return `/messages/${item.linkedItemId}`;
+    }
+    return null;
+  }
+
+  if (item.linkedItemType === "engagement" && item.linkedItemId) {
+    return `/engagements/${item.linkedItemId}`;
+  }
+  return null;
+}
+
+/** Simple href resolver for portal engagement links (non-new_message types — legacy resolver) */
 function testResolveHref(item: NotificationFeedItem): string | null {
   if (item.linkedItemType === "engagement" && item.linkedItemId) {
     return `/engagements/${item.linkedItemId}`;
@@ -459,5 +542,125 @@ describe("multiple notifications in the feed", () => {
 
     // 2 unread (MOCK_ENGAGEMENT_NOTIF + MOCK_DELIVERABLE_NOTIF)
     expect(screen.getByTestId("unread-badge")).toHaveTextContent("2");
+  });
+});
+
+// ─── Tests: BUG-017-002 — portal new_message link routing ─────────────────────
+
+/**
+ * BUG-017-002: Portal-side link resolver gap for new_message notifications.
+ *   Prior to BUG-017-002, the portal's resolvePortalHref routed linkedItemType='engagement'
+ *   → /engagements/<id> (missing /messages sub-route) and had no 'thread' branch at all.
+ *
+ * After the fix:
+ *   new_message + linkedItemType='engagement' → /engagements/<engagementId>/messages
+ *   new_message + linkedItemType='thread'     → /messages/<threadId>
+ *
+ * The fixtures use the REAL linkedItemType values that appendMessage() emits after BUG-017-002.
+ * CS-GEN-002: additive — no existing link routing changed for non-new_message types. // CS-GEN-002
+ * CS-TS-003: cross-surface parity — portal routing matches admin routing. // CS-TS-003
+ * BUG-017-002 // AC-MSG-013-02 // AC-MSG-014-01 // ADR-006 // EPIC-016 // CS-GEN-003
+ */
+describe("[BUG-017-002] portal new_message link resolver routes to the correct messages area", () => {
+  /**
+   * [BUG-017-002 / AC-MSG-014-01] Engagement-thread new_message:
+   * linkedItemType='engagement', linkedItemId=engagementId → /engagements/<id>/messages
+   * NOT /engagements/<id> (the old broken routing that went to the engagement root, not messages).
+   * CS-TS-003: matches admin NotificationsIndicator engagement-thread routing. // CS-TS-003
+   */
+  it("[BUG-017-002 / AC-MSG-014-01] engagement-thread new_message: link → /engagements/<id>/messages", () => {
+    render(
+      <NotificationFeed
+        notifications={[MOCK_NEW_MESSAGE_ENGAGEMENT_NOTIF]}
+        resolveHref={portalResolveHref}
+      />,
+    );
+
+    const link = screen.getByTestId(
+      `notification-link-${MOCK_NEW_MESSAGE_ENGAGEMENT_NOTIF.id}`,
+    );
+    expect(link).toBeInTheDocument();
+    // BUG-017-002: must route to /messages sub-area, not engagement root
+    expect(link).toHaveAttribute(
+      "href",
+      `/engagements/${MOCK_ENGAGEMENT_ID}/messages`,
+    );
+    expect(link).toHaveTextContent("View");
+  });
+
+  /**
+   * [BUG-017-002 / AC-MSG-014-01] General-thread new_message:
+   * linkedItemType='thread', linkedItemId=threadId → /messages/<threadId>
+   * This case had NO link before BUG-017-002 — the resolver had no 'thread' branch.
+   * CS-TS-003: matches admin NotificationsIndicator general-thread routing. // CS-TS-003
+   * CS-GEN-002: additive — new branch for 'thread' type; no existing routing changed. // CS-GEN-002
+   */
+  it("[BUG-017-002 / AC-MSG-014-01] general-thread new_message: link → /messages/<threadId>", () => {
+    render(
+      <NotificationFeed
+        notifications={[MOCK_NEW_MESSAGE_GENERAL_NOTIF]}
+        resolveHref={portalResolveHref}
+      />,
+    );
+
+    const link = screen.getByTestId(
+      `notification-link-${MOCK_NEW_MESSAGE_GENERAL_NOTIF.id}`,
+    );
+    expect(link).toBeInTheDocument();
+    // BUG-017-002: general-thread link must route to /messages/<threadId>
+    expect(link).toHaveAttribute("href", `/messages/${MOCK_THREAD_ID}`);
+    expect(link).toHaveTextContent("View");
+  });
+
+  /**
+   * [BUG-017-002 / CS-GEN-002] Non-new_message engagement notifications still route to
+   * the engagement root (not /messages). Additive fix — no existing routing changed.
+   * CS-GEN-002: additive — existing engagement→/engagements/<id> routing unchanged. // CS-GEN-002
+   */
+  it("[BUG-017-002 / CS-GEN-002] non-new_message engagement notification still routes to engagement root", () => {
+    render(
+      <NotificationFeed
+        notifications={[MOCK_ENGAGEMENT_NOTIF]}
+        resolveHref={portalResolveHref}
+      />,
+    );
+
+    const link = screen.getByTestId(
+      `notification-link-${MOCK_ENGAGEMENT_NOTIF.id}`,
+    );
+    expect(link).toBeInTheDocument();
+    // Non-new_message engagement notifications → /engagements/<id> (root, no /messages suffix)
+    expect(link).toHaveAttribute("href", `/engagements/${MOCK_ENGAGEMENT_ID}`);
+  });
+
+  /**
+   * [BUG-017-002] Both new_message thread kinds render in the portal feed simultaneously.
+   * A CLIENT with both engagement-thread and general-thread notifications sees both
+   * with the correct links (cross-surface parity).
+   * CS-TS-003: both admin + portal handle both thread kinds consistently. // CS-TS-003
+   */
+  it("[BUG-017-002 / CS-TS-003] both new_message thread kinds coexist in portal feed with correct links", () => {
+    render(
+      <NotificationFeed
+        notifications={[
+          MOCK_NEW_MESSAGE_ENGAGEMENT_NOTIF,
+          MOCK_NEW_MESSAGE_GENERAL_NOTIF,
+        ]}
+        resolveHref={portalResolveHref}
+      />,
+    );
+
+    const engLink = screen.getByTestId(
+      `notification-link-${MOCK_NEW_MESSAGE_ENGAGEMENT_NOTIF.id}`,
+    );
+    expect(engLink).toHaveAttribute(
+      "href",
+      `/engagements/${MOCK_ENGAGEMENT_ID}/messages`,
+    );
+
+    const genLink = screen.getByTestId(
+      `notification-link-${MOCK_NEW_MESSAGE_GENERAL_NOTIF.id}`,
+    );
+    expect(genLink).toHaveAttribute("href", `/messages/${MOCK_THREAD_ID}`);
   });
 });
