@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-25T02:58:04.015Z",
-  "currentBrief": null,
+  "lastUpdated": "2026-06-25T21:29:37.389Z",
+  "currentBrief": "BRIEF-017",
   "currentPhase": "Close-prep",
-  "currentSliceDescription": "In-portal notification feed + persistent unread badge (dual-role, real-time, mark-read-on-view) across apps/portal + apps/admin",
-  "currentBranch": null,
+  "currentSliceDescription": "Per-engagement & general messaging threads — plain-text messages, scanned signed-URL attachments, per-viewer unread, indefinite retention + archive-on-close, new-message notifications onto the EPIC-016 spine (apps/portal + apps/admin)",
+  "currentBranch": "brief-017-per-engagement-general-messaging",
   "awaitingMerge": [],
   "openRetroItems": [
     {
@@ -153,6 +153,20 @@
       "description": "CS-INFRA-006 (gate-check SKIP-not-FAIL on optional input) drafted experimental during the BRIEF-LOE-013 Standards audit (APPROVE, 0 violations); left UNRATIFIED/UNCOMMITTED awaiting human ratification per .code-standards/ governance (machine proposes by:agent, human ratifies by:user). The pattern: check 10 (and check 8) SKIP cleanly rather than FAIL when their optional input is absent (no diff base / empty removal set) — never a false PASS, never a hard error. Do NOT auto-ratify.",
       "note": "- **[code-standards — BRIEF-LOE-013 Standards audit, awaits human ratification] CS-INFRA-006 SKIP-not-FAIL-on-optional-input.** The Standards-review audit (APPROVE, 0 violations) machine-proposed an experimental `CS-INFRA-006` capturing the removal-sweep gate's SKIP-not-FAIL discipline (a gate check whose input is optional must SKIP, not FAIL or falsely PASS, when that input is absent) but left it **unratified and uncommitted** at `.code-standards/standards/infra/CS-INFRA-006-gate-check-skip-not-fail-on-optional-input.md` (untracked, `??`). Per `.code-standards/` governance: machine proposes (`by: agent`) / human ratifies (`by: user`). Do NOT auto-ratify. (Observation -- no gate failure.)",
       "addedAt": "2026-06-22"
+    },
+    {
+      "id": "retro-017-pre01",
+      "category": "acknowledged",
+      "description": "Pre-existing (EPIC-016 #102 / carried BUG-007-001 mock-scanner-env): 2 failures in packages/db/src/document.upload-pipeline.rls.test.ts. Independently isolation-proven pre-existing (RETRO-016 lesson) by git-stash rerun on multiple BRIEF-017 tasks + empty branch diff for the file vs main + Overwatch Audit Finding 3. NOT a BRIEF-017 regression. Latent on main because `pnpm -r test` is not a required CI check. WILL surface at the SDET CI gate (`pnpm -r test`) — IO verified scope at Audit and acknowledges it as a pre-existing main item (mock-scanner ALLOW_MOCK_SCANNER env in the upload-pipeline test), to be dispositioned at the SDET CI gate (expected-known-failure) not fixed-forward in this slice unless scope proves mechanical. Sibling to BUG-017-001 (the EPIC-016 build break this slice DID fix forward).",
+      "note": "- **[acknowledged — BRIEF-017 Audit Finding 3 / carried] Pre-existing 2 `document.upload-pipeline.rls.test.ts` failures.** Confirmed pre-existing (not introduced by BRIEF-017): git-stash isolation on TASK-017-001/-002/-004/-005/-007 reruns + empty `git diff main...HEAD` for the file + Overwatch Audit Finding 3. Root family: the mock-scanner env (carried BUG-007-001 / retro-012 infra family). Latent on `main` because `pnpm -r test` is advisory, not required. Disposition: acknowledged pre-existing main item; the SDET CI gate treats it as a known-pre-existing failure (not a BRIEF-017 reject). Fix-forward NOT taken (different root cause than this slice's work; would expand scope). If a future slice's CI maturation (retro-012-001) graduates `pnpm -r test`, this gets a dedicated BUG. (Category `acknowledged` per the state.json schema enum.)",
+      "addedAt": "2026-06-25"
+    },
+    {
+      "id": "retro-017-01",
+      "category": "e2e-determinism",
+      "description": "General-thread new-message notification LINK lacks e2e coverage (advisory). The general-thread link path (linkedItemType:'thread' → /messages/<threadId>, BUG-017-002 Option A renderer) is covered by UNIT tests on both surfaces; the engagement-thread link path is covered by e2e. Add a general-thread e2e link assertion in a follow-up. Non-blocking; do NOT re-open BRIEF-017. Advisory — no gate failure.",
+      "note": "- **[e2e-determinism — RETRO-017, advisory] General-thread notification-link e2e gap.** BUG-017-002 fixed the masked notification-link defect with the row-only renderer (engagement → linkedItemType:'engagement'/engagementId; general → linkedItemType:'thread'/threadId → /messages/<threadId>). The general-thread branch is proven by unit tests on both surfaces; the engagement-thread branch is proven by e2e. Follow-up: add a general-thread e2e link-click assertion so both renderer branches have e2e coverage. Rides a future messaging-surface task; do NOT re-open this slice. (Observation — no gate failure; not promoted.)",
+      "addedAt": "2026-06-25"
     }
   ]
 }

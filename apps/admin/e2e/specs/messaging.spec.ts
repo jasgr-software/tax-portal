@@ -8,7 +8,8 @@
  *   AC-MSG-001-03 — full ordered history persists across a re-open/new session
  *   AC-MSG-001-04 — both parties read + contribute in the engagement thread
  *   AC-MSG-002-01 — accountant starts a general thread via the populated client selector
- *   AC-MSG-002-03 — messages in general thread retained in send order
+ *   AC-MSG-002-02 — general thread visible to the accountant AND the associated client
+ *   AC-MSG-002-03 — messages in general thread retained + readable via /messages/[threadId]
  *   AC-MSG-004-01 — accountant attaches a file when sending a message
  *   AC-MSG-004-02 — attachment visible alongside the message to thread participants
  *   AC-MSG-004-03 — participant retrieves attachment via short-lived signed URL
@@ -162,8 +163,10 @@ interface MessagingFixture {
   clientMessageId: string;
   /** A seeded Message.id in the engagement thread (sent by accountant). */
   accountantMessageId: string;
-  /** A general Thread.id for the client (created to test AC-MSG-005-02 / general thread unread). */
+  /** A general Thread.id for the client (for AC-MSG-002-02/-003, AC-MSG-005-02). */
   generalThreadId: string;
+  /** The Message.id seeded in the general thread (from the client — accountant has unread). */
+  generalThreadMessageId: string;
   /** A 'Complete'-status Engagement.id for archive test (AC-MSG-006-03). */
   archivedEngagementId: string;
   /** The archived engagement's thread Thread.id. */
@@ -309,14 +312,18 @@ async function seedFixtures(): Promise<MessagingFixture> {
   if (!generalThreadId) throw new Error("[messaging.spec] Failed to seed general Thread");
 
   // Seed an unread message in the general thread (sent by client — so accountant has unread)
-  await pool
+  // AC-MSG-002-03: capture the message id so the click-through test can assert it visible.
+  const generalThreadMsgResult = await pool
     .request()
     .input("threadId", generalThreadId)
     .input("senderClerkId", FIXTURE_CLIENT_CLERK_ID)
-    .query(
+    .query<{ id: string }>(
       `INSERT INTO [dbo].[Message] ([threadId], [senderClerkId], [body], [updatedAt])
+       OUTPUT INSERTED.[id]
        VALUES (@threadId, @senderClerkId, N'Direct message from client (e2e seed)', SYSDATETIMEOFFSET())`,
     );
+  const generalThreadMessageId = generalThreadMsgResult.recordset[0]?.id;
+  if (!generalThreadMessageId) throw new Error("[messaging.spec] Failed to seed general Thread message");
 
   // 6. Seed a second 'Complete' Engagement with an archived thread (AC-MSG-006-03)
   const archivedReqResult = await pool
@@ -378,6 +385,7 @@ async function seedFixtures(): Promise<MessagingFixture> {
     clientMessageId: clientMessageId.toLowerCase(),
     accountantMessageId: accountantMessageId.toLowerCase(),
     generalThreadId: generalThreadId.toLowerCase(),
+    generalThreadMessageId: generalThreadMessageId.toLowerCase(),
     archivedEngagementId: archivedEngagementId.toLowerCase(),
     archivedThreadId: archivedThreadId.toLowerCase(),
     archivedMessageId: archivedMessageId.toLowerCase(),
@@ -672,54 +680,97 @@ test("AC-MSG-002-01 — accountant starts general thread via client selector", a
 });
 
 /**
- * AC-MSG-002-03 — Messages in a general thread retained in chronological order.
+ * AC-MSG-002-02 / AC-MSG-002-03 — General thread click-through: accountant navigates to
+ * /messages/{generalThreadId} and sees the ordered message history.
  *
- * Given a general thread exists (seeded in beforeAll),
- * When the accountant navigates to the messages hub,
- * Then the general thread is visible in the thread list (messages retained).
+ * Given the ACCOUNTANT has a general thread visible in the messages hub,
+ * When they click on the general thread link,
+ * Then they land on /messages/{generalThreadId} (the route added by TASK-017-011).
+ * And they see the thread-view panel with the client's seeded message visible.
+ * And the GeneralMessageComposer is present so they can contribute (AC-MSG-001-04).
  *
- * DECISION: The admin app has no /messages/[threadId] route — general threads are
- * listed in the /messages hub (thread list). AC-MSG-002-03 asserts that the thread
- * and its messages are retained; we verify thread list inclusion + thread detail
- * visible when clicked via the ThreadView embedded in the hub. // CS-GEN-003
+ * AC-MSG-002-02: general thread visible to the accountant AND the associated client.
+ * AC-MSG-002-03: ordered message history readable by both participants.
+ * AC-MSG-001-04: ACCOUNTANT can read + contribute (composer present).
  *
- * // AC-MSG-002-03 // AC-MSG-001-03 // ADR-005 // ADR-006 // CS-GEN-003
+ * // AC-MSG-002-02 // AC-MSG-002-03 // AC-MSG-001-04 // ADR-003 // ADR-005 // ADR-006 // CS-GEN-003
  */
-test("AC-MSG-002-03 — general thread messages retained in send order", async ({ page, request }) => {
+test("AC-MSG-002-02/03 — accountant clicks general thread link → /messages/[threadId] loads with ordered history", async ({ page, request }) => {
   await setupAccountantSession(page, request, FIXTURE_ACCOUNTANT_CLERK_ID);
 
-  // Navigate to the messages hub — general threads appear in the thread list
-  // DECISION: admin has no /messages/[threadId] route; hub lists all threads. // CS-GEN-003
+  // Step 1: Navigate to the messages hub (ThreadList shows all threads for ACCOUNTANT)
   await page.goto(`${ADMIN_URL}/messages`);
-
-  // The messages panel must load
   const panel = page.getByTestId("admin-messages-panel");
-  await expect(panel, "[AC-MSG-002-03] Admin messages panel must be visible").toBeVisible({ timeout: 15_000 });
+  await expect(
+    panel,
+    "[AC-MSG-002-02] Admin messages panel must be visible at /messages",
+  ).toBeVisible({ timeout: 15_000 });
 
-  // The thread list must be visible
+  // Step 2: Find the general thread list item
   const threadList = page.getByTestId("thread-list");
-  await expect(threadList, "[AC-MSG-002-03] Thread list must be visible").toBeVisible({ timeout: 10_000 });
+  await expect(threadList, "[AC-MSG-002-02] Thread list must be visible").toBeVisible({ timeout: 10_000 });
 
-  // The seeded general thread must appear in the thread list (AC-MSG-002-03: messages retained)
-  // data-testid from ThreadList: thread-list-item-{id}
-  const generalThreadItem = page.getByTestId(`thread-list-item-${fixture.generalThreadId}`);
+  const genThreadItem = page.getByTestId(`thread-list-item-${fixture.generalThreadId}`);
   await expect(
-    generalThreadItem,
-    "[AC-MSG-002-03] General thread must appear in the thread list (messages retained in the thread)",
+    genThreadItem,
+    "[AC-MSG-002-02] General thread must appear in the ACCOUNTANT's thread list",
   ).toBeVisible({ timeout: 10_000 });
 
-  // The thread link must be present (data-testid from ThreadList: thread-link-{id})
-  // DECISION: admin has no /messages/[threadId] route; thread-link navigates to it but it would 404.
-  // We assert the link IS present (thread is in the list = messages retained in the thread).
-  // The full message detail view is accessible from the engagement messages panel (not hub link).
-  // This is consistent with the admin app design — general threads show in the hub thread list
-  // but the hub detail panel renders inline when a thread is selected via the thread list selection
-  // (not via a separate route). The thread list item being visible proves retention. // CS-GEN-003
-  const threadLink = page.getByTestId(`thread-link-${fixture.generalThreadId}`);
+  // Step 3: Click through to the general-thread route (/messages/[threadId])
+  // The ThreadList renders an <a href="/messages/{threadId}"> with data-testid="thread-link-{id}".
+  // We click the anchor directly (not the <li> wrapper) to trigger navigation.
+  const genThreadLink = page.getByTestId(`thread-link-${fixture.generalThreadId}`);
   await expect(
-    threadLink,
-    "[AC-MSG-002-03] Thread link must be present (general thread retained — AC-MSG-002-03)",
+    genThreadLink,
+    "[AC-MSG-002-02] General thread link must be present",
+  ).toBeVisible({ timeout: 5_000 });
+  await genThreadLink.click();
+
+  // Step 4: Assert we landed on /messages/[threadId] (the new route from TASK-017-011).
+  await page.waitForURL(
+    `**/messages/${fixture.generalThreadId}`,
+    { timeout: 15_000 },
+  );
+
+  // Step 5: Panel must be visible (data-testid from admin general-thread page)
+  const threadPanel = page.getByTestId("admin-general-thread-panel");
+  await expect(
+    threadPanel,
+    "[AC-MSG-002-02] Admin general thread panel must be visible after click-through",
+  ).toBeVisible({ timeout: 15_000 });
+
+  // Step 6: ThreadView must render the seeded client message (AC-MSG-002-03: ordered history)
+  const threadView = page.getByTestId("thread-view");
+  await expect(
+    threadView,
+    "[AC-MSG-002-03] Thread view must render message history",
   ).toBeVisible({ timeout: 10_000 });
+
+  // The client's seeded message must be visible (AC-MSG-002-03)
+  const seededMsg = page.getByTestId(`message-row-${fixture.generalThreadMessageId}`);
+  await expect(
+    seededMsg,
+    "[AC-MSG-002-03] Client's seeded message must be visible in the general thread view",
+  ).toBeVisible({ timeout: 10_000 });
+
+  // Step 7: GeneralMessageComposer must be present (AC-MSG-001-04: ACCOUNTANT can contribute)
+  const composer = page.getByTestId("message-composer");
+  await expect(
+    composer,
+    "[AC-MSG-001-04] GeneralMessageComposer must be visible so ACCOUNTANT can send in the general thread",
+  ).toBeVisible({ timeout: 5_000 });
+
+  const composerBody = page.getByTestId("composer-body");
+  await expect(
+    composerBody,
+    "[AC-MSG-001-04] Composer textarea must be present",
+  ).toBeVisible();
+
+  const sendButton = page.getByTestId("composer-send");
+  await expect(
+    sendButton,
+    "[AC-MSG-001-04] Send button must be present",
+  ).toBeVisible();
 
   await clearSession(page);
 });
@@ -1050,212 +1101,422 @@ test("AC-MSG-006-03 — archived thread stays fully readable after engagement co
 /**
  * AC-MSG-013-02 — Client sends → accountant notified (new-message notification in feed).
  *
- * Given a new-message notification seeded for ACCOUNTANT (as appendMessage would emit),
- * When the accountant navigates to any admin page,
- * Then the nav unread badge reflects the unread notification (AC-MSG-013-02).
- * And the DB row has correct attributes (recipientType=ACCOUNTANT, type=new_message).
+ * BUG-017-002: REAL emission path — the CLIENT sends a message via the portal UI,
+ * which drives sendMessageAction → appendMessage → emitNewMessageNotifications.
+ * The emitted notification carries the REAL linkedItemType/linkedItemId values.
+ * After BUG-017-002 fix: engagement thread → linkedItemType='engagement', linkedItemId=engagementId.
+ * The NotificationsIndicator renders a "View messages" link → /engagements/<id>/messages.
  *
- * DECISION: The NotificationsIndicator on /requests only renders notifications of types
- * in ACCOUNTANT_KNOWN_TYPES (new_engagement_request, onboarding_completed, document_uploaded).
- * The 'new_message' type is NOT in that set — it is a messaging-layer notification surfaced
- * via the AccountantNotificationBadgeServer (nav badge) and via the per-thread unread model.
- * We assert:
- *   1. The seeded notification exists in DB with correct ACCOUNTANT attributes.
- *   2. The admin nav badge (nav-unread-badge) is visible with a count > 0, confirming
- *      countUnreadNotifications() includes the new_message notification (unfiltered by type).
+ * This replaces the hand-seeded INSERT fixture (which seeded linkedItemType='engagement'
+ * directly — bypassing appendMessage entirely and masking the real emission mismatch).
  *
- * // AC-MSG-013-02 // ADR-005 // ADR-023 // CS-GEN-001 // CS-GEN-003
+ * Given: CLIENT and ACCOUNTANT users are seeded (via beforeAll fixtures).
+ *        The CLIENT has an engagement with an engagement thread.
+ * When:  The CLIENT sends a message via the portal UI (/engagements/<id>/messages).
+ *        (Drives the REAL sendMessageAction → appendMessage → emitNewMessageNotifications path.)
+ * Then:  A new_message Notification row is emitted for the ACCOUNTANT,
+ *        with linkedItemType='engagement' and linkedItemId=engagementId (BUG-017-002 fix).
+ *        The accountant navigates to /requests — the feed RENDERS the notification item
+ *        with data-notification-type="new_message" and an actionable "View messages" link
+ *        pointing to /engagements/<engagementId>/messages.
+ *
+ * CS-TS-003: portal → admin cross-surface flow. // CS-TS-003
+ * CS-GEN-002: additive — existing feed types unchanged. // CS-GEN-002
+ * BUG-017-002 // AC-MSG-013-02 // ADR-003 // ADR-005 // ADR-006 // ADR-023 // EPIC-016
+ * CS-GEN-001 // CS-GEN-003
  */
-test("AC-MSG-013-02 — client sends message → accountant receives new-message notification; client does not see it", async ({ page, request }) => {
+test("AC-MSG-013-02 — client sends message via portal UI → REAL emission → accountant feed renders with View messages link", async ({ page, request }) => {
   const pool = await getPool();
 
-  // Count existing ACCOUNTANT unread notifications BEFORE seeding (via admin pool)
-  const beforeResult = await pool.request().query<{ cnt: number }>(
-    `SELECT COUNT(*) AS cnt FROM [dbo].[Notification]
-     WHERE [recipientType] = N'ACCOUNTANT' AND [readAt] IS NULL`,
-  );
-  const countBefore = beforeResult.recordset[0]?.cnt ?? 0;
+  // ── Step 1: CLIENT sends a message via the portal UI (REAL sendMessageAction path) ──
+  // This is the key change from BUG-017-002: drive the REAL emission path,
+  // NOT an INSERT INTO Notification fixture that bypasses appendMessage.
+  //
+  // The portal URL: PORTAL_BASE_URL or http://localhost:3000 (both containers on same host).
+  // The CLIENT session is set up on the portal mock-session endpoint.
+  // CS-GEN-001: message body is not logged — no PII in testid or log. // CS-GEN-001
+  const PORTAL_URL = process.env["PORTAL_BASE_URL"] ?? "http://localhost:3000";
 
-  // Seed a new-message notification for ACCOUNTANT (recipient=ACCOUNTANT — as appendMessage emits)
-  const notifResult = await pool
-    .request()
-    .input("engagementId", fixture.engagementId)
-    .query<{ id: string }>(
-      `INSERT INTO [dbo].[Notification]
-         ([type], [title], [body], [recipientType], [recipientUserId],
-          [linkedItemType], [linkedItemId], [readAt])
-       OUTPUT INSERTED.[id]
-       VALUES (
-         N'new_message',
-         N'New message from client',
-         N'Client sent you a message in the engagement thread.',
-         N'ACCOUNTANT',
-         NULL,
-         N'engagement',
-         @engagementId,
-         NULL
-       )`,
+  // Record ACCOUNTANT unread count BEFORE sending (to verify the notification was created)
+  const countBeforeResult = await pool.request().query<{ cnt: number }>(
+    `SELECT COUNT(*) AS cnt FROM [dbo].[Notification]
+     WHERE [recipientType] = N'ACCOUNTANT' AND [type] = N'new_message' AND [readAt] IS NULL`,
+  );
+  const countBefore = countBeforeResult.recordset[0]?.cnt ?? 0;
+
+  // Set up CLIENT session on the portal (same localhost domain, shared cookie)
+  // and navigate to the engagement messages page to send a message.
+  // ADR-003: getClientIdentity() on the portal verifies the session before any DB write. // ADR-003
+  const PORTAL_BASE_URL = process.env["PORTAL_BASE_URL"] ?? "http://localhost:3000";
+  const portalSessionResp = await request.post(`${PORTAL_BASE_URL}/api/mock-session`, {
+    data: { clerkUserId: FIXTURE_CLIENT_CLERK_ID, role: "CLIENT" },
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!portalSessionResp.ok()) {
+    throw new Error(`[AC-MSG-013-02] Portal mock-session returned ${portalSessionResp.status()} — is AUTH_PROVIDER=mock set?`);
+  }
+  const setCookieHeader = portalSessionResp.headers()["set-cookie"];
+  if (!setCookieHeader) {
+    throw new Error("[AC-MSG-013-02] Portal mock-session did not return Set-Cookie header");
+  }
+  // Parse and inject the cookie (same domain = localhost for both apps)
+  const portalDomain = new URL(PORTAL_BASE_URL).hostname;
+  const cookieParts = setCookieHeader.split(";").map((p) => p.trim());
+  const [nameValue, ...cookieAttrs] = cookieParts;
+  const eqIdx = (nameValue ?? "").indexOf("=");
+  const cookieName = (nameValue ?? "").slice(0, eqIdx);
+  const cookieValue = (nameValue ?? "").slice(eqIdx + 1);
+  const cookieAttrMap: Record<string, string> = {};
+  for (const attr of cookieAttrs) {
+    const eqI = attr.indexOf("=");
+    cookieAttrMap[eqI === -1 ? attr.toLowerCase() : attr.slice(0, eqI).toLowerCase()] =
+      eqI === -1 ? "true" : attr.slice(eqI + 1);
+  }
+  await page.context().clearCookies(); // start fresh before injecting client cookie
+  await page.context().addCookies([{
+    name: cookieName,
+    value: cookieValue,
+    domain: portalDomain,
+    path: cookieAttrMap["path"] ?? "/",
+    httpOnly: "httponly" in cookieAttrMap,
+    sameSite: (cookieAttrMap["samesite"] as "Lax" | "Strict" | "None" | undefined) ?? "Lax",
+  }]);
+
+  // Navigate to the portal engagement messages page
+  await page.goto(`${PORTAL_URL}/engagements/${fixture.engagementId}/messages`);
+
+  // Wait for the composer to be visible (confirms the page loaded and client is authenticated)
+  const portalComposer = page.getByTestId("message-composer");
+  await expect(
+    portalComposer,
+    "[AC-MSG-013-02] Portal message composer must be visible (CLIENT authenticated)",
+  ).toBeVisible({ timeout: 20_000 });
+
+  // Type and send a message — this drives sendMessageAction → appendMessage → emitNewMessageNotifications
+  // CS-GEN-001: test body is a non-PII functional marker (not logged by the app). // CS-GEN-001
+  const composerBody = page.getByTestId("composer-body");
+  await composerBody.fill("BUG-017-002 real-path e2e test message");
+  const sendButton = page.getByTestId("composer-send");
+  await sendButton.click();
+
+  // Wait for the send to complete (composer clears or success indicator appears)
+  // The composer body should clear after a successful send (optimistic UI or server confirmation).
+  // Allow up to 10s for the server action to complete.
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="composer-body"]') as HTMLTextAreaElement | null;
+      return el && el.value === "";
+    },
+    { timeout: 10_000 },
+  ).catch(() => {
+    // Composer may not clear immediately in all UI implementations; proceed and check DB.
+  });
+
+  // ── Step 2: Verify the REAL notification was emitted via appendMessage ──────────
+  // Poll the DB (up to 8s) for the ACCOUNTANT new_message notification created by emitNewMessageNotifications.
+  // BUG-017-002: after the fix, the notification has linkedItemType='engagement', linkedItemId=engagementId.
+  let accountantNotifId: string | null = null;
+  let notifLinkedItemType: string | null = null;
+  let notifLinkedItemId: string | null = null;
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await new Promise((r) => setTimeout(r, 1_000));
+    const pollResult = await pool
+      .request()
+      .input("engagementId", fixture.engagementId)
+      .query<{ id: string; linkedItemType: string; linkedItemId: string }>(
+        `SELECT TOP 1 [id], [linkedItemType], [linkedItemId]
+         FROM [dbo].[Notification]
+         WHERE [recipientType] = N'ACCOUNTANT'
+           AND [type] = N'new_message'
+           AND [readAt] IS NULL
+           AND [linkedItemType] = N'engagement'
+           AND [linkedItemId] = @engagementId
+         ORDER BY [createdAt] DESC`,
+      );
+    if (pollResult.recordset[0]) {
+      accountantNotifId = pollResult.recordset[0].id.toLowerCase();
+      notifLinkedItemType = pollResult.recordset[0].linkedItemType;
+      notifLinkedItemId = pollResult.recordset[0].linkedItemId?.toLowerCase() ?? null;
+      break;
+    }
+  }
+
+  if (!accountantNotifId) {
+    throw new Error(
+      "[AC-MSG-013-02] BUG-017-002: appendMessage did NOT emit a new_message notification for ACCOUNTANT " +
+      "with linkedItemType='engagement' within 8s. The real emission path is broken.",
     );
-  const accountantNotifId = notifResult.recordset[0]?.id?.toLowerCase();
-  if (!accountantNotifId) throw new Error("[AC-MSG-013-02] Failed to seed accountant new_message notification");
+  }
 
   try {
-    // 1. Verify the notification row has correct DB attributes (recipientType=ACCOUNTANT, type=new_message)
-    const dbResult = await pool
-      .request()
-      .input("id", accountantNotifId)
-      .query<{ recipientType: string; type: string; linkedItemType: string; readAt: Date | null }>(
-        `SELECT [recipientType], [type], [linkedItemType], [readAt]
-         FROM [dbo].[Notification]
-         WHERE [id] = @id`,
-      );
-    const row = dbResult.recordset[0];
+    // ── Step 3: Assert the emitted notification has the CORRECT linkedItemType (BUG-017-002) ──
     expect(
-      row?.recipientType,
-      "[AC-MSG-013-02] Notification must be ACCOUNTANT-scoped",
-    ).toBe("ACCOUNTANT");
-    expect(
-      row?.type,
-      "[AC-MSG-013-02] Notification type must be new_message",
-    ).toBe("new_message");
-    expect(
-      row?.linkedItemType,
-      "[AC-MSG-013-02] Notification must link to the engagement",
+      notifLinkedItemType,
+      "[AC-MSG-013-02] BUG-017-002: notification MUST have linkedItemType='engagement' (not 'thread') for engagement threads",
     ).toBe("engagement");
     expect(
-      row?.readAt,
-      "[AC-MSG-013-02] Notification must start as unread",
-    ).toBeNull();
+      notifLinkedItemId,
+      "[AC-MSG-013-02] BUG-017-002: notification MUST have linkedItemId=engagementId",
+    ).toBe(fixture.engagementId);
 
-    // Verify the count increased by 1 (our seeded row is unread + ACCOUNTANT-scoped)
-    const afterResult = await pool.request().query<{ cnt: number }>(
+    // Verify the unread count increased for ACCOUNTANT (belt-and-suspenders)
+    const countAfterResult = await pool.request().query<{ cnt: number }>(
       `SELECT COUNT(*) AS cnt FROM [dbo].[Notification]
-       WHERE [recipientType] = N'ACCOUNTANT' AND [readAt] IS NULL`,
+       WHERE [recipientType] = N'ACCOUNTANT' AND [type] = N'new_message' AND [readAt] IS NULL`,
     );
-    const countAfter = afterResult.recordset[0]?.cnt ?? 0;
+    const countAfter = countAfterResult.recordset[0]?.cnt ?? 0;
     expect(
       countAfter,
-      "[AC-MSG-013-02] ACCOUNTANT unread count must increase by 1 after seeding the new_message notification",
-    ).toBe(countBefore + 1);
+      "[AC-MSG-013-02] ACCOUNTANT new_message unread count must increase after client sends",
+    ).toBeGreaterThan(countBefore);
 
-    // 2. ACCOUNTANT nav badge reflects the unread notification
-    // AccountantNotificationBadgeServer calls countUnreadNotifications() — unfiltered by type.
-    // Navigating to any admin page (e.g. /messages) triggers the server component.
+    // ── Step 4: ACCOUNTANT navigates to /requests — feed renders the notification ────
+    // Clear the client cookie and set up accountant session on admin.
+    await page.context().clearCookies();
     await setupAccountantSession(page, request, FIXTURE_ACCOUNTANT_CLERK_ID);
-    await page.goto(`${ADMIN_URL}/messages`);
+    await page.goto(`${ADMIN_URL}/requests`);
 
-    // The admin-messages-panel must load (confirming the page rendered under accountant session)
-    const panel = page.getByTestId("admin-messages-panel");
-    await expect(panel, "[AC-MSG-013-02] Messages panel must be visible under accountant session").toBeVisible({ timeout: 15_000 });
+    // The notifications-indicator panel must load
+    const notifIndicator = page.getByTestId("notifications-indicator");
+    await expect(
+      notifIndicator,
+      "[AC-MSG-013-02] NotificationsIndicator panel must be visible on /requests",
+    ).toBeVisible({ timeout: 15_000 });
 
-    // The nav unread badge must be visible (unread count > 0 — includes our new_message notification)
-    // data-testid: nav-unread-badge (AccountantNotificationBadgeClient)
+    // The notification item must render in the feed
+    // data-testid: notification-item-<id> with data-notification-type="new_message"
+    // BUG-017-002: this is now driven by the REAL emission, not a seeded fixture.
+    const feedItem = page.getByTestId(`notification-item-${accountantNotifId}`);
+    await expect(
+      feedItem,
+      "[AC-MSG-013-02] new_message notification item must RENDER in the accountant's feed (real emission path)",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const feedItemType = await feedItem.getAttribute("data-notification-type");
+    expect(
+      feedItemType,
+      "[AC-MSG-013-02] Feed item must have data-notification-type='new_message'",
+    ).toBe("new_message");
+
+    // ── Step 5: Assert the "View messages" link is present and resolves correctly ────
+    // BUG-017-002: the link must be present (not absent) because linkedItemType='engagement'.
+    // The NotificationsIndicator 'engagement' branch renders /engagements/<id>/messages.
+    const viewMessagesLink = page.getByTestId(`notification-link-${accountantNotifId}`);
+    await expect(
+      viewMessagesLink,
+      "[AC-MSG-013-02] BUG-017-002: 'View messages' link MUST be present — real emission path produces correct linkedItemType",
+    ).toBeVisible({ timeout: 5_000 });
+
+    const linkHref = await viewMessagesLink.getAttribute("href");
+    expect(
+      linkHref,
+      "[AC-MSG-013-02] BUG-017-002: 'View messages' link must point to /engagements/<engagementId>/messages",
+    ).toContain(`/engagements/${fixture.engagementId}/messages`);
+
+    // ── Step 6: Nav unread badge reflects the notification (belt-and-suspenders) ────
     const navBadge = page.getByTestId("nav-unread-badge");
     await expect(
       navBadge,
-      "[AC-MSG-013-02] Nav unread badge must be visible (ACCOUNTANT has at least one unread notification including new_message type)",
+      "[AC-MSG-013-02] Nav unread badge must be visible (ACCOUNTANT has at least one unread new_message)",
     ).toBeVisible({ timeout: 10_000 });
 
-    // The badge count must be > 0 (data-unread-count attribute set by AccountantNotificationBadgeClient)
     const unreadCount = await navBadge.getAttribute("data-unread-count");
     expect(
       Number(unreadCount),
-      "[AC-MSG-013-02] Nav badge must show unread count > 0 (new_message notification counted by getMyUnreadCountAction)",
+      "[AC-MSG-013-02] Nav badge must show unread count > 0",
     ).toBeGreaterThan(0);
 
     await clearSession(page);
-
-    // AC-MSG-013-02 (no cross-leak): The CLIENT cannot see this ACCOUNTANT-scoped notification.
-    // Full cross-leak assertion is in apps/portal/e2e/specs/messaging.spec.ts (AC-MSG-013-02 portal side).
-    // Here we confirm the DB row has recipientType=ACCOUNTANT (not CLIENT) — done above.
   } finally {
-    // Cleanup the seeded notification
-    await pool.request().input("id", accountantNotifId).query(
-      `DELETE FROM [dbo].[Notification] WHERE [id] = @id`,
-    ).catch(() => { /* ignore */ });
+    // Cleanup: delete the notification emitted by the real path
+    if (accountantNotifId) {
+      await pool.request().input("id", accountantNotifId).query(
+        `DELETE FROM [dbo].[Notification] WHERE [id] = @id`,
+      ).catch(() => { /* ignore */ });
+    }
+    // Also clean up any message rows inserted by the send action (avoid cross-test contamination)
+    await pool
+      .request()
+      .input("threadId", fixture.engagementThreadId)
+      .query(
+        `DELETE FROM [dbo].[Message]
+         WHERE [threadId] = @threadId
+           AND [senderClerkId] = '${FIXTURE_CLIENT_CLERK_ID}'
+           AND [body] = N'BUG-017-002 real-path e2e test message'`,
+      ).catch(() => { /* ignore */ });
   }
 });
 
 /**
  * AC-MSG-014-01 — Accountant sends → client notified (new-message notification in client feed).
  *
- * Given a new-message notification seeded for the CLIENT (as appendMessage would emit),
- * When checked via the admin pool that the notification row exists with recipientUserId=clientUserId,
- * Then we assert the row is correctly scoped (recipient-only, no accountant leak).
+ * BUG-017-002: REAL emission path — the ACCOUNTANT sends a message via the admin UI,
+ * which drives sendMessageAction → appendMessage → emitNewMessageNotifications.
+ * The emitted notification carries the REAL linkedItemType/linkedItemId values.
+ * After BUG-017-002 fix: engagement thread → linkedItemType='engagement', linkedItemId=engagementId.
  *
- * Note: Full end-to-end portal verification of the CLIENT notification feed for new_message
- * is exercised in apps/portal/e2e/specs/messaging.spec.ts (AC-MSG-014-01 portal side).
- * On the ADMIN surface, we verify the row was created with the correct CLIENT recipient
- * and that the ACCOUNTANT's feed does NOT contain a new-message notification for
- * their own send (no self-notification).
+ * This replaces the hand-seeded INSERT fixture (which bypassed appendMessage entirely
+ * and masked the real emission mismatch for general threads).
  *
- * // AC-MSG-014-01 // ADR-005 // ADR-023 // CS-GEN-001 // CS-GEN-003
+ * Given: CLIENT and ACCOUNTANT users are seeded (via beforeAll fixtures).
+ *        The engagement has an engagement thread.
+ * When:  The ACCOUNTANT sends a message via the admin UI (/engagements/<id>/messages).
+ *        (Drives the REAL sendMessageAction → appendMessage → emitNewMessageNotifications path.)
+ * Then:  A new_message Notification row is emitted for the CLIENT,
+ *        with linkedItemType='engagement' and linkedItemId=engagementId (BUG-017-002 fix).
+ *        The ACCOUNTANT's admin feed does NOT contain the CLIENT-scoped notification
+ *        (no self-notification; RLS scopes it to the CLIENT only).
+ *
+ * Note: Full portal-side verification (CLIENT sees the notification in /notifications)
+ *       is in apps/portal/e2e/specs/messaging.spec.ts (AC-MSG-014-01 portal side).
+ *
+ * CS-TS-003: admin → portal cross-surface flow. // CS-TS-003
+ * BUG-017-002 // AC-MSG-014-01 // ADR-003 // ADR-005 // ADR-006 // ADR-023 // EPIC-016
+ * CS-GEN-001 // CS-GEN-003
  */
-test("AC-MSG-014-01 — accountant sends message → client notification seeded correctly; accountant not self-notified", async ({ page, request }) => {
+test("AC-MSG-014-01 — accountant sends message via admin UI → REAL emission → client notification correct; accountant not self-notified", async ({ page, request }) => {
   const pool = await getPool();
 
-  // Seed a new-message notification for the CLIENT (recipient=CLIENT — as appendMessage emits)
-  const notifResult = await pool
-    .request()
-    .input("clientUserId", fixture.clientUserId)
-    .input("engagementId", fixture.engagementId)
-    .query<{ id: string }>(
-      `INSERT INTO [dbo].[Notification]
-         ([type], [title], [body], [recipientType], [recipientUserId],
-          [linkedItemType], [linkedItemId], [readAt])
-       OUTPUT INSERTED.[id]
-       VALUES (
-         N'new_message',
-         N'New message from your accountant',
-         N'Your accountant sent you a message.',
-         N'CLIENT',
-         @clientUserId,
-         N'engagement',
-         @engagementId,
-         NULL
-       )`,
+  // ── Step 1: ACCOUNTANT sends a message via the admin UI (REAL appendMessage path) ──
+  // This drives the REAL sendMessageAction → appendMessage → emitNewMessageNotifications path.
+  await setupAccountantSession(page, request, FIXTURE_ACCOUNTANT_CLERK_ID);
+  await page.goto(`${ADMIN_URL}/engagements/${fixture.engagementId}/messages`);
+
+  // Wait for the composer to be visible (confirms the page loaded and accountant is authenticated)
+  const adminComposer = page.getByTestId("message-composer");
+  await expect(
+    adminComposer,
+    "[AC-MSG-014-01] Admin message composer must be visible (ACCOUNTANT authenticated)",
+  ).toBeVisible({ timeout: 20_000 });
+
+  // Type and send a message
+  // CS-GEN-001: test body is a non-PII functional marker (not logged by the app). // CS-GEN-001
+  const composerBody = page.getByTestId("composer-body");
+  await composerBody.fill("BUG-017-002 accountant real-path e2e test message");
+  const sendButton = page.getByTestId("composer-send");
+  await sendButton.click();
+
+  // Wait for send to complete
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="composer-body"]') as HTMLTextAreaElement | null;
+      return el && el.value === "";
+    },
+    { timeout: 10_000 },
+  ).catch(() => {
+    // Composer may not clear immediately; proceed and check DB.
+  });
+
+  // ── Step 2: Poll DB for the CLIENT notification emitted by appendMessage ────────
+  // BUG-017-002: after the fix, the notification has linkedItemType='engagement', linkedItemId=engagementId.
+  let clientNotifId: string | null = null;
+  let notifLinkedItemType: string | null = null;
+  let notifLinkedItemId: string | null = null;
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await new Promise((r) => setTimeout(r, 1_000));
+    const pollResult = await pool
+      .request()
+      .input("clientUserId", fixture.clientUserId)
+      .input("engagementId", fixture.engagementId)
+      .query<{ id: string; linkedItemType: string; linkedItemId: string }>(
+        `SELECT TOP 1 [id], [linkedItemType], [linkedItemId]
+         FROM [dbo].[Notification]
+         WHERE [recipientType] = N'CLIENT'
+           AND [recipientUserId] = @clientUserId
+           AND [type] = N'new_message'
+           AND [readAt] IS NULL
+           AND [linkedItemType] = N'engagement'
+           AND [linkedItemId] = @engagementId
+         ORDER BY [createdAt] DESC`,
+      );
+    if (pollResult.recordset[0]) {
+      clientNotifId = pollResult.recordset[0].id.toLowerCase();
+      notifLinkedItemType = pollResult.recordset[0].linkedItemType;
+      notifLinkedItemId = pollResult.recordset[0].linkedItemId?.toLowerCase() ?? null;
+      break;
+    }
+  }
+
+  if (!clientNotifId) {
+    throw new Error(
+      "[AC-MSG-014-01] BUG-017-002: appendMessage did NOT emit a new_message notification for CLIENT " +
+      "with linkedItemType='engagement' within 8s. The real emission path is broken.",
     );
-  const clientNotifId = notifResult.recordset[0]?.id?.toLowerCase();
-  if (!clientNotifId) throw new Error("[AC-MSG-014-01] Failed to seed client new_message notification");
+  }
 
   try {
-    // AC-MSG-014-01 (no self-notify): Verify the ACCOUNTANT's admin feed does NOT contain
-    // a new-message notification for their own send (no self-notification).
-    await setupAccountantSession(page, request, FIXTURE_ACCOUNTANT_CLERK_ID);
+    // ── Step 3: Assert the emitted notification has the CORRECT linkedItemType (BUG-017-002) ──
+    expect(
+      notifLinkedItemType,
+      "[AC-MSG-014-01] BUG-017-002: notification MUST have linkedItemType='engagement' for engagement threads",
+    ).toBe("engagement");
+    expect(
+      notifLinkedItemId,
+      "[AC-MSG-014-01] BUG-017-002: notification MUST have linkedItemId=engagementId",
+    ).toBe(fixture.engagementId);
+
+    // ── Step 4: The ACCOUNTANT's feed must NOT contain the CLIENT-scoped notification ─
+    // (AC-MSG-014-01 no-self-notify: RLS scopes the CLIENT notification to the client only)
+    // The accountant is still logged in — navigate to /requests and check the feed.
     await page.goto(`${ADMIN_URL}/requests`);
 
-    // The accountant-scoped notification feed must NOT contain the client-scoped notification
-    // (it has recipientType='CLIENT', so the ACCOUNTANT's RLS filter should NOT return it)
-    const clientNotifItem = page.getByTestId(`notification-item-${clientNotifId}`);
+    const notifIndicator = page.getByTestId("notifications-indicator");
     await expect(
-      clientNotifItem,
-      "[AC-MSG-014-01] Client-scoped notification must NOT appear in the accountant's feed (no self-notification, no cross-leak)",
+      notifIndicator,
+      "[AC-MSG-014-01] NotificationsIndicator panel must be visible on /requests",
+    ).toBeVisible({ timeout: 15_000 });
+
+    const clientNotifInAdminFeed = page.getByTestId(`notification-item-${clientNotifId}`);
+    await expect(
+      clientNotifInAdminFeed,
+      "[AC-MSG-014-01] CLIENT-scoped notification must NOT appear in the accountant's feed (no self-notification, no cross-leak)",
     ).not.toBeVisible({ timeout: 5_000 });
 
-    // Verify the CLIENT notification was correctly scoped (recipientType='CLIENT', correct userId)
-    // by querying it back from the DB
+    // ── Step 5: DB verification — CLIENT notification has correct recipient ────────
     const verifyResult = await pool
       .request()
       .input("id", clientNotifId)
-      .query<{ recipientType: string; recipientUserId: string }>(
-        `SELECT [recipientType], [recipientUserId]
+      .query<{ recipientType: string; recipientUserId: string; linkedItemType: string; linkedItemId: string }>(
+        `SELECT [recipientType], [recipientUserId], [linkedItemType], [linkedItemId]
          FROM [dbo].[Notification]
          WHERE [id] = @id`,
       );
     const row = verifyResult.recordset[0];
     expect(
       row?.recipientType,
-      "[AC-MSG-014-01] Notification must be CLIENT-scoped",
+      "[AC-MSG-014-01] Notification must be CLIENT-scoped (not ACCOUNTANT)",
     ).toBe("CLIENT");
     expect(
       row?.recipientUserId?.toLowerCase(),
       "[AC-MSG-014-01] Notification must be for the specific client userId",
     ).toBe(fixture.clientUserId);
+    expect(
+      row?.linkedItemType,
+      "[AC-MSG-014-01] BUG-017-002: CLIENT notification must have linkedItemType='engagement'",
+    ).toBe("engagement");
+    expect(
+      row?.linkedItemId?.toLowerCase(),
+      "[AC-MSG-014-01] BUG-017-002: CLIENT notification must have linkedItemId=engagementId",
+    ).toBe(fixture.engagementId);
 
     await clearSession(page);
   } finally {
-    await pool.request().input("id", clientNotifId).query(
-      `DELETE FROM [dbo].[Notification] WHERE [id] = @id`,
-    ).catch(() => { /* ignore */ });
+    if (clientNotifId) {
+      await pool.request().input("id", clientNotifId).query(
+        `DELETE FROM [dbo].[Notification] WHERE [id] = @id`,
+      ).catch(() => { /* ignore */ });
+    }
+    // Clean up the accountant message row inserted by the send action
+    await pool
+      .request()
+      .input("threadId", fixture.engagementThreadId)
+      .query(
+        `DELETE FROM [dbo].[Message]
+         WHERE [threadId] = @threadId
+           AND [senderClerkId] = '${FIXTURE_ACCOUNTANT_CLERK_ID}'
+           AND [body] = N'BUG-017-002 accountant real-path e2e test message'`,
+      ).catch(() => { /* ignore */ });
   }
 });

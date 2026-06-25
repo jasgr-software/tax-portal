@@ -507,6 +507,180 @@ export {
   purgeEngagement,
 } from "./repositories/purge.js";
 
+// Thread repository (EPIC-017 / TASK-017-002 — per-engagement + general messaging spine)
+//
+// Write functions (admin pool — server-authoritative):
+//   getOrCreateEngagementThread  — idempotent: gets or creates the one engagement thread.
+//     Concurrent calls yield exactly one thread (@@unique[engagementId] + catch-and-re-read).
+//     AC-MSG-001-01.
+//   createGeneralThread          — accountant-initiated direct thread for a client (kind='general').
+//     AC-MSG-006-01.
+//   archiveEngagementThread      — idempotent: flips Thread.status='archived' when engagement closes.
+//     TASK-017-007: wired additively inside transitionEngagementStatus post-commit Complete block.
+//     ADR-018 tier-3: archive = state flip, NOT delete; threads retained indefinitely.
+//     AC-MSG-006-01/-02/-03.
+//
+// Read functions (request pool — RLS-governed via sec.pol_Thread):
+//   getThreadForEngagement       — returns the thread for an engagement, or null if absent.
+//     AC-MSG-001-02: visible only to participants (RLS is the gate).
+//   getGeneralThreadsForClient   — returns general threads for a given clientUserId.
+//     AC-MSG-006-01/-02: visible only to that client + accountant (RLS is the gate).
+//   listThreadMessages           — returns messages ordered by createdAt ASC (request pool).
+//     Body is returned verbatim — no transformation (AC-MSG-003-01/-02).
+//     AC-MSG-001-03 / AC-MSG-002-03.
+//
+// DECISION-017-002-A: reads do NOT add a WHERE clause on top of RLS (policy is the boundary).
+//   Critically: archived threads are NOT filtered by status in the read path (AC-MSG-006-03).
+// DECISION-017-002-B: getOrCreateEngagementThread catches SQL Server unique-violation (2627/2601)
+//   and re-reads — the @@unique index is the sole constraint enforcement point.
+// DECISION-017-007-A: archivedAt stamped via SYSDATETIMEOFFSET() at DB level in archiveEngagementThread.
+//
+// CS-TS-001: request-pool reads go through the db wrapper (SESSION_CONTEXT).
+// CS-TS-002: admin pool via getAdminPool() inside packages/db only.
+// CS-GEN-001: message bodies must not be logged.
+// CS-GEN-002: additive — new repository; no existing export removed or narrowed. // CS-GEN-002
+// CS-GEN-003: governing keys cited in source and here. // CS-GEN-003
+export type {
+  ThreadItem,
+  MessageItem,
+  GetOrCreateEngagementThreadInput,
+  CreateGeneralThreadInput,
+} from "./repositories/thread.js";
+export {
+  // AC-MSG-001-01: idempotent get-or-create (admin pool, concurrent-safe)
+  getOrCreateEngagementThread,
+  // AC-MSG-006-01: accountant-initiated general thread (admin pool)
+  createGeneralThread,
+  // TASK-017-007 / AC-MSG-006-01/-02/-03: archive engagement thread on close (admin pool, idempotent)
+  // ADR-018 tier-3: state flip only; threads retained indefinitely.
+  archiveEngagementThread,
+  // AC-MSG-001-02: request pool read — sec.pol_Thread FILTER is the gate
+  getThreadForEngagement,
+  // AC-MSG-002-02/-003 / AC-MSG-001-04: general-thread read by Thread.id (request pool, RLS-governed)
+  // IDOR gate: non-participant resolving another client's threadId gets null (DECISION-017-002-A).
+  // Used by /messages/[threadId] route on both surfaces (TASK-017-011). // CS-TS-001 // ADR-005
+  getThreadById,
+  // AC-MSG-006-01/-02: request pool read — general threads for a client
+  getGeneralThreadsForClient,
+  // AC-MSG-001-03 / AC-MSG-002-03: ordered message history (request pool, verbatim body)
+  listThreadMessages,
+} from "./repositories/thread.js";
+
+// Message repository (EPIC-017 / TASK-017-002 + TASK-017-003 — server-authoritative message append)
+//
+// appendMessage — ADMIN POOL write; inserts a Message row with verbatim body.
+//   Returns { id, threadId } so the attachment task (TASK-017-004) can relate rows.
+//   Body is stored VERBATIM — no server-side transform (AC-MSG-003-01/-02 / REQ-MSG-003).
+//   CS-GEN-001: body must never be logged.
+//   AC-MSG-002-01/-02: message appended with sender + plain-text body.
+// TASK-017-003 additive: after INSERT, emits recipient-only new-message notifications:
+//   AC-MSG-013-02: CLIENT sender → ACCOUNTANT notified; sender not notified.
+//   AC-MSG-014-01: ACCOUNTANT sender → CLIENT(s) notified; sender not notified.
+//   CS-GEN-002: additive post-write; appendMessage signature unchanged.
+//
+// CS-TS-002: admin pool via getAdminPool() inside packages/db only.
+// CS-GEN-002: additive — new repository; no existing export removed or narrowed. // CS-GEN-002
+// CS-GEN-003: governing keys cited in source and here. // CS-GEN-003
+export type {
+  AppendMessageInput,
+  AppendMessageResult,
+} from "./repositories/message.js";
+export {
+  // AC-MSG-002-01/-02 / AC-MSG-003-01/-02: append plain-text message (admin pool, verbatim body)
+  // AC-MSG-013-02 / AC-MSG-014-01: recipient-only new-message notification emitted post-write
+  appendMessage,
+} from "./repositories/message.js";
+
+// ThreadReadState repository (EPIC-017 / TASK-017-003 + TASK-017-005 — per-viewer watermark + unread read-model)
+//
+// markThreadRead — REQUEST POOL upsert; sets lastReadAt = now for the current SESSION_CONTEXT viewer.
+//   The BLOCK predicate on sec.pol_ThreadReadState enforces own-row-only writes.
+//   A viewer can only upsert their own (threadId, userId) watermark row.
+//   Must be called inside withRequestContext() / withClerkIdentity().
+//   AC-MSG-005-04: viewer's unread indicator is cleared by setting lastReadAt = now.
+//
+// listThreadsWithUnread — REQUEST POOL read; returns all threads visible to the SESSION_CONTEXT viewer
+//   (sec.pol_Thread FILTER is the gate; no extra WHERE added — DECISION-017-002-A), each decorated
+//   with a derived `hasUnread` boolean (DECISION-017-005-A / DECISION-017-A).
+//   hasUnread = EXISTS(message m WHERE m.createdAt > viewer.lastReadAt AND m.senderClerkId <> viewer)
+//   A viewer with no ThreadReadState row yet and messages from others → hasUnread=true (initial state).
+//   Per-viewer: each caller's SESSION_CONTEXT resolves their own read state independently.
+//   Covers both 'engagement' and 'general' thread kinds uniformly (AC-MSG-005-02).
+//   Must be called inside withRequestContext() / withClerkIdentity().
+//   AC-MSG-005-01/-02/-03/-04.
+//
+// CS-TS-001: request pool via db wrapper (SESSION_CONTEXT set by middleware). // CS-TS-001
+// ADR-003: SESSION_CONTEXT propagated via withRequestContext / withClerkIdentity. // ADR-003
+// ADR-005: sec.pol_Thread / sec.pol_ThreadReadState are the enforcement boundaries. // ADR-005
+// CS-GEN-001: message bodies never selected or returned — only createdAt/senderClerkId touched. // CS-GEN-001
+// CS-GEN-002: additive — new types + function; no existing export removed or narrowed. // CS-GEN-002
+// CS-GEN-003: governing keys cited in source and here. // CS-GEN-003
+export type {
+  MarkThreadReadResult,
+  // EPIC-017 / TASK-017-005: per-viewer unread read-model type (AC-MSG-005-01/-02/-03/-04)
+  ThreadWithUnread,
+} from "./repositories/thread-read.js";
+export {
+  // AC-MSG-005-04: set per-viewer lastReadAt watermark (request pool, own-row RLS-governed)
+  markThreadRead,
+  // AC-MSG-005-01/-02/-03/-04: per-viewer unread read-model (request pool, RLS-governed)
+  listThreadsWithUnread,
+} from "./repositories/thread-read.js";
+
+// MessageAttachment repository (EPIC-017 / TASK-017-004 — scan-before-available + participant-scoped signed-URL)
+//
+// storeAndScanAttachment — ADMIN POOL: put bytes → scan → promote active/infected/stay-pending.
+//   Reuses EPIC-007 FileScanner + EPIC-013 validateUploadedBytes / MAX_FILE_SIZE_BYTES seams.
+//   REQ-NFR-009: scan-before-available gate — only 'clean' verdict promotes to 'active'.
+//   'indeterminate' → stays 'pending' (fail-closed; NOT a pass). 'infected' → terminal.
+//
+// authorizeThenSignAttachment — REQUEST POOL (RLS): resolve attachment + assert participant +
+//   status='active', then sign the SERVER-RESOLVED storage key. Never signs a caller-supplied key.
+//   IDOR defence (EPIC-013 lesson): attachmentId → RLS resolve → assert participant → mint.
+//   ADR-008/-009: TTL-capped; authorize-before-mint; URL NEVER logged (CS-GEN-001).
+//
+// listMessageAttachments — REQUEST POOL: list attachments for a message (RLS sec.pol_MessageAttachment).
+//
+// AC-MSG-004-01/-02/-03/-04/-05. ADR-008/-009/-021. REQ-NFR-009. CS-GEN-001.
+// CS-GEN-002: additive — new repository; no existing export removed or narrowed. // CS-GEN-002
+// CS-GEN-003: governing keys cited in source and here. // CS-GEN-003
+export type {
+  MessageAttachmentItem,
+  StoreAndScanAttachmentInput,
+  StoreAndScanAttachmentResult,
+  AuthorizeThenSignAttachmentInput,
+  AuthorizeThenSignAttachmentResult,
+} from "./repositories/message-attachment.js";
+export {
+  // AC-MSG-004-01 / AC-MSG-004-05: store bytes + scan-before-available gate (admin pool)
+  storeAndScanAttachment,
+  // AC-MSG-004-03: participant-scoped signed-URL retrieval (request pool, RLS IDOR-defended)
+  authorizeThenSignAttachment,
+  // AC-MSG-004-02: list attachments visible to the current participant (request pool)
+  listMessageAttachments,
+} from "./repositories/message-attachment.js";
+
+// Client read model (EPIC-017 / TASK-017-010 — listClients for admin StartGeneralThread selector)
+//
+// listClients — admin pool, RLS-exempt: distinct CLIENT users (User.role='CLIENT') reachable
+//   via Engagement.clientUserId, with display identity joined from EngagementRequest.
+//   Mirrors listEngagementsForAdmin join shape (User → Engagement → EngagementRequest).
+//   DECISION-E: names live on EngagementRequest, NOT on the User model.
+//   ADMIN SURFACE ONLY — apps/portal has no client-listing path (ADR-006).
+//   Returns empty array when no clients exist (or no non-null clientUserId Engagements).
+//
+// AC-MSG-002-01: populates the StartGeneralThread selector (accountant can pick a client).
+// AC-MSG-002-02: the resulting thread is associated with the chosen client.
+// ADR-003 §7: admin pool — RLS-exempt for accountant-surface reads.
+// ADR-006: admin surface only.
+// CS-GEN-001: names/emails NEVER logged.
+// CS-GEN-002: additive — new export; no existing export removed or narrowed.
+export type { ClientItem } from "./repositories/client.js";
+export {
+  // AC-MSG-002-01: admin pool read for the StartGeneralThread selector (accountant-only)
+  listClients,
+} from "./repositories/client.js";
+
 // Onboarding completion engine (EPIC-008 / TASK-008-001)
 // isOnboardingComplete           — pure predicate: true iff all three step done flags are true
 //                                  (AC-ONBD-005-01/-02). Consumes OnboardingReadModel from onboarding.ts.

@@ -52,7 +52,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getNotificationTransport } from "@tax-portal/realtime";
 // F5: identity helpers extracted to shared _lib to eliminate verbatim duplication
 // between stream/route.ts and emit-test/route.ts. // CS-TS-004 // CS-TS-001 // CS-TS-002
-import { resolveClientIdentity, lookupUserDbId } from "../_lib/notification-identity.js";
+import { resolveClientIdentity, lookupUserDbId } from "../_lib/notification-identity";
 
 /**
  * Only active when ALLOW_MOCK_REALTIME=true AND NODE_ENV !== 'production'.

@@ -1,0 +1,44 @@
+-- db/migrations/0007-messaging-policies.sql
+-- Track B: raw SQL migration — ADR-005 §2/§3, ADR-002
+-- Applied by: scripts/db-migrate.ts (Track B step — after Track A Prisma migrations)
+--
+-- Applies the four raw-SQL policy changes for BRIEF-017 / TASK-017-001:
+--   1. db/policies/0014-thread-policy.sql — new RLS policy for Thread
+--   2. db/policies/0015-message-policy.sql — new RLS policy for Message
+--   3. db/policies/0016-message-attachment-policy.sql — new RLS policy for MessageAttachment
+--   4. db/policies/0017-thread-read-state-policy.sql — new RLS policy for ThreadReadState
+--
+-- NOTE: This migration file does NOT contain the policy SQL inline — the policies live in
+-- db/policies/ (idempotent, re-applicable) and are applied by scripts/db-migrate.ts via the
+-- Track B policies runner. This file exists in db/migrations/ to document the dependency order:
+--   Thread / Message / MessageAttachment / ThreadReadState tables (Track A) MUST exist
+--   before the four messaging policies can be applied.
+--
+-- CS-SQL-001: Thread, Message, MessageAttachment, ThreadReadState are client-scoped tables
+--             → each ships a dedicated security policy (0014–0017) AND a dedicated isolation test.
+-- CS-SQL-002: raw SQL track for the security policies only; the entity tables are Track A (Prisma).
+-- CS-SQL-003: predicates are inline TVFs, shallow, admin/accountant-first, fail-closed.
+-- CS-GEN-002: additive — 0014–0017 are new policies; no existing policy altered destructively.
+-- CS-GEN-003: governing keys cited in policy files and tests.
+--
+-- DECISION-017-A (binding spec):
+--   Thread.kind: 'engagement' | 'general' (CHECK in 0014).
+--   Exactly one of {engagementId, clientUserId} is non-null per Thread row (CHECK in 0014).
+--   Thread.status: 'active' | 'archived' (CHECK in 0014).
+--   MessageAttachment.status: 'pending' | 'active' | 'infected' (CHECK in 0016 — ADR-009).
+--   ThreadReadState.@@unique([threadId, userId]) — per-viewer last-read watermark.
+--
+-- Idempotent: the policies (0014–0017) use CREATE OR ALTER FUNCTION + DROP IF EXISTS / CREATE.
+-- Re-applying this migration (pnpm db:policies:apply) is safe.
+--
+-- Applied as part of: pnpm db:migrate (Track B policies runner applies 0014–0017 in order)
+
+-- This migration is a marker/documentation file only.
+-- The actual DDL for the security policies lives in:
+--   db/policies/0014-thread-policy.sql              (idempotent CREATE OR ALTER)
+--   db/policies/0015-message-policy.sql             (idempotent CREATE OR ALTER)
+--   db/policies/0016-message-attachment-policy.sql  (idempotent CREATE OR ALTER)
+--   db/policies/0017-thread-read-state-policy.sql   (idempotent CREATE OR ALTER)
+-- All four are applied by scripts/db-migrate.ts Track B policies runner.
+SELECT 1 AS [rls_migration_marker]; -- no-op batch to satisfy the GO-split runner
+GO

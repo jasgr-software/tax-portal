@@ -58,13 +58,42 @@ function adaptToFeedItem(n: NotificationItem): NotificationFeedItem {
  *   apps/portal (engagements, documents). Cross-app links (admin items) are handled by
  *   TASK-016-007. For this task, portal-known item types are routed here. Unknown types
  *   return null (no link rendered). // ADR-010 // DECISION-016-005-B
+ *
+ * BUG-017-002 (Option A): new_message notifications require type-aware routing.
+ *   The emission (packages/db message.ts) encodes thread kind in linkedItemType:
+ *     linkedItemType='engagement' → engagement thread → /engagements/<engagementId>/messages
+ *     linkedItemType='thread'     → general thread    → /messages/<threadId>
+ *   Without this fix, the 'engagement' case routed to /engagements/<id> (missing /messages),
+ *   and the 'thread' case fell through to the default (no link). Both are now handled.
+ *   CS-GEN-002: additive — non-new_message item types resolved identically. // CS-GEN-002
+ *   CS-TS-003: cross-surface parity with admin NotificationsIndicator link routing. // CS-TS-003
+ *   BUG-017-002 // AC-MSG-013-02 // AC-MSG-014-01 // ADR-006 // EPIC-016 // CS-GEN-003
  */
 function resolvePortalHref(item: NotificationFeedItem): string | null {
   if (!item.linkedItemId) return null;
 
+  // BUG-017-002: new_message notifications route to the messages sub-area, not the
+  // engagement root. Thread kind is encoded in linkedItemType by the emission layer.
+  // CS-TS-003: matches admin NotificationsIndicator routing for new_message. // CS-TS-003
+  if (item.type === "new_message") {
+    if (item.linkedItemType === "engagement") {
+      // Engagement-thread new_message → /engagements/<engagementId>/messages
+      // AC-MSG-014-01: accountant sends → client navigates to the engagement thread.
+      // BUG-017-002: emission sets linkedItemType='engagement', linkedItemId=engagementId.
+      return `/engagements/${item.linkedItemId}/messages`;
+    }
+    if (item.linkedItemType === "thread") {
+      // General-thread new_message → /messages/<threadId>
+      // AC-MSG-013-02 / AC-MSG-014-01: general thread; linkedItemType='thread' by emission.
+      // BUG-017-002: emission sets linkedItemType='thread', linkedItemId=threadId.
+      return `/messages/${item.linkedItemId}`;
+    }
+    return null; // defensive — should not occur with the fixed emission
+  }
+
   switch (item.linkedItemType) {
     case "engagement":
-      // Link to the engagement detail page
+      // Non-new_message engagement links → engagement detail page (status changes etc.)
       return `/engagements/${item.linkedItemId}`;
     case "document":
       // DECISION: document links need the engagement id context; for now, link to

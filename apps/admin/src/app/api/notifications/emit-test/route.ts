@@ -32,7 +32,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getNotificationTransport } from "@tax-portal/realtime";
 // F5: identity helper extracted to shared _lib to eliminate verbatim duplication
 // between stream/route.ts and emit-test/route.ts. // CS-TS-004 // ADR-010
-import { resolveAccountantIdentity } from "../_lib/notification-identity.js";
+import { resolveAccountantIdentity } from "../_lib/notification-identity";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

@@ -31,6 +31,14 @@
  *   - CS-GEN-002: additive — does not fork the status machine; existing tests unaffected.
  *   - DECISION-014-F: completedAt is set additively inside the same withAuditTransaction context.
  *
+ * EPIC-017 (TASK-017-007): Wire archive-on-close additively into transitionEngagementStatus.
+ *   - When toStatus='Complete' and the transition succeeds, call archiveEngagementThread to flip
+ *     Thread.status='archived', archivedAt=SYSDATETIMEOFFSET() (idempotent — WHERE status='active').
+ *   - ADR-018 tier-3: indefinite retention — archive is a state flip, NOT a delete.
+ *   - AC-MSG-006-01/-02/-03: thread + all messages retained; archived thread stays readable.
+ *   - CS-GEN-002: additive — byte-preserves existing setEngagementCompleted + emitAndPublishNotification calls.
+ *   - DECISION-017-007-A: archivedAt is stamped via SYSDATETIMEOFFSET() at the DB level.
+ *
  * EPIC-011 (TASK-011-002): Added engagement-attribute seams + notes read seam.
  *   - setEngagementDueDate     — accountant-only guarded UPDATE (ADR-003, ADR-019, DECISION-011-D)
  *   - setEngagementPriority    — accountant-only flag/unflag (ADR-003, ADR-019, DECISION-011-D)
@@ -93,6 +101,10 @@ import { setEngagementCompleted } from "./retention.js";
 // CS-GEN-002: additive import; no existing export removed or narrowed. // CS-GEN-002
 // ADR-023: real-time publish via getNotificationTransport() selector inside emitAndPublishNotification. // ADR-023
 import { emitAndPublishNotification } from "./notification.js";
+// EPIC-017 / TASK-017-007: archive-on-close — flip Thread.status='archived' when engagement reaches Complete.
+// ADR-018 tier-3: indefinite retention; archive is a state flip, NOT a delete (AC-MSG-006-01/-02/-03).
+// CS-GEN-002: additive import; no existing export removed or narrowed. // CS-GEN-002
+import { archiveEngagementThread } from "./thread.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
 
@@ -893,6 +905,16 @@ export async function transitionEngagementStatus(
       actor: input.actor,
       sourceSurface: input.sourceSurface,
     });
+
+    // EPIC-017 / TASK-017-007: Archive the engagement thread when the engagement reaches Complete.
+    // Additive: runs alongside setEngagementCompleted (same post-commit block, same guard).
+    // archiveEngagementThread is idempotent (WHERE status='active') — re-archiving is a no-op.
+    // ADR-018 tier-3: archive = state flip only — no messages or thread rows are deleted.
+    // AC-MSG-006-01: all message rows retained. AC-MSG-006-02/-03: archived thread stays readable.
+    // CS-GEN-002: additive — existing setEngagementCompleted + emitAndPublishNotification calls byte-preserved.
+    // // ADR-018 // ADR-003 // ADR-019 // CS-GEN-002 // CS-GEN-003 // EPIC-010 // EPIC-017
+    // // AC-MSG-006-01 // AC-MSG-006-02 // AC-MSG-006-03
+    await archiveEngagementThread(input.engagementId);
   }
 
   // EPIC-016 / TASK-016-004: AC-MSG-014-03 — emit a CLIENT notification on status change.

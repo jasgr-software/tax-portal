@@ -146,6 +146,14 @@ model User {
   // EPIC-016 / TASK-016-001: Reverse relation — notifications addressed to this User as CLIENT.
   // CS-GEN-002: additive — new relation; no existing column removed or altered.
   receivedNotifications Notification[] @relation("NotificationRecipient")
+  // EPIC-017 (BRIEF-017 / TASK-017-001): Reverse relation — general threads where this User is the associated client.
+  // RLS policy: sec.pol_Thread (Track B: db/policies/0014-thread-policy.sql).
+  // CS-GEN-002: additive — new relation; no existing column removed or altered.
+  generalThreads        Thread[] @relation("ClientThreads")
+  // EPIC-017 (BRIEF-017 / TASK-017-001): Reverse relation — per-viewer thread read states.
+  // RLS policy: sec.pol_ThreadReadState (Track B: db/policies/0017-thread-read-state-policy.sql).
+  // CS-GEN-002: additive — new relation; no existing column removed or altered.
+  threadReadStates      ThreadReadState[] @relation("UserReadStates")
 
   @@map("User")
 }
@@ -253,6 +261,11 @@ model Engagement {
   // AC-FILE-014-01: accountant can place a hold on an individual engagement.
   // CS-GEN-002: additive — new relation; no existing column removed or altered.
   legalHolds            LegalHold[] @relation("EngagementHolds")
+  // EPIC-017 (BRIEF-017 / TASK-017-001): Reverse relation — one engagement thread per engagement (AC-MSG-001-01).
+  // RLS policy: sec.pol_Thread (Track B: db/policies/0014-thread-policy.sql).
+  // @@unique([engagementId]) on Thread enforces the one-thread-per-engagement invariant.
+  // CS-GEN-002: additive — new relation; no existing column removed or altered.
+  thread                Thread?
 
   @@map("Engagement")
 }
@@ -714,6 +727,220 @@ model Notification {
   linkedItemId        String?   @db.UniqueIdentifier
 
   @@map("Notification")
+}
+
+// ─── Thread ───────────────────────────────────────────────────────────────────
+// Messaging thread — the container for a conversation within or about an engagement.
+// Two kinds (DECISION-017-A): 'engagement' (one-per-engagement, bound to Engagement)
+//   and 'general' (a direct thread between the accountant and a specific client).
+//
+// CLIENT-SCOPED AND CLIENT-ISOLATED:
+//   - engagement thread: a participant (owner OR EngagementParticipant) can read their thread.
+//   - general thread:   the associated client (Thread.clientUserId → User.clerkId) can read their thread.
+//   - ACCOUNTANT reads all threads; admin pool is always RLS-exempt.
+//   Security policy: sec.pol_Thread (Track B: db/policies/0014-thread-policy.sql).
+//
+// ADR-002: UNIQUEIDENTIFIER PK with NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+//
+// DECISION-017-A (binding spec):
+//   kind: 'engagement' | 'general' — CHECK in Track B.
+//   Exactly one of {engagementId, clientUserId} is non-null (CHECK in Track B).
+//   @@unique([engagementId]) enforces one-thread-per-engagement for kind='engagement'.
+//   status: 'active' | 'archived' — CHECK in Track B, default 'active'.
+//   archivedAt: NULL = active; non-NULL = archived timestamp.
+//
+// FK → Engagement: set when kind='engagement'; NULL when kind='general'.
+//   onDelete: NoAction — never cascade-delete a thread when the engagement is removed.
+//   onUpdate: NoAction — Prisma cyclic-cascade guard (multi-path through Engagement).
+// FK → User (clientUserId): set when kind='general'; NULL when kind='engagement'.
+//   This is the USER who the general thread is with — not the engagement owner.
+//   onDelete: NoAction — never cascade-delete a thread when the user is removed.
+//   onUpdate: NoAction — Prisma cyclic-cascade guard.
+//
+// Engagement-thread CLIENT branch reuses fn_engagement_access participant logic (CS-SQL-003).
+// General-thread CLIENT branch: Thread.clientUserId → User.clerkId = SESSION_CONTEXT.
+//
+// CS-SQL-001: ships sec.pol_Thread + thread.client-isolation.rls.test.ts (HARD GATE). // CS-SQL-001
+// CS-SQL-002: RLS policy lives in Track B (db/policies/0014); table is Track A. // CS-SQL-002
+// CS-SQL-003: predicate is inline TVF, shallow, admin/accountant-first, fail-closed. // CS-SQL-003
+// CS-GEN-002: additive — new table; no existing model removed or altered. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// AC-MSG-001-01: one Thread per engagement (@@unique[engagementId]).
+// AC-MSG-001-02: thread visible only to participants (policy substrate).
+// AC-MSG-006-01: general thread per client↔accountant (general kind).
+// AC-MSG-006-02: general thread visible only to that client + accountant (policy substrate).
+// ADR-005: all client-scoped tables have RLS FILTER + BLOCK.
+// ADR-003: SESSION_CONTEXT('clerk_user_id') is the identity key.
+
+model Thread {
+  id            String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // Thread kind discriminator: 'engagement' | 'general' — CHECK in Track B (0014).
+  // DECISION-017-A: kind-column over separate tables (bounded IO discretion).
+  kind          String    @db.NVarChar(20)
+  // FK → Engagement — set when kind='engagement'; NULL when kind='general'.
+  // @@unique enforces one-thread-per-engagement for kind='engagement' (AC-MSG-001-01).
+  // onUpdate: NoAction — Prisma cyclic-cascade guard (multi-path through Engagement → EngagementRequest).
+  engagementId  String?   @db.UniqueIdentifier
+  engagement    Engagement? @relation(fields: [engagementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // FK → User — the CLIENT the general thread is associated with (kind='general').
+  // NULL when kind='engagement'.
+  // onDelete: NoAction — never cascade-delete a thread when the user is removed.
+  // onUpdate: NoAction — Prisma cyclic-cascade guard.
+  clientUserId  String?   @db.UniqueIdentifier
+  clientUser    User?     @relation("ClientThreads", fields: [clientUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Status: 'active' | 'archived' — CHECK in Track B (0014). Default 'active'.
+  // archivedAt: NULL = active; non-NULL = timestamp when thread was archived.
+  status        String    @default("active") @db.NVarChar(20)
+  archivedAt    DateTime? @db.DateTimeOffset
+  createdAt     DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt     DateTime  @updatedAt @db.DateTimeOffset
+
+  // Reverse relations
+  messages      Message[]
+  readStates    ThreadReadState[]
+
+  // One-thread-per-engagement uniqueness (AC-MSG-001-01)
+  // NULL values are not counted in the unique index (SQL Server NULL != NULL convention)
+  // so this safely enforces uniqueness only for non-null engagementId values.
+  @@unique([engagementId])
+  @@map("Thread")
+}
+
+// ─── Message ──────────────────────────────────────────────────────────────────
+// A single message within a Thread.
+// CLIENT-SCOPED AND CLIENT-ISOLATED via parent Thread.
+// RLS (ADR-005): FILTER + BLOCK via sec.pol_Message (Track B: db/policies/0015-message-policy.sql).
+//   Participation reached through the parent Thread (shallow per ADR-005 §5).
+//
+// ADR-002: UNIQUEIDENTIFIER PK with NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+//
+// senderClerkId: the Clerk ID of the message sender (CLIENT or ACCOUNTANT). Audit trail.
+// body: plain-text message body (NVarChar(Max)).
+// FK → Thread: onDelete NoAction — never cascade-delete messages when thread is removed.
+//
+// CS-SQL-001: ships sec.pol_Message + message.client-isolation.rls.test.ts (HARD GATE). // CS-SQL-001
+// CS-SQL-002: RLS policy lives in Track B (db/policies/0015); table is Track A. // CS-SQL-002
+// CS-SQL-003: predicate is inline TVF, shallow, admin/accountant-first, fail-closed. // CS-SQL-003
+// CS-GEN-002: additive — new table; no existing model removed or altered. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// AC-MSG-002-02: messages visible only to thread participants (policy substrate).
+// ADR-005: all client-scoped tables have RLS FILTER + BLOCK.
+
+model Message {
+  id            String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Thread — the thread this message belongs to.
+  // onDelete: NoAction — never cascade-delete messages when thread is removed.
+  threadId      String    @db.UniqueIdentifier
+  thread        Thread    @relation(fields: [threadId], references: [id], onDelete: NoAction)
+  // Sender identity: the clerkId of the sender (CLIENT or ACCOUNTANT). Audit trail.
+  senderClerkId String    @db.NVarChar(64)
+  // Plain-text message body (AC-MSG-002: plain text threading)
+  body          String    @db.NVarChar(Max)
+  createdAt     DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt     DateTime  @updatedAt @db.DateTimeOffset
+
+  // Reverse relation — attachments on this message
+  attachments   MessageAttachment[]
+
+  @@map("Message")
+}
+
+// ─── MessageAttachment ────────────────────────────────────────────────────────
+// File attachment metadata for a Message.
+// CLIENT-SCOPED AND CLIENT-ISOLATED via parent Message → Thread.
+// RLS (ADR-005): FILTER + BLOCK via sec.pol_MessageAttachment
+//   (Track B: db/policies/0016-message-attachment-policy.sql).
+//   Participation reached via Message → Thread (two JOINs; kept shallow per ADR-005 §5).
+//
+// ADR-002: UNIQUEIDENTIFIER PK with NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// ADR-009 storage-key shape (adapted for messaging): threads/{threadId}/messages/{messageId}/{filename}.
+//
+// status: 'pending' | 'active' | 'infected' — CHECK in Track B (0016).
+//   Mirrors Document.status (ADR-009 AV scan posture — same three-state lifecycle).
+//
+// FK → Message: onDelete NoAction — never cascade-delete attachment metadata.
+//
+// CS-SQL-001: ships sec.pol_MessageAttachment + message-attachment.client-isolation.rls.test.ts (HARD GATE). // CS-SQL-001
+// CS-SQL-002: RLS policy lives in Track B (db/policies/0016); table is Track A. // CS-SQL-002
+// CS-SQL-003: predicate is inline TVF, shallow, admin/accountant-first, fail-closed. // CS-SQL-003
+// CS-GEN-002: additive — new table; no existing model removed or altered. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// ADR-005: all client-scoped tables have RLS FILTER + BLOCK.
+
+model MessageAttachment {
+  id               String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Message — the message this attachment belongs to.
+  // onDelete: NoAction — never cascade-delete attachment metadata when message is removed.
+  messageId        String    @db.UniqueIdentifier
+  message          Message   @relation(fields: [messageId], references: [id], onDelete: NoAction)
+  // ADR-009 storage key for this attachment
+  storageKey       String    @db.NVarChar(1024)
+  // Original filename as uploaded (ADR-009)
+  originalFilename String    @db.NVarChar(500)
+  // Declared content-type (e.g. 'application/pdf')
+  contentType      String    @db.NVarChar(255)
+  // File size in bytes (ADR-009)
+  sizeBytes        BigInt    @db.BigInt
+  // ADR-009 status: 'pending' | 'active' | 'infected' — CHECK constraint in Track B (0016)
+  // Default 'pending'; transitions via AV scan result (mirrors Document.status)
+  status           String    @default("pending") @db.NVarChar(16)
+  // Uploader clerkId (audit trail — mirrors Document.uploadedBy)
+  uploadedBy       String?   @db.NVarChar(64)
+  createdAt        DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt        DateTime  @updatedAt @db.DateTimeOffset
+
+  @@map("MessageAttachment")
+}
+
+// ─── ThreadReadState ──────────────────────────────────────────────────────────
+// Per-viewer read-state watermark for a thread (DECISION-017-A).
+// CLIENT-SCOPED — each viewer's read state is private to that viewer.
+// RLS (ADR-005): FILTER + BLOCK via sec.pol_ThreadReadState
+//   (Track B: db/policies/0017-thread-read-state-policy.sql).
+//   Own-row scoped: a viewer reads only their own (thread, viewer) row.
+//
+// ADR-002: UNIQUEIDENTIFIER PK with NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+//
+// DECISION-017-A (binding spec): per-viewer last-read watermark.
+//   lastReadAt: the timestamp of the last message the viewer has read.
+//   Unread is derived: a thread is unread iff a message exists with createdAt > lastReadAt
+//     (or no ThreadReadState row exists yet for this viewer).
+//   No per-message read fanout — this watermark is the substrate.
+//   (The unread read-model query is TASK-017-005; this task lands the table + policy only.)
+//
+// @@unique([threadId, userId]): each (thread, viewer) pair has at most one watermark row.
+// FK → Thread: onDelete NoAction.
+// FK → User (userId): the viewer whose read state this row tracks.
+//   onDelete: NoAction. onUpdate: NoAction (Prisma cyclic-cascade guard).
+//
+// CS-SQL-001: ships sec.pol_ThreadReadState + thread-read-state.client-isolation.rls.test.ts (HARD GATE). // CS-SQL-001
+// CS-SQL-002: RLS policy lives in Track B (db/policies/0017); table is Track A. // CS-SQL-002
+// CS-SQL-003: predicate is inline TVF, shallow, admin/accountant-first, fail-closed. // CS-SQL-003
+// CS-GEN-002: additive — new table; no existing model removed or altered. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// DECISION-017-A: per-viewer last-read watermark @@unique([threadId, userId]).
+// ADR-005: all client-scoped tables have RLS FILTER + BLOCK.
+
+model ThreadReadState {
+  id          String    @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // FK → Thread — the thread this read state tracks.
+  // onDelete: NoAction — never cascade-delete read state when thread is removed.
+  threadId    String    @db.UniqueIdentifier
+  thread      Thread    @relation(fields: [threadId], references: [id], onDelete: NoAction)
+  // FK → User — the viewer whose read state this row represents (CLIENT or ACCOUNTANT).
+  // onDelete: NoAction — never cascade-delete read state when user is removed.
+  // onUpdate: NoAction — Prisma cyclic-cascade guard.
+  userId      String    @db.UniqueIdentifier
+  user        User      @relation("UserReadStates", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // DECISION-017-A: the timestamp of the last read event for this viewer.
+  // The unread query uses: message.createdAt > lastReadAt (TASK-017-005).
+  lastReadAt  DateTime  @db.DateTimeOffset
+  createdAt   DateTime  @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt   DateTime  @updatedAt @db.DateTimeOffset
+
+  // Each (thread, viewer) pair has at most one watermark row (DECISION-017-A).
+  @@unique([threadId, userId])
+  @@map("ThreadReadState")
 }
 
 // ─── LegalHold ────────────────────────────────────────────────────────────────
