@@ -47,13 +47,19 @@ const {
   mockAppendMessage,
   mockMarkThreadRead,
   mockGetOrCreateEngagementThread,
+  mockGetThreadForEngagement,
   mockWithRequestContext,
+  mockStoreAndScanAttachment,
+  mockVerifyMessageInThread,
 } = vi.hoisted(() => ({
   mockGetIdentity: vi.fn(),
   mockAppendMessage: vi.fn(),
   mockMarkThreadRead: vi.fn(),
   mockGetOrCreateEngagementThread: vi.fn(),
+  mockGetThreadForEngagement: vi.fn(),
   mockWithRequestContext: vi.fn(),
+  mockStoreAndScanAttachment: vi.fn(),
+  mockVerifyMessageInThread: vi.fn(),
 }));
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -78,12 +84,15 @@ vi.mock("@tax-portal/db", () => ({
   appendMessage: mockAppendMessage,
   markThreadRead: mockMarkThreadRead,
   getOrCreateEngagementThread: mockGetOrCreateEngagementThread,
+  getThreadForEngagement: mockGetThreadForEngagement,
   withRequestContext: mockWithRequestContext,
+  storeAndScanAttachment: mockStoreAndScanAttachment,
+  verifyMessageInThread: mockVerifyMessageInThread,
 }));
 
 // ─── Import after mocks ───────────────────────────────────────────────────────
 
-import { sendMessageAction, markThreadReadAction } from "./actions.js";
+import { sendMessageAction, markThreadReadAction, attachMessageAction } from "./actions.js";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -104,7 +113,12 @@ const MOCK_MARK_READ_RESULT = { threadId: THREAD_ID, lastReadAt: new Date("2026-
 describe("[CS-TS-004] [ADR-003] portal: sendMessageAction — identity guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetOrCreateEngagementThread.mockResolvedValue(MOCK_THREAD);
+    // withRequestContext calls-through so the callback (getThreadForEngagement) executes.
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => Promise<unknown>) => cb(),
+    );
+    // Default: participation gate passes (thread found for the CLIENT participant).
+    mockGetThreadForEngagement.mockResolvedValue(MOCK_THREAD);
     mockAppendMessage.mockResolvedValue(MOCK_APPEND_RESULT);
   });
 
@@ -118,7 +132,7 @@ describe("[CS-TS-004] [ADR-003] portal: sendMessageAction — identity guard", (
     expect(result.success).toBe(false);
     expect((result as { success: false; error: string }).error).toMatch(/Unauthorized/i);
     // No DB write must occur (CS-TS-004 / ADR-003 — refuse before DB)
-    expect(mockGetOrCreateEngagementThread).not.toHaveBeenCalled();
+    expect(mockGetThreadForEngagement).not.toHaveBeenCalled();
     expect(mockAppendMessage).not.toHaveBeenCalled();
   });
 
@@ -131,7 +145,7 @@ describe("[CS-TS-004] [ADR-003] portal: sendMessageAction — identity guard", (
 
     expect(result.success).toBe(false);
     expect((result as { success: false; error: string }).error).toMatch(/Unauthorized/i);
-    expect(mockGetOrCreateEngagementThread).not.toHaveBeenCalled();
+    expect(mockGetThreadForEngagement).not.toHaveBeenCalled();
     expect(mockAppendMessage).not.toHaveBeenCalled();
   });
 
@@ -152,7 +166,10 @@ describe("[ADR-003] portal: sendMessageAction — input validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
-    mockGetOrCreateEngagementThread.mockResolvedValue(MOCK_THREAD);
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => Promise<unknown>) => cb(),
+    );
+    mockGetThreadForEngagement.mockResolvedValue(MOCK_THREAD);
     mockAppendMessage.mockResolvedValue(MOCK_APPEND_RESULT);
   });
 
@@ -181,7 +198,10 @@ describe("[AC-MSG-001-04] [AC-MSG-013-02] portal: sendMessageAction — success 
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
-    mockGetOrCreateEngagementThread.mockResolvedValue(MOCK_THREAD);
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => Promise<unknown>) => cb(),
+    );
+    mockGetThreadForEngagement.mockResolvedValue(MOCK_THREAD);
     mockAppendMessage.mockResolvedValue(MOCK_APPEND_RESULT);
   });
 
@@ -355,5 +375,184 @@ describe("portal: markThreadReadAction — input validation", () => {
     const result = await markThreadReadAction("");
     expect(result.success).toBe(false);
     expect(mockMarkThreadRead).not.toHaveBeenCalled();
+  });
+});
+
+// ─── B1 NEGATIVE: non-participant CLIENT cannot send a message ────────────────
+
+/**
+ * [B1][NEGATIVE] A CLIENT who is NOT a participant of the engagement thread is refused
+ * BEFORE any admin-pool write. getThreadForEngagement returns null (RLS: non-participant).
+ *
+ * This test was RED before the participation gate was added — the action would call
+ * appendMessage even when the requesting CLIENT was not a participant (getOrCreateEngagementThread
+ * would return a thread for ANY engagementId on the admin pool). It is GREEN after the fix.
+ *
+ * ADR-005: sec.pol_Thread FILTER returns null for non-participants (fail-closed). // ADR-005
+ * CS-TS-001: participation check runs under withRequestContext (request pool). // CS-TS-001
+ */
+describe("[B1][NEGATIVE] portal: sendMessageAction — non-participant CLIENT refused", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
+    // withRequestContext calls-through so the callback (getThreadForEngagement) executes.
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => Promise<unknown>) => cb(),
+    );
+    // Non-participant: getThreadForEngagement returns null (RLS FILTER on sec.pol_Thread).
+    mockGetThreadForEngagement.mockResolvedValue(null);
+  });
+
+  it("[ADR-005][NEGATIVE] non-participant CLIENT: getThreadForEngagement null → refused BEFORE appendMessage", async () => {
+    // This is the red→green regression guard for B1 on the engagement surface.
+    // BEFORE fix: appendMessage would be called (getOrCreateEngagementThread was admin pool).
+    // AFTER fix: getThreadForEngagement returns null → refused; appendMessage never called.
+    const result = await sendMessageAction(ENGAGEMENT_ID, MESSAGE_BODY);
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toMatch(/not found|access denied/i);
+    // The admin-pool write must NOT have occurred (ADR-003 / ADR-005). // ADR-003 // ADR-005
+    expect(mockAppendMessage).not.toHaveBeenCalled();
+  });
+
+  it("[ADR-005][NEGATIVE] attacker supplies a foreign engagementId → refused", async () => {
+    // Attacker supplies a valid-looking but foreign engagementId.
+    // getThreadForEngagement returns null for the non-participant → refused. // ADR-005
+    const result = await sendMessageAction("eng-foreign-aaaa-bbbb-000000000099", MESSAGE_BODY);
+
+    expect(result.success).toBe(false);
+    expect(mockAppendMessage).not.toHaveBeenCalled();
+  });
+});
+
+// ─── B1 POSITIVE: legitimate participant CAN send ────────────────────────────
+
+describe("[B1][POSITIVE] portal: sendMessageAction — participant CLIENT allowed", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => Promise<unknown>) => cb(),
+    );
+    // Participant: getThreadForEngagement returns the real thread.
+    mockGetThreadForEngagement.mockResolvedValue(MOCK_THREAD);
+    mockAppendMessage.mockResolvedValue(MOCK_APPEND_RESULT);
+  });
+
+  it("[AC-MSG-001-04][POSITIVE] participant CLIENT: thread found → appendMessage called", async () => {
+    // AC-MSG-001-04: CLIENT can send in engagement thread.
+    const result = await sendMessageAction(ENGAGEMENT_ID, MESSAGE_BODY);
+
+    expect(result.success).toBe(true);
+    expect(mockGetThreadForEngagement).toHaveBeenCalledWith(ENGAGEMENT_ID);
+    expect(mockAppendMessage).toHaveBeenCalledOnce();
+    expect(mockAppendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: THREAD_ID,
+        senderClerkId: CLIENT_IDENTITY.clerkUserId, // CS-TS-004: from verified session
+        body: MESSAGE_BODY.trim(),
+      }),
+    );
+  });
+});
+
+// ─── B2 NEGATIVE: non-participant CLIENT cannot attach a file ─────────────────
+
+/**
+ * [B2][NEGATIVE] A CLIENT who is NOT a participant (or uses a wrong messageId↔threadId binding)
+ * is refused before storeAndScanAttachment. verifyMessageInThread returns false.
+ *
+ * This test was RED before the participation gate was added — the action would call
+ * storeAndScanAttachment for any CLIENT even if not a participant.
+ * It is GREEN after the fix.
+ *
+ * ADR-005: sec.pol_Message FILTER returns false for non-participants. // ADR-005
+ * CS-TS-001: binding check runs under withRequestContext. // CS-TS-001
+ */
+describe("[B2][NEGATIVE] portal: attachMessageAction — non-participant CLIENT refused", () => {
+  const MOCK_BYTES = Buffer.from("file bytes");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => Promise<unknown>) => cb(),
+    );
+    // Non-participant or wrong binding: verifyMessageInThread returns false.
+    mockVerifyMessageInThread.mockResolvedValue(false);
+  });
+
+  it("[ADR-005][NEGATIVE] non-participant CLIENT: verifyMessageInThread false → refused BEFORE storeAndScanAttachment", async () => {
+    // This is the red→green regression guard for B2 on the engagement surface.
+    // BEFORE fix: storeAndScanAttachment would be called for any CLIENT.
+    // AFTER fix: verifyMessageInThread returns false → refused; store never called.
+    const result = await attachMessageAction(
+      MESSAGE_ID,
+      THREAD_ID,
+      "malware.pdf",
+      "application/pdf",
+      MOCK_BYTES,
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toMatch(/not found|access denied/i);
+    // The admin-pool store must NOT have occurred (ADR-003 / ADR-005). // ADR-003 // ADR-005
+    expect(mockStoreAndScanAttachment).not.toHaveBeenCalled();
+  });
+
+  it("[ADR-005][NEGATIVE] wrong messageId↔threadId binding → refused", async () => {
+    // Attacker substitutes a messageId from a different thread — binding fails. // ADR-005
+    const result = await attachMessageAction(
+      "msg-from-other-thread-000000000099",
+      THREAD_ID,
+      "file.pdf",
+      "application/pdf",
+      MOCK_BYTES,
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockStoreAndScanAttachment).not.toHaveBeenCalled();
+  });
+});
+
+// ─── B2 POSITIVE: legitimate participant CAN attach ───────────────────────────
+
+describe("[B2][POSITIVE] portal: attachMessageAction — participant CLIENT allowed", () => {
+  const MOCK_BYTES = Buffer.from("file bytes");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
+    mockWithRequestContext.mockImplementation(
+      async (_clerkUserId: string, _role: string, cb: () => Promise<unknown>) => cb(),
+    );
+    // Participant with correct binding: verifyMessageInThread returns true.
+    mockVerifyMessageInThread.mockResolvedValue(true);
+    mockStoreAndScanAttachment.mockResolvedValue({
+      outcome: "active" as const,
+      attachmentId: "att-017-portal-0001",
+    });
+  });
+
+  it("[AC-MSG-004-01][POSITIVE] participant CLIENT: verifyMessageInThread true → storeAndScanAttachment called", async () => {
+    // AC-MSG-004-01: CLIENT can attach to a message in their engagement thread.
+    const result = await attachMessageAction(
+      MESSAGE_ID,
+      THREAD_ID,
+      "tax-doc.pdf",
+      "application/pdf",
+      MOCK_BYTES,
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockVerifyMessageInThread).toHaveBeenCalledWith(MESSAGE_ID, THREAD_ID);
+    expect(mockStoreAndScanAttachment).toHaveBeenCalledOnce();
+    expect(mockStoreAndScanAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: MESSAGE_ID,
+        threadId: THREAD_ID,
+        uploadedByClerkId: CLIENT_IDENTITY.clerkUserId, // CS-TS-004: from verified session
+      }),
+    );
   });
 });

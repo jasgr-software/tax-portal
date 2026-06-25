@@ -68,6 +68,7 @@
 
 import mssqlPkg from "mssql";
 import { getAdminPool } from "../admin-connection.js";
+import { db } from "../client.js";
 import { emitAndPublishNotification } from "./notification.js";
 
 const { Request: MssqlRequest } = mssqlPkg;
@@ -326,10 +327,6 @@ async function emitNewMessageNotifications(
     // AC-MSG-014-01: one notification per non-sender client. // AC-MSG-014-01
     // Multi-participant: each non-sender CLIENT is notified individually (no cross-client leak).
     for (const client of clientRecipients) {
-      // Sender is ACCOUNTANT, so no CLIENT will match senderClerkId — all are recipients.
-      // (If somehow a client id equals senderClerkId, skip — belt-and-suspenders.)
-      if (client.clerkId === senderClerkId) continue; // defensive; should not occur here
-
       emitPromises.push(
         emitAndPublishNotification({
           recipientType: "CLIENT",
@@ -430,4 +427,55 @@ export async function appendMessage(
   await emitNewMessageNotifications(appendResult.threadId, input.senderClerkId);
 
   return appendResult;
+}
+
+// ─── Read: verifyMessageInThread (request pool — RLS-governed) ───────────────
+
+/**
+ * Confirms that the given Message.id belongs to the given Thread.id, as seen by the
+ * current SESSION_CONTEXT identity (request pool, RLS-governed).
+ *
+ * Used by the action layer (TASK-017-003/-004 security fix) to verify the
+ * messageId↔threadId binding SERVER-SIDE before accepting an attach request.
+ * A CLIENT non-participant gets false because RLS FILTER on sec.pol_Message
+ * hides the row entirely (fail-closed, ADR-005).
+ *
+ * Must be called inside withRequestContext() / withClerkIdentity() (ADR-003).
+ * RLS (sec.pol_Message FILTER) is the sole enforcement boundary — no extra WHERE
+ * clause is added beyond id + threadId (DECISION-017-002-A mirror).
+ *
+ * Returns false when:
+ *   - No message exists with the given id in the given thread.
+ *   - The caller's SESSION_CONTEXT does not satisfy the FILTER (fail-closed).
+ *
+ * CS-TS-001: request pool via db wrapper (SESSION_CONTEXT). // CS-TS-001
+ * ADR-003: must be called under withRequestContext. // ADR-003
+ * ADR-005: sec.pol_Message FILTER is the enforcement gate. // ADR-005
+ * CS-GEN-001: no body or PII returned — existence check only. // CS-GEN-001
+ * CS-GEN-003: governing keys cited. // CS-GEN-003
+ *
+ * @param messageId — The Message.id to verify (caller-supplied, server-checked via RLS).
+ * @param threadId  — The Thread.id the message must belong to.
+ * @returns true iff the message exists in the thread AND the caller can see it (RLS pass).
+ */
+export async function verifyMessageInThread(
+  messageId: string,
+  threadId: string,
+): Promise<boolean> {
+  // CS-TS-001: request pool via db wrapper (SESSION_CONTEXT set by withRequestContext). // CS-TS-001
+  // ADR-005: RLS FILTER on sec.pol_Message is the sole access gate — no extra WHERE added. // ADR-005
+  // CS-GEN-001: body field is NOT selected — id + threadId existence check only. // CS-GEN-001
+  const row = await (db as unknown as {
+    message: {
+      findFirst: (args: {
+        where: { id: string; threadId: string };
+        select: { id: true };
+      }) => Promise<{ id: string } | null>;
+    };
+  }).message.findFirst({
+    where: { id: messageId, threadId },
+    select: { id: true },
+  });
+
+  return row !== null;
 }

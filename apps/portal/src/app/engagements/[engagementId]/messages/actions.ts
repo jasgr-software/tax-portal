@@ -50,9 +50,11 @@ import {
   appendMessage,
   markThreadRead,
   getOrCreateEngagementThread,
+  getThreadForEngagement,
   withRequestContext,
   storeAndScanAttachment,
   authorizeThenSignAttachment,
+  verifyMessageInThread,
 } from "@tax-portal/db";
 import type {
   AppendMessageResult,
@@ -171,17 +173,23 @@ export async function sendMessageAction(
     return { success: false, error: "Message body cannot be empty." };
   }
 
-  // ── 3. Resolve the engagement thread (idempotent get-or-create) ───────────────
-  // getOrCreateEngagementThread uses the admin pool — no SESSION_CONTEXT needed.
-  // The action layer owns the identity check (step 1); the thread repository is the seam.
-  // CS-TS-001: appendMessage is from @tax-portal/db barrel (no raw pool import here). // CS-TS-001
-  let thread: { id: string };
-  try {
-    thread = await getOrCreateEngagementThread({ engagementId: engagementId.trim() });
-  } catch (err: unknown) {
-    // CS-GEN-001: log at server level only — do not surface internals to the client. // CS-GEN-001
-    console.error("[portal:sendMessageAction] getOrCreateEngagementThread failed:", err);
-    return { success: false, error: "Unable to resolve the message thread. Please try again." };
+  // ── 3. Participation gate (request pool — RLS is the enforcement boundary) ────────
+  // B1 security fix: verify the CLIENT is a participant of this engagement's thread BEFORE
+  // the admin-pool write. getThreadForEngagement runs under the request pool with
+  // SESSION_CONTEXT set → sec.pol_Thread FILTER returns null for non-participants (fail-closed).
+  // A non-participant gets a not-found/unauthorized response — no DB write occurs.
+  // CS-TS-001: getThreadForEngagement from @tax-portal/db barrel via withRequestContext. // CS-TS-001
+  // ADR-005: sec.pol_Thread FILTER is the enforcement gate (fail-closed). // ADR-005
+  // ADR-003: identity.clerkUserId from verified session — never from args. // ADR-003
+  const thread = await withRequestContext(
+    identity.clerkUserId, // CS-TS-004: from verified session
+    identity.role,
+    () => getThreadForEngagement(engagementId.trim()),
+  );
+  if (!thread) {
+    // Non-participant or thread not yet created — refuse without leaking which.
+    // CS-GEN-001: do NOT log engagementId or clerkUserId at error level. // CS-GEN-001
+    return { success: false, error: "Thread not found or access denied." };
   }
 
   // ── 4. Append the message (admin pool — verbatim body) ───────────────────────
@@ -328,7 +336,27 @@ export async function attachMessageAction(
     return { success: false, error: "File bytes are required." };
   }
 
-  // ── 3. Store + scan (admin pool — storeAndScanAttachment) ───────────────────
+  // ── 3. Participation + binding gate (request pool — RLS-governed) ───────────────
+  // B2 security fix: before the admin-pool store, verify BOTH:
+  //   (a) The CLIENT is a participant of the thread (RLS FILTER on sec.pol_Message hides
+  //       the row for non-participants → verifyMessageInThread returns false).
+  //   (b) The supplied messageId actually belongs to the supplied threadId (binding check).
+  // A non-participant or a wrong messageId↔threadId binding is refused here.
+  // CS-TS-001: verifyMessageInThread from @tax-portal/db barrel via withRequestContext. // CS-TS-001
+  // ADR-005: sec.pol_Message FILTER is the enforcement gate (fail-closed). // ADR-005
+  // ADR-003: identity.clerkUserId from verified session. // ADR-003
+  const messageBelongsToThread = await withRequestContext(
+    identity.clerkUserId, // CS-TS-004: from verified session
+    identity.role,
+    () => verifyMessageInThread(messageId.trim(), threadId.trim()),
+  );
+  if (!messageBelongsToThread) {
+    // Message not in this thread, or caller is not a participant — refuse.
+    // CS-GEN-001: do NOT log messageId/threadId/clerkUserId at error level. // CS-GEN-001
+    return { success: false, error: "Message not found or access denied." };
+  }
+
+  // ── 4. Store + scan (admin pool — storeAndScanAttachment) ───────────────────
   // storeAndScanAttachment reuses EPIC-007 FileScanner + EPIC-013 validateUploadedBytes.
   // REQ-NFR-009: 'indeterminate' → stays 'pending' (fail-closed, NOT a pass). // REQ-NFR-009
   // CS-TS-001: storeAndScanAttachment from @tax-portal/db barrel. // CS-TS-001

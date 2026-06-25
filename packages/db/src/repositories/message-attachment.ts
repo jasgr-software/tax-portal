@@ -519,8 +519,10 @@ export async function authorizeThenSignAttachment(
     sourceSurface: input.actor.role === "ACCOUNTANT" ? "admin" : "portal",
     outcome: "success",
   }).catch((err: unknown) => {
-    // CS-GEN-001: log at warn level — no PII or URLs. // CS-GEN-001
-    console.warn("[message-attachment.ts] audit emit failed (non-fatal):", String(err));
+    // CS-GEN-001: log only a coarse error identifier — no PII, URLs, or storage keys. // CS-GEN-001
+    // A09 (logging): tightened from String(err) which could carry a storage key or URL.
+    const errName = err instanceof Error ? err.name : "unknown";
+    console.warn("[message-attachment.ts] audit emit failed (non-fatal):", errName);
   });
 
   return {

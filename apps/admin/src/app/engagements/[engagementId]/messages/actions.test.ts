@@ -91,7 +91,6 @@ import {
   markThreadReadAction,
 } from "./actions.js";
 import {
-  startGeneralThreadAction,
   sendGeneralMessageAction,
   markGeneralThreadReadAction,
 } from "../../../messages/actions.js";
@@ -105,20 +104,11 @@ const ENGAGEMENT_ID = "eng-017-admin-aaaa-bbbb-000000000001";
 const THREAD_ID = "thr-017-admin-aaaa-bbbb-000000000001";
 const GENERAL_THREAD_ID = "thr-017-general-bbbb-cccc-000000000001";
 const MESSAGE_ID = "msg-017-admin-aaaa-bbbb-000000000001";
-const CLIENT_USER_ID = "usr-017-client-aaaa-bbbb-000000000001";
+
 const MESSAGE_BODY = "Please review the attached documents.";
 
 const MOCK_THREAD = { id: THREAD_ID, kind: "engagement", engagementId: ENGAGEMENT_ID };
-const MOCK_GENERAL_THREAD = {
-  id: GENERAL_THREAD_ID,
-  kind: "general",
-  engagementId: null,
-  clientUserId: CLIENT_USER_ID,
-  status: "active",
-  archivedAt: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+
 const MOCK_APPEND_RESULT = { id: MESSAGE_ID, threadId: THREAD_ID };
 const MOCK_MARK_READ_RESULT = { threadId: THREAD_ID, lastReadAt: new Date("2026-06-25T00:00:00Z") };
 
@@ -290,66 +280,10 @@ describe("[AC-MSG-005-04] admin: markThreadReadAction — success path", () => {
   });
 });
 
-// ─── startGeneralThreadAction — ACCOUNTANT-only guard ─────────────────────────
-
-describe("[CS-TS-004] [ADR-003] [AC-MSG-006-01] admin: startGeneralThreadAction — ACCOUNTANT-only guard", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockCreateGeneralThread.mockResolvedValue(MOCK_GENERAL_THREAD);
-  });
-
-  it("[ADR-003] unauthenticated → refused before any DB access", async () => {
-    mockGetIdentity.mockResolvedValue(null);
-
-    const result = await startGeneralThreadAction(CLIENT_USER_ID);
-
-    expect(result.success).toBe(false);
-    expect((result as { success: false; error: string }).error).toMatch(/Unauthorized/i);
-    expect(mockCreateGeneralThread).not.toHaveBeenCalled(); // No DB call
-  });
-
-  it("[CS-TS-004] CLIENT identity → refused BEFORE any DB access (ACCOUNTANT-only)", async () => {
-    // AC-MSG-006-01 / CS-TS-004: startGeneralThreadAction is ACCOUNTANT-ONLY.
-    // A CLIENT identity MUST be refused before createGeneralThread is called.
-    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
-
-    const result = await startGeneralThreadAction(CLIENT_USER_ID);
-
-    expect(result.success).toBe(false);
-    expect((result as { success: false; error: string }).error).toMatch(/Unauthorized/i);
-    // Critical: NO DB call at all — refused before createGeneralThread
-    expect(mockCreateGeneralThread).not.toHaveBeenCalled();
-  });
-
-  it("[AC-MSG-006-01] ACCOUNTANT identity → createGeneralThread called", async () => {
-    // AC-MSG-006-01: accountant can start a general thread.
-    mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY);
-
-    const result = await startGeneralThreadAction(CLIENT_USER_ID);
-
-    expect(result.success).toBe(true);
-    expect(mockCreateGeneralThread).toHaveBeenCalledOnce();
-    expect(mockCreateGeneralThread).toHaveBeenCalledWith(
-      expect.objectContaining({ clientUserId: CLIENT_USER_ID }),
-    );
-  });
-});
-
-// ─── startGeneralThreadAction — input validation ──────────────────────────────
-
-describe("admin: startGeneralThreadAction — input validation", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY);
-    mockCreateGeneralThread.mockResolvedValue(MOCK_GENERAL_THREAD);
-  });
-
-  it("empty clientUserId rejected before any DB write", async () => {
-    const result = await startGeneralThreadAction("");
-    expect(result.success).toBe(false);
-    expect(mockCreateGeneralThread).not.toHaveBeenCalled();
-  });
-});
+// NOTE: startGeneralThreadAction tests removed — the function is now unexported (internal only).
+// Its identity guard (ACCOUNTANT-only) and input validation are covered via
+// createGeneralThreadForClientAction which is the only public entry point.
+// Security fix: removing the export closes the unvalidated direct-call path (EPIC-017 fixer).
 
 // ─── sendGeneralMessageAction — identity guard ────────────────────────────────
 

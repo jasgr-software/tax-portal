@@ -52,9 +52,11 @@ import { getAuthProvider } from "@tax-portal/auth";
 import {
   appendMessage,
   markThreadRead,
+  getThreadById,
   withRequestContext,
   storeAndScanAttachment,
   authorizeThenSignAttachment,
+  verifyMessageInThread,
 } from "@tax-portal/db";
 import type {
   AppendMessageResult,
@@ -167,7 +169,25 @@ export async function sendGeneralMessageAction(
     return { success: false, error: "Message body cannot be empty." };
   }
 
-  // ── 3. Append the message (admin pool — verbatim body) ───────────────────────
+  // ── 3. Participation gate (request pool — RLS is the enforcement boundary) ────────
+  // B1 security fix: verify the CLIENT is a participant of this general thread BEFORE
+  // the admin-pool write. getThreadById runs under the request pool with SESSION_CONTEXT →
+  // sec.pol_Thread FILTER returns null for non-participants (fail-closed, ADR-005).
+  // CS-TS-001: getThreadById from @tax-portal/db barrel via withRequestContext. // CS-TS-001
+  // ADR-005: sec.pol_Thread FILTER is the enforcement gate. // ADR-005
+  // ADR-003: identity.clerkUserId from verified session — never from args. // ADR-003
+  const participantThread = await withRequestContext(
+    identity.clerkUserId, // CS-TS-004: from verified session
+    identity.role,
+    () => getThreadById(threadId.trim()),
+  );
+  if (!participantThread) {
+    // Non-participant or thread does not exist — refuse without leaking which.
+    // CS-GEN-001: do NOT log threadId or clerkUserId at error level. // CS-GEN-001
+    return { success: false, error: "Thread not found or access denied." };
+  }
+
+  // ── 4. Append the message (admin pool — verbatim body) ───────────────────────
   // appendMessage stores the body VERBATIM (AC-MSG-003-01/-02 / REQ-MSG-003).
   // CS-GEN-001: body is NEVER logged here or inside appendMessage. // CS-GEN-001
   // Post-write: appendMessage emits new-message notification to the ACCOUNTANT. // AC-MSG-013-02
@@ -295,7 +315,26 @@ export async function attachGeneralMessageAction(
     return { success: false, error: "File bytes are required." };
   }
 
-  // ── 3. Store + scan (admin pool — storeAndScanAttachment) ───────────────────
+  // ── 3. Participation + binding gate (request pool — RLS-governed) ───────────────
+  // B2 security fix: before the admin-pool store, verify BOTH:
+  //   (a) The CLIENT is a participant of the general thread (RLS FILTER on sec.pol_Message
+  //       hides the row for non-participants → verifyMessageInThread returns false).
+  //   (b) The supplied messageId actually belongs to the supplied threadId (binding check).
+  // CS-TS-001: verifyMessageInThread from @tax-portal/db barrel via withRequestContext. // CS-TS-001
+  // ADR-005: sec.pol_Message FILTER is the enforcement gate (fail-closed). // ADR-005
+  // ADR-003: identity.clerkUserId from verified session. // ADR-003
+  const messageBelongsToThread = await withRequestContext(
+    identity.clerkUserId, // CS-TS-004: from verified session
+    identity.role,
+    () => verifyMessageInThread(messageId.trim(), threadId.trim()),
+  );
+  if (!messageBelongsToThread) {
+    // Message not in this thread, or caller is not a participant — refuse.
+    // CS-GEN-001: do NOT log messageId/threadId/clerkUserId at error level. // CS-GEN-001
+    return { success: false, error: "Message not found or access denied." };
+  }
+
+  // ── 4. Store + scan (admin pool — storeAndScanAttachment) ───────────────────
   // REQ-NFR-009: 'indeterminate' → stays 'pending' (fail-closed, NOT a pass). // REQ-NFR-009
   // CS-GEN-001: bytes content NOT logged. // CS-GEN-001
   let result: StoreAndScanAttachmentResult;

@@ -196,7 +196,7 @@ async function getAccountantIdentity(): Promise<{
  * // ADR-003 // ADR-006 // CS-TS-001 // CS-TS-002 // CS-TS-004 // CS-GEN-001 // CS-GEN-003
  * // AC-MSG-006-01
  */
-export async function startGeneralThreadAction(
+async function startGeneralThreadAction(
   clientUserId: string,
 ): Promise<StartGeneralThreadResult> {
   // ── 1. Identity guard (ACCOUNTANT-only, ADR-003, CS-TS-004) ──────────────────

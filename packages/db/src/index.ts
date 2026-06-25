@@ -589,6 +589,10 @@ export {
   // AC-MSG-002-01/-02 / AC-MSG-003-01/-02: append plain-text message (admin pool, verbatim body)
   // AC-MSG-013-02 / AC-MSG-014-01: recipient-only new-message notification emitted post-write
   appendMessage,
+  // Security fix (EPIC-017 fixer / B2): request-pool existence check — messageId belongs to threadId
+  // Must be called inside withRequestContext(); RLS FILTER is the enforcement gate (ADR-005).
+  // Returns false for non-participants (fail-closed) and for a wrong messageId↔threadId binding.
+  verifyMessageInThread,
 } from "./repositories/message.js";
 
 // ThreadReadState repository (EPIC-017 / TASK-017-003 + TASK-017-005 — per-viewer watermark + unread read-model)
