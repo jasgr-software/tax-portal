@@ -2,7 +2,7 @@
 id: EPIC-017
 title: Per-engagement & general messaging threads with attachments
 phase: 4
-status: planned
+status: delivered
 slice: The accountant and her clients exchange plain-text messages — with file attachments — in a per-engagement thread (and accountant-initiated general threads), with per-viewer unread indicators, indefinite retention and archive-on-close; sending a message notifies the recipient through the EPIC-016 feed.
 requirements:
   - REQ-MSG-001: [AC-MSG-001-01, AC-MSG-001-02, AC-MSG-001-03, AC-MSG-001-04]

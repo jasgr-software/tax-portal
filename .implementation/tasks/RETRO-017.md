@@ -13,7 +13,7 @@
 | 5. Container Smoke | PASS (clean Docker stack; 17/17 net-new DB objects; both apps boot; routes 307; BUG-017-001 did not recur) ✅ |
 | 6. SDET Acceptance-validation | PASS — 24/24 AC bound to AC-id-tagged passing tests; both surfaces (portal 12/12 + admin 11/11 e2e) ✅ |
 | 7. SDET CI gate | PASS-with-known-pre-existing (`lint/type-check/build` PASS; portal 321/321 + admin 581/581 unit; zero BRIEF-017 regressions) ✅ |
-| 8. Post-merge CI | pending (Close-finalize) |
+| 8. Post-merge CI | PASS — `main` @ `69d2726` green (CI run `28204531672` success + CodeQL `28204531112` success; PR #104 lint-and-typecheck/security-scan/test-portal/test-admin all pass) ✅ |
 | 9. Post-merge staging smoke | N/A (`brief_deploys: no`) |
 
 ## What went well
@@ -54,4 +54,36 @@ Surfaced again in `pnpm ci:local`'s script-test step; predates BRIEF-017 by ~2 e
 
 ## Post-Merge Addendum
 
-_(written at Close-finalize, after merge + post-merge CI verification)_
+**Date:** 2026-06-25 · **Closed by:** IO Close-finalize · **Merge SHA:** `69d2726f8836b76e8053812df65993d67ada1f17` (squash to `main`, 2026-06-25T22:29:15Z)
+
+### Gate 8 — post-merge CI (PASS)
+
+The required checks are green on `main` at the merge SHA. The post-merge push run (`feat(messaging): BRIEF-017 …`, CI run `28204531672`) completed `success`; CodeQL Code Quality (`28204531112`) completed `success`. PR #104 checks all pass: `lint-and-typecheck`, `security-scan`, `test-portal`, `test-admin` (the latter two advisory but green). No regression on `main`.
+
+### Gate 9 — post-merge staging smoke (N/A)
+
+`brief_deploys: no` — gate 9 does not apply.
+
+### `/pr-review` panel catch + fix (cross-tenant-write security blocker B1/B2)
+
+The reviewed-lane `/pr-review` panel caught a **cross-tenant-write security blocker** the in-pipeline gates had not surfaced: the CLIENT-facing send-message and attach-file actions (B1/B2) were writing on the **RLS-exempt admin pool** with **role-only** authorization — a CLIENT with a valid role but no participation in the target engagement/thread could write across tenants, because the admin pool bypasses the `pol_Thread`/`pol_Message`/`pol_MessageAttachment` BLOCK predicates that protect the read side. Fixed in-PR (commit `f230e32`) by adding a **request-pool participation gate** on the write path (the CLIENT write actions route through the request-scoped pool / a participation check, so the same participant predicate that fail-closes reads now fail-closes writes) plus a **red→green write-side negative test** proving a non-participant CLIENT write is rejected. This closes the asymmetry where reads were proven both-ways fail-closed but writes were role-only.
+
+### CS-SQL-003 standards finding — dispositioned by user ratification
+
+The code-standards Standards-review audit flagged **CS-SQL-003** ("≤1 JOIN" clause) against the as-built RLS layer. **Disposition: reconciled by user ratification** — the standard's "≤1 JOIN" clause was reconciled to the as-built RLS shape: **every merged engagement-scoped policy shares the same inline-JOIN participant shape** (Message/Attachment predicates reach participation through the parent Thread, reusing the EPIC-013 `fn_engagement_access` participant shape per CS-SQL-003 rather than re-deriving it). The alternative — denormalized access-set tables to drop the JOIN — was **demoted to a perf escalation** (only if a measured query-plan regression motivates it), not a blocking standards violation. The user ratified the reconciliation; no code change taken.
+
+### Carried follow-ups (not slice-blocking; tracked in `openRetroItems` / observations)
+
+1. **Two deferred over-engineering cleanups** (panel minors, fix-decision deferred):
+   (a) **`GeneralMessageComposer` parameterization** — the general-thread composer duplicates the engagement-thread composer shape; parameterize to a single composer in a follow-up.
+   (b) ***General* attach/sign action dedup** — the *General*-thread attach/sign actions duplicate the engagement-thread action wiring; dedup when the next messaging-surface task touches them.
+2. **retro-012-002 — clean-volume Prisma bootstrap fragility** (carried `ungated-fix` openRetroItem): the ~2-line `scripts/db-migrate.ts` `loadEnvFile` + `:port`-form fix should land **before BRIEF-018's clean-slate Smoke** so the next slice avoids the 9-step SDET workaround. Gated-path change → rides a future slice/BUG, not this PR.
+3. **retro-017-01 — general-thread notification-link e2e coverage-depth advisory** (carried, advisory): the general-thread link branch (`linkedItemType:'thread'` → `/messages/<threadId>`) is proven by unit tests on both surfaces; the engagement-thread branch is proven by e2e. Add a general-thread e2e link-click assertion on a future messaging-surface task. Do not re-open this slice.
+
+### POST bugs
+
+None. The in-flight bugs **BUG-017-001** (EPIC-016 notification-identity import build break, fixed forward) and **BUG-017-002** (masked new-message notification link, fixed with the row-only renderer) were both fixed pre-merge and are archived. No `BUG-017-POST-*` files were opened.
+
+### Ledger
+
+`pnpm task post-merge --pr 104 --sha 69d2726f8836b76e8053812df65993d67ada1f17 --role io` removed the BRIEF-017 record from `awaitingMerge` and cleared `currentBrief`/`currentPhase`. **EPIC-017 messaging slice is DONE.** EPIC-017 does NOT close Phase 4 (EPIC-023 is the closer); no phase-walkthrough video rides this PR.
