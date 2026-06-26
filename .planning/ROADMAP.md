@@ -7,6 +7,34 @@
 
 ## Status / amendment history
 
+- **2026-06-26 (EPIC-018 delivered — the secondary out-of-portal email channel lands; content-free nudge, daily cap, suppression/default-on)** —
+  the email-digest-fallback slice shipped (PR #106, squash merge `2f4b6d0`). All **12 in-scope AC** signed off
+  `verified` in `COVERAGE.md`: AC-MSG-008-01/-02/-03 (the **content-free nudge** — conveys only "new activity" +
+  a sign-in affordance, carries no message/document/client/engagement/event detail, acting on it lands at the
+  portal sign-in; the no-PII body is the HARD tier-3 gate, proven **two-sided** at composer-unit + dispatch-
+  integration + e2e layers), AC-MSG-009-01/-02/-03 (the **daily cap** — at most one email per recipient per day
+  on a per-recipient `lastNudgeSentAt` calendar-day-UTC watermark, never one per event, N=3 events → one nudge;
+  HARD tier-3), AC-MSG-010-01/-02/-03/-04 (**accountant self-suppression** — she turns off her own email,
+  suppressed → zero emails of any kind, her in-portal feed stays intact, her setting never changes whether
+  clients are emailed), and AC-MSG-011-01/-02 (**client default-on** — `emailNudgeEnabled BIT NOT NULL DEFAULT 1`
+  ⇒ a newly created client account is nudge-enabled with no opt-in step). EPIC-018 → `delivered`. Built
+  **additively on** the EPIC-016 `Notification` feed + the ADR-025 `packages/email` seam (both consumed, neither
+  rebuilt) with two additive `User` columns — **no new table, no new RLS policy**. **Reviewed-lane hardening:**
+  the `/pr-fix` pass removed the `_userIdFilter` test seam, promoted `_emailProvider` to plain DI, removed the
+  unused composer `role` param, and fixed a **watermark double-send bug** with a new regression test
+  (`email-digest.hardening.test.ts`); all AC-id-tagged tests still exist and pass post-fix on the merge commit.
+  Sign-off basis: green required CI (`lint-and-typecheck` + `security-scan` + `test-portal` + `test-admin`) on
+  PR #106 + post-merge `main` `2f4b6d0` (+ CodeQL), with each in-scope AC's AC-id tag re-confirmed by the
+  validate phase via `git grep` against `2f4b6d0` (all 12 ids resolve to tagged tests at the mandated tiers —
+  tier-3 integration `email-digest.dispatch.integration.test.ts` / `email-digest.integration.test.ts` /
+  `user-email-preference.integration.test.ts` / composer unit `digest.test.ts`; tier-6 e2e `email-nudge-signin.spec.ts`
+  / `accountant-email-suppression.spec.ts` / `client-emailed-without-optin.spec.ts`). **Scope held (no
+  over-claim):** real email transport stays **mocked (Mailhog, ADR-023/-025)** for the POC — real-ESP
+  re-validation is Phase 5 (§ Provider re-validation in COVERAGE); no client email-opt-out UI, no per-event/
+  immediate email, no richer content (all correctly NOT built). **EPIC-018 does NOT close Phase 4** — EPIC-019..023
+  remain `planned`. **Phase-4 progress: EPIC-016 + EPIC-017 + EPIC-018 delivered = 3/8; EPIC-019..023 `planned`.**
+  **Totals: 246 verified / 63 planned (309 placed).** **Next:** **EPIC-019** (overdue detection & reminder engine)
+  is next-ready (`depends_on` EPIC-016 ✅). Run `/orchestrate EPIC-019`.
 - **2026-06-24 (Phase 4 decomposed — the final feature phase is sliced; completing it completes the v1 POC)** —
   decomposed **Phase 4** (Messaging, notifications & the accountant dashboard) into **8 vertically-sliced epics,
   EPIC-016..023**, dependency-sequenced: **EPIC-016** in-portal notification feed (the dual-role spine, real-time,
@@ -627,9 +655,9 @@ audit-trail read surface (EPIC-023) that **closes the POC**.
 
 | Epic | Slice | Status | Depends on |
 |---|---|---|---|
-| **EPIC-016** | In-portal notification feed — the dual-role spine: real-time feed on both surfaces, persistent unread-count badge, mark-read-on-view, ≥90-day retention; generalizes the EPIC-003 accountant-only `Notification` to a client branch and lights it up with the already-existing events (document upload; status change, deliverable ready, accept/decline) (20 AC: MSG-007/012/015/016/017, MSG-013-03, MSG-014-03..07) | `planned` | EPIC-003 ✅, EPIC-010 ✅, EPIC-013 ✅ |
-| **EPIC-017** | Per-engagement & general messaging threads — one thread per engagement + accountant-initiated general threads, plain-text only, file attachments (malware-scanned, signed-URL), per-viewer unread indicators, indefinite retention + archive-on-close; emits the new-message notification types (24 AC: MSG-001..006, MSG-013-02, MSG-014-01) | `planned` | EPIC-016, EPIC-013 ✅, EPIC-010 ✅ |
-| **EPIC-018** | Email digest fallback — content-free nudge ("new activity — sign in", no detail), ≤1/recipient/day batching, accountant self-suppression, client default-on (12 AC: MSG-008/009/010/011) | `planned` | EPIC-016 |
+| **EPIC-016** | In-portal notification feed — the dual-role spine: real-time feed on both surfaces, persistent unread-count badge, mark-read-on-view, ≥90-day retention; generalizes the EPIC-003 accountant-only `Notification` to a client branch and lights it up with the already-existing events (document upload; status change, deliverable ready, accept/decline) (20 AC: MSG-007/012/015/016/017, MSG-013-03, MSG-014-03..07) | `delivered` ✅ PR#102 `345328e` | EPIC-003 ✅, EPIC-010 ✅, EPIC-013 ✅ |
+| **EPIC-017** | Per-engagement & general messaging threads — one thread per engagement + accountant-initiated general threads, plain-text only, file attachments (malware-scanned, signed-URL), per-viewer unread indicators, indefinite retention + archive-on-close; emits the new-message notification types (24 AC: MSG-001..006, MSG-013-02, MSG-014-01) | `delivered` ✅ PR#104 `69d2726` | EPIC-016 ✅, EPIC-013 ✅, EPIC-010 ✅ |
+| **EPIC-018** | Email digest fallback — content-free nudge ("new activity — sign in", no detail), ≤1/recipient/day batching, accountant self-suppression, client default-on (12 AC: MSG-008/009/010/011) | `delivered` ✅ PR#106 `2f4b6d0` | EPIC-016 ✅ |
 | **EPIC-019** | Overdue detection & reminder engine — auto-detect overdue document requests (no manual trigger), configurable cadence (global default + per-engagement override, precedence), and the reminder-driven notification types (14 AC: MSG-018, DASH-008, FILE-012, MSG-013-05/-06, MSG-014-02). Generalized by v2 REQ-MSG-019 (deferred). | `planned` | EPIC-016, EPIC-011 ✅, EPIC-013 ✅ |
 | **EPIC-020** | Accountant dashboard home — live summary metrics (active/overdue engagements, pending requests, upcoming deadlines), unified cross-practice activity feed, distinct needs-action grouping (13 AC: DASH-001/002/003) | `planned` | EPIC-016, EPIC-017, EPIC-019, EPIC-010 ✅, EPIC-012 ✅ |
 | **EPIC-021** | Accountant navigation — searchable/filterable client list (status, service type, tax year), engagement pipeline view (by status, filterable, act-on-any, full visibility), and dashboard surfacing of internal notes + priority/flag markers (16 AC: DASH-004/005/009/006/007) | `planned` | EPIC-010 ✅, EPIC-011 ✅, EPIC-012 ✅ |

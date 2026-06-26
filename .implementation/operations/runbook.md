@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-018-007 (documented ENABLE_DIGEST_TRIGGER digest-trigger seam: purpose, local/e2e usage, and production-fail-closed requirement — TASK-018-003 / DECISION-018-003-C)
+**Last updated:** EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`). Prior: TASK-018-007 (documented ENABLE_DIGEST_TRIGGER digest-trigger seam: purpose, local/e2e usage, and production-fail-closed requirement — TASK-018-003 / DECISION-018-003-C)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -78,7 +78,7 @@ not carry these vars yet. Add them to admin when admin-surface e-sign is introdu
 
 **Mock file scanner opt-in (TASK-013-003 — `ALLOW_MOCK_SCANNER`):** Both `portal` and `admin` compose services require `ALLOW_MOCK_SCANNER=true` when `FILE_SCANNER=mock` (the local/e2e default). The fail-closed guard in `packages/scanner` (ADR-021) keys on this flag — same pattern as `ALLOW_MOCK_AUTH`. The compose file defaults both to `mock`/`true` for both services. **NEVER set `ALLOW_MOCK_SCANNER=true` in a real production deployment.**
 
-**Digest-trigger seam opt-in (TASK-018-003 / BRIEF-018 — `ENABLE_DIGEST_TRIGGER`):** The `apps/admin` route `POST /api/dev/dispatch-digest` is a dev/test-only seam that invokes `dispatchDailyDigest()` synchronously so e2e tests can drive the full digest-delivery flow without a real scheduler. The compose `admin` service defaults this to `"true"` via `${ENABLE_DIGEST_TRIGGER:-true}`. **NEVER set `ENABLE_DIGEST_TRIGGER=true` in a real production deployment.** When the flag is absent (or `false`), the route returns 404 (fail-closed by guard). Even if accidentally set in production, the route additionally requires an authenticated accountant session (TASK-018-008) — two independent fail-closed layers (defense-in-depth). <!-- CS-GEN-003 // ADR-023 // ADR-025 // DECISION-018-003-C -->
+**Digest-trigger seam opt-in (TASK-018-003 / BRIEF-018 — `ENABLE_DIGEST_TRIGGER`):** The `apps/admin` route `POST /api/dev/dispatch-digest` is a dev/test-only seam that invokes `dispatchDailyDigest()` synchronously so e2e tests can drive the full digest-delivery flow without a real scheduler. The compose `admin` service defaults this to `"false"` via `${ENABLE_DIGEST_TRIGGER:-false}` (hardened from the original `:-true` in PR #106 `/pr-fix`); set `ENABLE_DIGEST_TRIGGER=true` explicitly (e.g. in `.env.local`) to enable the seam for an e2e run that exercises the digest trigger. **NEVER set `ENABLE_DIGEST_TRIGGER=true` in a real production deployment.** When the flag is absent (or `false`), the route returns 404 (fail-closed by guard). Even if accidentally set in production, the route additionally requires an authenticated accountant session (TASK-018-008) — two independent fail-closed layers (defense-in-depth). <!-- CS-GEN-003 // ADR-023 // ADR-025 // DECISION-018-003-C -->
 
 Production digest scheduling is deferred (ADR-023 / ADR-025, deploy-time). When a real scheduler is wired, this seam will remain available as a test-only override behind both guards.
 

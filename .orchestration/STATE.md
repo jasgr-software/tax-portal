@@ -14,11 +14,12 @@
 
 ## Current run
 
-- **No active run.** Last completed: **EPIC-017** ✅ DELIVERED 2026-06-25 (PR #104 → `69d2726`, 24/24 AC) — per-engagement & general messaging threads — see `## Recent outcomes`. Run report: `.orchestration/runs/RUN-REPORT-EPIC-017.md`.
-- **Next ready slice:** **EPIC-018** — email digest fallback (content-free nudge, ≤1/day, accountant-suppress, client default-on; depends on EPIC-016 ✅). Run `/orchestrate EPIC-018`. Phase-4 build order after: EPIC-019 (overdue/reminder engine) → EPIC-020 (dashboard home) → EPIC-021 (client/engagement nav) → EPIC-022 (admin settings & identity) → EPIC-023 (audit-trail read surface — Phase-4 closer). Phase 4 now 2/8 epics delivered (016, 017).
+- **No active run.** Last completed: **EPIC-018** ✅ DELIVERED 2026-06-26 (PR #106 → `2f4b6d0`, 12/12 AC) — email digest fallback — see `## Recent outcomes`. Run report: `.orchestration/runs/RUN-REPORT-EPIC-018.md`.
+- **Next ready slice:** **EPIC-019** — overdue detection & reminder engine (auto-detect + configurable cadence + reminder notification types; FILE-012 + DASH-008 + MSG-018; `depends_on` EPIC-016 ✅). Run `/orchestrate EPIC-019`. Phase-4 build order after: EPIC-020 (dashboard home) → EPIC-021 (client/engagement nav) → EPIC-022 (admin settings & identity) → EPIC-023 (audit-trail read surface — Phase-4 closer). **Phase 4 now 3/8 delivered (016, 017, 018);** EPIC-018 did **not** close the phase.
 
 ## Recent outcomes
 
+- **EPIC-018** ✅ DELIVERED 2026-06-26 · PR #106 → `2f4b6d0` · 12/12 AC verified · RETRO-018/HANDOFF-018 · email digest fallback — content-free daily nudge (two-sided-proven), daily cap (User.lastNudgeSentAt watermark), accountant self-suppression (three-ways), client default-on (DB DEFAULT 1); digests the EPIC-016 feed via the ADR-025 packages/email seam (SMTP→Mailhog; real ESP → Phase 5), no rebuilds, RLS deliberately out of scope (own-row WHERE clerkId guard). Standards APPROVE 0-required. /pr-review caught a real watermark-after-send double-send the daily-cap gate missed (GATE2 = cross-window counts, not per-run send↔watermark atomicity) + a test-seam-in-prod-signature major → /pr-fix both red→green (commit ce16fa7). Phase 4 now 3/8 (246/309 AC). Does NOT close Phase 4.
 - **EPIC-017** ✅ DELIVERED 2026-06-25 · PR #104 → `69d2726` · 24/24 AC verified · RETRO-017/HANDOFF-017 · per-engagement & general messaging threads (plain-text, scanned signed-URL attachments, per-viewer unread, indefinite retention + archive-on-close, recipient-only new-message notifications onto the EPIC-016 spine) on **both** apps. Net-new `Thread`/`Message`/`MessageAttachment`/`ThreadReadState` + `db/policies/0014..0017` participant-isolation RLS (both-ways, ≥2-participant, null-context-zero); reuses EPIC-007/-013 storage+scan+signed-URL + EPIC-016 feed additively; archive-on-close wired into the EPIC-010 Complete transition. 10 build tasks + 2 fix-forward bugs (BUG-017-001 pre-existing EPIC-016 `.js`-import build break; BUG-017-002 masked notification-link defect, SDET-caught test-validity bug). **The `/pr-review` panel caught 2 cross-tenant-write BLOCKERS** every in-slice gate missed (CLIENT send/attach actions wrote on the RLS-exempt admin pool with role-only auth → any client could post/attach into another's thread) → `/pr-fix` request-pool participation gate + red→green write-side negative test. **CS-SQL-003 required violation = established-precedent drift** (all merged engagement-scoped policies share the inline-JOIN shape; new ones shallower) → **user-ratified reconciliation** of the "≤1 JOIN" clause (access-set tables demoted to perf escalation). Phase 4 now 2/8 (234/309 AC).
 - **EPIC-016** ✅ DELIVERED 2026-06-25 · PR #102 → `345328e` · 20/20 AC verified · RETRO-016/HANDOFF-016 · in-portal notification feed spine — **OPENS PHASE 4** (210/309 AC). Generalized EPIC-003 accountant-only `Notification` with a fail-closed **client RLS branch**; real-time feed + persistent unread badge on **both** apps (ADR-006), mark-read-on-view (no dismiss, ADR-010 cross-app), ≥90-day retention; wired existing EPIC-003/-010/-013 source events (doc-upload→accountant; status-change/deliverable/accept/decline→client). Real-time behind the **ADR-023 mock SSE seam** (browser-reachable, push-without-nav proven; AC-MSG-012-01/-02/-03 `verified (mock seam)` → Phase-5 real-provider re-validation). 8 tasks. **Every independent-verification layer earned its keep:** Overwatch Audit caught a **blocking false approval** (TASK-016-001's CLIENT-branch RLS policy + isolation suite were claimed-approved but **never on disk** — re-opened, implemented for real, re-reviewed with a mandatory on-disk check); **2 developer false-greens** caught by clean-stack SDET re-runs (-005b 75/19→71/20 test-56-fail→BUG-016-002; -007 dirty-DB "pre-existing" mislabel); **`/pr-review` panel caught a cross-recipient RLS blocker** the 8 in-slice gates + Smoke/Validate all missed (unconditional ACCOUNTANT branch leaked all CLIENT notifications into the accountant feed/badge + let mark-read flip CLIENT rows) → `/pr-fix` row-aware branch + recipient-scoped updateMany + tier-3 negatives, red→green. Standards APPROVE 0-required.
 - **EPIC-015** ✅ DELIVERED 2026-06-24 · PR #99 → `53b3444` · 16/16 AC · RETRO-015/HANDOFF-015 · post-retention purge & legal hold — CLOSES PHASE 3 (190/190 AC). Legal-hold entity (engagement/client-scoped, accountant-only RLS pol_LegalHold, no auto-expire) + admin-pool accountant-confirmed never-automatic purgeEngagement (eligibility = window-elapsed AND no-hold; removes Document/DocumentVersion+storage bytes; AuditEvent excluded → audit survives); no-client-purge/hold proven both ways; temporal-history purge deferred via OQ-014-01. **/pr-review panel caught a purge-atomicity BLOCKER** the in-slice gates missed (DELETEs ran off the audit txn → audit-insert failure would destroy data with no audit row) — fixed in-PR with an all-or-nothing rollback test (red→green). Standards APPROVE 0 violations. Phase-3 walkthrough video produced (docs/demos/phase-3/).
@@ -59,17 +60,17 @@
   Fix-route/Report run in-script; agent nodes via exit-10 yields + `--set` record-hints; cold-starts from the
 <!-- conductor-state/v1
 phase=done
-epic=EPIC-017
-brief=/home/ccox/repos/tax-portal/.implementation/briefs/BRIEF-017-per-engagement-general-messaging.md
-pr=104
-std_verdict_file=.orchestration/runs/PR-104-standards-verdict.json
-verdict_file=.orchestration/runs/PR-104-verdict.json
+epic=EPIC-018
+brief=/home/ccox/repos/tax-portal/.implementation/briefs/BRIEF-018-email-digest-fallback.md
+pr=106
+std_verdict_file=.orchestration/runs/PR-106-standards-verdict.json
+verdict_file=.orchestration/runs/PR-106-verdict.json
 lane=
 fix_route=run-fix
-merge_sha=69d2726f8836b76e8053812df65993d67ada1f17
+merge_sha=2f4b6d0b8932b96126f931800e05715b16134f92
 ac_ok=yes
 fix_done=yes
 validated=yes
-halt_reason=CS-SQL-003 required standards violation unresolved on PR #104 — established-precedent architecture drift (all merged engagement-scoped policies 0005/0007/0009/0011 share the same-or-deeper inline-JOIN shape; the catalogued fix [access-set tables] is an architecture-wide decision, not this PR). Security blockers fixed + CI green. Governance decision required before merge.
-updated=2026-06-25T22:34:45Z
+halt_reason=
+updated=2026-06-26T20:58:39Z
 -->
