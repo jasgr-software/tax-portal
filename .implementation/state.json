@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "lastUpdated": "2026-06-25T22:37:12.059Z",
-  "currentBrief": null,
-  "currentPhase": null,
-  "currentSliceDescription": null,
-  "currentBranch": null,
+  "lastUpdated": "2026-06-26T20:08:50.068Z",
+  "currentBrief": "BRIEF-018",
+  "currentPhase": "Close-prep",
+  "currentSliceDescription": "Email digest fallback — content-free daily nudge, accountant self-suppression, client default-on (EPIC-018)",
+  "currentBranch": "brief-018-email-digest-fallback",
   "awaitingMerge": [],
   "openRetroItems": [
     {

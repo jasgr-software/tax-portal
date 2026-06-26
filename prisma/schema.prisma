@@ -131,6 +131,23 @@ model User {
   createdAt DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt DateTime @updatedAt @db.DateTimeOffset
 
+  // ─── EPIC-018 email-digest fallback preference (BRIEF-018 / TASK-018-001) ────────
+  // emailNudgeEnabled: governs whether the fallback email nudge is sent to this principal.
+  //   true  = nudge sent (default — client default-on satisfies AC-MSG-011-01);
+  //   false = suppressed (accountant toggle via TASK-018-004).
+  //   @default(true) → DB DEFAULT 1 on the BIT column (AC-MSG-011-01: no opt-in step needed).
+  //   Never affects the in-portal Notification feed (TASK-016-001).
+  // CS-GEN-002: additive column — no existing User column removed or altered. // CS-GEN-002
+  // CS-GEN-003: governing keys below. // CS-GEN-003
+  // REQ-MSG-010 // REQ-MSG-011 // ADR-002
+  emailNudgeEnabled Boolean  @default(true)
+  // lastNudgeSentAt: per-recipient watermark — when a nudge was last sent.
+  //   NULL = never nudged. Written by the dispatcher (TASK-018-003).
+  //   DATETIMEOFFSET per ADR-002 timestamp convention. // ADR-002
+  //   Enforces the at-most-one-per-day cap (REQ-MSG-009; ADR-025 §6).
+  // CS-GEN-002: additive nullable column. // CS-GEN-002
+  lastNudgeSentAt  DateTime? @db.DateTimeOffset
+
   // EPIC-005: Reverse relation — a User may own zero or one Engagement (after sign-up back-fill)
   // DECISION-A: clientUserId is nullable on Engagement — created before the prospect signs up;
   //             back-filled at sign-up time. See Engagement.clientUserId.

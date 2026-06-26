@@ -275,6 +275,15 @@ services:
       # Override via .env.local if needed; "100" safely covers the worst-case sequential test load.
       RATE_LIMIT_MAX_ATTEMPTS: "${RATE_LIMIT_MAX_ATTEMPTS:-100}"
       RATE_LIMIT_WINDOW_MS: "${RATE_LIMIT_WINDOW_MS:-60000}"
+      # Dev/test-only trigger seam for dispatchDailyDigest (TASK-018-003 / BRIEF-018).
+      # The route /api/dev/dispatch-digest returns 404 unless this is "true".
+      # PRODUCTION SAFETY: MUST NOT be set to "true" in a real production deployment.
+      # Defaults to "false" — must be explicitly set to "true" for e2e runs that need
+      # the digest trigger. Set ENABLE_DIGEST_TRIGGER=true in your .env.local or the
+      # e2e compose override when running digest-related e2e tests.
+      # ADR-023: production scheduling is deferred; this flag enables the dev/test seam only.
+      # // ADR-023 // DECISION-018-003-C
+      ENABLE_DIGEST_TRIGGER: "${ENABLE_DIGEST_TRIGGER:-false}"
       # Object storage (packages/storage — FileStorage port — ADR-008).
       # Added in TASK-013-003: apps/admin now has @tax-portal/storage dependency for the
       # accountant upload + version-replace surface (ADR-006 — upload is admin-only).

@@ -43,3 +43,13 @@ export {
   ResendEmailProvider,
   EmailBindingNotAvailableError,
 } from "./bindings/resend.js";
+
+// ─── Digest Nudge Composer (TASK-018-003 / BRIEF-018) ─────────────────────────
+// composeDigestNudge: pure function — content-free daily-digest nudge email.
+// AC-MSG-008-01/-02/-03: output contains only "new activity" + sign-in URL.
+// ADR-025: content-minimization contract — no Notification field, no PII.
+// CS-GEN-001: no activity detail or recipient identity in the output.
+// CS-GEN-002: additive barrel export — no existing export removed or narrowed.
+// CS-GEN-003: governing keys cited.
+export type { DigestNudgeInput, DigestNudgeEmail } from "./digest.js";
+export { composeDigestNudge } from "./digest.js";
