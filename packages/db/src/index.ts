@@ -685,6 +685,61 @@ export {
   listClients,
 } from "./repositories/client.js";
 
+// Email-digest repository (EPIC-018 / TASK-018-002 + TASK-018-003 — digest preference + dispatcher)
+//
+// getDigestRecipients      — ADMIN POOL: returns principals eligible for today's nudge.
+//   Criteria: ≥1 unread Notification + emailNudgeEnabled=true + not yet nudged today (UTC cal-day).
+//   SELECT-only on Notification — never writes the feed (AC-MSG-010-03). // AC-MSG-010-03
+//   CS-TS-002: admin pool via getAdminPool() inside packages/db only. // CS-TS-002
+//
+// recordNudgeSent          — ADMIN POOL: watermarks lastNudgeSentAt after a successful send.
+//   Idempotent for the day: re-running same-day sentAt keeps recipient out of next candidate set.
+//   CS-TS-002: admin pool via getAdminPool() inside packages/db only. // CS-TS-002
+//
+// getEmailNudgePreferenceForCurrentUser — REQUEST POOL: reads caller's own emailNudgeEnabled.
+//   AC-MSG-011-01: default-on (DB BIT DEFAULT 1); returns true if row absent. // AC-MSG-011-01
+//   CS-TS-001: request pool via db wrapper (SESSION_CONTEXT set by middleware). // CS-TS-001
+//
+// setEmailNudgePreferenceForCurrentUser — REQUEST POOL: writes caller's own emailNudgeEnabled.
+//   Own-row isolation via WHERE clerkId = caller's clerkId (no sec.pol_User BLOCK predicate).
+//   Role guard (accountant-only) lives in the server action (TASK-018-004, CS-TS-004).
+//   CS-TS-001: request pool via db wrapper (SESSION_CONTEXT set by middleware). // CS-TS-001
+//   CS-TS-003: shared primitive for both portal + admin surfaces. // CS-TS-003
+//
+// dispatchDailyDigest      — ADMIN POOL batch dispatcher (TASK-018-003):
+//   Composes getDigestRecipients + composeDigestNudge + getEmailProvider().send + recordNudgeSent.
+//   At most one send per recipient per day (cap + suppression applied upstream in candidate query).
+//   Returns { sentCount } — count only, no recipient identity (CS-GEN-001).
+//   ADR-025: send only via the EmailProvider port — no ESP SDK at the call site.
+//   DECISION-018-003-A: skip recordNudgeSent on send failure (recipient retries next run).
+//   DECISION-018-003-B: ADR-006 sign-in URL by role.
+//   AC-MSG-008-02: content-free body guaranteed by composeDigestNudge.
+//   AC-MSG-009-01/-02/-03: one email per day; cap enforced by watermark.
+//   AC-MSG-010-02/-03/-04: suppression and feed-intact guarantees.
+//
+// CS-GEN-001: no recipient email / identity in logs. // CS-GEN-001
+// CS-GEN-002: additive — new exports; no existing export removed or narrowed. // CS-GEN-002
+// CS-GEN-003: governing keys cited in source and here. // CS-GEN-003
+// DECISION-018-002-A: calendar-day UTC boundary for the daily-cap predicate.
+export type {
+  DigestRecipient,
+  // TASK-018-003: dispatcher result type
+  DigestDispatchResult,
+} from "./repositories/email-digest.js";
+export {
+  // AC-MSG-010-03: SELECT-only candidate query; AC-MSG-011-01: default-on included
+  getDigestRecipients,
+  // Watermarks lastNudgeSentAt after dispatch (CS-TS-002 admin pool)
+  recordNudgeSent,
+  // Request-pool own-preference reads (CS-TS-001, AC-MSG-011-01 default-on)
+  getEmailNudgePreferenceForCurrentUser,
+  // Request-pool own-preference write (CS-TS-001, CS-TS-003)
+  setEmailNudgePreferenceForCurrentUser,
+  // TASK-018-003: daily-digest dispatcher (admin pool, ADR-025 email port)
+  // AC-MSG-008-02 / AC-MSG-009-01/-02/-03 / AC-MSG-010-02/-03/-04
+  dispatchDailyDigest,
+} from "./repositories/email-digest.js";
+
 // Onboarding completion engine (EPIC-008 / TASK-008-001)
 // isOnboardingComplete           — pure predicate: true iff all three step done flags are true
 //                                  (AC-ONBD-005-01/-02). Consumes OnboardingReadModel from onboarding.ts.
