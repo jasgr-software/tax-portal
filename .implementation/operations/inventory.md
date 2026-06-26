@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** TASK-018-007 (added ENABLE_DIGEST_TRIGGER to admin service in docker-compose.yml — TASK-018-003 / DECISION-018-003-C; added env-var entry + admin dev/test trigger route section to inventory + runbook)
+**Last updated:** EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`). Prior: TASK-018-007 (added ENABLE_DIGEST_TRIGGER to admin service in docker-compose.yml — TASK-018-003 / DECISION-018-003-C; added env-var entry + admin dev/test trigger route section to inventory + runbook)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -127,7 +127,7 @@ Both `portal` and `admin` compose services now depend on `azurite: service_healt
 | `STORAGE_ADAPTER` | Both | FileStorage adapter selector (ADR-008): `azurite` (local dev/CI default), `memory` (test-only), `cloud` (Phase-5 slot — throws at startup). Defaults to `azurite` via compose. Added TASK-007-001. |
 | `STORAGE_CONNECTION_STRING` | Both | Azure Blob connection string for the AzuriteAdapter. In compose containers, resolves via `PORTAL_STORAGE_CONNECTION_STRING` / `ADMIN_STORAGE_CONNECTION_STRING` (compose internal `azurite:10000` hostname). Added TASK-007-001. |
 | `STORAGE_CONTAINER` | Both | Blob container name for the FileStorage adapter. Default `tax-portal-documents`. Added TASK-007-001. |
-| `ENABLE_DIGEST_TRIGGER` | admin | Dev/test-only trigger seam opt-in for `dispatchDailyDigest` (TASK-018-003 / BRIEF-018 / DECISION-018-003-C). The `apps/admin` route `POST /api/dev/dispatch-digest` returns 404 unless this is `"true"`. Default `"true"` in local/e2e compose. **MUST NOT be set to `"true"` in a real production deployment** — must be unset or `false` (route guard returns 404, fail-closed). Production digest scheduling is deferred (ADR-023 / ADR-025, deploy-time). Route also requires accountant auth as defense-in-depth (TASK-018-008). Scoped to the **admin service only** — the digest-dispatch seam does not exist on the portal. Added TASK-018-003. <!-- CS-GEN-003 // ADR-023 // ADR-025 // DECISION-018-003-C --> |
+| `ENABLE_DIGEST_TRIGGER` | admin | Dev/test-only trigger seam opt-in for `dispatchDailyDigest` (TASK-018-003 / BRIEF-018 / DECISION-018-003-C). The `apps/admin` route `POST /api/dev/dispatch-digest` returns 404 unless this is `"true"`. **Defaults to `"false"` in compose** (`${ENABLE_DIGEST_TRIGGER:-false}`, hardened from the original `:-true` in PR #106 `/pr-fix`); set `"true"` explicitly (e.g. in `.env.local`) to enable the seam for an e2e run. **MUST NOT be set to `"true"` in a real production deployment** — must be unset or `false` (route guard returns 404, fail-closed). Production digest scheduling is deferred (ADR-023 / ADR-025, deploy-time). Route also requires accountant auth as defense-in-depth (TASK-018-008). Scoped to the **admin service only** — the digest-dispatch seam does not exist on the portal. Added TASK-018-003. <!-- CS-GEN-003 // ADR-023 // ADR-025 // DECISION-018-003-C --> |
 
 ---
 

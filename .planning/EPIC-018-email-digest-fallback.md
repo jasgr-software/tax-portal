@@ -2,7 +2,7 @@
 id: EPIC-018
 title: Email digest fallback — content-free nudge, daily cap, accountant suppression
 phase: 4
-status: planned
+status: delivered
 slice: Users who are away from the portal get a content-free email nudge that there is new activity and a way to sign in — never any client/document/message detail — batched to at most one per recipient per day; the accountant can suppress her own email entirely, and clients have the nudge on by default.
 requirements:
   - REQ-MSG-008: [AC-MSG-008-01, AC-MSG-008-02, AC-MSG-008-03]
