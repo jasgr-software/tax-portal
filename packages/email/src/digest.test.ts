@@ -32,7 +32,6 @@ describe("composeDigestNudge — nudge statement and sign-in URL present (AC-MSG
 
   it("AC-MSG-008-01 — subject contains a generic activity statement", () => {
     const result = composeDigestNudge({
-      role: "CLIENT",
       signInUrl: "https://portal.example.com/sign-in",
     });
 
@@ -44,7 +43,6 @@ describe("composeDigestNudge — nudge statement and sign-in URL present (AC-MSG
 
   it("AC-MSG-008-01 — body contains a generic activity statement", () => {
     const result = composeDigestNudge({
-      role: "CLIENT",
       signInUrl: "https://portal.example.com/sign-in",
     });
 
@@ -54,22 +52,22 @@ describe("composeDigestNudge — nudge statement and sign-in URL present (AC-MSG
 
   it("AC-MSG-008-03 — body contains the signInUrl as the sign-in affordance", () => {
     const signInUrl = "https://portal.example.com/sign-in";
-    const result = composeDigestNudge({ role: "CLIENT", signInUrl });
+    const result = composeDigestNudge({ signInUrl });
 
     // Body must include the sign-in URL so the recipient can act on the nudge.
     // AC-MSG-008-03: acting on the email leads the recipient to sign in. // AC-MSG-008-03
     expect(result.text).toContain(signInUrl);
   });
 
-  it("AC-MSG-008-03 — different signInUrls appear in the body (CLIENT sign-in)", () => {
+  it("AC-MSG-008-03 — portal signInUrl appears in the body (client surface)", () => {
     const signInUrl = "https://my-portal.example.com/sign-in";
-    const result = composeDigestNudge({ role: "CLIENT", signInUrl });
+    const result = composeDigestNudge({ signInUrl });
     expect(result.text).toContain(signInUrl);
   });
 
-  it("AC-MSG-008-03 — admin signInUrl appears in the body (ACCOUNTANT sign-in)", () => {
+  it("AC-MSG-008-03 — admin signInUrl appears in the body (accountant surface)", () => {
     const signInUrl = "https://my-admin.example.com/sign-in";
-    const result = composeDigestNudge({ role: "ACCOUNTANT", signInUrl });
+    const result = composeDigestNudge({ signInUrl });
     expect(result.text).toContain(signInUrl);
   });
 });
@@ -110,8 +108,8 @@ describe("composeDigestNudge — content-free guarantee (AC-MSG-008-02)", () => 
       // a signInUrl constructed from sensitive material.
       const signInUrl = "https://portal.example.com/sign-in";
 
-      // Compose the nudge — only the signInUrl and role are inputs.
-      const result = composeDigestNudge({ role: "CLIENT", signInUrl });
+      // Compose the nudge — only signInUrl is the input.
+      const result = composeDigestNudge({ signInUrl });
 
       // ASSERT BOTH SIDES:
       // Side A — nudge is present in subject.
@@ -131,7 +129,7 @@ describe("composeDigestNudge — content-free guarantee (AC-MSG-008-02)", () => 
     "AC-MSG-008-02 — output body contains NO seeded sensitive value (two-sided proof)",
     () => {
       const signInUrl = "https://portal.example.com/sign-in";
-      const result = composeDigestNudge({ role: "CLIENT", signInUrl });
+      const result = composeDigestNudge({ signInUrl });
 
       // ASSERT BOTH SIDES:
       // Side A — nudge copy is present in body.
@@ -153,7 +151,6 @@ describe("composeDigestNudge — content-free guarantee (AC-MSG-008-02)", () => 
   it("AC-MSG-008-02 — body does not contain template slot artefacts", () => {
     // Verify no accidental interpolation artefacts (e.g., "undefined", "{{}}", "${…}").
     const result = composeDigestNudge({
-      role: "CLIENT",
       signInUrl: "https://portal.example.com/sign-in",
     });
 
@@ -164,38 +161,29 @@ describe("composeDigestNudge — content-free guarantee (AC-MSG-008-02)", () => 
   });
 });
 
-// ─── Test 4 & 5: role does not affect the output body ────────────────────────
+// ─── Test 4 & 5: output contains no role-identifying text ────────────────────
 
-describe("composeDigestNudge — role-agnostic output", () => {
-  it("ACCOUNTANT and CLIENT roles produce the same subject", () => {
+describe("composeDigestNudge — role-agnostic output (role removed from input)", () => {
+  // `role` was removed from DigestNudgeInput — the composer is fully signInUrl-only.
+  // The output must not contain the word ACCOUNTANT or CLIENT regardless of URL.
+  // // AC-MSG-008-02 // DECISION-018-003-COMPOSER
+
+  it("output is deterministic for the same signInUrl", () => {
     const url = "https://app.example.com/sign-in";
-    const clientResult  = composeDigestNudge({ role: "CLIENT",     signInUrl: url });
-    const acctResult    = composeDigestNudge({ role: "ACCOUNTANT", signInUrl: url });
+    const result1 = composeDigestNudge({ signInUrl: url });
+    const result2 = composeDigestNudge({ signInUrl: url });
 
-    // Subject must be identical — no role-specific copy. // AC-MSG-008-02 // ADR-025
-    expect(clientResult.subject).toBe(acctResult.subject);
-  });
-
-  it("ACCOUNTANT and CLIENT roles produce the same body structure", () => {
-    const url = "https://app.example.com/sign-in";
-    const clientResult  = composeDigestNudge({ role: "CLIENT",     signInUrl: url });
-    const acctResult    = composeDigestNudge({ role: "ACCOUNTANT", signInUrl: url });
-
-    // Body must be identical — no role-specific copy. // AC-MSG-008-02 // ADR-025
-    expect(clientResult.text).toBe(acctResult.text);
+    expect(result1.subject).toBe(result2.subject);
+    expect(result1.text).toBe(result2.text);
   });
 
   it("body does NOT contain the word 'ACCOUNTANT' or 'CLIENT'", () => {
-    const url = "https://app.example.com/sign-in";
-    const clientResult  = composeDigestNudge({ role: "CLIENT",     signInUrl: url });
-    const acctResult    = composeDigestNudge({ role: "ACCOUNTANT", signInUrl: url });
+    const result = composeDigestNudge({ signInUrl: "https://app.example.com/sign-in" });
 
-    // Role identifiers must not appear in the body — role is for dispatcher use only.
+    // Role identifiers must not appear in the body.
     // // AC-MSG-008-02 // DECISION-018-003-COMPOSER
-    expect(clientResult.text.toUpperCase()).not.toContain("ACCOUNTANT");
-    expect(clientResult.text.toUpperCase()).not.toContain("CLIENT");
-    expect(acctResult.text.toUpperCase()).not.toContain("ACCOUNTANT");
-    expect(acctResult.text.toUpperCase()).not.toContain("CLIENT");
+    expect(result.text.toUpperCase()).not.toContain("ACCOUNTANT");
+    expect(result.text.toUpperCase()).not.toContain("CLIENT");
   });
 });
 

@@ -13,12 +13,10 @@
  *     - The recipient's own name or email address
  *       (ADR-025 permits name, but excluding it keeps the two-sided proof clean)
  *
- * Why role is in the input but does not appear in the output:
- *   The dispatcher (TASK-018-003) uses `role` to select the correct sign-in URL
- *   (ADR-006: CLIENT → PORTAL_APP_URL/sign-in, ACCOUNTANT → ADMIN_APP_URL/sign-in).
- *   The role is passed here so the composer is a single-argument pure function that
- *   receives everything it needs. The output text is identical for both roles —
- *   fully generic, no surface-specific copy.
+ * `role` was removed from the input (see review finding 3):
+ *   The dispatcher (TASK-018-003) already selects the sign-in URL before calling
+ *   this function, so `role` is not needed here. The output text is identical for
+ *   both roles — fully generic, no surface-specific copy.
  *
  * Pure function: zero side-effects, no I/O, no env reads. Unit-testable in isolation.
  *
@@ -37,15 +35,14 @@
 /**
  * Input to the digest nudge composer.
  *
- * `role` — discriminator for ADR-006 sign-in URL selection by the dispatcher.
- *   Not used in the output body (the content is role-agnostic and fully generic).
- *
  * `signInUrl` — the URL the recipient should visit to sign in to their portal.
  *   Chosen by the dispatcher: CLIENT → PORTAL_APP_URL + '/sign-in';
  *   ACCOUNTANT → ADMIN_APP_URL + '/sign-in'. (ADR-006)
+ *
+ * `role` was removed: the dispatcher selects the sign-in URL before calling this
+ * function, so the composer does not need the role — all output is role-agnostic.
  */
 export interface DigestNudgeInput {
-  role: "ACCOUNTANT" | "CLIENT";
   signInUrl: string;
 }
 
@@ -78,7 +75,7 @@ export interface DigestNudgeEmail {
  *   - No recipient name or email address.
  *   - The same generic copy is used for both ACCOUNTANT and CLIENT roles.
  *
- * @param input - `{ role, signInUrl }` — role for dispatcher use, signInUrl for the body.
+ * @param input - `{ signInUrl }` — the sign-in URL for the body.
  * @returns `{ subject, text }` — the composed nudge email.
  *
  * // AC-MSG-008-01: conveys only "new activity" + sign-in means.         // AC-MSG-008-01
@@ -91,17 +88,13 @@ export interface DigestNudgeEmail {
  */
 export function composeDigestNudge(input: DigestNudgeInput): DigestNudgeEmail {
   // DECISION-018-003-COMPOSER: The body is fully generic — no role-specific copy.
-  // The `role` field is part of the input so the dispatcher is a single call site
-  // (ADR-006 URL selection lives in the dispatcher, not here). The content is
-  // identical for ACCOUNTANT and CLIENT: any role-specific wording would risk
-  // leaking surface information and would complicate the two-sided proof.
+  // `role` was removed from the input: ADR-006 URL selection lives in the dispatcher;
+  // the composer receives only the pre-selected signInUrl. The content is identical
+  // for ACCOUNTANT and CLIENT — any role-specific wording would risk leaking surface
+  // information and would complicate the two-sided proof.
   //
   // "your portal" is the only portal reference — no brand name, no surface name.
   // // ADR-025 // REQ-MSG-008 // AC-MSG-008-02 // CS-GEN-001
-
-  // Suppress unused-param lint — role is intentionally received but not used
-  // in content generation (it is used by the dispatcher for URL selection only).
-  void input.role;
 
   const subject = "You have new activity in your portal";
 

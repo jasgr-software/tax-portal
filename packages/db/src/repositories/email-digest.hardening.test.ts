@@ -3,7 +3,7 @@
  *
  * UNIT TESTS — no SQL Server required (all DB dependencies mocked).
  *
- * Regression tests for TASK-018-008 gated-path hardening:
+ * Regression tests for dispatchDailyDigest:
  *
  *   #5 — CS-GEN-001 / ADR-025 §4 / ADR-017 no-PII logging fix:
  *     A send failure must NOT log err.message (SMTP rejections embed the recipient
@@ -11,20 +11,24 @@
  *     stable category string + the error class name. Regression test spies on
  *     console.error and asserts no recipient email or PII appears in any arg.
  *
- *   #4 — Production-safety seam gating:
- *     _emailProvider and _userIdFilter opts are honored ONLY when NODE_ENV === 'test'.
- *     When NODE_ENV !== 'test', both seams are provably inert: getEmailProvider() is
- *     always called (never the injected _emailProvider) and all eligible recipients
- *     are dispatched (never narrowed by _userIdFilter). Regression tests use
- *     vi.stubEnv('NODE_ENV', 'production') to prove the inert path.
+ *   #2 — AC-MSG-009-01 double-send regression:
+ *     When emailProvider.send() succeeds but recordNudgeSent() (the UPDATE watermark
+ *     write) throws, the send must still be credited (sentCount incremented), and
+ *     the watermark failure must be logged with a distinct message — NOT mixed with
+ *     the send-failure log. The recipient may be re-eligible on the next run, but
+ *     must NOT receive a second email within the current run.
+ *
+ *   #emailProvider-DI — plain DI parameter (no NODE_ENV gate):
+ *     The `emailProvider` opt is ALWAYS honored when provided (no environment check).
+ *     getEmailProvider() is the default only when `emailProvider` is absent.
  *
  * Methodology: unit, mocked-dependency. Vitest vi.hoisted() + vi.mock() pattern.
  *
  * // CS-GEN-001: no PII in log args — the hard constraint these tests enforce. // CS-GEN-001
  * // ADR-025 §4: no body/PII logging in the catch block. // ADR-025
  * // ADR-017: no PII in transport/log layer. // ADR-017
+ * // AC-MSG-009-01: at most one email per recipient per day. // AC-MSG-009-01
  * // CS-GEN-003: governing keys cited throughout. // CS-GEN-003
- * // TASK-018-008: hardening fixes #5 and #4. // TASK-018-008
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -38,8 +42,14 @@ import type { EmailProvider, EmailMessage, SentEmail } from "@tax-portal/email";
  *
  * Mutable container pattern: the vi.mock factory captures the REFERENCE at mock
  * creation time; tests mutate .value to control per-test query responses.
+ *
+ * `queryState` controls per-test query failure simulation:
+ *   - `callCount`: tracks how many times StubRequest.query has been called this test.
+ *   - `throwAfter`: if set to N, the (N+1)th query call throws a simulated DB error.
+ *     Used by the double-send regression test to make the UPDATE (recordNudgeSent) throw.
+ *     Reset to null in beforeEach so default tests are unaffected.
  */
-const { recipientsContainer, mockGetAdminPool, mockGetEmailProvider, mockComposeDigestNudge } =
+const { recipientsContainer, mockGetAdminPool, mockGetEmailProvider, mockComposeDigestNudge, queryState } =
   vi.hoisted(() => ({
     recipientsContainer: {
       value: [] as Array<{ userId: string; email: string; role: string }>,
@@ -47,6 +57,7 @@ const { recipientsContainer, mockGetAdminPool, mockGetEmailProvider, mockCompose
     mockGetAdminPool: vi.fn(),
     mockGetEmailProvider: vi.fn(),
     mockComposeDigestNudge: vi.fn(),
+    queryState: { callCount: 0, throwAfter: null as number | null },
   }));
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
@@ -59,8 +70,9 @@ const { recipientsContainer, mockGetAdminPool, mockGetEmailProvider, mockCompose
  * from `recipientsContainer.value` at call time, not at mock-definition time,
  * so tests can configure different recipients per test.
  *
- * recordNudgeSent's UPDATE query ignores the return value, so returning
- * { recordset: recipientsContainer.value } for ALL queries is safe.
+ * `queryState.throwAfter` supports the double-send regression test (#2):
+ *   When set to N, the (N+1)th query call throws a simulated DB error, which lets
+ *   the test simulate recordNudgeSent() failing after send() succeeded.
  *
  * // CS-TS-002: mssql is an internal implementation detail of packages/db. // CS-TS-002
  */
@@ -70,10 +82,13 @@ vi.mock("mssql", () => {
     _pool: unknown,
   ) {
     this.input = vi.fn().mockReturnThis();
-    // Reads recipientsContainer.value at call time — configurable per test.
-    this.query = vi.fn().mockImplementation(() =>
-      Promise.resolve({ recordset: recipientsContainer.value }),
-    );
+    this.query = vi.fn().mockImplementation(() => {
+      queryState.callCount++;
+      if (queryState.throwAfter !== null && queryState.callCount > queryState.throwAfter) {
+        return Promise.reject(new Error("Simulated DB write failure (hardening test #2)"));
+      }
+      return Promise.resolve({ recordset: recipientsContainer.value });
+    });
   }
   return {
     default: {
@@ -119,6 +134,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Default recipients: empty (tests override as needed).
   recipientsContainer.value = [];
+  // Reset query state: no failures by default.
+  queryState.callCount = 0;
+  queryState.throwAfter = null;
   // Default pool: return a stub pool object (not used directly by StubRequest).
   mockGetAdminPool.mockResolvedValue({});
   // Default email provider: a no-op that records calls.
@@ -131,7 +149,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Restore any NODE_ENV stubs set by individual tests.
+  // Restore any env stubs set by individual tests.
   vi.unstubAllEnvs();
 });
 
@@ -165,7 +183,6 @@ describe(
           },
         };
 
-        // With NODE_ENV='test' (vitest default), the seam IS active — injected provider is used.
         const consoleSpy = vi
           .spyOn(console, "error")
           .mockImplementation(() => {});
@@ -174,8 +191,7 @@ describe(
           // ── WHEN ──────────────────────────────────────────────────────────
           await dispatchDailyDigest({
             now: new Date("2100-06-01T00:00:00.000Z"),
-            _emailProvider: failingProvider,
-            _userIdFilter: new Set(["victim-user-unit-id"]),
+            emailProvider: failingProvider,
           });
 
           // ── THEN ──────────────────────────────────────────────────────────
@@ -231,194 +247,165 @@ describe(
   },
 );
 
-// ─── #4: Seam gating — provably inert when NODE_ENV !== 'test' ───────────────
+// ─── #2: Double-send regression (AC-MSG-009-01) ──────────────────────────────
 
 describe(
-  "dispatchDailyDigest — #4: test seams inert when NODE_ENV !== 'test' (TASK-018-008)",
+  "dispatchDailyDigest — #2: double-send regression (AC-MSG-009-01 / DECISION-018-003-A)",
   () => {
     it(
-      "[#4] _emailProvider opt is ignored when NODE_ENV is not 'test' — " +
-        "getEmailProvider() is always called instead",
+      "[#2][AC-MSG-009-01] send succeeds but recordNudgeSent throws: " +
+        "sentCount is incremented (send credited), watermark failure logged distinctly, " +
+        "and the send-failure log is NOT triggered",
       async () => {
         // ── GIVEN ─────────────────────────────────────────────────────────
-        // Override NODE_ENV to 'production' — seams must be inert.
-        vi.stubEnv("NODE_ENV", "production");
-
+        // One recipient. emailProvider.send() succeeds. recordNudgeSent() (the
+        // UPDATE watermark write, i.e. the 2nd SQL query) throws.
+        // The old single-catch pattern would NOT increment sentCount and would leave
+        // the recipient eligible for a same-day double-send. The fixed two-phase
+        // try/catch MUST increment sentCount even when the watermark write fails.
         recipientsContainer.value = [
-          { userId: "seam-test-user-prod", email: "seam@unit-test.example.com", role: "CLIENT" },
+          { userId: "double-send-test-user", email: "double-send@unit-test.example.com", role: "CLIENT" },
         ];
 
-        // The provider returned by getEmailProvider() (the real path in production).
-        const realProvider: EmailProvider = {
-          fromAddress: "real@example.com",
-          send: vi.fn().mockResolvedValue({ id: "real-send-1" } satisfies SentEmail),
+        // Provider that succeeds — the watermark write (SQL UPDATE) is what fails.
+        const successProvider: EmailProvider = {
+          fromAddress: "from@example.com",
+          send: vi.fn().mockResolvedValue({ id: "sent-ok-1" } satisfies SentEmail),
         };
-        mockGetEmailProvider.mockReturnValue(realProvider);
 
-        // Alternative provider passed as the _emailProvider opt — must be IGNORED.
-        const altProvider: EmailProvider = {
-          fromAddress: "alt@example.com",
-          send: vi.fn().mockResolvedValue({ id: "alt-send-1" } satisfies SentEmail),
-        };
+        // Make the second query call (recordNudgeSent's UPDATE) throw.
+        // The first call is getDigestRecipients's SELECT → returns recipients.
+        // The second call is recordNudgeSent's UPDATE → throws.
+        queryState.throwAfter = 1; // throw after the 1st call (i.e., on the 2nd call)
+
+        const consoleSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
 
         // ── WHEN ──────────────────────────────────────────────────────────
-        // Call with _emailProvider injected — seam must be inactive in production.
         const result = await dispatchDailyDigest({
-          now: new Date("2100-06-02T00:00:00.000Z"),
-          _emailProvider: altProvider,
+          now: new Date("2100-06-10T00:00:00.000Z"),
+          emailProvider: successProvider,
         });
 
         // ── THEN ──────────────────────────────────────────────────────────
-        // altProvider.send must NOT have been called — seam inactive.
-        expect(
-          (altProvider.send as ReturnType<typeof vi.fn>),
-          "[#4] injected _emailProvider.send must NOT be called when NODE_ENV !== 'test' — " +
-            "seam must be inert in production",
-        ).not.toHaveBeenCalled();
 
-        // realProvider.send (from getEmailProvider()) MUST have been called.
+        // [AC-MSG-009-01] The send succeeded → sentCount must be incremented.
+        // The old code would NOT increment sentCount because both send and recordNudgeSent
+        // were in the same try block — if recordNudgeSent threw, the catch reset sentCount.
         expect(
-          (realProvider.send as ReturnType<typeof vi.fn>),
-          "[#4] getEmailProvider() result must be called — production path must use real provider",
+          result.sentCount,
+          "[#2][AC-MSG-009-01] sentCount must be 1 — the send succeeded even if watermark write failed",
+        ).toBe(1);
+
+        // The email was sent — verify send() was called.
+        expect(
+          (successProvider.send as ReturnType<typeof vi.fn>),
+          "[#2] emailProvider.send() must have been called once",
         ).toHaveBeenCalledTimes(1);
 
-        // sentCount reflects the real dispatch (not zero from a filtered-out empty set).
+        // The watermark failure must be logged with a DISTINCT message (not the send-failure message).
+        const allCalls = consoleSpy.mock.calls;
         expect(
-          result.sentCount,
-          "[#4] sentCount must be 1 — recipient was dispatched via real provider",
+          allCalls.length,
+          "[#2] exactly one console.error call expected (the watermark failure)",
         ).toBe(1);
+
+        const firstCallFirstArg = String(allCalls[0]?.[0] ?? "");
+
+        // The log must use the WATERMARK-FAILURE category string (distinct from send failure).
+        expect(
+          firstCallFirstArg,
+          "[#2] watermark-failure log must mention 'watermark write failed after successful send'",
+        ).toContain("watermark write failed after successful send");
+
+        // The log must NOT use the SEND-FAILURE string (the send succeeded).
+        expect(
+          firstCallFirstArg,
+          "[#2] watermark-failure log must NOT contain the send-failure category string",
+        ).not.toContain("one recipient send failed");
+
+        consoleSpy.mockRestore();
       },
     );
+  },
+);
 
+// ─── #emailProvider-DI: plain DI parameter, always honored ───────────────────
+
+describe(
+  "dispatchDailyDigest — emailProvider is always honored when provided (no NODE_ENV gate)",
+  () => {
     it(
-      "[#4] _userIdFilter opt is ignored when NODE_ENV is not 'test' — " +
-        "all eligible recipients are dispatched regardless of the filter",
+      "emailProvider opt is used when provided — getEmailProvider() is NOT called",
       async () => {
         // ── GIVEN ─────────────────────────────────────────────────────────
-        // Override NODE_ENV to 'production' — seams must be inert.
-        vi.stubEnv("NODE_ENV", "production");
-
-        const recipients = [
-          { userId: "user-seam-prod-1", email: "user1@unit-test.example.com", role: "CLIENT" },
-          { userId: "user-seam-prod-2", email: "user2@unit-test.example.com", role: "CLIENT" },
-        ];
-        recipientsContainer.value = [...recipients];
-
-        const realProvider: EmailProvider = {
-          fromAddress: "real@example.com",
-          send: vi.fn().mockResolvedValue({ id: "real-send-2" } satisfies SentEmail),
-        };
-        mockGetEmailProvider.mockReturnValue(realProvider);
-
-        // Empty filter: in test mode this would exclude ALL recipients (sentCount = 0).
-        // In production mode the filter is ignored — all recipients must be dispatched.
-        const emptyFilter = new Set<string>();
-
-        // ── WHEN ──────────────────────────────────────────────────────────
-        const result = await dispatchDailyDigest({
-          now: new Date("2100-06-03T00:00:00.000Z"),
-          _userIdFilter: emptyFilter,
-        });
-
-        // ── THEN ──────────────────────────────────────────────────────────
-        // Both recipients must have been dispatched (filter was ignored).
-        expect(
-          (realProvider.send as ReturnType<typeof vi.fn>),
-          "[#4] _userIdFilter ignored in production — BOTH recipients must be dispatched",
-        ).toHaveBeenCalledTimes(2);
-
-        expect(
-          result.sentCount,
-          "[#4] sentCount must be 2 — all eligible recipients dispatched when seam inactive",
-        ).toBe(2);
-      },
-    );
-
-    it(
-      "[#4] control: _emailProvider IS honored when NODE_ENV is 'test' (seam active)",
-      async () => {
-        // ── GIVEN ─────────────────────────────────────────────────────────
-        // NODE_ENV defaults to 'test' in Vitest — seam must be active.
-        // (No vi.stubEnv here — using the real Vitest NODE_ENV.)
-        expect(process.env["NODE_ENV"]).toBe("test"); // self-documenting guard
-
         recipientsContainer.value = [
-          { userId: "seam-control-user", email: "control@unit-test.example.com", role: "CLIENT" },
+          { userId: "di-test-user", email: "di@unit-test.example.com", role: "CLIENT" },
         ];
 
-        // The "real" provider returned by getEmailProvider() — must NOT be called.
-        const realProvider: EmailProvider = {
-          fromAddress: "real@example.com",
-          send: vi.fn().mockResolvedValue({ id: "real-send-ctrl" } satisfies SentEmail),
+        // The provider returned by getEmailProvider() — must NOT be called.
+        const defaultProvider: EmailProvider = {
+          fromAddress: "default@example.com",
+          send: vi.fn().mockResolvedValue({ id: "default-1" } satisfies SentEmail),
         };
-        mockGetEmailProvider.mockReturnValue(realProvider);
+        mockGetEmailProvider.mockReturnValue(defaultProvider);
 
-        // Injected provider — must BE called because NODE_ENV is 'test'.
+        // Injected provider — must BE called.
         const injectedProvider: EmailProvider = {
           fromAddress: "injected@example.com",
-          send: vi.fn().mockResolvedValue({ id: "injected-send-1" } satisfies SentEmail),
+          send: vi.fn().mockResolvedValue({ id: "injected-1" } satisfies SentEmail),
         };
 
         // ── WHEN ──────────────────────────────────────────────────────────
         const result = await dispatchDailyDigest({
-          now: new Date("2100-06-04T00:00:00.000Z"),
-          _emailProvider: injectedProvider,
+          now: new Date("2100-06-20T00:00:00.000Z"),
+          emailProvider: injectedProvider,
         });
 
         // ── THEN ──────────────────────────────────────────────────────────
-        // injectedProvider.send must have been called — seam active in test.
+        // Injected provider MUST be called.
         expect(
           (injectedProvider.send as ReturnType<typeof vi.fn>),
-          "[#4 control] injected _emailProvider.send MUST be called when NODE_ENV === 'test'",
+          "emailProvider.send() MUST be called when emailProvider is provided",
         ).toHaveBeenCalledTimes(1);
 
-        // realProvider.send must NOT have been called (seam bypasses getEmailProvider()).
+        // Default provider (getEmailProvider()) must NOT be called.
         expect(
-          (realProvider.send as ReturnType<typeof vi.fn>),
-          "[#4 control] getEmailProvider() result must NOT be called when seam is active",
+          (defaultProvider.send as ReturnType<typeof vi.fn>),
+          "getEmailProvider() result must NOT be called when emailProvider is injected",
         ).not.toHaveBeenCalled();
 
-        expect(result.sentCount, "[#4 control] sentCount must be 1").toBe(1);
+        expect(result.sentCount, "sentCount must be 1").toBe(1);
       },
     );
 
     it(
-      "[#4] control: _userIdFilter IS honored when NODE_ENV is 'test' (seam active)",
+      "when emailProvider is absent, getEmailProvider() default is used",
       async () => {
         // ── GIVEN ─────────────────────────────────────────────────────────
-        // NODE_ENV is 'test' — seam active; empty filter should exclude all.
-        expect(process.env["NODE_ENV"]).toBe("test");
-
         recipientsContainer.value = [
-          { userId: "user-ctrl-1", email: "ctrl1@unit-test.example.com", role: "CLIENT" },
-          { userId: "user-ctrl-2", email: "ctrl2@unit-test.example.com", role: "CLIENT" },
+          { userId: "default-di-user", email: "default-di@unit-test.example.com", role: "CLIENT" },
         ];
 
-        const realProvider: EmailProvider = {
-          fromAddress: "real@example.com",
-          send: vi.fn().mockResolvedValue({ id: "real-send-ctrl2" } satisfies SentEmail),
+        const defaultProvider: EmailProvider = {
+          fromAddress: "default@example.com",
+          send: vi.fn().mockResolvedValue({ id: "default-2" } satisfies SentEmail),
         };
-        mockGetEmailProvider.mockReturnValue(realProvider);
+        mockGetEmailProvider.mockReturnValue(defaultProvider);
 
-        const emptyFilter = new Set<string>();
-
-        // ── WHEN ──────────────────────────────────────────────────────────
+        // ── WHEN ── (no emailProvider in opts)
         const result = await dispatchDailyDigest({
-          now: new Date("2100-06-05T00:00:00.000Z"),
-          _userIdFilter: emptyFilter,
+          now: new Date("2100-06-21T00:00:00.000Z"),
         });
 
         // ── THEN ──────────────────────────────────────────────────────────
-        // Empty filter active in test mode — zero sends.
         expect(
-          (realProvider.send as ReturnType<typeof vi.fn>),
-          "[#4 control] _userIdFilter IS honored in test — empty set means zero sends",
-        ).not.toHaveBeenCalled();
+          (defaultProvider.send as ReturnType<typeof vi.fn>),
+          "getEmailProvider() result MUST be used when emailProvider is not provided",
+        ).toHaveBeenCalledTimes(1);
 
-        expect(
-          result.sentCount,
-          "[#4 control] sentCount must be 0 when filter excludes all recipients",
-        ).toBe(0);
+        expect(result.sentCount, "sentCount must be 1").toBe(1);
       },
     );
   },

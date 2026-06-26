@@ -10,51 +10,34 @@
  *   Email-settings UI is accountant-only (brief Out of scope for clients). // ADR-006
  *
  * ADR-010: apps/admin has NO public routes. The middleware guarantees ACCOUNTANT auth
- *   before this page renders. This page adds a defense-in-depth identity guard.
+ *   before this page renders.
  *
- * CS-TS-004: getAccountantIdentity() resolves identity from cookie before any DB read. // CS-TS-004
+ * Identity guard: the page delegates to getOwnEmailNudgePreferenceAction(), which
+ *   calls getAccountantIdentity() (CS-TS-004) before any DB read. If identity is
+ *   absent or wrong role, the action returns { success: false } and the page
+ *   surfaces the error inline. The page does not re-implement the guard itself —
+ *   middleware (Layer 1) + the action's guard (Layer 2) are sufficient.
+ *
+ * CS-TS-004: identity guard lives in the action (getAccountantIdentity()).   // CS-TS-004
  * CS-TS-001: current preference read via withRequestContext (SESSION_CONTEXT set). // CS-TS-001
  * CS-GEN-001: no PII in server logs. // CS-GEN-001
  * CS-GEN-003: governing keys cited. // CS-GEN-003
  */
 
-import { headers } from "next/headers";
-import { getAuthProvider } from "@tax-portal/auth";
 import { EmailSuppressionToggle } from "./_components/EmailSuppressionToggle";
 import { getOwnEmailNudgePreferenceAction } from "./actions";
-
 
 export const metadata = {
   title: "Notification Settings",
 };
 
 export default async function NotificationSettingsPage() {
-  // Defense-in-depth identity guard — ADR-010 middleware guarantees ACCOUNTANT,
-  // but we re-verify here to match the established page pattern (letter-template/page.tsx).
-  // CS-TS-004: cookie → synthetic Request → provider.getIdentity() → role check. // CS-TS-004
-  const headerStore = await headers();
-  const cookieHeader = headerStore.get("cookie") ?? "";
-
-  const syntheticRequest = new Request("http://localhost/", {
-    headers: { cookie: cookieHeader },
-  });
-
-  const provider = getAuthProvider();
-  const identity = await provider.getIdentity(syntheticRequest);
-
-  if (!identity || identity.role !== "ACCOUNTANT") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-red-200 p-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Tax Portal</h1>
-          <p className="text-sm text-red-600">Authentication required. Please sign in.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Read the accountant's current email preference (CS-TS-001 wrapped read). // CS-TS-001
+  // Read the accountant's current email preference.
+  // The action's getAccountantIdentity() (CS-TS-004) guards the ACCOUNTANT role
+  // before any DB read. If auth fails, prefResult.success === false and the error
+  // is surfaced inline. Middleware (ADR-010) is Layer 1; the action guard is Layer 2.
   // AC-MSG-011-01: default-on if row absent (returned by getEmailNudgePreferenceForCurrentUser). // AC-MSG-011-01
+  // CS-TS-001: wrapped read via withRequestContext. // CS-TS-001
   let initialEmailEnabled = true;
   let prefError: string | null = null;
 

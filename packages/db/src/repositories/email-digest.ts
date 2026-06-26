@@ -299,21 +299,14 @@ export interface DigestDispatchResult {
  * // CS-GEN-003: governing keys cited throughout.                         // CS-GEN-003
  *
  * @param opts.now Override the dispatch clock (optional; defaults to `new Date()`).
- * @param opts._emailProvider
- *   @internal TEST-ONLY seam — **honored only when `NODE_ENV === 'test'`** (TASK-018-008 #4).
- *   Inject a capturable EmailProvider for tier-3 dispatch tests without module-level mutation.
- *   Provably inert in production: if `NODE_ENV !== 'test'` this field is silently ignored and
- *   `getEmailProvider()` is always called. Never pass in production; the guard is the NODE_ENV
- *   check, not caller discipline. // CS-GEN-001 // ADR-025
- * @param opts._userIdFilter
- *   @internal TEST-ONLY seam — **honored only when `NODE_ENV === 'test'`** (TASK-018-008 #4).
- *   Scope dispatch to a known set of user IDs to prevent cross-test watermark contamination in
- *   shared-DB tier-3 integration tests. Provably inert in production: if `NODE_ENV !== 'test'`
- *   this field is silently ignored and all eligible recipients are dispatched. Never pass in
- *   production; the guard is the NODE_ENV check, not caller discipline. // CS-GEN-001 // ADR-025
+ * @param opts.emailProvider
+ *   Inject an EmailProvider for testing (optional; defaults to `getEmailProvider()`).
+ *   Passing a provider here always overrides the default — no environment gate.
+ *   The interface is the same EmailProvider port in all cases (ADR-025).
+ *   // ADR-025
  */
 export async function dispatchDailyDigest(
-  opts?: { now?: Date; _emailProvider?: EmailProvider; _userIdFilter?: Set<string> }
+  opts?: { now?: Date; emailProvider?: EmailProvider }
 ): Promise<DigestDispatchResult> {
   // DECISION-018-003-B: sign-in URL defaults (CLAUDE.md port assignments). // DECISION-018-003-B
   const portalBase =
@@ -324,41 +317,13 @@ export async function dispatchDailyDigest(
   const now = opts?.now ?? new Date();
 
   // CS-TS-002: getDigestRecipients uses admin pool internally. // CS-TS-002
-  const allRecipients = await getDigestRecipients(now);
+  const recipients = await getDigestRecipients(now);
 
-  // TASK-018-008 #4: Test-seam gate — seams are provably inert in production.
-  // Honoring _userIdFilter or _emailProvider ONLY when NODE_ENV === 'test' prevents a
-  // production caller from silently narrowing recipients or redirecting all mail.
-  // // CS-GEN-001 // ADR-025 // ADR-017
-  const useTestSeam = process.env["NODE_ENV"] === "test";
-
-  // DECISION-018-003-E: _userIdFilter — test-only recipient scoping (INERT in production).
-  //   In tests, the dispatcher runs against a shared DB that may contain stale
-  //   test users from other test files. Passing `_userIdFilter` limits dispatch
-  //   to the caller's own test users, preventing cross-test watermark contamination.
-  //   Production code NEVER passes _userIdFilter → all eligible recipients are dispatched.
-  //   // DECISION-018-003-E
-  const recipients =
-    useTestSeam && opts?._userIdFilter
-      ? allRecipients.filter((r) =>
-          opts._userIdFilter!.has(r.userId.toLowerCase())
-        )
-      : allRecipients;
-
-  // DECISION-018-003-D: EmailProvider injection for tier-3 integration tests (INERT in production).
-  //   The `_emailProvider` opts field allows test callers to inject a capturable
-  //   mock (e.g. a TestEmailCapture that implements EmailProvider) without requiring
-  //   subpath exports from @tax-portal/email or module-level singleton manipulation.
-  //   Production always uses getEmailProvider() → the env-selected binding.
-  //   ADR-025 compliance is maintained: the interface used is ALWAYS the EmailProvider port.
-  //   The underscore prefix signals "test-only" to callers; the parameter is never
-  //   documented in the public API (not on the type exported from index.ts).
-  //   // DECISION-018-003-D // ADR-025
-  //
   // ADR-025: send only via the EmailProvider port — never call an ESP SDK directly.
-  // // ADR-025
-  const emailProvider =
-    useTestSeam && opts?._emailProvider ? opts._emailProvider : getEmailProvider();
+  // opts.emailProvider allows callers (including tests) to inject a custom provider;
+  // if absent, the production-default getEmailProvider() is used. No env gate — the
+  // caller is responsible for providing the correct implementation. // ADR-025
+  const emailProvider = opts?.emailProvider ?? getEmailProvider();
 
   let sentCount = 0;
 
@@ -370,28 +335,30 @@ export async function dispatchDailyDigest(
         : `${adminBase}/sign-in`;
 
     // composeDigestNudge is a pure content-free function — no Notification field used.
-    // // AC-MSG-008-02 // ADR-025 §3 // REQ-MSG-008
-    const { subject, text } = composeDigestNudge({
-      role: recipient.role,
-      signInUrl,
-    });
+    // role is NOT passed to the composer (removed from DigestNudgeInput); the dispatcher
+    // already selected signInUrl by role above. // AC-MSG-008-02 // ADR-025 §3 // REQ-MSG-008
+    const { subject, text } = composeDigestNudge({ signInUrl });
+
+    // ADR-025: send only through the port — no ESP SDK at this call site. // ADR-025
+    // ADR-023: SMTP → Mailhog in dev/e2e; no real Resend key wired.       // ADR-023
+    // CS-GEN-001: do NOT log recipient.email, subject, or body here.      // CS-GEN-001
+    //
+    // Two-phase try/catch (AC-MSG-009-01 / DECISION-018-003-A):
+    //   Phase 1 — send. If it throws, log and skip this recipient entirely (no watermark).
+    //   Phase 2 — watermark. If ONLY the watermark throws (send already succeeded),
+    //     log the failure distinctly and still credit the send (sentCount already
+    //     incremented). The recipient may be re-eligible on the next run, but they
+    //     will NOT receive a second email within this run.
+    // This prevents the previous single-catch pattern where a watermark failure after
+    // a successful send would leave the recipient eligible for a same-day double-send.
+    // // AC-MSG-009-01 // DECISION-018-003-A
 
     try {
-      // ADR-025: send only through the port — no ESP SDK at this call site. // ADR-025
-      // ADR-023: SMTP → Mailhog in dev/e2e; no real Resend key wired.       // ADR-023
-      // CS-GEN-001: do NOT log recipient.email, subject, or body here.      // CS-GEN-001
       await emailProvider.send({
         to: recipient.email,
         subject,
         text,
       });
-
-      // DECISION-018-003-A: Record the watermark only after a successful send.
-      // A failed send skips this so the recipient retries next run.
-      // // AC-MSG-009-01 // DECISION-018-003-A
-      await recordNudgeSent(recipient.userId, now);
-
-      sentCount += 1;
     } catch (err) {
       // DECISION-018-003-A: log category-only — no PII in any log argument.
       // SMTP rejections embed the recipient email in err.message
@@ -399,13 +366,35 @@ export async function dispatchDailyDigest(
       // would be PII egress to logs, violating CS-GEN-001 / ADR-025 §4 / ADR-017.
       // Log only a stable category string + the error class name (never .message,
       // never the recipient address, never any notification field).
-      // // CS-GEN-001 // ADR-025 §4 // ADR-017 // DECISION-018-003-A // TASK-018-008 #5
+      // // CS-GEN-001 // ADR-025 §4 // ADR-017 // DECISION-018-003-A
       console.error(
         "[email-digest] one recipient send failed (detail suppressed per ADR-025 §4)",
         (err as Error | null)?.constructor?.name ?? "unknown"
       );
       // recordNudgeSent is intentionally skipped — the recipient will be retried next run.
       // // DECISION-018-003-A
+      continue;
+    }
+
+    // Send succeeded — credit this recipient.
+    sentCount += 1;
+
+    // DECISION-018-003-A: Record the watermark only after a successful send.
+    // Separated from the send try/catch: a watermark failure here does NOT roll
+    // back the send (the email is already delivered), but is logged distinctly so
+    // ops can investigate. The recipient may be re-eligible on the next run.
+    // // AC-MSG-009-01 // DECISION-018-003-A
+    try {
+      await recordNudgeSent(recipient.userId, now);
+    } catch (recordErr) {
+      // CS-GEN-001: no userId / PII in log args. // CS-GEN-001
+      // DECISION-018-003-A: watermark write failed after a successful send.
+      //   sentCount is already incremented — the email was delivered.
+      //   Log the distinct failure category so it is distinguishable from a send failure.
+      console.error(
+        "[email-digest] watermark write failed after successful send (recipient may be re-eligible next run)",
+        (recordErr as Error | null)?.constructor?.name ?? "unknown"
+      );
     }
   }
 

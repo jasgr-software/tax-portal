@@ -50,7 +50,7 @@
  * // ADR-003: SESSION_CONTEXT propagation via withClerkIdentity. // ADR-003
  * // ADR-006: CLIENT → portal sign-in; ACCOUNTANT → admin sign-in. // ADR-006
  * // ADR-012: tier-3 test requires real SQL Server. // ADR-012
- * // ADR-025: dispatchDailyDigest uses getEmailProvider() unless _emailProvider injected. // ADR-025
+ * // ADR-025: dispatchDailyDigest uses getEmailProvider() unless emailProvider injected. // ADR-025
  * // REQ-MSG-008: content-free nudge. // REQ-MSG-008
  * // REQ-MSG-009: at most one per day. // REQ-MSG-009
  * // REQ-MSG-010: suppression. // REQ-MSG-010
@@ -79,14 +79,11 @@ import { listNotifications } from "./notification.js";
 /**
  * Minimal EmailProvider implementation for tier-3 integration testing.
  *
- * DECISION-018-003-D: We inject this directly via `_emailProvider` opts instead
- * of relying on `EMAIL_PROVIDER=mock` env + module singleton manipulation, because
- * the module-level `getSentEmailsForTesting` helper lives behind a package subpath
- * that is not yet exported from `@tax-portal/email`. This implementation satisfies
- * the `EmailProvider` interface (from the barrel) and provides a local inspection
- * surface (the `captured` array). ADR-025 compliance is maintained — the interface
- * used is the same `EmailProvider` port, not an ESP SDK.
- * // DECISION-018-003-D // ADR-025
+ * We inject this directly via the `emailProvider` opt (plain DI parameter — no env
+ * gate). This satisfies the `EmailProvider` interface (from the barrel) and provides
+ * a local inspection surface (the `captured` array). ADR-025 compliance is maintained —
+ * the interface used is the same `EmailProvider` port, not an ESP SDK.
+ * // ADR-025
  */
 import type { EmailProvider, EmailMessage, SentEmail } from "@tax-portal/email";
 
@@ -431,12 +428,12 @@ describe(
         const capture = new TestEmailCapture();
 
         // ── WHEN ──────────────────────────────────────────────────────────
-        // DECISION-018-003-E: scope dispatch to Gate1 CLIENT only to prevent
-        // watermarking stale users from other test files. // DECISION-018-003-E
+        // Isolation relies on SENTINEL_DATE: all other test users are sentineled
+        // (lastNudgeSentAt = 2200-01-01) and are not eligible for DAY_G1 = 2100-01-01.
+        // Only the enabled Gate1 CLIENT is in the candidate set.
         const result = await dispatchDailyDigest({
           now: DAY_G1,
-          _emailProvider: capture,
-          _userIdFilter: new Set([g1ClientUserId.toLowerCase()]),
+          emailProvider: capture,
         });
 
         // sentCount must be ≥ 1 (Gate1 CLIENT is enabled). // AC-MSG-009-01
@@ -516,13 +513,11 @@ describe(
         // ── WHEN (day 1) ──────────────────────────────────────────────────
         const capture = new TestEmailCapture();
 
-        // DECISION-018-003-E: scope to Gate2 CLIENT only. // DECISION-018-003-E
-        const g2Filter = new Set([g2ClientUserId.toLowerCase()]);
-
+        // Isolation relies on SENTINEL_DATE: other test users are sentineled (2200)
+        // and are not eligible for DAY_G2_1 = 2100-01-02. Only Gate2 CLIENT is enabled.
         const day1Result = await dispatchDailyDigest({
           now: DAY_G2_1,
-          _emailProvider: capture,
-          _userIdFilter: g2Filter,
+          emailProvider: capture,
         });
 
         // ── THEN (day 1) ──────────────────────────────────────────────────
@@ -558,11 +553,10 @@ describe(
         ).toBe(true);
 
         // Run day 2 dispatch — accumulate in same capture (total will be day1 + day2).
-        // DECISION-018-003-E: scope to Gate2 CLIENT only. // DECISION-018-003-E
+        // Isolation relies on SENTINEL_DATE (other users excluded); Gate2 CLIENT re-eligible.
         const day2Result = await dispatchDailyDigest({
           now: DAY_G2_2,
-          _emailProvider: capture,
-          _userIdFilter: g2Filter,
+          emailProvider: capture,
         });
 
         // ── THEN (day 2) ──────────────────────────────────────────────────
@@ -635,17 +629,12 @@ describe(
         // ── WHEN ──────────────────────────────────────────────────────────
         const capture = new TestEmailCapture();
 
-        // DECISION-018-003-E: scope to Gate3 CLIENT + Gate3 ACCT only
-        // (ACCT is suppressed so she won't get an email, but including her
-        // in the filter proves the suppression proof rather than elision).
-        // // DECISION-018-003-E
+        // Isolation relies on SENTINEL_DATE: other test users are sentineled (2200).
+        // Gate3 ACCT is suppressed (emailNudgeEnabled=false) — excluded regardless of cap.
+        // Gate3 CLIENT is enabled; only she is eligible for DAY_G3 = 2100-01-04.
         await dispatchDailyDigest({
           now: DAY_G3,
-          _emailProvider: capture,
-          _userIdFilter: new Set([
-            g3ClientUserId.toLowerCase(),
-            g3AcctUserId.toLowerCase(),
-          ]),
+          emailProvider: capture,
         });
 
         // ── THEN: Proof 1 — suppressed accountant receives zero emails ────
@@ -721,11 +710,11 @@ describe("dispatchDailyDigest — ADR-025 send-only-via-port seam", () => {
     // // CS-GEN-001 // ADR-025 §4
 
     const capture = new TestEmailCapture();
-    // Use an empty filter so NO users are dispatched — proves the result shape.
+    // DAY_FAR = 2099-01-01: all test users are sentineled at 2200-01-01 (excluded).
+    // Proves the result shape regardless of how many recipients are dispatched.
     const result = await dispatchDailyDigest({
       now: DAY_FAR,
-      _emailProvider: capture,
-      _userIdFilter: new Set<string>(),
+      emailProvider: capture,
     });
 
     expect(typeof result.sentCount).toBe("number");
@@ -733,14 +722,14 @@ describe("dispatchDailyDigest — ADR-025 send-only-via-port seam", () => {
     expect(keys).toEqual(["sentCount"]);
   });
 
-  it("dispatchDailyDigest with empty filter returns { sentCount: 0 }", async () => {
-    // Empty _userIdFilter → no recipients dispatched → sentCount = 0.
-    // Proves the dispatcher handles an empty candidate set gracefully.
+  it("dispatchDailyDigest with no eligible test users returns sentCount = 0 (DAY_FAR sentinel coverage)", async () => {
+    // All test users are sentineled at 2200-01-01. DAY_FAR = 2099-01-01.
+    // CAST(2200) >= CAST(2099) → excluded by cap predicate. sentCount = 0 from test users.
+    // This proves the dispatcher handles an empty candidate set gracefully.
     const capture = new TestEmailCapture();
     const result = await dispatchDailyDigest({
       now: DAY_FAR,
-      _emailProvider: capture,
-      _userIdFilter: new Set<string>(),
+      emailProvider: capture,
     });
 
     expect(result.sentCount).toBe(0);
@@ -810,7 +799,7 @@ describe("dispatchDailyDigest — DECISION-018-003-A: send-failure posture", () 
       // The error is caught; dispatch continues and returns without crashing.
       const result = await dispatchDailyDigest({
         now: DAY_FAIL,
-        _emailProvider: failingProvider,
+        emailProvider: failingProvider,
       });
 
       // ── THEN ──────────────────────────────────────────────────────────
