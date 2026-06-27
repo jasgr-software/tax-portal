@@ -2,7 +2,7 @@
 id: EPIC-019
 title: Overdue detection & reminder engine — auto-detect, configurable cadence
 phase: 4
-status: planned
+status: delivered
 slice: The system detects overdue document requests on its own and raises reminders without the accountant checking; she configures the reminder cadence as a global default and per-engagement override; overdue, due-date-approaching, and document-request-created events notify the accountant and client through the EPIC-016 feed (honoring the email digest).
 requirements:
   - REQ-MSG-018: [AC-MSG-018-01, AC-MSG-018-02, AC-MSG-018-03, AC-MSG-018-04]
