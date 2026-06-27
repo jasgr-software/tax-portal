@@ -7,6 +7,25 @@
 
 ## Status / amendment history
 
+- **2026-06-27 (EPIC-019 delivered — the reminder engine chases clients on its own; auto-detection + configurable cadence)** —
+  the overdue-detection-&-reminder-engine slice shipped (PR #108, squash merge `b54a5936`). All **14 in-scope AC** signed
+  off `verified` in `COVERAGE.md`: AC-FILE-012-01/-03/-04 (the system identifies overdue document requests **on its own**,
+  with **no accountant trigger**, by the request's due date — behind the ADR-023 **time-injectable seam** so "becomes
+  overdue at the due date" is deterministically asserted), AC-FILE-012-02 (the overdue request is flagged/surfaced —
+  tier-6 admin), AC-MSG-018-01/-02 (auto-identify → raise a reminder), AC-MSG-018-03/-04 + AC-DASH-008-01/-02/-03 (the
+  **configurable cadence** — a global default frequency plus a **per-engagement override that takes precedence**; the
+  precedence is the HARD tier-3 gate `reminder-cadence.precedence.test.ts`, the config journeys tier-6 admin), and the
+  reminder-driven notification types AC-MSG-013-05/-06 (accountant notified on **overdue** + **approaching due date**) and
+  AC-MSG-014-02 (client notified when a **document request is created** for them) — all reminder notifications emitted onto
+  the EPIC-016 feed spine and honoring the EPIC-018 email digest. Built **additively** over the EPIC-011 engagement due
+  date + EPIC-013 document requests (consumed, not rebuilt). EPIC-019 → `delivered`. The 3-lens panel posted an advisory
+  request-changes (1 major: an encrypt-default TLS downgrade) which `/pr-fix` resolved in `b2b55ce` before merge; required
+  CI green on the merge (`lint-and-typecheck` ✅ / `security-scan` ✅ / `test-admin` ✅ 613 / `test-portal` ✅ 337). **NOTE:**
+  any scheduler/timer driving periodic detection is realized against the ADR-023 **mock, time-injectable seam** for the
+  POC — a real scheduler is Phase 5. **EPIC-019 does NOT close Phase 4** — EPIC-020..023 remain `planned` (EPIC-023 is the
+  closer). **Phase-4 progress: EPIC-016 + EPIC-017 + EPIC-018 + EPIC-019 delivered = 4/8; EPIC-020..023 `planned`.**
+  **Totals: 260 verified / 49 planned (309 placed).** **Next:** **EPIC-020** (accountant dashboard home) is next-ready
+  (`depends_on` EPIC-016 ✅, EPIC-017 ✅, EPIC-019 ✅). Run `/orchestrate EPIC-020`.
 - **2026-06-26 (EPIC-018 delivered — the secondary out-of-portal email channel lands; content-free nudge, daily cap, suppression/default-on)** —
   the email-digest-fallback slice shipped (PR #106, squash merge `2f4b6d0`). All **12 in-scope AC** signed off
   `verified` in `COVERAGE.md`: AC-MSG-008-01/-02/-03 (the **content-free nudge** — conveys only "new activity" +
@@ -658,8 +677,8 @@ audit-trail read surface (EPIC-023) that **closes the POC**.
 | **EPIC-016** | In-portal notification feed — the dual-role spine: real-time feed on both surfaces, persistent unread-count badge, mark-read-on-view, ≥90-day retention; generalizes the EPIC-003 accountant-only `Notification` to a client branch and lights it up with the already-existing events (document upload; status change, deliverable ready, accept/decline) (20 AC: MSG-007/012/015/016/017, MSG-013-03, MSG-014-03..07) | `delivered` ✅ PR#102 `345328e` | EPIC-003 ✅, EPIC-010 ✅, EPIC-013 ✅ |
 | **EPIC-017** | Per-engagement & general messaging threads — one thread per engagement + accountant-initiated general threads, plain-text only, file attachments (malware-scanned, signed-URL), per-viewer unread indicators, indefinite retention + archive-on-close; emits the new-message notification types (24 AC: MSG-001..006, MSG-013-02, MSG-014-01) | `delivered` ✅ PR#104 `69d2726` | EPIC-016 ✅, EPIC-013 ✅, EPIC-010 ✅ |
 | **EPIC-018** | Email digest fallback — content-free nudge ("new activity — sign in", no detail), ≤1/recipient/day batching, accountant self-suppression, client default-on (12 AC: MSG-008/009/010/011) | `delivered` ✅ PR#106 `2f4b6d0` | EPIC-016 ✅ |
-| **EPIC-019** | Overdue detection & reminder engine — auto-detect overdue document requests (no manual trigger), configurable cadence (global default + per-engagement override, precedence), and the reminder-driven notification types (14 AC: MSG-018, DASH-008, FILE-012, MSG-013-05/-06, MSG-014-02). Generalized by v2 REQ-MSG-019 (deferred). | `planned` | EPIC-016, EPIC-011 ✅, EPIC-013 ✅ |
-| **EPIC-020** | Accountant dashboard home — live summary metrics (active/overdue engagements, pending requests, upcoming deadlines), unified cross-practice activity feed, distinct needs-action grouping (13 AC: DASH-001/002/003) | `planned` | EPIC-016, EPIC-017, EPIC-019, EPIC-010 ✅, EPIC-012 ✅ |
+| **EPIC-019** | Overdue detection & reminder engine — auto-detect overdue document requests (no manual trigger), configurable cadence (global default + per-engagement override, precedence), and the reminder-driven notification types (14 AC: MSG-018, DASH-008, FILE-012, MSG-013-05/-06, MSG-014-02). Generalized by v2 REQ-MSG-019 (deferred). | `delivered` ✅ PR#108 `b54a5936` | EPIC-016 ✅, EPIC-011 ✅, EPIC-013 ✅ |
+| **EPIC-020** | Accountant dashboard home — live summary metrics (active/overdue engagements, pending requests, upcoming deadlines), unified cross-practice activity feed, distinct needs-action grouping (13 AC: DASH-001/002/003) | `planned` | EPIC-016 ✅, EPIC-017 ✅, EPIC-019 ✅, EPIC-010 ✅, EPIC-012 ✅ |
 | **EPIC-021** | Accountant navigation — searchable/filterable client list (status, service type, tax year), engagement pipeline view (by status, filterable, act-on-any, full visibility), and dashboard surfacing of internal notes + priority/flag markers (16 AC: DASH-004/005/009/006/007) | `planned` | EPIC-010 ✅, EPIC-011 ✅, EPIC-012 ✅ |
 | **EPIC-022** | Admin settings & portal identity — engagement-letter template management (default + edit + used-at-signing), distinct portal names ("Client Portal" / "Tax Portal"), v1 generic appearance, branding & legal-pages recorded-deferred (12 AC: DASH-013, IDNT-002/003/004/006). **IDNT-001 custom domain → Phase 5.** | `planned` | EPIC-005 ✅ |
 | **EPIC-023** | Accountant audit-trail read surface — accountant-only record of document access, status transitions, all admin actions, auth events (actor/action/time/outcome), ≥7-yr retention, tamper-evidence + completeness; closes the deferred REQ-NFR-010 read surface (8 AC: NFR-010-01..06, NFR-011). **Last Phase-4 slice — completes the v1 POC.** | `planned` | EPIC-015 ✅, EPIC-010 ✅, EPIC-013 ✅ |

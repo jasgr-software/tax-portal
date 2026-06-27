@@ -45,3 +45,29 @@
 - Clean dependency-ordered dispatch (001→005); zero SDET rejections; no clock-inversion (retro-012-014 metric defect did NOT recur on the developer tasks).
 - The time-injectable seam discipline (ADR-023) held throughout — every time-based assertion advanced the injected clock; the "no manual trigger" non-negotiable is enforced structurally (the engine pass is the only detection path).
 - Reuse discipline strong: no new email path, no new notification policy, no feed rebuild — additive consumption of all four upstream seams verified in the design scan.
+
+---
+
+## Post-Merge Addendum (Close-finalize — 2026-06-27)
+
+**PR #108 merged to `main`** — squash SHA **`b54a5936215c5f015dd0b938c0fbb9fd0251f060`** (merged 2026-06-27T19:18Z).
+
+- **Gate 8 (post-merge CI): PASS.** Required checks green on the merge commit: `lint-and-typecheck`, `security-scan`, `test-admin`, `test-portal` (CodeQL `Analyze` js/python also pass; the `report-failure` jobs correctly skip on success).
+- **Gate 9 (staging smoke): N/A** — non-deploying brief (`brief_deploys: no`).
+- **merge SHA correction (carried EPIC-016 item):** the Close-prep `merge-checkpoint` recorded the pre-merge head `d0dfd80` (the only SHA available at checkpoint time); this `post-merge` records the **actual squash SHA `b54a5936`**. The placeholder-vs-actual gap remains a known merge-checkpoint limitation to address in the task CLI.
+
+### ★ The panel earned its keep — a real security regression the in-slice gates rationalized away
+
+The `/pr-review` panel (REQUEST-CHANGES) caught a **MAJOR** that **every in-slice gate missed**: the BUG-019-001 change defaulting `encrypt=false` in `parseSqlServerUrl` was a **silent in-transit-DB-TLS downgrade across all three `mssql` pools**, not a benign Prisma-alignment fix. **`/pr-fix` (`b2b55ce`) restored the secure default** — `encrypt` defaults `true`, with the Docker self-signed cert handled via `trustServerCertificate=true` for local — updated the regression test, and corrected the ops-docs prod-TLS note. This rode the merged PR.
+
+**Honest accounting — this is a process miss worth recording (cf. memory: validation-oracle-independent-of-code):** the IO design scan, the SDET security adjudication ("encrypt=false-when-absent is CORRECT… not masking config"), AND the Overwatch Audit deep-dive ("does NOT weaken prod by itself") **all reasoned about framework-default *alignment* and rationalized the downgrade**. The project-agnostic security lens reasoned about the *actual posture change* and caught it. **Lesson:** a default flip on a security-relevant shared helper must be treated as **security-posture-changing by default** — the correct shape is *secure default + explicit local opt-out* (exactly what `/pr-fix` produced), never *insecure default to make local pass*. The original BUG-019-001 disposition was wrong on the security implication; it is corrected on `main`. **Classification: `acknowledged`** (caught + fixed pre-merge; recorded as an in-slice-gate calibration lesson — the three internal gates should not collectively explain away a security downgrade).
+
+### Reviewed-lane summary
+
+Standards-review APPROVE (0 required; drafted an experimental `CS-TS-005` awaiting human ratification) → `/pr-review` panel REQUEST-CHANGES (1 major + 3 minor + 2 nit) → `/pr-fix` `b2b55ce` green → merged on green required CI. `/planning` flipped all 14 ACs to `verified` and rolled EPIC-019 to `delivered` (Phase 4 now 4/8).
+
+### Carried follow-ups (non-blocking, for a cleanup PR / next slice)
+
+1. **Dead `defaultRequestDueDays` fallback + dual SQL/TS overdue predicate** — the computed-fallback branch is production-unreachable (seed sets it NULL; no UI to set it); remove it and de-duplicate the overdue predicate (currently expressed in both the engine SQL and `computeIsOverdue`). Deferred to a cleanup PR (panel minor).
+2. **`reminder-cadence` duplicated `SEEDED_DEFAULT_*` constants nit + `ReminderSetting` singleton uniqueness** — collapse the duplicated default constants; consider a single-row enforcement (unique constraint / filtered index) so the "singleton" is a DB invariant, not a convention (defense against the get-or-create race the design scan reasoned about).
+3. **`db/migrations/0008` seed not applied in-container (Smoke advisory)** — confirmed **wired** into `pnpm db:migrate` via the Track-B directory-glob + idempotent `IF NOT EXISTS`; `getGlobalDefaultCadence` get-or-create (SELECT-first) covers the e2e/first-use path. By design; a fresh prod bring-up running `pnpm db:migrate` seeds the canonical row. No action beyond confirming the migrate sequence runs on prod bring-up.
