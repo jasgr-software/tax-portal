@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { DocumentRequestItem } from "@tax-portal/db";
+import type { DocumentRequestItem, DocumentRequestAdminItem } from "@tax-portal/db";
 
 // ─── Hoisted mock functions ───────────────────────────────────────────────────
 
@@ -27,12 +27,14 @@ const {
   mockGetIdentity,
   mockCreateDocumentRequestAsAccountant,
   mockListDocumentRequestsForEngagement,
+  mockListDocumentRequestsForEngagementAdmin,
   mockRevalidatePath,
   mockWithRequestContext,
 } = vi.hoisted(() => ({
   mockGetIdentity: vi.fn(),
   mockCreateDocumentRequestAsAccountant: vi.fn(),
   mockListDocumentRequestsForEngagement: vi.fn(),
+  mockListDocumentRequestsForEngagementAdmin: vi.fn(),
   mockRevalidatePath: vi.fn(),
   mockWithRequestContext: vi.fn(),
 }));
@@ -56,10 +58,11 @@ vi.mock("@tax-portal/auth", () => ({
   getAuthProvider: () => ({ getIdentity: mockGetIdentity }),
 }));
 
-// Mock @tax-portal/db barrel — for listDocumentRequestsForEngagement and withRequestContext
+// Mock @tax-portal/db barrel — for listDocumentRequestsForEngagement, the admin variant, and withRequestContext
 vi.mock("@tax-portal/db", () => ({
   withRequestContext: mockWithRequestContext,
   listDocumentRequestsForEngagement: mockListDocumentRequestsForEngagement,
+  listDocumentRequestsForEngagementAdmin: mockListDocumentRequestsForEngagementAdmin,
 }));
 
 // Mock the direct source-module import (NOT on the barrel — TASK-007-004 constraint)
@@ -72,6 +75,7 @@ vi.mock("@tax-portal/db/src/repositories/document-request.js", () => ({
 import {
   createDocumentRequestAction,
   listDocumentRequestsAction,
+  listDocumentRequestsForAdminAction,
 } from "./actions.js";
 import { validateLabel, LABEL_MAX_LENGTH } from "./validation.js";
 
@@ -96,6 +100,14 @@ const DOCUMENT_REQUEST_ITEM: DocumentRequestItem = {
   createdBy: "user_acct_test",
   createdAt: new Date("2026-06-01T00:00:00Z"),
   updatedAt: new Date("2026-06-01T00:00:00Z"),
+  dueDate: null, // TASK-019-004: dueDate added to DocumentRequestItem (nullable). // DECISION-019-C
+};
+
+// TASK-019-004: DocumentRequestAdminItem fixture (includes isOverdue + isFulfilled).
+const DOCUMENT_REQUEST_ADMIN_ITEM: DocumentRequestAdminItem = {
+  ...DOCUMENT_REQUEST_ITEM,
+  isFulfilled: false,
+  isOverdue: false,
 };
 
 // ─── Tests: validateLabel ─────────────────────────────────────────────────────
@@ -160,6 +172,7 @@ describe("createDocumentRequestAction", () => {
         engagementId: ENGAGEMENT_ID,
         label: "2023 W-2 form",
         createdByClerkId: ACCOUNTANT_IDENTITY.clerkUserId,
+        dueDate: null, // TASK-019-004: dueDate=null when not provided // DECISION-019-C
       }),
     );
   });
@@ -169,6 +182,16 @@ describe("createDocumentRequestAction", () => {
 
     expect(mockCreateDocumentRequestAsAccountant).toHaveBeenCalledWith(
       expect.objectContaining({ label: "2023 W-2 form" }),
+    );
+  });
+
+  // TASK-019-004: due date passing (DECISION-019-C / AC-FILE-012-04)
+  it("[DECISION-019-C] passes dueDate to createDocumentRequestAsAccountant when provided", async () => {
+    const due = new Date("2026-08-01T00:00:00.000Z");
+    await createDocumentRequestAction(ENGAGEMENT_ID, "2023 W-2 form", due);
+
+    expect(mockCreateDocumentRequestAsAccountant).toHaveBeenCalledWith(
+      expect.objectContaining({ dueDate: due }),
     );
   });
 
@@ -346,5 +369,67 @@ describe("listDocumentRequestsAction", () => {
 
     expect(result.success).toBe(false);
     expect(mockListDocumentRequestsForEngagement).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Tests: listDocumentRequestsForAdminAction ────────────────────────────────
+
+describe("listDocumentRequestsForAdminAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY);
+    mockListDocumentRequestsForEngagementAdmin.mockResolvedValue([DOCUMENT_REQUEST_ADMIN_ITEM]);
+  });
+
+  // AC-FILE-012-02: returns isOverdue per request for the accountant view.
+  it("[AC-FILE-012-02] returns success + admin list (with isOverdue) for the engagement when ACCOUNTANT", async () => {
+    const result = await listDocumentRequestsForAdminAction(ENGAGEMENT_ID);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.label).toBe("2023 W-2 form");
+      expect(result.data[0]).toHaveProperty("isOverdue");
+      expect(result.data[0]).toHaveProperty("isFulfilled");
+    }
+    expect(mockListDocumentRequestsForEngagementAdmin).toHaveBeenCalledWith(ENGAGEMENT_ID);
+  });
+
+  it("[ADR-003] does NOT wrap in withRequestContext (admin pool — no SESSION_CONTEXT needed)", async () => {
+    await listDocumentRequestsForAdminAction(ENGAGEMENT_ID);
+
+    // Admin pool read — withRequestContext must NOT be called for this path. // ADR-003
+    expect(mockWithRequestContext).not.toHaveBeenCalled();
+  });
+
+  it("returns { success: false } when identity is null (unauthenticated)", async () => {
+    mockGetIdentity.mockResolvedValue(null);
+
+    const result = await listDocumentRequestsForAdminAction(ENGAGEMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/unauthorized/i);
+    }
+    expect(mockListDocumentRequestsForEngagementAdmin).not.toHaveBeenCalled();
+  });
+
+  it("returns { success: false } when role is CLIENT (not ACCOUNTANT)", async () => {
+    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
+
+    const result = await listDocumentRequestsForAdminAction(ENGAGEMENT_ID);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/unauthorized/i);
+    }
+    expect(mockListDocumentRequestsForEngagementAdmin).not.toHaveBeenCalled();
+  });
+
+  it("returns { success: false } when engagementId is empty", async () => {
+    const result = await listDocumentRequestsForAdminAction("");
+
+    expect(result.success).toBe(false);
+    expect(mockListDocumentRequestsForEngagementAdmin).not.toHaveBeenCalled();
   });
 });

@@ -42,10 +42,20 @@
 
 import { headers } from "next/headers";
 import { getAuthProvider } from "@tax-portal/auth";
-import { getEngagementForAdmin, listEngagementNotes, withRequestContext } from "@tax-portal/db";
+import {
+  getEngagementForAdmin,
+  listEngagementNotes,
+  withRequestContext,
+  getGlobalDefaultCadence,
+  getEngagementCadenceOverride,
+} from "@tax-portal/db";
 // CS-TS-001: uses @tax-portal/db barrel (no raw pool import)
+// CS-GEN-002: additive imports — no existing import removed. // CS-GEN-002
 import { EngagementStatusPanel } from "./_components/EngagementStatusPanel";
 import { EngagementAttributesPanel } from "./_components/EngagementAttributesPanel";
+// TASK-019-002: per-engagement cadence override panel (AC-DASH-008-02, DECISION-019-A)
+// ADR-006: admin surface only. // ADR-006
+import { ReminderOverridePanel } from "./_components/ReminderOverridePanel";
 
 // ─── Route params ─────────────────────────────────────────────────────────────
 
@@ -107,6 +117,15 @@ export default async function EngagementDetailPage({
         listEngagementNotes(engagementId),
       )
     : [];
+
+  // TASK-019-002: Load cadence override and global default for this engagement.
+  // AC-DASH-008-02: per-engagement cadence override (DECISION-019-A nullable column). // AC-DASH-008-02
+  // CS-TS-001: getGlobalDefaultCadence / getEngagementCadenceOverride use admin pool in packages/db. // CS-TS-001
+  // CS-GEN-002: additive read — no existing read modified. // CS-GEN-002
+  const [globalDefaultCadence, engagementCadenceOverride] = await Promise.all([
+    getGlobalDefaultCadence(),
+    getEngagementCadenceOverride(engagementId),
+  ]);
 
   if (!engagement) {
     return (
@@ -204,6 +223,28 @@ export default async function EngagementDetailPage({
             dueDate={engagement.dueDate}
             isPriority={engagement.isPriority}
             notes={notes}
+          />
+        </div>
+
+        {/* Per-engagement reminder cadence override — TASK-019-002 */}
+        {/* AC-DASH-008-02: accountant sets per-engagement override. // AC-DASH-008-02 */}
+        {/* AC-DASH-008-03: per-engagement override takes precedence over global default. // AC-DASH-008-03 */}
+        {/* ADR-006: admin surface only. // ADR-006 */}
+        {/* CS-TS-001: cadence reads use admin pool in packages/db. // CS-TS-001 */}
+        {/* DECISION-019-A: override stored as Engagement.reminderFrequencyDaysOverride. // DECISION-019-A */}
+        <div className="mt-6 bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">
+            Reminder Cadence Override
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Override the global default reminder frequency for this engagement.
+            When set, reminders for overdue document requests in this engagement
+            use this frequency instead of the global default.
+          </p>
+          <ReminderOverridePanel
+            engagementId={engagementId}
+            initialOverrideDays={engagementCadenceOverride.reminderFrequencyDaysOverride}
+            globalDefaultDays={globalDefaultCadence.reminderFrequencyDays}
           />
         </div>
 

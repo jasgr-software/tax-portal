@@ -56,7 +56,14 @@ export function parseSqlServerUrl(connectionUrl: string): import("mssql").config
   const resolvedPassword = password ?? params["password"];
   const resolvedPort = port !== 1433 ? port : (params["port"] ? parseInt(params["port"], 10) : 1433);
 
-  const encrypt = (params["encrypt"] ?? "true").toLowerCase() !== "false";
+  // DECISION (TASK-019-005 fix): Default encrypt=false to match Prisma's sqlserver connector
+  // behaviour (Prisma does NOT encrypt by default). The previous default of encrypt=true caused
+  // the mssql raw driver to attempt a TLS handshake against SQL Server's self-signed cert inside
+  // Docker, producing "ESOCKET: self-signed certificate" errors that broke admin mock-session
+  // in all e2e runs since TASK-004-010 added the audit seam (recordAuthEvent) to the admin
+  // /api/mock-session route. URLs that explicitly need encryption should include
+  // ;encrypt=true;trustServerCertificate=true in the connection string. // ADR-003
+  const encrypt = (params["encrypt"] ?? "false").toLowerCase() !== "false";
   const trustServerCertificate =
     (params["trustServerCertificate"] ?? "false").toLowerCase() === "true";
 

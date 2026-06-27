@@ -5,6 +5,8 @@
  *
  * AC-FILE-007-01: createDocumentRequestAction — accountant creates a labeled document request
  *   for an engagement. The labeled request becomes part of the engagement's document checklist.
+ * AC-FILE-012-02: listDocumentRequestsForAdminAction — accountant views list with isOverdue flag.
+ * AC-MSG-014-02: createDocumentRequestAction triggers document_request_created notification for client.
  *
  * ADR-006: Authoring lives in apps/admin ONLY. There is NO mirror action or export in apps/portal.
  *   This is a hard surface boundary; clients cannot reach this surface.
@@ -19,11 +21,14 @@
  *   NOT exported from the @tax-portal/db barrel — import directly from the source module.
  *   Mirrors createEngagement / submitQuestionnaireAnswer pattern (TASK-005-001/006-001).
  *
+ * TASK-019-004 additions:
+ *   - createDocumentRequestAction: accepts optional dueDate (DECISION-019-C); the repository
+ *     layer emits document_request_created CLIENT notification (AC-MSG-014-02, DECISION-019-I).
+ *   - listDocumentRequestsForAdminAction: uses listDocumentRequestsForEngagementAdmin (admin pool)
+ *     to return DocumentRequestAdminItem[] with isFulfilled + isOverdue (AC-FILE-012-02).
+ *
  * // DECISION (TASK-007-005): Route is apps/admin/engagements/[engagementId]/document-requests/.
- * // There is no existing engagement-detail surface in apps/admin (top-level routes are:
- * // requests, services, settings). Creating new /engagements/ top-level route as the
- * // semantically correct home for per-engagement surfaces — mirrors future engagement-detail
- * // expansion. The trust fence is getAccountantIdentity() — not the BLOCK predicate.
+ * // DECISION-019-C // DECISION-019-I // AC-FILE-012-02 // AC-MSG-014-02
  */
 
 "use server";
@@ -34,9 +39,10 @@ import { getAuthProvider } from "@tax-portal/auth";
 import {
   withRequestContext,
   listDocumentRequestsForEngagement,
+  listDocumentRequestsForEngagementAdmin,
   getEngagementStatusForAdmin,
 } from "@tax-portal/db";
-import type { DocumentRequestItem } from "@tax-portal/db";
+import type { DocumentRequestItem, DocumentRequestAdminItem } from "@tax-portal/db";
 // NOT on the barrel — import directly from the source module (TASK-007-004 constraint)
 import { createDocumentRequestAsAccountant } from "@tax-portal/db/src/repositories/document-request.js";
 import { validateLabel } from "./validation";
@@ -49,6 +55,14 @@ export type CreateDocumentRequestResult =
 
 export type ListDocumentRequestsResult =
   | { success: true; data: DocumentRequestItem[] }
+  | { success: false; error: string };
+
+/**
+ * Result type for listDocumentRequestsForAdminAction (admin-pool, includes isOverdue).
+ * AC-FILE-012-02: isOverdue surfaces when the accountant views the request. // AC-FILE-012-02
+ */
+export type ListDocumentRequestsForAdminResult =
+  | { success: true; data: DocumentRequestAdminItem[] }
   | { success: false; error: string };
 
 export type GetEngagementStatusResult =
@@ -94,24 +108,31 @@ async function getAccountantIdentity(): Promise<{
  * Create a labeled document request for an engagement.
  *
  * AC-FILE-007-01: The accountant can create a document request in an engagement with a free-text label.
+ * AC-MSG-014-02: After insert, the repository layer emits a document_request_created CLIENT
+ *   notification for the engagement's client (DECISION-019-I). No new action code needed —
+ *   handled by createDocumentRequestAsAccountant in packages/db. // AC-MSG-014-02 // DECISION-019-I
  *
  * Flow:
  *   1. Verify ACCOUNTANT identity from the verified session.
  *   2. Validate engagementId (non-empty string).
  *   3. Validate label (non-empty, trimmed, ≤500 chars).
  *   4. Call createDocumentRequestAsAccountant on the admin pool (TASK-007-004 write seam).
+ *      The repository emits document_request_created notification if engagement has a client.
  *   5. revalidatePath for the engagement's document-requests page.
  *
  * ADR-005: createdByClerkId comes ONLY from the verified session — never from action args/form data.
  * ADR-006: This action is apps/admin ONLY. No mirror in apps/portal.
+ * DECISION-019-C: dueDate (optional) passed to the repository; stored as-is for overdue derivation.
  *
  * @param engagementId - The Engagement.id to add the request to (from the URL route param).
  * @param label - Free-text label describing what the client should upload.
+ * @param dueDate - Optional explicit due date for the request (DECISION-019-C / AC-FILE-012-04).
  * @returns CreateDocumentRequestResult — success + new request id, or failure + error string.
  */
 export async function createDocumentRequestAction(
   engagementId: string,
   label: string,
+  dueDate?: Date | null,
 ): Promise<CreateDocumentRequestResult> {
   // ── 1. Identity guard (ACCOUNTANT-only, ADR-005) ─────────────────────────
   const identity = await getAccountantIdentity();
@@ -133,10 +154,13 @@ export async function createDocumentRequestAction(
   // ── 4. Admin-pool write (TASK-007-004 write seam) ─────────────────────────
   // createDocumentRequestAsAccountant is NOT on the barrel — imported directly above.
   // createdByClerkId from the verified session — NEVER from action args (ADR-005).
+  // DECISION-019-C: dueDate passed through to the repository (nullable). // DECISION-019-C
+  // DECISION-019-I: the repository emits document_request_created CLIENT notification. // DECISION-019-I
   const result = await createDocumentRequestAsAccountant({
     engagementId: engagementId.trim(),
     label: label.trim(),
     createdByClerkId: identity.clerkUserId,
+    dueDate: dueDate ?? null, // DECISION-019-C // AC-FILE-012-04
   });
 
   // ── 5. Revalidate the document-requests page ──────────────────────────────
@@ -182,6 +206,42 @@ export async function listDocumentRequestsAction(
     identity.role,
     () => listDocumentRequestsForEngagement(engagementId.trim()),
   );
+
+  return { success: true, data };
+}
+
+/**
+ * List the document requests for an engagement — admin (accountant) view.
+ *
+ * Uses listDocumentRequestsForEngagementAdmin (admin pool, RLS-exempt) which returns
+ * DocumentRequestAdminItem[] with isFulfilled + isOverdue fields (AC-FILE-012-02).
+ *
+ * AC-FILE-012-02: overdue flag is surfaced when the accountant views the request. // AC-FILE-012-02
+ * DECISION-019-C/-D: isOverdue derived by computeIsOverdue (shared predicate). // DECISION-019-C // DECISION-019-D
+ * ADR-003 §7: admin pool — no SESSION_CONTEXT needed for this read. // ADR-003
+ * ADR-006: admin surface only — not exposed to apps/portal. // ADR-006
+ * CS-GEN-002: additive new action; listDocumentRequestsAction unchanged. // CS-GEN-002
+ *
+ * @param engagementId - The Engagement.id from the URL route param.
+ * @returns ListDocumentRequestsForAdminResult — success + list with overdue flags, or failure + error.
+ */
+export async function listDocumentRequestsForAdminAction(
+  engagementId: string,
+): Promise<ListDocumentRequestsForAdminResult> {
+  // ── Identity guard (ACCOUNTANT-only, ADR-005) ─────────────────────────────
+  const identity = await getAccountantIdentity();
+  if (!identity) {
+    return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
+  }
+
+  if (typeof engagementId !== "string" || !engagementId.trim()) {
+    return { success: false, error: "A valid engagement ID is required" };
+  }
+
+  // Admin pool read — no withRequestContext needed (listDocumentRequestsForEngagementAdmin uses admin pool).
+  // ADR-003 §7: admin pool write; no SESSION_CONTEXT needed. // ADR-003
+  // AC-FILE-012-02: returns isOverdue per request. // AC-FILE-012-02
+  const data = await listDocumentRequestsForEngagementAdmin(engagementId.trim());
 
   return { success: true, data };
 }
