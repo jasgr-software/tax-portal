@@ -3,13 +3,15 @@
  *
  * Regression test for parseSqlServerUrl (BUG-019-001).
  *
- * Pins the `encrypt` default contract after the TASK-019-005 fix flipped the
- * absent-param default from `true` → `false` (sql-server-url.ts:59-66). This
- * test is the guard the Overwatch Audit (BRIEF-019, advisory finding #2)
- * recommended so the default cannot silently re-flip — the prior `true` default
- * made the raw mssql driver attempt a TLS handshake against SQL Server's
- * self-signed Docker cert (ESOCKET self-signed certificate), breaking admin
- * mock-session (recordAuthEvent) for all admin e2e since TASK-004-010.
+ * Pins the `encrypt` default contract: absent encrypt param → true (in-transit TLS on).
+ * The ESOCKET "self-signed certificate" error that motivated BUG-019-001 was a cert-TRUST
+ * problem, not an encryption problem. The correct fix is trustServerCertificate=true in
+ * local/CI connection strings — encryption stays ON. This test guards against silently
+ * re-flipping the default back to false (which would disable in-transit TLS globally).
+ *
+ * Local/CI self-signed cert: handled by ;trustServerCertificate=true in DATABASE_URL
+ * (.env.example). Production URLs omit trustServerCertificate (defaults false) so the
+ * real cert is validated AND the connection is encrypted.
  *
  * Pure-function unit test — no DB connection required.
  *
@@ -21,14 +23,14 @@ import { describe, it, expect } from "vitest";
 import { parseSqlServerUrl } from "./sql-server-url.js";
 
 describe("parseSqlServerUrl — encrypt default contract (BUG-019-001 regression)", () => {
-  it("defaults encrypt=false when the connection string omits the encrypt param", () => {
-    // The regression: a true default here is what produced ESOCKET against the
-    // Docker self-signed cert and aligned poorly with Prisma's sqlserver
-    // connector (which does not encrypt by default). // BUG-019-001
+  it("defaults encrypt=true when the connection string omits the encrypt param", () => {
+    // Secure default: in-transit TLS is ON unless explicitly disabled.
+    // Local self-signed cert trust is handled by ;trustServerCertificate=true,
+    // not by disabling encryption. // BUG-019-001 // ADR-003
     const cfg = parseSqlServerUrl(
       "sqlserver://taxportal_admin:pw@localhost:1433;database=taxportal"
     );
-    expect(cfg.options?.encrypt).toBe(false);
+    expect(cfg.options?.encrypt).toBe(true);
   });
 
   it("honors an explicit encrypt=true in the connection string", () => {
@@ -60,7 +62,7 @@ describe("parseSqlServerUrl — encrypt default contract (BUG-019-001 regression
     expect(cfg.server).toBe("localhost");
     expect(cfg.port).toBe(1433);
     expect(cfg.database).toBe("taxportal");
-    // encrypt default still false in the param form
-    expect(cfg.options?.encrypt).toBe(false);
+    // encrypt default is true in the param form as well
+    expect(cfg.options?.encrypt).toBe(true);
   });
 });

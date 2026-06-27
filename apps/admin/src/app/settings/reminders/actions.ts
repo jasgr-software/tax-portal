@@ -128,6 +128,14 @@ export async function setGlobalDefaultCadenceAction(
     return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
   }
 
+  // Server-side bounds: reminderFrequencyDays must be a positive integer ≤ 365.
+  // The client-side <1 guard in ReminderCadenceForm is not trusted — a direct POST with
+  // 0, a negative, or a non-integer would make shouldRaiseReminder() always true →
+  // reminder-flood on every engine pass. // DECISION-019-B
+  if (!Number.isInteger(reminderFrequencyDays) || reminderFrequencyDays < 1 || reminderFrequencyDays > 365) {
+    return { success: false, error: "reminderFrequencyDays must be an integer between 1 and 365" };
+  }
+
   // CS-TS-001: write through the @tax-portal/db barrel (setGlobalDefaultCadence uses admin pool
   //   inside packages/db). // CS-TS-001 // CS-TS-002
   // DECISION-019-B: updates the singleton ReminderSetting row. // DECISION-019-B

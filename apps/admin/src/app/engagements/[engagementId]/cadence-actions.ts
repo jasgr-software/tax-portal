@@ -40,7 +40,6 @@ import { revalidatePath } from "next/cache";
 import { getAuthProvider } from "@tax-portal/auth";
 import {
   setEngagementCadenceOverride,
-  getEngagementCadenceOverride,
 } from "@tax-portal/db";
 
 // ─── Identity helper ───────────────────────────────────────────────────────────
@@ -86,10 +85,6 @@ async function getAccountantIdentity(): Promise<{
 
 export type SetEngagementCadenceOverrideActionResult =
   | { success: true }
-  | { success: false; error: string };
-
-export type GetEngagementCadenceOverrideActionResult =
-  | { success: true; reminderFrequencyDaysOverride: number | null }
   | { success: false; error: string };
 
 // ─── setEngagementCadenceOverrideAction ───────────────────────────────────────
@@ -138,6 +133,16 @@ export async function setEngagementCadenceOverrideAction(
     return { success: false, error: "A valid engagement ID is required" };
   }
 
+  // Server-side bounds: non-null reminderFrequencyDays must be a positive integer ≤ 365.
+  // null is allowed (clears the override). A direct POST with 0, negative, or non-integer
+  // would make shouldRaiseReminder() always true → reminder-flood. // DECISION-019-A
+  if (
+    reminderFrequencyDays !== null &&
+    (!Number.isInteger(reminderFrequencyDays) || reminderFrequencyDays < 1 || reminderFrequencyDays > 365)
+  ) {
+    return { success: false, error: "reminderFrequencyDays must be an integer between 1 and 365, or null to clear" };
+  }
+
   // CS-TS-001: write through setEngagementCadenceOverride (admin pool inside packages/db). // CS-TS-001
   // CS-TS-002: no raw pool import at this layer. // CS-TS-002
   // DECISION-019-A: null clears Engagement.reminderFrequencyDaysOverride; non-null sets it. // DECISION-019-A
@@ -152,35 +157,3 @@ export async function setEngagementCadenceOverrideAction(
   return { success: true };
 }
 
-// ─── getEngagementCadenceOverrideAction ───────────────────────────────────────
-
-/**
- * Reads the per-engagement reminder frequency override.
- *
- * Returns null when no override is set.
- * ACCOUNTANT role required — CLIENT sessions are rejected.
- *
- * AC-DASH-008-02: the accountant can read the per-engagement override. // AC-DASH-008-02
- *
- * CS-TS-004: ACCOUNTANT role guard before any DB read. // CS-TS-004
- * CS-TS-001: read through getEngagementCadenceOverride (admin pool in packages/db). // CS-TS-001
- * ADR-006: accountant-only surface (apps/admin). // ADR-006
- */
-export async function getEngagementCadenceOverrideAction(
-  engagementId: string,
-): Promise<GetEngagementCadenceOverrideActionResult> {
-  // CS-TS-004: ACCOUNTANT identity guard before any DB read. // CS-TS-004
-  const identity = await getAccountantIdentity();
-  if (!identity) {
-    return { success: false, error: "Unauthorized: ACCOUNTANT identity required" };
-  }
-
-  if (typeof engagementId !== "string" || !engagementId.trim()) {
-    return { success: false, error: "A valid engagement ID is required" };
-  }
-
-  // CS-TS-001: read through getEngagementCadenceOverride (admin pool in packages/db). // CS-TS-001
-  const override = await getEngagementCadenceOverride(engagementId.trim());
-
-  return { success: true, reminderFrequencyDaysOverride: override.reminderFrequencyDaysOverride };
-}

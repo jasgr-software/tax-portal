@@ -169,6 +169,61 @@ describe("setGlobalDefaultCadenceAction", () => {
     expect(result.success).toBe(true);
     expect(mockSetGlobalDefaultCadence).toHaveBeenCalledWith({ reminderFrequencyDays: 30 });
   });
+
+  // ── Server-side bounds (security) ─────────────────────────────────────────
+
+  /**
+   * Server-side guard rejects reminderFrequencyDays=0.
+   * A 0 or negative value would make shouldRaiseReminder() always true → reminder-flood.
+   */
+  it("[security] rejects reminderFrequencyDays=0 before any DB write", async () => {
+    const result = await setGlobalDefaultCadenceAction(0);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/integer between 1 and 365/i);
+    }
+    expect(mockSetGlobalDefaultCadence).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Server-side guard rejects negative reminderFrequencyDays.
+   */
+  it("[security] rejects negative reminderFrequencyDays before any DB write", async () => {
+    const result = await setGlobalDefaultCadenceAction(-1);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/integer between 1 and 365/i);
+    }
+    expect(mockSetGlobalDefaultCadence).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Server-side guard rejects non-integer values.
+   */
+  it("[security] rejects non-integer reminderFrequencyDays (e.g. 1.5) before any DB write", async () => {
+    const result = await setGlobalDefaultCadenceAction(1.5);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/integer between 1 and 365/i);
+    }
+    expect(mockSetGlobalDefaultCadence).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Server-side guard rejects values > 365.
+   */
+  it("[security] rejects reminderFrequencyDays > 365 before any DB write", async () => {
+    const result = await setGlobalDefaultCadenceAction(366);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/integer between 1 and 365/i);
+    }
+    expect(mockSetGlobalDefaultCadence).not.toHaveBeenCalled();
+  });
 });
 
 // ─── Tests: getGlobalDefaultCadenceAction ─────────────────────────────────────

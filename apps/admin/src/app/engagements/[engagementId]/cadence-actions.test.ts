@@ -16,7 +16,7 @@
  *   - [CS-TS-001] Accountant write path invokes setEngagementCadenceOverride.
  *   - [AC-DASH-008-02] Set action writes the engagement override.
  *   - [AC-DASH-008-03] Clearing override (null) path succeeds.
- *   - [AC-DASH-008-02] Get action returns current override.
+ *   - [security] Server-side bounds rejects 0 / negative / non-integer / >365.
  *
  * Strategy:
  *   - No real DB connection — cadence repository functions are mocked.
@@ -37,12 +37,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const {
   mockGetIdentity,
   mockSetEngagementCadenceOverride,
-  mockGetEngagementCadenceOverride,
   mockRevalidatePath,
 } = vi.hoisted(() => ({
   mockGetIdentity: vi.fn(),
   mockSetEngagementCadenceOverride: vi.fn(),
-  mockGetEngagementCadenceOverride: vi.fn(),
   mockRevalidatePath: vi.fn(),
 }));
 
@@ -68,14 +66,12 @@ vi.mock("@tax-portal/auth", () => ({
 // Mock @tax-portal/db — stub cadence repository functions
 vi.mock("@tax-portal/db", () => ({
   setEngagementCadenceOverride: mockSetEngagementCadenceOverride,
-  getEngagementCadenceOverride: mockGetEngagementCadenceOverride,
 }));
 
 // ─── Import after mocks are set up ────────────────────────────────────────────
 
 import {
   setEngagementCadenceOverrideAction,
-  getEngagementCadenceOverrideAction,
 } from "./cadence-actions.js";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -202,79 +198,77 @@ describe("setEngagementCadenceOverrideAction", () => {
   });
 });
 
-// ─── Tests: getEngagementCadenceOverrideAction ────────────────────────────────
+// ─── Tests: setEngagementCadenceOverrideAction — server-side bounds (security) ──
 
-describe("getEngagementCadenceOverrideAction", () => {
+describe("setEngagementCadenceOverrideAction — server-side bounds (security)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetIdentity.mockResolvedValue(ACCOUNTANT_IDENTITY);
-    mockGetEngagementCadenceOverride.mockResolvedValue({
-      engagementId: TEST_ENGAGEMENT_ID,
-      reminderFrequencyDaysOverride: null,
-    });
+    mockSetEngagementCadenceOverride.mockResolvedValue({ updated: true });
   });
 
   /**
-   * [CS-TS-004] CLIENT identity is rejected before any DB read.
+   * Server-side guard rejects reminderFrequencyDays=0 (would make every engine pass raise).
    */
-  it("[CS-TS-004] CLIENT identity is rejected before any DB read", async () => {
-    mockGetIdentity.mockResolvedValue(CLIENT_IDENTITY);
-
-    const result = await getEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID);
+  it("[security] rejects reminderFrequencyDays=0 before any DB write", async () => {
+    const result = await setEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID, 0);
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toMatch(/unauthorized/i);
+      expect(result.error).toMatch(/integer between 1 and 365/i);
     }
-    expect(mockGetEngagementCadenceOverride).not.toHaveBeenCalled();
+    expect(mockSetEngagementCadenceOverride).not.toHaveBeenCalled();
   });
 
   /**
-   * [CS-TS-004] Unauthenticated caller is rejected before any DB read.
+   * Server-side guard rejects negative reminderFrequencyDays.
    */
-  it("[CS-TS-004] unauthenticated caller is rejected before any DB read", async () => {
-    mockGetIdentity.mockResolvedValue(null);
-
-    const result = await getEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID);
+  it("[security] rejects negative reminderFrequencyDays before any DB write", async () => {
+    const result = await setEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID, -7);
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toMatch(/unauthorized/i);
+      expect(result.error).toMatch(/integer between 1 and 365/i);
     }
-    expect(mockGetEngagementCadenceOverride).not.toHaveBeenCalled();
+    expect(mockSetEngagementCadenceOverride).not.toHaveBeenCalled();
   });
 
   /**
-   * [AC-DASH-008-02] Returns null override when none is set.
+   * Server-side guard rejects non-integer (e.g. 1.5).
    */
-  it("[AC-DASH-008-02] returns reminderFrequencyDaysOverride=null when no override is set", async () => {
-    mockGetEngagementCadenceOverride.mockResolvedValue({
-      engagementId: TEST_ENGAGEMENT_ID,
-      reminderFrequencyDaysOverride: null,
-    });
+  it("[security] rejects non-integer reminderFrequencyDays before any DB write", async () => {
+    const result = await setEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID, 1.5);
 
-    const result = await getEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID);
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.reminderFrequencyDaysOverride).toBeNull();
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/integer between 1 and 365/i);
     }
+    expect(mockSetEngagementCadenceOverride).not.toHaveBeenCalled();
   });
 
   /**
-   * [AC-DASH-008-02] Returns the override value when one is set.
+   * Server-side guard rejects reminderFrequencyDays > 365.
    */
-  it("[AC-DASH-008-02] returns the override value when one is set for the engagement", async () => {
-    mockGetEngagementCadenceOverride.mockResolvedValue({
-      engagementId: TEST_ENGAGEMENT_ID,
-      reminderFrequencyDaysOverride: 21,
-    });
+  it("[security] rejects reminderFrequencyDays > 365 before any DB write", async () => {
+    const result = await setEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID, 366);
 
-    const result = await getEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/integer between 1 and 365/i);
+    }
+    expect(mockSetEngagementCadenceOverride).not.toHaveBeenCalled();
+  });
+
+  /**
+   * null is accepted — clears the override (DECISION-019-A).
+   */
+  it("[AC-DASH-008-03] null is accepted — clears the override (no bounds check on null)", async () => {
+    const result = await setEngagementCadenceOverrideAction(TEST_ENGAGEMENT_ID, null);
 
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.reminderFrequencyDaysOverride).toBe(21);
-    }
+    expect(mockSetEngagementCadenceOverride).toHaveBeenCalledWith({
+      engagementId: TEST_ENGAGEMENT_ID,
+      reminderFrequencyDays: null,
+    });
   });
 });

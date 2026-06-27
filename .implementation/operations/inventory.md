@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** BRIEF-019 (TASK-019-006 ops-doc sync — added `ENABLE_REMINDER_TRIGGER` env-var entry + the `POST /api/dev/run-reminders` admin dev/test trigger route section; added the BUG-019-001 production TLS/`encrypt` posture note to § Connection URL conventions). Prior: EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`); TASK-018-007 (added ENABLE_DIGEST_TRIGGER to admin service in docker-compose.yml — TASK-018-003 / DECISION-018-003-C)
+**Last updated:** PR-108 `/pr-fix` (corrected BUG-019-001 TLS posture note: restored `encrypt=true` default; local cert trust handled by `trustServerCertificate=true` in URL not by disabling encryption). Prior: BRIEF-019 (TASK-019-006 ops-doc sync — added `ENABLE_REMINDER_TRIGGER` env-var entry + the `POST /api/dev/run-reminders` admin dev/test trigger route section; added the BUG-019-001 production TLS/`encrypt` posture note to § Connection URL conventions). Prior: EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`); TASK-018-007 (added ENABLE_DIGEST_TRIGGER to admin service in docker-compose.yml — TASK-018-003 / DECISION-018-003-C)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -165,7 +165,7 @@ dev operations. See `.env.example` for the full URL form.
 - Request pool: `DATABASE_URL` — used by `packages/db` lazy `db` client (not `adminDb`)
 - Both require `trustServerCertificate=true` for local dev (SQL Server uses a self-signed cert)
 - Host-side port: **14330** (`SQLSERVER_PORT` default). Container-side port: **1433** (internal)
-- **TLS / `encrypt` posture (BUG-019-001, TASK-019-005):** the shared raw-`mssql` connection parser `packages/db/src/sql-server-url.ts` defaults `encrypt=false` when the URL omits the param — this aligns the raw admin/request pools with Prisma's `sqlserver` connector (which does not encrypt by default), eliminating the ESOCKET self-signed-cert handshake failure against the Docker SQL Server. **Deploy-time follow-up (Phase 5 / ADR-007):** because the default is now `false`, a real production deployment that requires in-transit encryption **MUST** set `;encrypt=true` (and an appropriate `trustServerCertificate`/CA posture) explicitly in `DATABASE_URL` and `DATABASE_URL_ADMIN`. The eventual production host's capability contract must guarantee this; it is not enforced by the parser default. <!-- CS-GEN-003 // ADR-003 // ADR-007 // BUG-019-001 -->
+- **TLS / `encrypt` posture (BUG-019-001 — corrected):** the shared raw-`mssql` connection parser `packages/db/src/sql-server-url.ts` defaults `encrypt=true` when the URL omits the param (in-transit TLS ON by default). The ESOCKET "self-signed certificate" failure that prompted BUG-019-001 was a cert-TRUST problem, not an encryption problem — it is resolved by `;trustServerCertificate=true` in the local/CI `DATABASE_URL`/`DATABASE_URL_ADMIN` strings (see `.env.example`). **Production URLs do not need `;encrypt=true`** (it is the default) and should omit `;trustServerCertificate=true` so the real certificate is validated. <!-- CS-GEN-003 // ADR-003 // ADR-007 // BUG-019-001 -->
 
 ---
 

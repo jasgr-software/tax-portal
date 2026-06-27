@@ -117,16 +117,18 @@ export interface CreateDocumentRequestInput {
   dueDate?: Date | null;
 }
 
-// ─── computeIsOverdue — shared overdue predicate ──────────────────────────────
+// ─── computeIsOverdue — overdue predicate (used by listDocumentRequestsForEngagementAdmin) ──
 //
-// DECISION-019-C/-D: shared between createDocumentRequestAsAccountant (notification
-// derivation is irrelevant there) and listDocumentRequestsForEngagementAdmin (flag
-// surfaced on the accountant view). Keeping the derivation in ONE place ensures the
-// accountant flag and the reminder engine cannot diverge (BRIEF-019 design binding).
+// DECISION-019-C/-D: called from listDocumentRequestsForEngagementAdmin to derive the
+// isOverdue flag surfaced on the accountant view.
 //
-// The reminder engine uses an equivalent SQL predicate. This is the TypeScript mirror.
-// Both derive from:
-//   unfulfilled AND (dueDate < now OR (dueDate IS NULL AND createdAt + defaultRequestDueDays < now))
+// The reminder engine uses an independent SQL predicate (reminder-engine.ts Phase-1 WHERE).
+// Both predicates target the same semantic condition, but they are maintained separately —
+// a TypeScript function CANNOT enforce that a separate SQL predicate agrees with it.
+// The explicit-dueDate paths currently agree; see reminder-engine.ts for the SQL form.
+//
+// NOTE: defaultRequestDueDays (ReminderSetting) is seeded NULL and has no setter, so the
+// fallback branch (dueDate IS NULL + defaultRequestDueDays set) is dead in production.
 //
 // // DECISION-019-C // DECISION-019-D // ADR-018 // AC-FILE-012-04
 
@@ -162,9 +164,9 @@ export interface ComputeIsOverdueInput {
 /**
  * Derives the overdue flag for a single DocumentRequest.
  *
- * Mirrors the SQL predicate in reminder-engine.ts (the engine's Phase-1 WHERE clause).
- * Keeping the derivation in ONE place prevents the accountant view and the engine from
- * diverging (DECISION-019-C/-D; BRIEF-019 hard constraint).
+ * Used by listDocumentRequestsForEngagementAdmin to compute the isOverdue field on the
+ * accountant view. The reminder engine uses an independent SQL predicate — this TypeScript
+ * function cannot enforce that the two agree; they must be kept in sync manually.
  *
  * Returns true iff:
  *   - isFulfilled = false   (fulfilled requests are never overdue — DECISION-019-D)
