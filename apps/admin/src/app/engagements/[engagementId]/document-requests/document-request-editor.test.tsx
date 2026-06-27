@@ -23,7 +23,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { DocumentRequestItem } from "@tax-portal/db";
+import type { DocumentRequestAdminItem } from "@tax-portal/db";
 
 // ─── Hoisted mock functions ───────────────────────────────────────────────────
 
@@ -82,7 +82,8 @@ import { DocumentRequestEditor } from "./_components/DocumentRequestEditor.js";
 
 const ENGAGEMENT_ID = "eng-001";
 
-const EXISTING_REQUESTS: DocumentRequestItem[] = [
+// TASK-019-004: DocumentRequestAdminItem includes dueDate + isFulfilled + isOverdue.
+const EXISTING_REQUESTS: DocumentRequestAdminItem[] = [
   {
     id: "dr-001",
     engagementId: ENGAGEMENT_ID,
@@ -90,6 +91,9 @@ const EXISTING_REQUESTS: DocumentRequestItem[] = [
     createdBy: "user_acct_test",
     createdAt: new Date("2026-06-01T00:00:00Z"),
     updatedAt: new Date("2026-06-01T00:00:00Z"),
+    dueDate: null,
+    isFulfilled: false,
+    isOverdue: false,
   },
   {
     id: "dr-002",
@@ -98,6 +102,9 @@ const EXISTING_REQUESTS: DocumentRequestItem[] = [
     createdBy: "user_acct_test",
     createdAt: new Date("2026-06-01T00:00:00Z"),
     updatedAt: new Date("2026-06-01T00:00:00Z"),
+    dueDate: null,
+    isFulfilled: false,
+    isOverdue: false,
   },
 ];
 
@@ -173,9 +180,11 @@ describe("DocumentRequestEditor", () => {
     await user.click(screen.getByTestId("add-document-request-button"));
 
     await waitFor(() => {
+      // TASK-019-004: third arg is dueDate (null when not set) — DECISION-019-C
       expect(mockCreateDocumentRequestAction).toHaveBeenCalledWith(
         ENGAGEMENT_ID,
         "2023 W-2 form",
+        null, // dueDate not set in this test
       );
     });
   });
@@ -312,6 +321,9 @@ describe("DocumentRequestEditor", () => {
           createdBy: null,
           createdAt: new Date(),
           updatedAt: new Date(),
+          dueDate: null,       // TASK-019-004: DocumentRequestAdminItem
+          isFulfilled: false,
+          isOverdue: false,
         },
       ],
     });

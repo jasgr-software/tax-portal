@@ -1,7 +1,7 @@
 # Operations Inventory — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`). Prior: TASK-018-007 (added ENABLE_DIGEST_TRIGGER to admin service in docker-compose.yml — TASK-018-003 / DECISION-018-003-C; added env-var entry + admin dev/test trigger route section to inventory + runbook)
+**Last updated:** PR-108 `/pr-fix` (corrected BUG-019-001 TLS posture note: restored `encrypt=true` default; local cert trust handled by `trustServerCertificate=true` in URL not by disabling encryption). Prior: BRIEF-019 (TASK-019-006 ops-doc sync — added `ENABLE_REMINDER_TRIGGER` env-var entry + the `POST /api/dev/run-reminders` admin dev/test trigger route section; added the BUG-019-001 production TLS/`encrypt` posture note to § Connection URL conventions). Prior: EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`); TASK-018-007 (added ENABLE_DIGEST_TRIGGER to admin service in docker-compose.yml — TASK-018-003 / DECISION-018-003-C)
 **Source files:** `docker-compose.yml` at repo root
 
 This document is the authoritative inventory of the local development compose stack. Any change to
@@ -128,6 +128,7 @@ Both `portal` and `admin` compose services now depend on `azurite: service_healt
 | `STORAGE_CONNECTION_STRING` | Both | Azure Blob connection string for the AzuriteAdapter. In compose containers, resolves via `PORTAL_STORAGE_CONNECTION_STRING` / `ADMIN_STORAGE_CONNECTION_STRING` (compose internal `azurite:10000` hostname). Added TASK-007-001. |
 | `STORAGE_CONTAINER` | Both | Blob container name for the FileStorage adapter. Default `tax-portal-documents`. Added TASK-007-001. |
 | `ENABLE_DIGEST_TRIGGER` | admin | Dev/test-only trigger seam opt-in for `dispatchDailyDigest` (TASK-018-003 / BRIEF-018 / DECISION-018-003-C). The `apps/admin` route `POST /api/dev/dispatch-digest` returns 404 unless this is `"true"`. **Defaults to `"false"` in compose** (`${ENABLE_DIGEST_TRIGGER:-false}`, hardened from the original `:-true` in PR #106 `/pr-fix`); set `"true"` explicitly (e.g. in `.env.local`) to enable the seam for an e2e run. **MUST NOT be set to `"true"` in a real production deployment** — must be unset or `false` (route guard returns 404, fail-closed). Production digest scheduling is deferred (ADR-023 / ADR-025, deploy-time). Route also requires accountant auth as defense-in-depth (TASK-018-008). Scoped to the **admin service only** — the digest-dispatch seam does not exist on the portal. Added TASK-018-003. <!-- CS-GEN-003 // ADR-023 // ADR-025 // DECISION-018-003-C --> |
+| `ENABLE_REMINDER_TRIGGER` | admin | Dev/test-only trigger seam opt-in for `runReminderEngine` (TASK-019-003 / BRIEF-019 / DECISION-019-H). The `apps/admin` route `POST /api/dev/run-reminders` returns 404 unless this is `"true"`. **Defaults to `"false"` in compose** (`${ENABLE_REMINDER_TRIGGER:-false}`, fail-closed — mirrors the hardened `ENABLE_DIGEST_TRIGGER` pattern); set `"true"` explicitly (e.g. in `.env.local`) to enable the seam for an e2e run that drives overdue detection / cadence with an injected clock. **MUST NOT be set to `"true"` in a real production deployment** — must be unset or `false` (route guard returns 404, fail-closed). Production reminder scheduling is deferred (ADR-023, deploy-time / Phase 5). Route also requires accountant auth as defense-in-depth (mirrors TASK-018-008). Scoped to the **admin service only** — the reminder-engine seam does not exist on the portal. The injected `{ now }` override is accepted only when `NODE_ENV` is `test`/`development`. Added TASK-019-003. <!-- CS-GEN-003 // ADR-023 // DECISION-019-H --> |
 
 ---
 
@@ -164,6 +165,7 @@ dev operations. See `.env.example` for the full URL form.
 - Request pool: `DATABASE_URL` — used by `packages/db` lazy `db` client (not `adminDb`)
 - Both require `trustServerCertificate=true` for local dev (SQL Server uses a self-signed cert)
 - Host-side port: **14330** (`SQLSERVER_PORT` default). Container-side port: **1433** (internal)
+- **TLS / `encrypt` posture (BUG-019-001 — corrected):** the shared raw-`mssql` connection parser `packages/db/src/sql-server-url.ts` defaults `encrypt=true` when the URL omits the param (in-transit TLS ON by default). The ESOCKET "self-signed certificate" failure that prompted BUG-019-001 was a cert-TRUST problem, not an encryption problem — it is resolved by `;trustServerCertificate=true` in the local/CI `DATABASE_URL`/`DATABASE_URL_ADMIN` strings (see `.env.example`). **Production URLs do not need `;encrypt=true`** (it is the default) and should omit `;trustServerCertificate=true` so the real certificate is validated. <!-- CS-GEN-003 // ADR-003 // ADR-007 // BUG-019-001 -->
 
 ---
 
@@ -312,6 +314,18 @@ Added TASK-018-003 (DECISION-018-003-C). Gated by `ENABLE_DIGEST_TRIGGER=true` (
 | `POST /api/dev/dispatch-digest` | `apps/admin` | **Dev/test-only endpoint.** Invokes `dispatchDailyDigest()` synchronously so e2e tests can drive the full digest-delivery flow without a real scheduler. Returns 404 unless `ENABLE_DIGEST_TRIGGER=true` (fail-closed route guard). The route also requires accountant auth as defense-in-depth (TASK-018-008) — two independent fail-closed layers. **Do NOT call from production code.** Production digest scheduling is deferred (ADR-023 / ADR-025, deploy-time). |
 
 > **Production safety:** `ENABLE_DIGEST_TRIGGER` MUST be unset or `false` in any real production deployment. The route returns 404 (fail-closed) when the flag is absent. Even if the flag were accidentally set, the route requires an authenticated accountant session (TASK-018-008), providing defense-in-depth. Both layers must be active for the seam to fire.
+
+---
+
+## Admin Dev/Test Trigger Route (TASK-019-003 — reminder-engine seam)
+
+Added TASK-019-003 (DECISION-019-H). Gated by `ENABLE_REMINDER_TRIGGER=true` (admin service only). <!-- CS-GEN-003 // ADR-023 // DECISION-019-H -->
+
+| Route | App | Description |
+|-------|-----|-------------|
+| `POST /api/dev/run-reminders` | `apps/admin` | **Dev/test-only endpoint.** Invokes `runReminderEngine({ now })` synchronously so e2e tests can drive overdue detection + reminder cadence + the overdue/approaching-due-date notifications without a real scheduler, advancing an injected clock (ADR-023). Returns 404 unless `ENABLE_REMINDER_TRIGGER=true` (fail-closed route guard). The route also re-verifies the accountant identity from the request cookie as defense-in-depth — two independent fail-closed layers. The `{ now }` clock override is honored only when `NODE_ENV` is `test`/`development`. **Do NOT call from production code.** Production reminder scheduling is deferred (ADR-023, deploy-time / Phase 5). |
+
+> **Production safety:** `ENABLE_REMINDER_TRIGGER` MUST be unset or `false` in any real production deployment. The route returns 404 (fail-closed) when the flag is absent. Even if the flag were accidentally set, the route requires an authenticated accountant session, providing defense-in-depth. Both layers must be active for the seam to fire.
 
 ---
 

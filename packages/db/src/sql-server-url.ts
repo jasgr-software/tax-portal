@@ -56,6 +56,12 @@ export function parseSqlServerUrl(connectionUrl: string): import("mssql").config
   const resolvedPassword = password ?? params["password"];
   const resolvedPort = port !== 1433 ? port : (params["port"] ? parseInt(params["port"], 10) : 1433);
 
+  // ADR-003: encrypt defaults to true — in-transit TLS is always on unless the connection string
+  // explicitly sets ;encrypt=false. The local/CI self-signed Docker cert TRUST problem (ESOCKET
+  // errors seen with BUG-019-001) is handled via ;trustServerCertificate=true in the local
+  // DATABASE_URL/.env.example strings — encryption stays ON, only cert verification is relaxed.
+  // Production URLs omit trustServerCertificate (defaults false), so the real cert is validated
+  // AND the connection is encrypted. // ADR-003
   const encrypt = (params["encrypt"] ?? "true").toLowerCase() !== "false";
   const trustServerCertificate =
     (params["trustServerCertificate"] ?? "false").toLowerCase() === "true";

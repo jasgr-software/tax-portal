@@ -256,6 +256,26 @@ model Engagement {
   // CS-GEN-002: additive — no existing column removed or altered. // CS-GEN-002
   // CS-GEN-003: governing ADR-018/ADR-002/DECISION-014-A cited above. // CS-GEN-003
   completedAt           DateTime? @db.DateTimeOffset
+
+  // ─── EPIC-019 cadence schema (BRIEF-019 / TASK-019-001) ─────────────────────
+  // DECISION-019-A: per-engagement cadence override is a nullable INT column on Engagement.
+  //   This reuses sec.pol_Engagement (already RLS'd, accountant-write, client-read)
+  //   — NO net-new engagement-scoped table, NO new policy needed for this column.
+  //   The override takes precedence over ReminderSetting.reminderFrequencyDays when non-null.
+  //   (AC-MSG-018-04, AC-DASH-008-02/-03)
+  //   FLAGGED in Work Log per IO Design contract.
+  // CS-GEN-002: additive nullable column — existing rows remain valid (no default). // CS-GEN-002
+  // CS-GEN-003: // DECISION-019-A // AC-MSG-018-04 // AC-DASH-008-02 // AC-DASH-008-03
+  reminderFrequencyDaysOverride  Int?
+  // DECISION-019-F: per-engagement approaching-due idempotency watermark.
+  //   Fires once per engine pass within the approaching-due window, not every tick.
+  //   NULL = not yet notified. Written by the detection/reminder engine (TASK-019-003).
+  //   DATETIMEOFFSET per ADR-002 timestamp convention.
+  //   Mirrors User.lastNudgeSentAt (EPIC-018) — same watermark pattern.
+  // CS-GEN-002: additive nullable column — existing rows remain valid. // CS-GEN-002
+  // CS-GEN-003: // DECISION-019-F // ADR-002 // AC-MSG-013-06
+  lastApproachingDueNotifiedAt   DateTime? @db.DateTimeOffset
+
   // ─── Reverse relations ────────────────────────────────────────────────────────
   // EPIC-006: Reverse relation — at most one QuestionnaireAnswer per Engagement (AC-ONBD-003-04)
   questionnaireAnswer   QuestionnaireAnswer?
@@ -447,6 +467,24 @@ model DocumentRequest {
   createdBy    String?  @db.NVarChar(64)
   createdAt    DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
   updatedAt    DateTime @updatedAt @db.DateTimeOffset
+
+  // ─── EPIC-019 cadence schema (BRIEF-019 / TASK-019-001) ─────────────────────
+  // DECISION-019-C: accountant-settable calendar due date for the document request.
+  //   Mirrors Engagement.dueDate (@db.Date, calendar date only, not a timestamp).
+  //   When set, overdue is: unfulfilled AND dueDate < injected_clock (AC-FILE-012-04).
+  //   When null + ReminderSetting.defaultRequestDueDays is set → computed due date = createdAt + defaultRequestDueDays.
+  //   When null + no default → the request is never overdue (TASK-019-003 detection logic).
+  // CS-GEN-002: additive nullable column — existing rows remain valid (no default needed). // CS-GEN-002
+  // CS-GEN-003: // DECISION-019-C // ADR-018 // AC-FILE-012-04
+  dueDate               DateTime? @db.Date
+  // DECISION-019-E: per-request reminder dispatch watermark — when the last reminder was raised.
+  //   Mirrors User.lastNudgeSentAt (EPIC-018). Used by the cadence-cap check in TASK-019-003:
+  //   a reminder is not re-raised before the resolved cadence interval has elapsed.
+  //   NULL = no reminder ever raised. Written by the detection/reminder engine (TASK-019-003).
+  //   DATETIMEOFFSET per ADR-002 timestamp convention.
+  // CS-GEN-002: additive nullable column — existing rows remain valid. // CS-GEN-002
+  // CS-GEN-003: // DECISION-019-E // ADR-002 // AC-MSG-018-02/-03/-04
+  lastReminderSentAt    DateTime? @db.DateTimeOffset
 
   // Reverse relation — documents uploaded in response to this request
   documents    Document[]
@@ -1026,4 +1064,60 @@ model LegalHold {
   updatedAt      DateTime  @updatedAt @db.DateTimeOffset
 
   @@map("LegalHold")
+}
+
+// ─── ReminderSetting ──────────────────────────────────────────────────────────
+// Accountant-global cadence configuration — singleton row; ACCOUNTANT-ONLY.
+// No client visibility; no CLIENT branch in the predicate.
+// RLS (ADR-005): accountant-only FILTER + BLOCK via sec.pol_ReminderSetting
+//   (Track B: db/policies/0018-reminder-setting-policy.sql).
+//   Predicate: sec.fn_reminder_setting_access (admin + ACCOUNTANT; NO CLIENT branch).
+//   Null SESSION_CONTEXT → fail-closed → zero rows (ADR-003 §5).
+//
+// Singleton pattern: exactly one logical row; the data layer (TASK-019-002) reads
+//   "the" row (get-or-create / or seeded idempotently by db/migrations/).
+//
+// DECISION-019-B: global default cadence config lives in this net-new table.
+//   Net-new request-scoped table → OWN RLS policy + isolation test (CS-SQL-001).
+//
+// Fields:
+//   reminderFrequencyDays    — global default cadence interval in days (AC-MSG-018-03, AC-DASH-008-01).
+//                              Consumed when the engagement has no reminderFrequencyDaysOverride.
+//                              Seeded default: 7 days.
+//   approachingDueWindowDays — the number of days before an engagement's dueDate within which
+//                              the approaching-due-date notification fires (AC-MSG-013-06 mechanism).
+//                              Seeded default: 7 days.
+//   defaultRequestDueDays    — optional fallback: when a DocumentRequest has no explicit dueDate,
+//                              the effective due date is computed as createdAt + defaultRequestDueDays.
+//                              NULL → no fallback → a request without an explicit dueDate is never overdue.
+//                              (DECISION-019-C + REQ-FILE-012 Notes bounded shape question.)
+//
+// ADR-002: UNIQUEIDENTIFIER PK, NEWSEQUENTIALID(); DATETIMEOFFSET timestamps.
+// CS-SQL-001: ships sec.pol_ReminderSetting + reminder-setting.rls.test.ts (HARD GATE). // CS-SQL-001
+// CS-SQL-002: RLS policy lives in Track B (db/policies/0018); table itself is Track A. // CS-SQL-002
+// CS-SQL-003: predicate is inline TVF, shallow, admin/accountant-first, fail-closed. // CS-SQL-003
+// CS-GEN-002: additive new table; no existing model removed or altered. // CS-GEN-002
+// CS-GEN-003: governing keys cited in this comment and in the policy SQL + test. // CS-GEN-003
+// ADR-005 §2/§3: net-new table → own policy + isolation test — DECISION-019-B.
+
+model ReminderSetting {
+  id                     String   @id @default(dbgenerated("NEWSEQUENTIALID()")) @db.UniqueIdentifier
+  // Global default cadence interval in days (AC-MSG-018-03, AC-DASH-008-01).
+  // Consumed when the engagement has no reminderFrequencyDaysOverride.
+  // Seeded default: 7. TASK-019-002 reads "the" row. // DECISION-019-B
+  reminderFrequencyDays  Int
+  // Approaching-due-date notification threshold in days (AC-MSG-013-06 mechanism).
+  // If an engagement's dueDate is within this many days from now → approaching-due signal fires.
+  // Seeded default: 7. // DECISION-019-B
+  approachingDueWindowDays Int
+  // Optional fallback request-due interval (REQ-FILE-012 Notes bounded shape question).
+  // NULL → no fallback; a DocumentRequest with no explicit dueDate is never overdue.
+  // Non-null → effective due date = DocumentRequest.createdAt + defaultRequestDueDays.
+  // CS-GEN-002: additive nullable column. // CS-GEN-002 // DECISION-019-C
+  defaultRequestDueDays  Int?
+  // ADR-002: DATETIMEOFFSET timestamp convention. // ADR-002
+  createdAt              DateTime @default(dbgenerated("SYSDATETIMEOFFSET()")) @db.DateTimeOffset
+  updatedAt              DateTime @updatedAt @db.DateTimeOffset
+
+  @@map("ReminderSetting")
 }

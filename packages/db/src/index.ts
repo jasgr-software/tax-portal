@@ -238,20 +238,27 @@ export {
   submitQuestionnaireAsClient,
 } from "./repositories/questionnaire-answer.js";
 
-// DocumentRequest repository (EPIC-007 / TASK-007-004)
+// DocumentRequest repository (EPIC-007 / TASK-007-004 + TASK-019-004)
 // listDocumentRequestsForEngagement — request pool read (sec.pol_DocumentRequest FILTER-governed)
 //   CLIENT sees own engagement's requests; ACCOUNTANT sees all.
 //   Must be called inside withRequestContext() or withClerkIdentity() (ADR-003).
+// listDocumentRequestsForEngagementAdmin — admin pool read (RLS-exempt; accountant-only).
+//   Returns DocumentRequestAdminItem[] with isFulfilled + isOverdue (AC-FILE-012-02).
+// computeIsOverdue — shared isOverdue predicate (DECISION-019-C/-D; mirrors engine SQL). // DECISION-019-C // DECISION-019-D
 //
 // NOT on this barrel (accountant-only writes):
 //   createDocumentRequestAsAccountant — admin pool write (BLOCK-governed write for accountant path);
 //     import from "./repositories/document-request.js" in server actions.
 export type {
   DocumentRequestItem,
+  DocumentRequestAdminItem,
   CreateDocumentRequestInput,
+  ComputeIsOverdueInput,
 } from "./repositories/document-request.js";
 export {
   listDocumentRequestsForEngagement,
+  listDocumentRequestsForEngagementAdmin,
+  computeIsOverdue,
 } from "./repositories/document-request.js";
 
 // Document repository (EPIC-007 / TASK-007-004 + EPIC-013 / TASK-013-002 + EPIC-014 / TASK-014-002)
@@ -739,6 +746,76 @@ export {
   // AC-MSG-008-02 / AC-MSG-009-01/-02/-03 / AC-MSG-010-02/-03/-04
   dispatchDailyDigest,
 } from "./repositories/email-digest.js";
+
+// Reminder-cadence repository (EPIC-019 / TASK-019-002 — AC-DASH-008-01/-02/-03, AC-MSG-018-03/-04)
+//
+// getGlobalDefaultCadence()      — admin pool read; reads singleton ReminderSetting row (get-or-create).
+// setGlobalDefaultCadence()      — admin pool write; updates reminderFrequencyDays on the singleton.
+// getEngagementCadenceOverride() — admin pool read; reads Engagement.reminderFrequencyDaysOverride.
+// setEngagementCadenceOverride() — admin pool write; sets/clears Engagement.reminderFrequencyDaysOverride.
+// resolveReminderCadence()       — PURE FUNCTION (no DB); overrideDays ?? globalDefaultDays.
+//
+// Architecture:
+//   Admin pool for all reads/writes (the server action layer guards ACCOUNTANT role).
+//   resolveReminderCadence is the unit TASK-019-003 (the engine) imports for cadence resolution.
+//   DECISION-019-A: per-engagement override = column on Engagement; no new table; no new policy. // DECISION-019-A
+//   DECISION-019-B: global default = singleton ReminderSetting row. // DECISION-019-B
+//   DECISION-019-G: resolvedDays = overrideDays ?? globalDefaultDays (PURE). // DECISION-019-G
+//
+// CS-TS-002: admin pool via getAdminPool() inside packages/db only. // CS-TS-002
+// CS-SQL-001: ReminderSetting ships sec.pol_ReminderSetting + isolation test (TASK-019-001). // CS-SQL-001
+// CS-GEN-002: additive — new module; no existing export removed or narrowed. // CS-GEN-002
+// CS-GEN-003: governing keys cited in source and here. // CS-GEN-003
+export type {
+  GlobalDefaultCadence,
+  SetGlobalDefaultCadenceInput,
+  SetGlobalDefaultCadenceResult,
+  GetEngagementCadenceOverrideResult,
+  SetEngagementCadenceOverrideInput,
+  SetEngagementCadenceOverrideResult,
+  ResolveReminderCadenceInput,
+} from "./repositories/reminder-cadence.js";
+export {
+  // AC-DASH-008-01: read the global default cadence (admin pool, get-or-create)
+  getGlobalDefaultCadence,
+  // AC-DASH-008-01: write the global default cadence (admin pool)
+  setGlobalDefaultCadence,
+  // AC-DASH-008-02: read a per-engagement override (admin pool)
+  getEngagementCadenceOverride,
+  // AC-DASH-008-02: write/clear a per-engagement override (admin pool)
+  setEngagementCadenceOverride,
+  // AC-MSG-018-04 / AC-DASH-008-03: pure precedence resolver (no DB) — the engine's import
+  resolveReminderCadence,
+} from "./repositories/reminder-cadence.js";
+
+// Reminder engine (EPIC-019 / TASK-019-003 — AC-FILE-012-01/-03/-04, AC-MSG-018-01/-02, AC-MSG-013-05/-06)
+//
+// runReminderEngine({ now }) — ADMIN POOL batch (mirrors dispatchDailyDigest):
+//   Phase 1: Detects all overdue unfulfilled DocumentRequests (effective due date < now).
+//     Overdue = unfulfilled AND (explicit dueDate OR createdAt + defaultRequestDueDays) < now. (DECISION-019-C/-D)
+//   Phase 2: Raises a reminder for each overdue request whose cadence interval has elapsed.
+//     Cadence = resolveReminderCadence(engagement override ?? global default) (DECISION-019-E/-G).
+//     Emits ACCOUNTANT request_overdue notification into EPIC-016 feed (AC-MSG-013-05).
+//     Updates DocumentRequest.lastReminderSentAt = now (watermark). (DECISION-019-E)
+//   Phase 3: Detects engagements approaching their due date (within approachingDueWindowDays,
+//     not past, lastApproachingDueNotifiedAt null or stale). (DECISION-019-F)
+//   Phase 4: Emits ACCOUNTANT engagement_due_date_approaching notification (AC-MSG-013-06)
+//     + updates Engagement.lastApproachingDueNotifiedAt = now (watermark). (DECISION-019-F)
+//   Returns EngineRunResult — counts only (CS-GEN-001: no PII in result).
+//
+// ADR-023: time-injectable seam — now defaults to new Date() in prod only. // ADR-023
+// ADR-018: overdue derived from existing lifecycle attributes (no new stored clock). // ADR-018
+// ADR-005: accountant notifications reuse sec.pol_Notification — no new policy. // ADR-005
+// CS-TS-002: admin pool via getAdminPool() inside packages/db only. // CS-TS-002
+// CS-GEN-001: no PII in result or logs. // CS-GEN-001
+// CS-GEN-002: additive — new module; no existing export removed or narrowed. // CS-GEN-002
+// DECISION-019-J: no new email path — notifications ride EPIC-018 digest. // DECISION-019-J
+export type { EngineRunResult } from "./repositories/reminder-engine.js";
+export {
+  // AC-FILE-012-01/-03/-04 / AC-MSG-018-01/-02 / AC-MSG-013-05/-06
+  // ADR-023 time-injectable seam — accepts { now } for deterministic testing.
+  runReminderEngine,
+} from "./repositories/reminder-engine.js";
 
 // Onboarding completion engine (EPIC-008 / TASK-008-001)
 // isOnboardingComplete           — pure predicate: true iff all three step done flags are true

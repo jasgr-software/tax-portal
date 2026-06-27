@@ -1,7 +1,7 @@
 # Operations Runbook — tax-portal local dev stack
 
 **Owner:** devops
-**Last updated:** EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`). Prior: TASK-018-007 (documented ENABLE_DIGEST_TRIGGER digest-trigger seam: purpose, local/e2e usage, and production-fail-closed requirement — TASK-018-003 / DECISION-018-003-C)
+**Last updated:** BRIEF-019 (TASK-019-006 ops-doc sync — documented the `ENABLE_REMINDER_TRIGGER` reminder-trigger seam: purpose, local/e2e usage, injected-clock override, and production-fail-closed requirement — TASK-019-003 / DECISION-019-H). Prior: EPIC-018 close-out (corrected `ENABLE_DIGEST_TRIGGER` documented default `true → false` to match the PR #106 `/pr-fix` compose hardening `${ENABLE_DIGEST_TRIGGER:-false}`); TASK-018-007 (documented ENABLE_DIGEST_TRIGGER digest-trigger seam — TASK-018-003 / DECISION-018-003-C)
 **Companion:** `.implementation/operations/inventory.md`
 
 This runbook covers the day-to-day operational procedures for the local development stack.
@@ -83,6 +83,12 @@ not carry these vars yet. Add them to admin when admin-surface e-sign is introdu
 Production digest scheduling is deferred (ADR-023 / ADR-025, deploy-time). When a real scheduler is wired, this seam will remain available as a test-only override behind both guards.
 
 > **Note:** `ENABLE_DIGEST_TRIGGER` is scoped to the **admin service only** in `docker-compose.yml`. The portal service does not carry this variable — the digest-dispatch endpoint lives exclusively on the admin (accountant-facing) surface. This scoping was added by TASK-018-003 (webapp-developer) and is devops-owned in place per DECISION-018-003-C.
+
+**Reminder-trigger seam opt-in (TASK-019-003 / BRIEF-019 — `ENABLE_REMINDER_TRIGGER`):** The `apps/admin` route `POST /api/dev/run-reminders` is a dev/test-only seam that invokes `runReminderEngine({ now })` synchronously so e2e tests can drive overdue detection, reminder cadence, and the overdue/approaching-due-date notifications by advancing an injected clock (ADR-023) — without a real scheduler. The compose `admin` service defaults this to `"false"` via `${ENABLE_REMINDER_TRIGGER:-false}` (fail-closed, mirroring the hardened `ENABLE_DIGEST_TRIGGER`); set `ENABLE_REMINDER_TRIGGER=true` explicitly (e.g. in `.env.local`) to enable the seam for an e2e run that exercises the reminder engine. **NEVER set `ENABLE_REMINDER_TRIGGER=true` in a real production deployment.** When the flag is absent (or `false`), the route returns 404 (fail-closed by guard). Even if accidentally set in production, the route additionally re-verifies an authenticated accountant session from the request cookie — two independent fail-closed layers (defense-in-depth). The `{ now }` clock override is honored only when `NODE_ENV` is `test`/`development`. <!-- CS-GEN-003 // ADR-023 // DECISION-019-H -->
+
+Production reminder scheduling is deferred (ADR-023, deploy-time / Phase 5). When a real scheduler is wired, this seam will remain available as a test-only override behind both guards.
+
+> **Note:** `ENABLE_REMINDER_TRIGGER` is scoped to the **admin service only** in `docker-compose.yml`. The portal service does not carry this variable — the reminder-engine endpoint lives exclusively on the admin (accountant-facing) surface. This scoping was added by TASK-019-003 (webapp-developer) and is devops-owned in place per DECISION-019-H.
 
 **`BLOB_PUBLIC_ENDPOINT` (TASK-013-003 — BUG-008-001 admin fix):** Both the `portal` and `admin` compose services set `BLOB_PUBLIC_ENDPOINT` to `http://localhost:10000` so the client browser can PUT bytes directly to Azurite using the host-accessible URL (the server generates SAS URLs with the Docker-internal `azurite:10000` hostname; the browser cannot resolve `azurite`). Leave unset in production.
 

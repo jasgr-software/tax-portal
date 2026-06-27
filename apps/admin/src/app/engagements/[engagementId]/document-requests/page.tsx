@@ -5,6 +5,9 @@
  *
  * AC-FILE-007-01: The accountant can create a document request in an engagement with a free-text
  *   label. The set of labeled requests composes the engagement's document checklist.
+ * AC-FILE-012-02: Overdue requests are flagged/surfaced as overdue when the accountant views them.
+ *   The page uses listDocumentRequestsForAdminAction (admin pool, returns isOverdue per request).
+ *   // AC-FILE-012-02 // DECISION-019-C // DECISION-019-D
  *
  * ADR-006: This page is apps/admin ONLY. There is NO mirror route in apps/portal.
  *   Document-request authoring is an accountant capability — clients never reach this surface.
@@ -12,26 +15,30 @@
  * ADR-010: apps/admin has NO public routes. The middleware guarantees ACCOUNTANT auth
  *   before this page renders. This page adds a defense-in-depth identity guard.
  *
- * ADR-003: listDocumentRequestsAction runs listDocumentRequestsForEngagement inside
- *   withRequestContext so SESSION_CONTEXT is set (request-pool, FILTER-governed read).
+ * ADR-003 §7: listDocumentRequestsForAdminAction uses admin pool (RLS-exempt) — no
+ *   withRequestContext needed for the admin read path. // ADR-003
  * ADR-005: Identity from verified session only — never from URL params.
  *
+ * TASK-019-004: Switched from listDocumentRequestsAction (request pool) to
+ *   listDocumentRequestsForAdminAction (admin pool) to surface isOverdue (AC-FILE-012-02).
+ *   CS-GEN-002: additive change — listDocumentRequestsAction remains available for the
+ *   client-facing portal path (sec.pol_DocumentRequest FILTER still enforced there). // CS-GEN-002
+ *
  * // DECISION (TASK-007-005): Route is /engagements/[engagementId]/document-requests.
- * // There is no existing engagement-detail surface in apps/admin (top-level routes today:
- * // requests, services, settings). Creating new /engagements/ top-level route as the
- * // semantically correct home for per-engagement surfaces. The URL param engagementId
- * // comes from Next.js routing — not from client identity (ADR-005).
+ * // DECISION-019-C // DECISION-019-D // AC-FILE-012-02 // AC-MSG-014-02
  *
  * Pool strategy:
  *   Page guard: identity check via getAuthProvider() (mirrors request/questionnaire-template pattern).
- *   List read: listDocumentRequestsAction → withRequestContext → listDocumentRequestsForEngagement.
+ *   List read: listDocumentRequestsForAdminAction → listDocumentRequestsForEngagementAdmin (admin pool).
+ *     Returns DocumentRequestAdminItem[] with isFulfilled + isOverdue. // AC-FILE-012-02
  *   Create write: action in actions.ts → createDocumentRequestAsAccountant (admin pool, TASK-007-004).
+ *     Repository layer emits document_request_created CLIENT notification (DECISION-019-I). // AC-MSG-014-02
  */
 
 import { headers } from "next/headers";
 import { getAuthProvider } from "@tax-portal/auth";
 import { DocumentRequestEditor } from "./_components/DocumentRequestEditor";
-import { listDocumentRequestsAction, getEngagementStatusAction } from "./actions";
+import { listDocumentRequestsForAdminAction, getEngagementStatusAction } from "./actions";
 
 // ─── Route params ─────────────────────────────────────────────────────────────
 
@@ -75,9 +82,11 @@ export default async function DocumentRequestsPage({
     );
   }
 
-  // Load existing document requests for this engagement.
-  // listDocumentRequestsAction wraps the read in withRequestContext (ADR-003).
-  const requestsResult = await listDocumentRequestsAction(engagementId);
+  // Load existing document requests for this engagement — admin view with isOverdue.
+  // listDocumentRequestsForAdminAction uses admin pool (no withRequestContext needed).
+  // Returns DocumentRequestAdminItem[] with isFulfilled + isOverdue (AC-FILE-012-02).
+  // ADR-003 §7: admin pool read — no SESSION_CONTEXT required. // ADR-003 // AC-FILE-012-02
+  const requestsResult = await listDocumentRequestsForAdminAction(engagementId);
 
   const initialRequests = requestsResult.success ? requestsResult.data : [];
   const dbError = requestsResult.success ? null : requestsResult.error;
