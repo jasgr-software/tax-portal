@@ -1,6 +1,7 @@
 {
   "name": "tax-portal",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "engines": {
